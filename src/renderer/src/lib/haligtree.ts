@@ -850,8 +850,12 @@ export function useLastAsked(): <T>(read?: Promise<T>, then?: (value: T) => void
 export { interval } from '../../../main/dates'
 export { when, whenInLine } from './clock'
 
-/** A title without its `#tags`, and the tags: so a row can show them as pills. */
-export function splitTags(text: string): { text: string; tags: string[] } {
+/** A title without its `#tags`, and the tags: so a row can show them as pills. `line`: the tags on its last line (a row's `tagLine`), shown with them. */
+export function splitTags(text: string, line?: string | null): { text: string; tags: string[] } {
+  if (line) {
+    const named = splitTags(text)
+    return { text: named.text, tags: [...new Set([...named.tags, ...line.split(' ')])] }
+  }
   // Read once a title: Display asks every row's tags again for each tag it offers (400 tasks by 166 tags was 85 ms a draw).
   let known = splitSeen.get(text)
   if (!known) {

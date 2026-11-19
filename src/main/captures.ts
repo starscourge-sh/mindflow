@@ -21,6 +21,7 @@ import { keptTagged, readKept, stillBase, wordsOf, type Kept } from './kept-word
 import { named } from './stalls'
 import { readValue, takeBodyProperties, type PropType } from './property-words'
 import { tagged, withTag } from './kinds'
+import { tagsOffName } from './tags-off-name'
 import { chunks, createdOf, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 import { cut, fittedTitle } from './clip'
 import { registerRenames, resolveWaiting, watchName } from './renames'
@@ -38,6 +39,8 @@ export interface CaptureMeta {
   title: string
   /** The title, or the first line when there is none: what lists show. */
   label: string
+  /** The tags on its last line, where a name's tags go (tags-off-name.ts), space-separated: shown with the name's. */
+  tagLine?: string
   kind: string
   status: string
   /** The file an imported capture came from; empty for one typed here. */
@@ -608,6 +611,49 @@ export function registerCaptures(): void {
     return id
   })
 
+  // Every note's #tags out of its name, once a book (tags-off-name.ts), as the Inbox is first looked at: each still
+  // carries them, on its last line, and its row shows them as before. Its words change and nothing else (not when it
+  // was changed: no list moves). Kept with the words as they were, so the Inbox's line can say it that day, and Undo
+  // puts back each one not written since.
+  type Moved = { at: string; rows: { id: string; number: number; was: string; now: string }[] }
+  const keepMoved = (run: Moved): void => void db.prepare("insert or replace into settings (key, value) values ('tagsOffNames', ?)").run(JSON.stringify(run))
+  const putMoved = (rows: Moved['rows'], back: boolean): Moved['rows'] => {
+    const put = db.prepare('update captures set body = ? where id = ? and body = ?')
+    return rows.filter((one) => put.run(back ? one.was : one.now, one.id, back ? one.now : one.was).changes)
+  }
+  const tellMoved = (rows: Moved['rows'], back: boolean): void => {
+    for (const one of rows) void writeMarkdown(one.number, markdown(readKept(back ? one.was : one.now)))
+    if (rows.length) changed()
+  }
+  ipcMain.handle('captures:tags-moved', (): { at: string; count: number } | null => {
+    let run = setting<Moved | null>('tagsOffNames', null)
+    if (!run) {
+      const notes = db.prepare("select id, number, body, plain_tags from captures where status != 'discarded' and body like '%#%'").all() as { id: string; number: number; body: string; plain_tags: string | null }[]
+      const made: Moved = { at: new Date().toISOString(), rows: notes.flatMap((row) => {
+        const now = tagsOffName(readKept(row.body), (readKept(row.plain_tags) as string[] | null) ?? [])
+        return now === null ? [] : [{ id: row.id, number: row.number, was: row.body, now: JSON.stringify(now) }]
+      }) }
+      run = atomically(() => {
+        const done = { at: made.at, rows: putMoved(made.rows, false) }
+        keepMoved(done)
+        return done
+      })
+      tellMoved(run.rows, false)
+    }
+    return run.rows.length ? { at: run.at, count: run.rows.length } : null
+  })
+  ipcMain.handle('captures:tags-moved-undo', (): number => {
+    const run = setting<Moved | null>('tagsOffNames', null)
+    if (!run?.rows.length) return 0
+    const back = atomically(() => {
+      const done = putMoved(run.rows, true)
+      keepMoved({ at: run.at, rows: [] })
+      return done
+    })
+    tellMoved(back, true)
+    return back.length
+  })
+
   // Only the fields passed are written. `coalesce` keeps the rest as they were.
   ipcMain.handle('captures:save', (event, id: unknown, raw: unknown): SaveResult => saveOne(event.sender, id, raw, true))
   // Many at once (the Bin for every picked row, and its Undo): one write for the lot and one change told to the
@@ -782,6 +828,8 @@ export function registerCaptures(): void {
 
 /** One new row, numbered after the last. */
 function insert(patch: CapturePatch & { source?: string }, capturedAt: string): { id: string; number: number } {
+  // A #tag typed in the name goes to the note's last line, however it came in (tags-off-name.ts).
+  if (patch.body !== undefined) patch.body = tagsOffName(patch.body, patch.plainTags?.map((tag) => tag.toLowerCase())) ?? patch.body
   const id = randomUUID()
   const { number } = db
     .prepare(
@@ -812,7 +860,8 @@ export function importMarkdown(name: string, text: string, jokes = false): numbe
   for (const raw of chunks(text)) {
     const { text: words, at: stamped } = unstamp(raw)
     // A joke (from a file of them, or starting "joke" or "bit") is a note tagged #bit, so private.
-    const chunk = (jokes || isBit(titleOfMarkdown(words))) && !tagged(words, 'bit') ? String(withTag(words, 'bit')) : words
+    const joked = (jokes || isBit(titleOfMarkdown(words))) && !tagged(words, 'bit') ? String(withTag(words, 'bit')) : words
+    const chunk = String(tagsOffName(joked) ?? joked)
     const body = JSON.stringify(chunk)
     if (seen.get(name, body)) continue
     const { number } = insert(

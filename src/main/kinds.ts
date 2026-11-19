@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { tagsOffName } from './tags-off-name.ts'
 
 // What a #tag is, as in tag-words.ts (test/tag-words.test.ts keeps the two the same):
 // written out here because node's test runner loads this file on its own.
@@ -25,20 +26,21 @@ export const tagged = (stored: string | null | undefined, tag: string): boolean 
 type Block = { type?: string; content?: unknown[] }
 
 /**
- * A body with `#tag` at the end of its first line of words, where a row reads
- * its tags. A document or plain words alike.
+ * A body with `#tag` on its line of tags at the end, where a row reads them beside its name (tags-off-name.ts):
+ * written at the end of its first line, then taken off the name as a typed one is. A document or plain words alike.
  */
 export function withTag(body: unknown, tag: string): unknown {
   const mark = `#${tag.replace(/^#/, '')}`
+  let named: unknown
   if (body && typeof body === 'object') {
     const doc = body as { content?: Block[] }
     const content = doc.content ?? []
     const at = content.findIndex((block) => ['paragraph', 'heading'].includes(block.type ?? '') && block.content?.length)
-    return at >= 0
+    named = at >= 0
       ? { ...doc, content: content.map((block, index) => (index === at ? { ...block, content: [...(block.content ?? []), { type: 'text', text: ` ${mark}` }] } : block)) }
       : { ...doc, content: [{ type: 'paragraph', content: [{ type: 'text', text: mark }] }, ...content] }
-  }
-  return String(body ?? '').replace(/^([^\n]*)/, (line) => `${line} ${mark}`.trim())
+  } else named = String(body ?? '').replace(/^([^\n]*)/, (line) => `${line} ${mark}`.trim())
+  return tagsOffName(named) ?? named
 }
 
 /**

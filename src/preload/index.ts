@@ -831,6 +831,9 @@ const api = {
     /** Many saved in one write, the windows told once: each its own patch, the results in the same order. */
     saveMany: (saves: { id: string; patch: CapturePatch }[]): Promise<SaveResult[]> =>
       ipcRenderer.invoke('captures:save-many', saves),
+    /** Every note's #tags moved out of its name to its last line, once a book, on the first ask: how many, and when. */
+    tagsMoved: (): Promise<{ at: string; count: number } | null> => ipcRenderer.invoke('captures:tags-moved'),
+    tagsMovedUndo: (): Promise<number> => ipcRenderer.invoke('captures:tags-moved-undo'),
     /**
      * Any window's write, as it happens: told which notes, or null for
      * anything. With `kinds`, only writes that could touch those.

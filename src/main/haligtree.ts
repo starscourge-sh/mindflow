@@ -1592,8 +1592,8 @@ export function registerHaligtree(): void {
       // Gone meanwhile, from another window: nothing to tag.
       const row = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
       if (!row) continue
-      // On the first line, where a row reads its tags: added at the end it
-      // was there but never showed. #bit makes it private, as typed does.
+      // On its line of tags at the end, where a row reads them beside its name (kinds.ts `withTag`).
+      // #bit makes it private, as typed does.
       db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(withTag(JSON.parse(row.body ?? 'null'), tag)), id)
       if (tag.toLowerCase() === '#bit') (db.prepare('update captures set private = 1 where id = ?').run(id), checkMarkdown(id))
     } })

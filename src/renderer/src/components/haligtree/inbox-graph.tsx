@@ -71,7 +71,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
     const inTime = captures.filter((one) => new Date(one.capturedAt).getTime() >= since)
     // The newest, whatever order the list beside it is in (grouped by kind, or by name).
     const list = inTime.length > MOST ? [...inTime].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt)).slice(0, MOST) : inTime
-    const tagged = list.map((one) => ({ one, tags: [...new Set(splitTags(one.label).tags.map((tag) => tag.toLowerCase()))] }))
+    const tagged = list.map((one) => ({ one, tags: [...new Set(splitTags(one.label, one.tagLine).tags.map((tag) => tag.toLowerCase()))] }))
     const count = new Map<string, number>()
     for (const { tags } of tagged) for (const tag of tags) count.set(tag, (count.get(tag) ?? 0) + 1)
     const said = { alone: 0, drawn: list.length, inTime: inTime.length }
@@ -136,7 +136,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
   const [picked, setPicked] = useState<{ title: string; ids: string[]; tag?: string } | null>(null)
   const pick = (type: string, id: string): void => {
     if (type !== 'tag') return onOpen('capture', id)
-    setPicked({ title: `#${id}`, tag: id, ids: captures.filter((one) => splitTags(one.label).tags.some((tag) => tag.toLowerCase() === id)).map((one) => one.id) })
+    setPicked({ title: `#${id}`, tag: id, ids: captures.filter((one) => splitTags(one.label, one.tagLine).tags.some((tag) => tag.toLowerCase() === id)).map((one) => one.id) })
   }
   const listed = picked ? captures.filter((one) => picked.ids.includes(one.id)) : []
   const capped = graph.inTime > graph.drawn

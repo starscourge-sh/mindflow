@@ -76,7 +76,7 @@ import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-r
 import { NoteComing } from './note-coming'
 import { Rest } from './scenery'
 import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
-import { PutAwayLine } from './put-away'
+import { PutAwayLine, TagsMovedLine } from './put-away'
 import { Example } from './example'
 import { LIFECYCLE } from './page-hint'
 import { exampleArchived, exampleDiscarded, exampleInbox, exampleLookups } from '@/lib/examples'
@@ -655,6 +655,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
       >
         {/* Old captures put away on their own this morning: said here, with Undo. */}
         {title === 'Inbox' && <PutAwayLine onSee={() => window.api.openInHome('view', 'archived')} />}
+        {title === 'Inbox' && <TagsMovedLine />}
         {/* Old captures to tidy and deciding day: quick capture only catches, so they wait here. */}
         {title === 'Inbox' && <InboxLines held={kept.length} />}
         {/* Going through the older ones: said on top, with the way back. */}
@@ -1235,7 +1236,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     // A Word is a lookup: asked until its answer is written. Offered once there is one.
     ...(reach.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Meaning', options: [{ id: 'asked', label: 'No meaning yet' }, { id: 'answered', label: 'Written' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
-    { key: 'tag', label: 'Tag', options: [...new Set(reach.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
+    { key: 'tag', label: 'Tag', options: [...new Set(reach.flatMap((one) => splitTags(one.label, one.tagLine).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label, one.tagLine).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
     { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
     // Properties a kind or a tag asks for: where you are with it, and its stars.

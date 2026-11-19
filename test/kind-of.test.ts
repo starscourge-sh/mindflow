@@ -30,9 +30,12 @@ test('#bit and #book are read as tags, and added where a row reads them', () => 
   assert.equal(tagged('{"text":"#bit on its own"}', 'bit'), true)
   assert.equal(tagged('"a #bitter line"', 'bit'), false)
   assert.equal(tagged('"see example.com/#bit"', 'bit'), false)
-  assert.equal(withTag('Hamlet\n\nLines kept', 'book'), 'Hamlet #book\n\nLines kept')
+  // On a line of tags at the end, never in the name (tags-off-name.ts).
+  assert.equal(withTag('Hamlet\n\nLines kept', 'book'), 'Hamlet\n\nLines kept\n\n#book')
   const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Dune' }] }, { type: 'paragraph' }] }
-  assert.deepEqual((withTag(doc, 'book') as typeof doc).content[0].content, [{ type: 'text', text: 'Dune' }, { type: 'text', text: ' #book' }])
+  const withBook = withTag(doc, 'book') as typeof doc
+  assert.deepEqual(withBook.content[0].content, [{ type: 'text', text: 'Dune' }])
+  assert.deepEqual(withBook.content[1].content, [{ type: 'text', text: '#book' }])
 })
 
 test('the retired kinds move over once, keeping what they were and every field', () => {
@@ -48,15 +51,15 @@ test('the retired kinds move over once, keeping what they were and every field',
   db.prepare("insert into nuggets (id, kind, title, body) values ('nb', 'bit', 'A kept joke', ?)").run(JSON.stringify('A kept joke'))
   assert.deepEqual(retireKinds(db), ['b'])
   const row = (table: string, id: string): Record<string, unknown> => ({ ...db.prepare(`select kind, kind_was, body, fields, private from ${table} where id = ?`).get(id) })
-  assert.deepEqual(row('captures', 'b'), { kind: 'note', kind_was: 'bit', body: JSON.stringify('A joke #bit'), fields: null, private: 1 })
+  assert.deepEqual(row('captures', 'b'), { kind: 'note', kind_was: 'bit', body: JSON.stringify('A joke\n\n#bit'), fields: null, private: 1 })
   assert.deepEqual(row('captures', 'e'), { kind: 'quote', kind_was: 'excerpt', body: JSON.stringify('A long passage'), fields: '{"location":"p. 42"}', private: 0 })
   assert.equal(row('captures', 'k').kind, 'note')
   assert.equal(row('captures', 'k').fields, '{"status":"Finished","rating":4,"takeaway":"Act"}')
-  assert.match(String(row('captures', 'k').body), /"Hamlet"\},\{"type":"text","text":" #book"\}/)
+  assert.match(String(row('captures', 'k').body), /"Hamlet"\}\]\},\{"type":"paragraph","content":\[\{"type":"text","text":"#book"/ )
   // Already tagged: not tagged twice.
   assert.equal(row('captures', 't').body, JSON.stringify('Dune #book'))
   assert.deepEqual(row('captures', 'n'), { kind: 'note', kind_was: null, body: JSON.stringify('Left alone'), fields: null, private: 0 })
-  assert.deepEqual(row('nuggets', 'nb'), { kind: 'note', kind_was: 'bit', body: JSON.stringify('A kept joke #bit'), fields: null, private: 1 })
+  assert.deepEqual(row('nuggets', 'nb'), { kind: 'note', kind_was: 'bit', body: JSON.stringify('A kept joke\n\n#bit'), fields: null, private: 1 })
   // Twice is once.
   const before = JSON.stringify(db.prepare('select * from captures order by id').all())
   assert.deepEqual(retireKinds(db), [])

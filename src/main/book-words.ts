@@ -4,6 +4,7 @@ import { emojiReady } from './lazy/emoji'
 import { firstLine } from './import'
 import { cut } from './clip'
 import { startOf } from './kept-words'
+import { tagLine } from './tags-off-name'
 
 /**
  * How a book's notes are read out of its database: the two SQL functions
@@ -34,7 +35,7 @@ export const KEPT_IN = `case when status = 'promoted' then coalesce(
 /** A word or question to look up: asked until its answer (the Word's definition) is written, answered after.
  *  A word saved as a gem is answered too: it cannot be saved without its meaning ("Term: meaning", or lines under it). */
 const LOOKUP = `case when kind = 'word' then case when status = 'promoted' or (json_valid(fields) and trim(coalesce(json_extract(fields, '$.definition'), '')) != '') then 'answered' else 'asked' end end`
-export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, window_title as windowTitle, page_url as pageUrl, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, (select folder from put_away where put_away.id = captures.id and captures.archived_at is not null) as folder, ${KEPT_IN} as keptIn, fields, ${LOOKUP} as lookup`
+export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, window_title as windowTitle, page_url as pageUrl, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, (select folder from put_away where put_away.id = captures.id and captures.archived_at is not null) as folder, ${KEPT_IN} as keptIn, fields, ${LOOKUP} as lookup, tag_line(body) as tagLine`
 
 /**
  * `label` and `words`, put on a connection. `pictureWords` gives a picture's
@@ -52,6 +53,8 @@ export function bookFunctions(db: DatabaseSync, pictureWords: (src: unknown) => 
   const names = new Map<string, string>()
   let kept = 0
   const HEAD = 8192
+  // The tags on a note's last line, where a name's tags go (tags-off-name.ts): shown on its row beside the name's.
+  db.function('tag_line', (body) => tagLine(typeof body === 'string' ? body : ''))
   db.function('label', { varargs: true }, (title, body, named) => {
     if (named && title) return String(title)
     const raw = String(body ?? '')

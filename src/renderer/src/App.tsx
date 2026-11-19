@@ -708,7 +708,7 @@ export default function App(): React.JSX.Element {
   // The box's offer line's “Tag it”: written in as the strip's “+” writes a tag, one ⌘Z (or the notice's Undo) takes it back.
   const tagFromBox = (tags: string[]): void => {
     const editor = editorRef.current
-    if (!editor || !putTag(editor, tags)) return
+    if (!editor || !putTag(editor, tags, true)) return
     chime('noted')
     toast(`Tagged ${tags.map((tag) => `#${tag}`).join(' ')}`, () => editor.commands.undo())
   }

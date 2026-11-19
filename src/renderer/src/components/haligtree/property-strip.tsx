@@ -324,10 +324,11 @@ function retag(tag: string, node: HTMLElement | null): boolean {
 
 /**
  * A tag put on a note, as the strip's chips are made and the offer under a note takes one: written into the words as
- * a #tag after the last one there (or at the end of the title line), so the words and the strip never disagree.
- * One step ⌘Z takes back.
+ * a #tag after the last one there, so the words and the strip never disagree. With none yet, on a line of its own at
+ * the end, never in the note's name (its first line); `inWords`, quick capture's box, puts it where the caret rests,
+ * and the box's send moves it off the name (main/tags-off-name.ts). One step ⌘Z takes back.
  */
-export function putTag(editor: Editor, tag: string | string[]): boolean {
+export function putTag(editor: Editor, tag: string | string[], inWords = false): boolean {
   // Several at once (an offer's ticked tags) go in together, one edit that one ⌘Z takes back.
   const name = [tag].flat().map((one) => one.trim().replace(/^#+/, '').replace(/\s+/g, '-')).filter(Boolean).join(' #')
   if (!name) return false
@@ -336,6 +337,11 @@ export function putTag(editor: Editor, tag: string | string[]): boolean {
     if (!child.isText || !child.text) return
     for (const hit of child.text.matchAll(/(^|\s)#[\p{L}\p{N}_/-]+/gu)) at = pos + (hit.index ?? 0) + hit[0].length
   })
+  if (at < 0 && !inWords) {
+    const { doc, schema } = editor.state
+    editor.view.dispatch(editor.state.tr.insert(doc.content.size, schema.nodes.paragraph.create(null, schema.text(`#${name}`))))
+    return true
+  }
   if (at < 0) {
     const first = editor.state.doc.firstChild
     at = first?.isTextblock ? first.nodeSize - 1 : editor.state.doc.content.size
