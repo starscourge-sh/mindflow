@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, ChevronRight, Plus } from 'lucide-react'
 import { Branches } from './branches'
 import { NameInPlace } from './name-in-place'
-import { GroupIcon } from './kept-groups'
+import { GroupIcon, IconChoice } from './kept-groups'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { RowMenu, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
@@ -165,6 +166,7 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
 }
 
 function FolderRow({ folder, all, here, n, naming, onNamed, onRename, onOpen }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void }): React.JSX.Element {
+  const [picking, setPicking] = useState(false)
   const name = (words: string | null): void => {
     onNamed()
     const next = words?.trim()
@@ -180,15 +182,37 @@ function FolderRow({ folder, all, here, n, naming, onNamed, onRename, onOpen }: 
           className="min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40" />
       </div>
     )
+  // The icon is pressed to change it, as Notion's is: the app's one chooser (emoji, icons, a picture of your own).
+  const pick = (icon: string | null): void => {
+    setPicking(false)
+    const was = folder.icon
+    if (icon === was) return
+    chime('tap')
+    void folders.set(folder.id, { icon }).then(() => toast(`Changed ${folder.name}’s icon`, () => void folders.set(folder.id, { icon: was })))
+  }
   return (
+    <Popover open={picking} onOpenChange={setPicking}>
+      <PopoverAnchor asChild>
+        <div className="relative">
     <RowMenu items={() => folderMenu(folder, all, onOpen, onRename)}>
       <button type="button" data-side-row data-side-folder={folder.id} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-current={here ? 'page' : undefined}
         onClick={() => (chime('page'), onOpen())}
         className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
-        <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
+        {/* Room for the icon, which is its own button over this one (the old Writing folders' way, Notion's too). */}
+        <span className="size-4 shrink-0" />
         <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
         {n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
       </button>
     </RowMenu>
+          <button type="button" aria-label={`Change the icon of ${folder.name}`} data-folder-icon={folder.id} onClick={() => setPicking(true)}
+            className="absolute top-1 left-1.5 flex size-5 cursor-pointer items-center justify-center rounded-md transition-colors duration-100 before:absolute before:-inset-1 before:content-[''] hover:bg-foreground/10">
+            <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />
+          </button>
+        </div>
+      </PopoverAnchor>
+      <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
+        <IconChoice group={folder} onPick={pick} />
+      </PopoverContent>
+    </Popover>
   )
 }

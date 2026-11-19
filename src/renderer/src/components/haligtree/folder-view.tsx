@@ -167,8 +167,9 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
       {all.length > 0 && (
         <Island>
           {words ? (found.length ? found.map((one) => line(one, 0, pathOf(all, one.parent).map((up) => up.name).join(' / '))) : <p className="px-3 py-2 text-body text-muted-foreground">No folder is named like “{typed.trim()}”.</p>) : <div className="flex flex-col py-1">{tree(null)}
+            <div aria-hidden className="mx-2 my-1 border-t" />
             <button type="button" data-all-unfiled="" onClick={() => (chime('page'), onPlace('unfiled'))}
-              className="mt-1 flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md border-t px-2 py-1.5 pl-8 text-left hover:bg-accent/60">
+              className="flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 pl-8 text-left hover:bg-accent/60">
               <FileStack aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 truncate">Not in a folder</span>
               {unfiled !== null && <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">{num(unfiled)}</span>}

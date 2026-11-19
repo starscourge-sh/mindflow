@@ -6,8 +6,10 @@ import { CARDED, inFloating } from './tooltip'
 import { TipText } from './kbd'
 
 /** Whether an element, or any box in it, hides part of its words (an ellipsis or a clamped line). */
+// Only boxes holding words of their own are asked: an icon's box, or a row's own padding, may overflow by a pixel
+// with every word in sight, and the tip then said "Work" over a row that read "Work".
 const cutShort = (element: Element): boolean =>
-  [element, ...element.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 1)
+  [element, ...element.querySelectorAll('*')].some((one) => [...one.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) && (one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 1))
 
 /** The editor a node sits in, as TipTap hangs it on its root: its view watches the page for changes. */
 type Watched = { editor?: { view?: { domObserver?: { stop: () => void; start: () => void } } } }
