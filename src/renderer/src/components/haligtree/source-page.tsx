@@ -12,7 +12,7 @@ import { heroOpen } from '@/lib/hero'
 import { call, unloaded, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
-import { NoteList, type Entry } from './note-list'
+import { ListSearch, NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
 import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, sayNow, toast, typing } from './ui'
@@ -931,7 +931,10 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   const unknown = sorted.find((one) => one.field === 'attribution' && one.name === UNATTRIBUTED)
   // Characters (someone in a work) are kept apart from real People, in their own section.
   const summaries = (field: SourceField, characters = false): SourceSummary[] => sorted.filter((one) => one.field === field && !(field === 'attribution' && one.name === UNATTRIBUTED) && !!one.work === characters)
-  const entries = (field: SourceField, characters = false): Entry[] => summaries(field, characters).map((one) => ({
+  // Found by its words as you type, the lists' own search field (note-list.tsx `ListSearch`), as the Bin is: a name, or the work its row names.
+  const [typed, setTyped] = useState('')
+  const words = typed.trim().toLowerCase()
+  const entries = (field: SourceField, characters = false): Entry[] => summaries(field, characters).filter((one) => !words || one.name.toLowerCase().includes(words) || (one.work ?? '').toLowerCase().includes(words)).map((one) => ({
     id: `${field}:${one.name}`,
     type: 'source',
     title: one.name,
@@ -985,7 +988,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   const [looking, setLooking] = useState(false)
   return (
     // Waits for both its reads: drawn before, "No sources yet" showed for a beat, and the quotes with no source came in above the list.
-    <Page title="Sources" waiting={unloaded(list) || unloaded(missing)} count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['person or work', 'people and works']} actions={<>
+    <Page title="Sources" search={!unloaded(list) && list.length > 0 && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder="Find a person or a source" />} waiting={unloaded(list) || unloaded(missing)} count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['person or work', 'people and works']} actions={<>
       <Display view={view} onChange={setView} facets={[]} count={list.length} density={asGrid ? 'grid' : 'list'} onDensity={(density) => setView({ ...view, density })} densities={['list', 'grid']}
         sorts={[{ id: 'recents', label: 'Recents' }, { id: 'added', label: 'Recently added' }, { id: 'name', label: 'A to Z' }, { id: 'most', label: 'Most notes' }]} />
       <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="attribution" onClick={() => void make('attribution')}><Plus className="size-3.5" />New person</Button>

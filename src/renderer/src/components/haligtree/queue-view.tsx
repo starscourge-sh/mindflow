@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ListSearch } from './note-list'
 import { useReading } from '@/lib/reads-in'
 import { X as Clear } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -146,7 +147,12 @@ const UP_NEXT = <ListStart aria-hidden className="size-4 shrink-0 text-[var(--tt
 /** The Queue page: the queue to read next, how far through it you are, and what was read. */
 export function QueueView(): React.JSX.Element {
   const all = useQueue()
-  const { queue, read } = all
+  // Found by its name as you type, the lists' own search field (note-list.tsx `ListSearch`), as the Bin is: Up next and
+  // Read both, and the buttons act on what it leaves. How far through the queue you are still counts all of it.
+  const [typed, setTyped] = useState('')
+  const words = typed.trim().toLowerCase()
+  const queue = all.queue.filter((row) => !words || row.title.toLowerCase().includes(words))
+  const read = all.read.filter((row) => !words || row.title.toLowerCase().includes(words))
   const { done, total } = progressOf(all)
   const loading = unloaded(all)
   // Emptied in front of you (the last one read, or taken off): the clear chord.
@@ -270,7 +276,7 @@ export function QueueView(): React.JSX.Element {
     rowItems: ['separator', { label: live.includes(row.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(row.id) }, !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }]
   })
   return (
-    <Page title="Queue" count={live.length || queue.length} unit={live.length ? ['selected', 'selected'] : ['to read', 'to read']}
+    <Page title="Queue" search={!loading && (all.queue.length > 0 || all.read.length > 0) && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder="Find in the queue" />} count={live.length || queue.length} unit={live.length ? ['selected', 'selected'] : ['to read', 'to read']}
       actions={live.length > 0 ? (
         <span data-queue-bar className="flex items-center gap-1">
           <Tip label="Into Read, dated today"><Button variant="ghost" size="sm" onClick={() => markRead(live)}>Mark as read</Button></Tip>
@@ -286,8 +292,8 @@ export function QueueView(): React.JSX.Element {
         </span>
       )}>
       {/* Empty, the example sits in the page's column as on every list; with rows, they keep the page's margin. */}
-      <div className={!loading && !queue.length && !read.length ? 'w-full pb-16' : 'w-full px-5 pt-6 pb-16'}>
-        {!loading && !queue.length && !read.length ? (
+      <div className={!loading && !all.queue.length && !all.read.length ? 'w-full pb-16' : 'w-full px-5 pt-6 pb-16'}>
+        {!loading && !all.queue.length && !all.read.length ? (
           <Example tryIt="right-click any note, gem or page and choose “Queue”, then “Add to queue”. Then read them one after the other.">
             <IslandBox name="Up next" island={{ ...nextFold, total: exampleQueue().length, folded: false }} shown={exampleQueue().length} icon={UP_NEXT}>
               {exampleQueue().map((row, at, rows) => <QueueLine key={row.id} row={row} at={at} rows={rows} pick={{ picked: false, cursor: false, onPickClick: () => true, menu: null, rowItems: [] }} />)}

@@ -27,7 +27,7 @@ import { NoteComing } from './note-coming'
 import { fromBefore, BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem, yourOrder } from '@/lib/tasks'
 import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
-import { useArrivals } from './note-list'
+import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
 import { Display, arrange, openDisplay, useView, type Facet } from './display'
@@ -749,6 +749,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Opened from elsewhere with its words already read: on them from the first frame.
   const [open, setOpen] = useState<TaskFull | null>(() => (focus ? readNow<TaskFull>('task', focus) ?? null : null))
   const [draft, setDraft] = useState('')
+  const [typed, setTyped] = useState('')
   const { ticking: leaving, tickOff: complete } = useTickOff(280)
   // The row a thought is being written under, without opening the task.
   const [glossing, setGlossing] = useState<string | null>(null)
@@ -823,7 +824,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // day it comes back from hiding: then it is on Today too, saying "Back today",
   // as the sidebar's count (onToday) has it.
   // Each open task has one home tab (homeOf); All has every one. Waiting ones sit in their own group of that tab.
-  const open_ = chosenTasks.filter((task) => task.status === 'open')
+  // Found by its words as you type, the lists' own search field (note-list.tsx `ListSearch`), as the Bin is: its name
+  // and its tags, what its row shows. Every list (Today, Upcoming, All...) and the buttons act on what it leaves.
+  const found = (task: Task): boolean => !typed.trim() || task.title.toLowerCase().includes(typed.trim().toLowerCase())
+  const open_ = chosenTasks.filter((task) => task.status === 'open' && found(task))
   const live = mode === 'alltasks' ? open_ : open_.filter((task) => !task.waitingOn && (homeOf(task) === home || (mode === 'today' && !!task.recurrence && dayOf(task) < startOfDay(1))))
   const waiting = mode === 'alltasks' ? [] : open_.filter((task) => task.waitingOn && homeOf(task) === home)
   // Late lives on Today alone: every other tab says it in one quiet line that leads there, never a red group of its own.
@@ -1300,7 +1304,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : lead} search={!example && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder={`Find in ${TASK_TABS.find((one) => one.id === mode)?.label ?? 'Tasks'}`} />} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         <form
           className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
