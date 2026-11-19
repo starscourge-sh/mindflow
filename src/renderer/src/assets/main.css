@@ -1358,7 +1358,7 @@ html[data-width='wide'] {
   --mf-col-sheet: 76rem;
   --mf-col-narrow: 60rem;
 }
-html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
+html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(.is-line, .is-plain) .tiptap.ProseMirror.haligtree-editor {
   width: 100%;
   max-width: var(--mf-col-editor);
   margin-inline: auto;
@@ -1381,12 +1381,12 @@ html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(
    the margins either side left empty. The pane's gutters (4.75rem a side)
    are on top of the column, so the drag grip keeps its room. Full width lets
    it run edge to edge. Read sets its column itself, Full width or not. */
-html:is([data-width='page'], [data-width='wide']) .note-pane .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
+html:is([data-width='page'], [data-width='wide']) .note-pane .haligtree-editor-wrapper:not(.is-line, .is-plain) .tiptap.ProseMirror.haligtree-editor {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
 /* A day's writing in the Journal reads as a note does: lines of about seventy characters, from the same left edge
    as the day's name and tasks, not across the whole sheet (note 1c7d6afe, "too long": a hundred and twenty a line). */
-html:is([data-width='page'], [data-width='wide']) [data-day-write] .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
+html:is([data-width='page'], [data-width='wide']) [data-day-write] .haligtree-editor-wrapper:not(.is-line, .is-plain) .tiptap.ProseMirror.haligtree-editor {
   max-width: var(--mf-col-note);
   margin-inline: 0;
 }
@@ -1399,7 +1399,7 @@ html:is([data-width='page'], [data-width='wide']) [data-day-write] .haligtree-ed
   container: note / inline-size;
 }
 @container note (max-width: 34rem) {
-  .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor,
+  .haligtree-editor-wrapper:not(.is-line, .is-plain) .tiptap.ProseMirror.haligtree-editor,
   .note-column {
     --mf-padding: 1rem 1.5rem 1rem 3.25rem;
   }
@@ -1426,7 +1426,7 @@ html:is([data-width='page'], [data-width='wide']) [data-day-write] .haligtree-ed
 html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
-.mf-read .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
+.mf-read .haligtree-editor-wrapper:not(.is-line, .is-plain) .tiptap.ProseMirror.haligtree-editor {
   width: 100%;
   max-width: 36em;
   margin-inline: auto;
@@ -1437,7 +1437,7 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
    encyclopedia's are, pictures held inside the column and never taller than
    the window, quotes and lists with space to breathe. Only where a note is
    read (an open note, Read, a web page in the reader): the box and the day's page keep their own. */
-:is(.note-pane, .mf-read, .web-reader) .tiptap.ProseMirror.haligtree-editor:not(.is-line) {
+:is(.note-pane, .mf-read, .web-reader) .tiptap.ProseMirror.haligtree-editor:not(.is-line, .is-plain) {
   > p {
     line-height: 1.7;
   }
@@ -2296,7 +2296,7 @@ input[type='number']::-webkit-outer-spin-button {
    keys, the word count, the field for a new thought) is there while the
    pointer moves or rests on it, and settles away while you read. Quick to
    come, slow to go. With Motion off it simply shows and hides. */
-.mf-read .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
+.mf-read .haligtree-editor-wrapper:not(.is-line, .is-plain) .tiptap.ProseMirror.haligtree-editor {
   font-size: calc(1.125rem * var(--mf-text-scale, 1));
 }
 .mf-read :is(.mf-fade, .tiptap-word-count, [data-gloss] .group\/field) {
@@ -2547,7 +2547,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 }
 /* The box while the welcome waits on it: a warmer line than "Type / for
    commands…", typed in and turned over every few seconds (App.tsx). */
-:root[data-welcome-ph] .tiptap.ProseMirror.haligtree-editor:not(.is-line) > .is-empty[data-placeholder]:first-child:has(> .ProseMirror-trailingBreak:only-child)::before {
+:root[data-welcome-ph] .tiptap.ProseMirror.haligtree-editor:not(.is-line, .is-plain) > .is-empty[data-placeholder]:first-child:has(> .ProseMirror-trailingBreak:only-child)::before {
   content: var(--mf-welcome-ph, attr(data-placeholder));
 }
 /* Lesson mode: what the welcome is not teaching is calm and out of reach,
@@ -2555,7 +2555,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 :root[data-welcome-ph] [data-lesson='calm'] { opacity: 0.4; pointer-events: none; }
 :root[data-welcome-ph] .mf-pill { display: none; }
 /* The examples typing into the empty line are not blocks yet: no "+" or grip beside them. */
-:root[data-welcome-ph] :has(> .tiptap.ProseMirror.haligtree-editor:not(.is-line) > .is-empty:only-child) .tiptap-drag-handle { visibility: hidden !important; }
+:root[data-welcome-ph] :has(> .tiptap.ProseMirror.haligtree-editor:not(.is-line, .is-plain) > .is-empty:only-child) .tiptap-drag-handle { visibility: hidden !important; }
 :root[data-welcome-ph] :is([data-lesson='hide'], .tiptap-word-count) { display: none !important; }
 /* The welcome's theme dial changes the page with a quick plain crossfade,
    colours only, the dial itself live on its own layer (welcome.tsx). */
@@ -3263,22 +3263,22 @@ html[data-book-hue] [data-book-tint] {
   .note-pane > :first-child {
     flex: none;
   }
-  .note-pane > :first-child .haligtree-editor-wrapper:not(.is-line) {
+  .note-pane > :first-child .haligtree-editor-wrapper:not(.is-line, .is-plain) {
     flex: 1 0 auto;
     height: auto;
     overflow: clip visible;
   }
-  .note-pane > :first-child .haligtree-editor-wrapper:not(.is-line) .haligtree-editor-content {
+  .note-pane > :first-child .haligtree-editor-wrapper:not(.is-line, .is-plain) .haligtree-editor-content {
     height: auto;
     overflow: clip visible;
   }
 }
-[data-grow] .haligtree-editor-wrapper:not(.is-line) {
+[data-grow] .haligtree-editor-wrapper:not(.is-line, .is-plain) {
   flex: 1 0 auto;
   height: auto;
   overflow: clip visible;
 }
-[data-grow] .haligtree-editor-wrapper:not(.is-line) .haligtree-editor-content {
+[data-grow] .haligtree-editor-wrapper:not(.is-line, .is-plain) .haligtree-editor-content {
   height: auto;
   overflow: clip visible;
 }
@@ -3505,11 +3505,11 @@ html[data-book-hue] [data-book-tint] {
 [data-room] > [data-note-head] { display: none; }
 /* The words run the room's whole height and the room scrolls them: the page's own editor kept the pane's height and
    scrolled inside it, so in the room the words stopped two thirds down the window, cut off above the foot. */
-[data-room] .haligtree-editor-wrapper:not(.is-line),
-[data-room] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { height: auto; max-height: none; overflow: visible; flex: none; }
+[data-room] .haligtree-editor-wrapper:not(.is-line, .is-plain),
+[data-room] .haligtree-editor-wrapper:not(.is-line, .is-plain) > .haligtree-editor-content { height: auto; max-height: none; overflow: visible; flex: none; }
 /* A page to write on, not a strip round the words: the paper (Settings › Paper) runs on down the room. */
 /* As tall as the room leaves (its padding and the caption above): taller, an empty page scrolled away from its own words. */
-[data-room] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { min-height: calc(54vh - 3rem); }
+[data-room] .haligtree-editor-wrapper:not(.is-line, .is-plain) > .haligtree-editor-content { min-height: calc(54vh - 3rem); }
 /* The page's outline, in the room, at the window's right edge: inside the column it stood over the words. */
 [data-room] .tiptap-toc { position: fixed; right: max(1rem, env(safe-area-inset-right, 0px)); }
 /* The focus band (writer-tools.tsx): all but the sentence or paragraph you
@@ -3618,8 +3618,8 @@ html[data-pill-open='left'] #root { right: 0; }
 }
 /* The swatches are small: their dots and squares come closer, so each shows several, as a page would. */
 .mf-paper[data-paper-sample] { --mf-paper-step: 12px; }
-:root[data-paper='dots'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
-:root[data-paper='dots'] :is([data-day-write], [data-week-write], [data-room]) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
+:root[data-paper='dots'] .note-pane .haligtree-editor-wrapper:not(.is-line, .is-plain) > .haligtree-editor-content,
+:root[data-paper='dots'] :is([data-day-write], [data-week-write], [data-room]) .haligtree-editor-wrapper:not(.is-line, .is-plain) > .haligtree-editor-content,
 .mf-paper[data-paper-sample='dots'] {
   /* Faint, a little more ink than a line would need (a dot is a point), fading into the page at its edges. */
   background-image: radial-gradient(ellipse at 50% 35%, transparent 25%, var(--background) 90%), radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--foreground) 14%, transparent) 1px, transparent 1.4px);
@@ -4235,9 +4235,9 @@ textarea[data-talking]::selection {
    the words by its height, and the words keep that much room, and the fade's, after their last line, so the last
    line still scrolls clear of the bar. A note's word count and session line, and "Top", rise above it too. */
 [data-docked] > :is([data-thought-dock], [data-read-dock]) { margin-top: calc(-1 * var(--mf-dock-h, 0px)); }
-[data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
+[data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line, .is-plain) > .haligtree-editor-content,
 [data-docked] > [data-dock-scroll] { padding-bottom: calc(var(--mf-dock-h, 0px) + 3.25rem); }
-[data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > :is(.tiptap-word-count, .mf-session-foot),
+[data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line, .is-plain) > :is(.tiptap-word-count, .mf-session-foot),
 [data-docked] [data-back-to-top] { margin-bottom: var(--mf-dock-h, 0px); }
 
 /* A small dot is a whole number of pixels across, or the screen draws it lopsided. Sizes scale with the text
@@ -4287,7 +4287,7 @@ html[data-small][data-small-auto] .app-container {
    screen's worth more to scroll into), the window as tall as that (lib/fit-box.ts measurePage). */
 html[data-small] [data-reading-pane] [data-voice-edge] { padding-top: 0.25rem; min-height: 0; }
 html[data-small] [data-reading-pane] [data-voice-edge] > [data-note-head] { margin-top: 0; }
-html[data-small] [data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { padding-bottom: var(--mf-dock-h, 0px); }
+html[data-small] [data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line, .is-plain) > .haligtree-editor-content { padding-bottom: var(--mf-dock-h, 0px); }
 /* A page all in view has nothing scrolling under its bar: the band that blurs what passes under it would only blur the
    last line, which now sits right above the bar. */
 html[data-small] [data-reading-pane] .note-pane[data-all-shown] [data-thought-dock] > .mf-blur-edge { display: none; }

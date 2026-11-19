@@ -2242,6 +2242,8 @@ function Surface({
         "relative haligtree-editor-wrapper",
         // A line hugs its text. Only a document needs to fill what holds it.
         shape === "line" ? "is-line" : "",
+        // A field written in the one editor (presets.tsx PlainField): none of a note page's width, paper, room or dock rules.
+        plain ? "is-plain" : "",
         sourceOpen ? "has-source" : "",
         handles ? "has-handles" : "",
         className
