@@ -221,6 +221,12 @@ export function PlainField({ value, placeholder, label, line = false, className 
         onReady={(one) => {
           editor.current = one
           one.on("update", () => changed.current?.(plainOf(one)))
+          // Come back to empty (a thought kept, or put away with Escape), it is ready to type again, as it opened: in
+          // normal mode, the first letters were taken as commands and only the end of the words was written.
+          one.on("focus", () => {
+            const vim = vimPluginKey.getState(one.state)
+            if (vim?.enabled && vim.mode === "normal" && !plainOf(one)) one.commands.enterInsertMode()
+          })
         }}
       />
     </div>
