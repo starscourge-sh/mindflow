@@ -2,7 +2,7 @@ import {
   AlarmClock, AppWindow, PictureInPicture2, ArrowUpRight, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, GripVertical, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
-  FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
+  FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Images, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, Merge, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
@@ -25,6 +25,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^in my words$/i, PenLine],
   [/^make it a card$/i, Layers],
   [/^pull the quote$/i, Quote],
+  // Files: the pictures most like this one (picture-sight.ts).
+  [/^more like this$/i, Images],
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
   // A link to a name two notes in the vault have (note-link.ts chooseNote): each note by its path, or neither.
   [/\.md$/i, FileText],

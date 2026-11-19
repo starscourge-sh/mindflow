@@ -15,6 +15,8 @@
 //   labels --focus <picture>  where a crop should centre: the largest face, else what the eye goes to first
 //                             (Vision's saliency), as a share of the picture from the top left:
 //                             {"focus":{"x":0.48,"y":0.31,"face":true}}
+//   labels --sight <picture>  what a picture shows and its likeness (Vision's classification and feature print):
+//                             {"sight":{"labels":[{"name":"dog","confidence":0.91}],"print":[..]}}
 //   labels --lines <picture>  the words in a picture with where each lies, for selecting them in place (Live Text),
 //                             one line, boxes a share of the picture as it is seen (turned upright), from the top left:
 //                             {"lines":[{"text":"MONTHLY MAGAZINE","x":..,"y":..,"w":..,"h":..,"words":[{"text":"MONTHLY","x":..},..]}],
@@ -45,6 +47,7 @@ if args.count > 3 && args[1] == "--pdf" { readPDF(args[2], args[3]) }
 if args.count > 2 && args[1] == "--focus" { focus(args[2]) }
 if args.count > 2 && args[1] == "--lines" { lines(args[2]) }
 if args.count > 2 && args[1] == "--doc" { readDocument(args[2]) }
+if args.count > 2 && args[1] == "--sight" { sight(args[2]) }
 
 /** A page read whole: each part with the top of its box, so they are said top to bottom. */
 func readDocument(_ path: String) -> Never {
@@ -176,6 +179,26 @@ func focus(_ path: String) -> Never {
   } else {
     say(["focus": ["x": 0.5, "y": 0.5, "face": false]])
   }
+  exit(0)
+}
+
+/**
+ * What a picture shows, and its likeness: Vision's own words for it (a few, the surest, "dog", "document", "sky"),
+ * and its feature print, the numbers two pictures are compared by (near copies, "More like this").
+ * {"sight":{"labels":[{"name":"dog","confidence":0.91}],"print":[0.0123,...]}}
+ */
+func sight(_ path: String) -> Never {
+  guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { fail("unreadable", "The picture could not be read") }
+  let handler = VNImageRequestHandler(cgImage: image, orientation: orientationOf(source), options: [:])
+  let classify = VNClassifyImageRequest()
+  let print = VNGenerateImageFeaturePrintRequest()
+  do { try handler.perform([classify, print]) } catch { fail("failed", "The picture could not be looked at: \(error.localizedDescription)") }
+  let labels = (classify.results ?? []).filter { $0.confidence >= 0.3 }.prefix(6).map { ["name": $0.identifier.replacingOccurrences(of: "_", with: " "), "confidence": (Double($0.confidence) * 100).rounded() / 100] as [String: Any] }
+  var numbers: [Double] = []
+  if let one = print.results?.first, one.elementType == .float {
+    numbers = one.data.withUnsafeBytes { raw in raw.bindMemory(to: Float.self).map { (Double($0) * 100000).rounded() / 100000 } }
+  }
+  say(["sight": ["labels": Array(labels), "print": numbers]])
   exit(0)
 }
 

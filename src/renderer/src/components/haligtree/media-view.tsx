@@ -1,7 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNav, useStepped } from '@/lib/nav'
-import { AudioLines, Check, Files, Film, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink } from 'lucide-react'
+import { AudioLines, Check, Copy, Eye, Files, Film, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink, X } from 'lucide-react'
 import { openFileLook } from '@/components/attachment/file-look'
 import { FileText } from '@/components/ui/icons'
 import { call, unloaded, useLive } from '@/lib/haligtree'
@@ -160,17 +160,32 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   // A shared deck's pictures (hundreds of paintings) wait under their own chip, so the book's own stay in view.
   const [decks, setDecks] = useState(false)
   const anyDeck = all.some((one) => one.deck)
+  // What each picture shows and its near copies, read by the Mac in quiet minutes (main/picture-sight.ts).
+  const sight = useLive(() => call<{ labels: Record<string, string[]>; near: string[][] }>('pictures:sight'), { labels: {}, near: [] }, [], ['capture'])
+  const [seeing, setSeeing] = useState<string | null>(null)
+  const [copiesOnly, setCopiesOnly] = useState(false)
+  // "More like this": a picture, and the ones most like it, closest first.
+  const [like, setLike] = useState<{ src: string; title: string; srcs: string[] } | null>(null)
+  const nearSet = useMemo(() => new Set(sight.near.flat()), [sight.near])
+  const showLike = (one: Media): void => void call<{ src: string }[]>('pictures:like', one.src).then((list) => {
+    if (!list.length) return refuse('Nothing kept looks like it yet')
+    chime('tap')
+    setLike({ src: one.src, title: bare(one.name || one.title) || 'this picture', srcs: [one.src, ...list.map((each) => each.src)] })
+  })
   const found = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
     // Its own words here at once; the words inside it (a picture's, a transcript) as main's index answers, a moment later.
     const within = inside?.query === query.trim() ? inside.keys : null
     const found = all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind) && (!unlinkedOnly || isUnlinked(one)) &&
+      (!seeing || !!sight.labels[one.src]?.includes(seeing)) && (!copiesOnly || nearSet.has(one.src)) && (!like || like.srcs.includes(one.src)) &&
       (words.every((word) => `${one.title} ${one.name} ${one.near}`.toLowerCase().includes(word)) || !!within?.has(keyOf(one))))
     // On Unlinked, by the day each was let go, newest first, and in a day pictures, recordings, books, as they are drawn.
     if (unlinkedOnly && !table) return unlinkedOrder(found)
+    // More like this: the picture first, then the closest.
+    if (like) return found.sort((a, b) => like.srcs.indexOf(a.src) - like.srcs.indexOf(b.src))
     // Newest first, so a month's or a day's files sit together under its heading.
     return found.sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))
-  }, [all, query, inside, kind, decks, unlinkedOnly, table])
+  }, [all, query, inside, kind, decks, unlinkedOnly, table, seeing, copiesOnly, like, sight, nearSet])
   // Table's filters, from Display: what kind (where there is more than one), and whether a note holds it.
   const facets = useMemo<Facet<Media>[]>(() => [
     ...(kind === 'all' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'pdf', label: 'Books' }, { id: 'picture', label: 'Images' }, { id: 'gif', label: 'GIFs' }, { id: 'audio', label: 'Recordings' }, { id: 'video', label: 'Videos' }, { id: 'document', label: 'Documents' }].filter((option) => all.some((one) => one.kind === option.id)), test: (one: Media, id: string) => one.kind === id }]
@@ -271,7 +286,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   /** The right-click on a tile: for what is picked when it is among them, else for it alone. */
   const menuFor = (one: Media): RowItem[] => {
     const several = chosen.includes(keyOf(one)) && chosen.length > 1
-    if (!several) return mediaMenu(one, () => open(one), () => setPutting([one]), () => toBin([keyOf(one)]), table ? () => openAsFile(one) : undefined)
+    if (!several) return mediaMenu(one, () => open(one), () => setPutting([one]), () => toBin([keyOf(one)]), table ? () => openAsFile(one) : undefined, sight.labels[one.src] ? () => showLike(one) : undefined)
     const free = pickedFiles.filter((each) => !each.uses.length).length
     return [
       { label: `Put ${num(chosen.length)} in a note…`, run: () => setPutting(pickedFiles) },
@@ -322,6 +337,15 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const addBox = adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />
 
   // The tabs: All, then each shelf the book holds (a tab for something you have none of leads to nothing; one asked for by name still shows, to say so).
+  // The words the most pictures share, up to eight, each with how many show it.
+  const labelChips = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const one of all) if (shelfOf(one) === 'picture' && !one.deck) for (const label of sight.labels[one.src] ?? []) counts.set(label, (counts.get(label) ?? 0) + 1)
+    return [...counts].filter(([label, count]) => count >= 2 || label === seeing).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8)
+  }, [all, sight.labels, seeing])
+  // A group's copies, its newest note's first: the one kept.
+  const newestFirst = (group: string[]): string[] => [...group].sort((a, b) => (all.find((one) => one.src === b)?.at ?? '').localeCompare(all.find((one) => one.src === a)?.at ?? ''))
+  const spare = sight.near.reduce((sum, group) => sum + group.length - 1, 0)
   const held = SHELVES.filter((one) => one.id === kind || all.some((item) => shelfOf(item) === one.id && !item.deck))
   const kinds = held.length + (anyDeck ? 1 : 0) + (unlinkedCount || unlinkedOnly ? 1 : 0) < 2 ? <div className="pt-4" /> : (
     <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
@@ -337,6 +361,20 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       {/* Attachments no note holds any more, with how many: a filter beside the kinds, shown once there is one. */}
       {(unlinkedCount > 0 || unlinkedOnly) && (
         <span data-media-unlinked="" className="contents"><Chip on={unlinkedOnly} onClick={() => (chime(unlinkedOnly ? 'off' : 'on'), setUnlinkedOnly(!unlinkedOnly))} mark={<Unlink className="size-3.5" />}>Unlinked <span className="tabular-nums text-(--mf-muted-strong)">{num(unlinkedCount)}</span></Chip></span>
+      )}
+      {/* What the pictures show, the Mac's own words, most held first: one picks the pictures showing it. */}
+      {kind === 'picture' && labelChips.map(([label, count]) => (
+        <span key={label} data-media-seeing={label} className="contents"><Chip on={seeing === label} onClick={() => (chime(seeing === label ? 'off' : 'on'), setSeeing(seeing === label ? null : label))} mark={<Eye className="size-3.5" />}>{label} <span className="tabular-nums text-(--mf-muted-strong)">{num(count)}</span></Chip></span>
+      ))}
+      {/* Pictures that are the same picture, give or take a cursor or a clock: gathered, for one clean-up. */}
+      {kind === 'picture' && spare > 0 && (
+        <span data-media-near="" className="contents"><Chip on={copiesOnly} onClick={() => (chime(copiesOnly ? 'off' : 'on'), setCopiesOnly(!copiesOnly))} mark={<Copy className="size-3.5" />}>Near copies <span className="tabular-nums text-(--mf-muted-strong)">{num(nearSet.size)}</span></Chip></span>
+      )}
+      {like && (
+        <span data-media-like="" className="contents"><Chip on onClick={() => (chime('off'), setLike(null))} mark={<X className="size-3.5" />}>Like {quoted(like.title, 40)}</Chip></span>
+      )}
+      {copiesOnly && spare > 0 && (
+        <Button variant="ghost" size="sm" data-media-bin-near className="ml-auto h-7 cursor-pointer px-2.5 text-xs text-muted-foreground hover:text-foreground" onClick={() => void binFiles(sight.near.flatMap((group) => newestFirst(group).slice(1)))}>Keep the newest of each, move {num(spare)} to the Bin</Button>
       )}
       {/* What acts on the view sits at the end of the row, on its own: only on Unlinked, and only with something to move. */}
       {unlinkedOnly && unlinkedCount > 0 && (
@@ -488,7 +526,7 @@ const isUnlinked = (one: Media): boolean => !one.deck && !one.uses.length && one
 
 
 /** A picture's or a file's right-click menu, on its tile and in the "Recent pictures" row. */
-export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onBin: () => void, /** In Table, where ↵ opens the file itself and its note is the second way. */ asFile?: () => void): RowItem[] {
+export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onBin: () => void, /** In Table, where ↵ opens the file itself and its note is the second way. */ asFile?: () => void, /** Files only, once the Mac has looked at it: the pictures most like it. */ moreLike?: () => void): RowItem[] {
   const picture = one.kind === 'picture' || one.kind === 'gif'
   const used = one.uses.length > 0
   const fileWord = picture ? 'Look at it' : one.kind === 'pdf' ? 'Open in the reader' : one.kind === 'document' ? 'Preview it' : 'Play it'
@@ -509,6 +547,7 @@ export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onB
     picture && { label: 'Copy image', run: () => void window.api.copyImage(one.src).then((done) => (done ? (chime('copy'), toast('Copied the picture')) : refuse('Could not copy it', 'error'))) },
     // Its words' lines under one, as on a picture in a note.
     picture && pictureLines(one.src).length > 0 && { label: 'Text in it', items: pictureLines(one.src) },
+    picture && moreLike && { label: 'More like this', hint: 'The pictures that look most like it', run: moreLike },
     ownApp && { label: 'Open in its app', run: () => void window.api.openFile(one.src, one.name).then((done) => (done ? chime('open') : refuse('No app on this Mac opens it'))) },
     'separator',
     // On, it stays in Files when no note holds it; off, the last note to let it go leaves it under Unlinked.
