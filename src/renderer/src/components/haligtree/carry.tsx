@@ -57,6 +57,10 @@ export type Aim = {
   snug?: boolean
   /** How much more (or less) room a group carried takes where it lands than where it was: a subgroup's block sits in less air. */
   fit?: number
+  /** How much further down its block a group carried sits where it lands than where it was (its row in its block's air). */
+  lift?: number
+  /** The air over a group's block where it lands, left out of its room: the room is the block, where it will be. */
+  air?: number
   /** Landing last in a group with the next row on show outside it: where that group's own rows end, as drawn at rest. */
   until?: number
   /** Where its line starts in from the row's edge: a step's is further in than a line's. */
@@ -649,11 +653,11 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   }
   if (!forming && gap !== null && from >= 0 && span) {
     const h = span + (aim!.fit ?? 0)
-    const slide = slideOf(from, gap, span, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2, aim!.until, aim!.fit ?? 0)
+    const slide = slideOf(from, gap, span, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.lift ?? 0), aim!.until, aim!.fit ?? 0)
     const shift = (key: string): number => slide.other(order.get(key) ?? -1)
     for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))
     if (slide.carried) ys.set(hand!, slide.carried)
-    const roomTop = box(hand!) ? box(hand!)!.top - inset + slide.carried - (aim!.fit ?? 0) / 2 : undefined
+    const roomTop = box(hand!) ? box(hand!)!.top - inset + slide.carried - (aim!.lift ?? 0) : undefined
     panels(shift, roomTop === undefined ? undefined : { id: (id) => aim!.around.includes(id), bottom: roomTop + h })
   }
   // A new group forming on a row: the panel around it holds the carried row's place under it, so every row after it
@@ -702,7 +706,7 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   const signature = [...shapes].map(([id, one]) => `${id}:${one.top}:${one.bottom}`).join() + [...ys].map(([id, y]) => `${id}=${Math.round(y)}`).join()
   const along = many.filter((one) => one !== hand).join()
   // A new value only when something drawn changes: every row reads it.
-  const value = useMemo<Carry>(() => ({ aim, height: mid, span: span + (aim?.fit ?? 0), along: new Set(along ? along.split(',') : []), hand, shapes, ys, snap, inset: isGroup(hand ?? '') ? inset + (aim?.fit ?? 0) / 2 : 0, home, give: give.current }), [aim, mid, span, inset, along, hand, signature, snap, home, give.current]) // eslint-disable-line react-hooks/exhaustive-deps
+  const value = useMemo<Carry>(() => ({ aim, height: mid, span: span + (aim?.fit ?? 0) - (aim?.air ?? 0), along: new Set(along ? along.split(',') : []), hand, shapes, ys, snap, inset: isGroup(hand ?? '') ? inset + (aim?.lift ?? 0) - (aim?.air ?? 0) : 0, home, give: give.current }), [aim, mid, span, inset, along, hand, signature, snap, home, give.current]) // eslint-disable-line react-hooks/exhaustive-deps
   return <Carrying.Provider value={value}>{children}</Carrying.Provider>
 }
 

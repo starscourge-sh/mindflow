@@ -435,17 +435,17 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const gapRow = gap !== null && gap >= 0 ? keys[gap] : undefined
       // First in its part, the row before it on show is another part's: the room sits just over the next row, under their heading.
       const snug = gapRow !== undefined && (isGroup(gapRow) ? gapRow.slice(KEY.length) === (make ? outer : into) : (home.get(gapRow) ?? null) === (make ? outer : into) && (!parts || parts.of(gapRow) === parts.of(lead)))
-      // A group's block sits in 8px of air at the top level and 4px inside a group.
-      const fit = isGroup(lead) ? (into ? 4 : 8) - (own ? 4 : 8) : 0
+      // A group carried sits in other air where it lands (`blockAir`): its row's place in its block, and the block's height.
+      const [lift, fit, air] = isGroup(lead) ? blockAir(!!into, gap === -1, insetRef.current, !!own) : [0, 0, 0]
       // Last in a group whose next row on show is outside it (Group 3 carried below Group 2, the last thing in Apple Notes /
       // Notes): the room ends where that group's rows end, not just over the next row, past the group's own edge and air.
       const landing = make ? outer : into
       const next = gap !== null && !snug ? keys[gap + 1] : undefined
       const box = landing ? document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(landing)}"]`) : null
-      const list = box?.querySelector<HTMLElement>(':scope > [data-fold] > div > div > div')
+      const list = box?.querySelector<HTMLElement>(':scope > [data-fold] > div')
       const node = next && document.querySelector(`[data-sortable-id="${CSS.escape(next)}"]`)
       const until = list && node && !box!.contains(node) ? Math.round(list.getBoundingClientRect().bottom - parseFloat(getComputedStyle(list).paddingBottom)) : undefined
-      return aimAt({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, until, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
+      return aimAt({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, lift, air, until, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
     }
     // Over a row of another part, where the list's own rule says which part a row is in: nothing opens. That part's
     // heading lights (the row itself, where no heading stands over it) and the card says what letting go does, or why
@@ -577,6 +577,18 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest }: { carried: str
       {many.length > 1 && <CarriedCount n={aim?.make ? many.length + 1 : many.length} carried={many.length} />}
     </Hand>
   )
+}
+
+/**
+ * The air round a group's block, as drawn: at the top level 10px over it (`airAbove`, pt-2.5) unless it is the list's
+ * first line, none under it; inside a group 2px either side (its holder's py-0.5) and its own 2px padding (py-0.5).
+ * Carried there from `inset` (its row's measured place in its block's air) in a group or not (`was`): how much
+ * further down its row goes, how much taller its room is, and the air over the block where it lands.
+ */
+const blockAir = (inGroup: boolean, first: boolean, inset: number, was: boolean): [number, number, number] => {
+  const air = inGroup ? 2 : first ? 0 : 10
+  const head = air + (inGroup ? 2 : 0)
+  return [head - inset, head + (inGroup ? 4 : 0) - inset - (was ? 4 : 0), air]
 }
 
 /** A list in your own order: rows can be carried, and gathered. */
