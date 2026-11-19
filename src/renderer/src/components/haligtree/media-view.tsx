@@ -337,11 +337,13 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const addBox = adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />
 
   // The tabs: All, then each shelf the book holds (a tab for something you have none of leads to nothing; one asked for by name still shows, to say so).
-  // The words the most pictures share, up to eight, each with how many show it.
+  // The words the most pictures share, up to eight, each with how many show it (main leaves out the words that say nothing).
   const labelChips = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const one of all) if (shelfOf(one) === 'picture' && !one.deck) for (const label of sight.labels[one.src] ?? []) counts.set(label, (counts.get(label) ?? 0) + 1)
-    return [...counts].filter(([label, count]) => count >= 2 || label === seeing).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8)
+    let pictures = 0
+    for (const one of all) if (shelfOf(one) === 'picture' && !one.deck) (pictures++, (sight.labels[one.src] ?? []).forEach((label) => counts.set(label, (counts.get(label) ?? 0) + 1)))
+    // A word every picture has picks nothing out: not a chip.
+    return [...counts].filter(([label, count]) => (count >= 2 && count < pictures) || label === seeing).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8)
   }, [all, sight.labels, seeing])
   // A group's copies, its newest note's first: the one kept.
   const newestFirst = (group: string[]): string[] => [...group].sort((a, b) => (all.find((one) => one.src === b)?.at ?? '').localeCompare(all.find((one) => one.src === a)?.at ?? ''))

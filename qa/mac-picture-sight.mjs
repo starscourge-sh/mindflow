@@ -45,6 +45,7 @@ try {
   await h.waitForTimeout(800)
   const chips = await h.$$eval('[data-media-seeing]', (all) => all.map((one) => one.getAttribute('data-media-seeing')))
   check('Images shows the Mac’s words for its pictures as chips, each held by two or more', chips.length > 0, JSON.stringify(chips))
+  check('never a word about bodies or people as a count (“adult”, “people”), nor one as generic as “structure”', !chips.some((one) => ['adult', 'people', 'child', 'nude', 'structure', 'material'].includes(one)) && !Object.values(sight.labels).flat().includes('adult'), JSON.stringify(chips))
   if (process.env.QA_SHOTS) await c.both(join(process.env.QA_SHOTS, 'sight-chips'))
   if (chips.length) {
     const before = await h.$$eval('[data-media-grid] [data-media][data-src]', (all) => all.length)

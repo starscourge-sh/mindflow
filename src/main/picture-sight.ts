@@ -24,6 +24,12 @@ const LIKE_FAR = 0.9
 const IDLE = 60
 const FEW = 4
 const SEEN = /\.(png|jpe?g|webp|heic|gif|tiff?)$/i
+/**
+ * Vision's words that say nothing a person would look for, or that read wrong on a chip ("adult 12" over a painting):
+ * a body's age, sex or bareness, people as a count, and the most generic kinds of thing. Never shown or filtered by.
+ */
+const UNSAID = new Set(['adult', 'child', 'baby', 'kid', 'teen', 'toddler', 'people', 'person', 'crowd', 'man', 'woman', 'boy', 'girl', 'nude', 'naked', 'nudity', 'bare', 'underwear', 'lingerie', 'swimwear', 'bikini', 'skin', 'body', 'structure', 'material', 'object', 'thing'])
+const said = (labels: string[]): string[] => labels.filter((label) => !UNSAID.has(label.toLowerCase()))
 
 type Sight = { labels: string[]; print: Float32Array }
 let made = false
@@ -111,7 +117,7 @@ function nearCopies(): string[][] {
 export function registerPictureSight(): void {
   setInterval(() => void lookSome(), 15_000)
   // Files: every picture's words, and the near copies gathered.
-  ipcMain.handle('haligtree:pictures:sight', () => ({ labels: Object.fromEntries([...sights()].map(([name, one]) => [srcOf(name), one.labels])), near: nearCopies() }))
+  ipcMain.handle('haligtree:pictures:sight', () => ({ labels: Object.fromEntries([...sights()].map(([name, one]) => [srcOf(name), said(one.labels)])), near: nearCopies() }))
   // "More like this": the closest pictures to this one, closest first.
   ipcMain.handle('haligtree:pictures:like', (_event, src: unknown) => {
     const one = sights().get(nameOf(src))
