@@ -120,6 +120,11 @@ try {
   check('its fact says what it holds', /Thesis holds 2: 2 pages/.test((await h.locator('[data-folder-fact]').textContent()) ?? ''), await h.locator('[data-folder-fact]').textContent())
   check('its sidebar row is marked as the page you are on', (await h.locator(`[data-side-folder="${thesis.id}"]`).getAttribute('aria-current')) === 'page')
   await shot('folder-page')
+  // Its row's own menu takes a page out of the folder, as in Writing; Undo puts it back.
+  await menu(h.locator(`[data-page="folders"] button[data-row][data-id="${page}"]`), 'Take out of Thesis')
+  check('"Take out of Thesis" on its row takes it off this page', await until(async () => !(await c.v('folders:of', 'nuggets'))[page] && !(await ids()).includes(page)), JSON.stringify(await ids()))
+  await h.keyboard.press('Meta+z')
+  check('⌘Z puts it back on the folder\'s page', await until(async () => (await ids()).includes(page)), JSON.stringify(await ids()))
   // A row opens its page beside the list, as Writing does; ↓ goes on to the next of the folder's.
   const first = (await ids())[0]
   await rows().first().click()
@@ -143,11 +148,11 @@ try {
   await rows().first().click().catch(() => {})
   await wait(1200)
   check('with a page open, the folder\'s list stands beside it as Writing\'s does', (await listBeside()) === writingBeside, `Writing ${writingBeside}, folder ${await listBeside()}`)
-  // Back to the list: Esc puts the page away; its row's own menu takes it out of the folder.
-  await h.keyboard.press('Escape')
-  await wait(700)
-  await menu(h.locator(`[data-page="folders"] button[data-row][data-id="${page}"]`), 'Take out of Thesis')
-  check('"Take out of Thesis" on its row takes it off this page', await until(async () => !(await c.v('folders:of', 'nuggets'))[page] && !(await ids()).includes(page)), JSON.stringify(await ids()))
+  // Back (⌘[) to the folder's list, as from Writing's open page.
+  await h.keyboard.press('Meta+[')
+  await wait(900)
+  check('Back returns to the folder\'s list', (await rows().count()) === 2, `${await rows().count()}`)
+  await c.v('folders:file', [{ type: 'article', id: page }], null)
   await c.v('folders:file', [{ type: 'article', id: pages[0] }], null)
   check('the empty folder says so', await until(async () => /Nothing in Thesis yet/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
   // Its front: nothing until asked; pointed at, "Add a cover" and "Add words"; words typed are kept as it is left.
@@ -158,9 +163,11 @@ try {
   await h.locator('[data-folder-words-add]').click()
   await wait(500)
   await h.keyboard.type('Chapters for the thesis, and where the reading lives.')
-  await h.locator('[data-folder-fact]').click()
-  check('the words are kept with the folder', await until(async () => /Chapters for the thesis/.test((await c.v('folders')).find((one) => one.id === thesis.id)?.front ?? '')))
   await shot('folder-front')
+  // Left: the words go with the folder.
+  await h.locator('[data-side-all-folders]').click()
+  await wait(600)
+  check('the words are kept with the folder', await until(async () => /Chapters for the thesis/.test((await c.v('folders')).find((one) => one.id === thesis.id)?.front ?? '')))
 
   // The sidebar's tree, Notion's way: pointed at, a folder's icon gives way to its fold, "…" and "+" at its right.
   await c.v('folders:file', [{ type: 'article', id: page }], thesis.id)

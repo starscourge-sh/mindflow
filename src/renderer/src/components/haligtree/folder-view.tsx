@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/react'
 import { HaligtreeEditor } from './haligtree-editor'
 import { saveImage } from '@/extensions/image-drop'
@@ -131,6 +131,10 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
     const was = folder.front
     void folders.set(folder.id, { front: words }).then(() => quietly(() => void folders.set(folder.id, { front: was })))
   }
+  // Kept as it is left: the words leaving the field, or the page left with them in it.
+  const saveRef = useRef(save)
+  saveRef.current = save
+  useEffect(() => () => saveRef.current(), [])
   const cover = (src: string | null): void => {
     const was = folder.cover
     chime(src ? 'promote' : 'separate')
