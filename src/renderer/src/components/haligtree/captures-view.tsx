@@ -555,13 +555,24 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   // What is around a note's words (who links to it, a thought on it) comes the frame after them.
   const later = useAfterFirstPaint()
 
-  // The open capture dealt with (from its details or the chip over it): on to the next one, as mail does, rather than left on what is gone.
-  const afterExit = (): void => {
-    const at = shown.findIndex((one) => one.id === open?.id)
-    const next = shown[at + 1] ?? shown[at - 1]
-    if (next && next.id !== open?.id) pick(next.id)
+  // The open capture dealt with, by any way in (its details, the chip over it, ⌘K, a right-click, a key, another
+  // window): on to the next one, as mail does, rather than left on what is gone. Told by its status leaving the Inbox,
+  // not by each way out (⌘K's "Make it a task" left it open, "Resolved", 17 Nov). Where it sat is kept while it is
+  // listed: once it has left the list, the next one is in its place.
+  const sat = useRef<{ id: string; at: number } | null>(null)
+  const openAt = shown.findIndex((one) => one.id === open?.id)
+  if (open && openAt >= 0) sat.current = { id: open.id, at: openAt }
+  const status = meta?.id === open?.id ? meta?.status : undefined
+  const was = useRef<{ id?: string; status?: string }>({})
+  useEffect(() => {
+    const before = was.current
+    was.current = { id: open?.id, status }
+    if (!open || before.id !== open.id || before.status !== 'open' || !status || status === 'open') return
+    const next = openAt >= 0 ? shown[openAt + 1] ?? shown[openAt - 1]
+      : sat.current?.id === open.id ? shown[sat.current.at] ?? shown[sat.current.at - 1] : undefined
+    if (next && next.id !== open.id) pick(next.id)
     else setOpen(null)
-  }
+  }, [open?.id, status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx): never the note, then the list.
@@ -788,7 +799,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 setRev((n) => n + 1)
               })}
               left={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={whole.findIndex((one) => one.id === open.id)} total={whole.length} onStep={stepTo} /></ReadsIn>}
-              place={<CapturePlace capture={meta} onExit={afterExit} onBack={comeBack} />}
+              place={<CapturePlace capture={meta} onBack={comeBack} />}
               edited={meta.editedAt} captured={meta.capturedAt}
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[
@@ -919,7 +930,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             {/* From the first frame: its height is the same whatever it holds, and coming a frame late it pushed the page up. */}
             <ThoughtDock id={open.id} hidden={boardShown} />
           </div>
-          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onExit={afterExit} onBack={comeBack} />}
+          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onBack={comeBack} />}
         </motion.div>
         </Apart></ShowInListContext.Provider>
       ) : null}
@@ -993,7 +1004,7 @@ const INBOX = SECTIONS.find((one) => one.id === 'inbox')!
  * opens the same ways out its details list under “Where it goes” (one list, capture-list.tsx), Writing's folders
  * beside “Move to Writing”. One that has left the Inbox says where it went, with the way back.
  */
-export function CapturePlace({ capture, onExit, onBack }: { capture: Pick<CaptureMeta, 'id' | 'kind' | 'status' | 'keptIn'>; onExit?: () => void; onBack?: (id: string) => void }): React.JSX.Element {
+export function CapturePlace({ capture, onBack }: { capture: Pick<CaptureMeta, 'id' | 'kind' | 'status' | 'keptIn'>; onBack?: (id: string) => void }): React.JSX.Element {
   const folders = useGroups('article')
   const [merging, setMerging] = useState(false)
   // ⌘K's “Merge into another note…” opens the picker here, on the capture it is about.
@@ -1004,7 +1015,7 @@ export function CapturePlace({ capture, onExit, onBack }: { capture: Pick<Captur
   }, [capture.id])
   const inInbox = capture.status === 'open'
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
-  const ways = captureWays(capture, { onExit, onBack, folders, merge: () => (chime('open'), setMerging(true)) })
+  const ways = captureWays(capture, { onBack, folders, merge: () => (chime('open'), setMerging(true)) })
   // What it can become, a rule, then the ways to be done with it; the menu puts the Bin last itself.
   const done = ways.findIndex((way) => way.id === 'resolved')
   return (
@@ -1021,7 +1032,7 @@ export function CapturePlace({ capture, onExit, onBack }: { capture: Pick<Captur
 }
 
 /** Status and the exits, then what the capture is, then where it came from. */
-export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void; /** That way out undone: back on it. */ onBack?: (id: string) => void }): React.JSX.Element {
+export function CaptureProps({ capture, onOpen, className, fold, onBack }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** That way out undone: back on it. */ onBack?: (id: string) => void }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   // Whichever window shows these, ⌘K there acts on this capture.
   useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt, status: capture.status })
@@ -1059,7 +1070,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // Its ways out, from the one list every surface draws them from (capture-list.tsx).
-  const ways = captureWays(capture, { onExit, onBack })
+  const ways = captureWays(capture, { onBack })
   const inInbox = capture.status === 'open'
 
   return (
