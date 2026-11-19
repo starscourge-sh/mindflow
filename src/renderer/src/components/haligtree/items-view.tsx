@@ -891,7 +891,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
                 <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />
                 <span className="flex min-w-0 items-center gap-1.5 px-1.5 py-0.5 font-medium text-foreground"><GroupMark className="size-3.5 shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} /><span className="truncate italic">{gatherer.name}</span></span>
               </nav>
-              <p data-group-rule className="mt-1 text-body text-foreground/90"><strong className="font-semibold">A group:</strong> {ruleSaid(gatherer).toLowerCase().replace(/^every/, 'every')}, wherever it lives. Nothing is moved; tag a note {tagsSaid(gatherer.tags)} and it is here.</p>
+              <p data-group-rule className="mt-1 text-body text-foreground/90"><strong className="font-semibold">A group:</strong> {ruleSaid(gatherer).toLowerCase().replace(/^every/, 'every')}, wherever it lives. Nothing is moved; tag a {tier === 'nugget' ? 'gem' : 'page'} {tagsSaid(gatherer.tags)} and it is here.</p>
             </div>
           )}
           {opened && !folder && (
@@ -965,7 +965,14 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           </Example>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
-        ) : unloaded(all) ? null : (
+        ) : unloaded(all) ? null : gatherer ? (
+          // A group with nothing of its kind in it yet: said plainly, never the made-up example (17 Nov: #bug-report's 22
+          // were notes and tasks, and its group in Writing showed three invented pages). The tag's own page holds them all.
+          <Empty title={`No ${tier === 'nugget' ? 'gem' : 'page'} is tagged ${tagsSaid(gatherer.tags)} yet`}
+            action={<Button variant="secondary" size="sm" data-group-tag-page onClick={() => (chime('open'), window.api.openInHome('tag', gatherer.tags[0]))}>See everything tagged #{gatherer.tags[0]}</Button>}>
+            This group gathers {tier === 'nugget' ? 'gems' : 'pages'} only. Notes in the Inbox and tasks with the tag are on its own page.
+          </Empty>
+        ) : (
           // Nothing on show (none kept yet, or only archived ones): the page as it will look, with a few made-up ones.
           // One empty page either way: a second one, laid out apart, showed for a moment before this one.
           <Example tryIt={`${tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New page” above, or pick a few gems with X and choose “Start a page”.'} ${LIFECYCLE}`}>
