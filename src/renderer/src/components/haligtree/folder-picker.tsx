@@ -16,6 +16,9 @@ import { num, plural } from '../../../../main/dates'
  * merge picker is (merge-picker.tsx `MergePicker`), the app's own search field and rows. Mounted once in the main
  * window; anything asks for it with `askFolder` (lib/folders.ts).
  */
+/** One row of the picker, as cmdk draws it: about seven show before the list scrolls. */
+const ROW = '1.875rem'
+
 export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice: the Folders page. */ onFolders: () => void }): React.JSX.Element | null {
   const [asked, setAsked] = useState<{ things: Thing[]; at: DOMRect } | null>(null)
   const things = asked?.things ?? null
@@ -111,7 +114,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
         }}>
           <CommandInput autoFocus value={typed} onValueChange={setTyped} placeholder="Find or make a folder…" />
           {/* About seven rows, the rest a scroll away under the lists' own fades at either edge (main.css .mf-more). */}
-          <CommandList data-note-side data-folder-pick-list="" className="mf-more max-h-[13rem]">
+          <CommandList data-note-side data-folder-pick-list="" className="mf-more" style={{ maxHeight: `calc(7 * ${ROW})` }}>
             {!name && !shown.length && <CommandEmpty>No folders yet. Type a name to make one.</CommandEmpty>}
             {found.length > 100 && <p className="px-3 py-1.5 text-xs text-muted-foreground">{num(found.length - 100)} more: type more of the name</p>}
             {found.slice(0, 100).map(({ one, path }) => {
