@@ -92,6 +92,8 @@ try {
   // 6. Details, in the main window: where it came from, and the page to open.
   await send('capture', two.id)
   await h.waitForTimeout(1200)
+  if (!(await h.getByText('Came from', { exact: true }).count())) await h.getByText('Details', { exact: true }).first().click()
+  await h.waitForTimeout(800)
   const details = await h.evaluate(() => document.body.innerText)
   check('Details says “Came from Safari: “Frankenstein - Wikipedia””', /Came from\s*Safari: “Frankenstein - Wikipedia”/.test(details), details.match(/Came from[^\n]*/)?.[0])
   check('and the page’s address', /Page\s*en\.wikipedia\.org\/wiki\/Frankenstein/.test(details), details.match(/Page[^\n]*/)?.[0])
