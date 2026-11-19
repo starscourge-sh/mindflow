@@ -84,8 +84,8 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       'tag:read': (_gone: Gone, stamp: number, name: string) => tags.read(stamp, name),
       /** One note's own #tags. */
       'note:tags': (_gone: Gone, table: 'captures' | 'nuggets', id: string) => tags.ofNote(table, id),
-      /** Every capture as the lists show it (captures.ts `captures:list`): its name is worked out of its words, so a big book's list is read here, never on main. */
-      list: (_gone: Gone) => db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[],
+      /** Every capture as the lists show it (captures.ts `captures:list`), for the book's stamp `_stamp` (so two asks of one stamp are one): its name is worked out of its words, so a big book's list is read here, never on main. */
+      list: (_gone: Gone, _stamp: number) => db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[],
       /** Every PDF kept, once each (find-files.ts), for the PDF library; `stamp`: the book's. */
       pdfs: (_gone: Gone, stamp: number) => (pdfs?.stamp === stamp ? pdfs : (pdfs = { stamp, found: pdfsToFind(db) })).found,
       /** Every note's first lines in a table, for cards (notes.ts `notes:glance`): every note's words are read, so here, never on main. */

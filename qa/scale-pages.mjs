@@ -152,16 +152,18 @@ try {
     // SEARCH_AFTER=<ms>: searched that long after the pages (or the start), once the app has settled.
     if (process.env.SEARCH_AFTER) await new Promise((go) => setTimeout(go, Number(process.env.SEARCH_AFTER)))
     await stalls()
-    const keys = await h.evaluate(async () => {
-      const took = []
-      const words = 'docker shell'
-      for (let i = 1; i <= words.length; i++) {
-        const t0 = performance.now()
-        await window.api.captures.find(words.slice(0, i), undefined, 'scale-probe')
-        took.push(Math.round(performance.now() - t0))
-      }
-      return took
-    })
+    // Key by key from here, each with what the reading thread had in hand as it was asked and how many times search
+    // read the book: a slow key says whether it waited behind another read or read the whole book again.
+    const keys = []
+    const words = 'docker shell'
+    for (let i = 1; i <= words.length; i++) {
+      const doing = await electron.evaluate(() => globalThis.readerStats?.().doing ?? [])
+      const t0 = Date.now()
+      await h.evaluate((q) => window.api.captures.find(q, undefined, 'scale-probe'), words.slice(0, i))
+      keys.push(Date.now() - t0)
+      const after = await electron.evaluate(() => globalThis.readerStats?.() ?? {})
+      if (keys.at(-1) > 100) console.log(`  key ${i}: ${keys.at(-1)} ms, the thread had ${JSON.stringify(doing)}, search read the book ${after.reads} times`)
+    }
     const held = (await stalls()).delay.worst
     const worst = Math.max(...keys)
     console.log(`⌘K search      keys ${JSON.stringify(keys)}  worst ${worst} ms  main held ${held} ms  ${await memory()} MB  [${load()}]`)

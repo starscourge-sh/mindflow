@@ -454,7 +454,7 @@ export function registerCaptures(): void {
     if (!listed || listed.at !== bookStamp()) {
       const at = bookStamp()
       // A read that failed is not kept: the next ask reads again.
-      if (reading?.at !== at) reading = { at, rows: ask('list', []).catch((error: unknown) => ((reading = null), Promise.reject(error))) }
+      if (reading?.at !== at) reading = { at, rows: ask('list', [at]).catch((error: unknown) => ((reading = null), Promise.reject(error))) }
       const rows = await reading.rows
       // Kept as read for its stamp (another window's ask may have kept the same read already): anything written while
       // it was read moved the stamp past it, so the next ask reads again.

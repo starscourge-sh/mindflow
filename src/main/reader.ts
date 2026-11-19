@@ -48,7 +48,13 @@ const tell = (said: ToThread): void => thread?.postMessage(said)
 /** Ask the reading thread. */
 export function ask<K extends keyof Jobs>(kind: K, args: Asked<K>, slot?: string): Promise<Answered<K>> {
   stats.asked++
-  return new Promise<unknown>((done, failed) => {
+  // The very same ask (its kind and what it carries) while one is still out: answered by that one, never queued again.
+  // Home, a list and the Feed each asked their whole-book reads again on every visit, and on a big book the copies
+  // piled up on the thread faster than it read them (thirty at once), so a search typed later waited 20 s behind them.
+  const same = slot ? undefined : `${kind}\u0000${JSON.stringify(args)}`
+  const out = same ? asking.get(same) : undefined
+  if (out) return out as Promise<Answered<K>>
+  const made = new Promise<unknown>((done, failed) => {
     const one: Ask = { id: ++ids, kind, args, slot, done, failed, with: [] }
     if (!thread) return onMain(one)
     if (!slot || !inHand.has(slot)) return send(one)
@@ -60,8 +66,12 @@ export function ask<K extends keyof Jobs>(kind: K, args: Asked<K>, slot?: string
       was.with = []
     }
     behind.set(slot, one)
-  }) as Promise<Answered<K>>
+  })
+  if (same) (asking.set(same, made), void made.then(() => asking.delete(same), () => asking.delete(same)))
+  return made as Promise<Answered<K>>
 }
+/** The asks still out, by kind and what they carry (not those with a slot, which give way to newer ones instead). */
+const asking = new Map<string, Promise<unknown>>()
 
 /** The asker of a slot has left (a note closed, a search box gone): nothing more is read for it. */
 export function left(slot: string): void {
