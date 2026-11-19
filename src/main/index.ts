@@ -6884,6 +6884,15 @@ app.whenReady().then(() => {
     return { stored, from, to }
   }
 
+  // "Import as a note" from Files' preview of a Markdown or text file: a copy under its own name, brought in and opened
+  // exactly as the same file opened from Finder is (openFinderFile), so its name, words and notice are the same.
+  ipcMain.handle('haligtree:media:as-note', async (_event, src: unknown, name: unknown) => {
+    if (!/\.(md|markdown|txt|text)$/i.test(String(name ?? '')) || !openFinderFile) return false
+    const copy = copyOut(src, name, true)
+    if (!copy) return false
+    await openFinderFile(copy.to)
+    return true
+  })
   // "Open in its app": a copy, never the stored file, handed to whatever the system opens it with.
   ipcMain.handle('open-file', async (_event, src: unknown, name: unknown) => {
     const copy = copyOut(src, name, true)

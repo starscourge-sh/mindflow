@@ -321,6 +321,14 @@ export function registerMedia(): void {
     }
     return made
   })
+  // A Markdown or text file's own words, for Files' preview to set as text (file-look.tsx): its first 200,000
+  // letters, and whether there was more. Only those kinds, from the app's own store.
+  ipcMain.handle('haligtree:media:text', async (_event, src: unknown) => {
+    const found = /^(?:haligtree|mindflow):\/\/assets\/([a-f0-9]{64}\.(md|markdown|txt|text))$/.exec(String(src ?? ''))
+    if (!found) return null
+    const text = await readFile(join(assetsDir(), found[1]), 'utf8').catch(() => null)
+    return text === null ? null : { text: text.slice(0, 200_000), more: text.length > 200_000 }
+  })
   // Files' search: every file whose words hold every word asked for, from the index the list keeps.
   ipcMain.handle('haligtree:media:find', (_event, query: unknown) => {
     const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean).slice(0, 16)

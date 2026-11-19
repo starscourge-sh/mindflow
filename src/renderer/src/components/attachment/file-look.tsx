@@ -6,6 +6,8 @@ import { AliveIcon } from "@/components/ui/alive-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
 import { X } from "@/components/ui/icons"
 import { Orb } from "@/components/haligtree/orb"
+import { HaligtreeEditor } from "@/components/haligtree"
+import { FileInput } from "lucide-react"
 import { refuse } from "@/components/haligtree/ui"
 import { faceOf, kindWord } from "@/components/haligtree/files-shelves"
 import { VideoPlayer } from "@/components/haligtree/sound-player"
@@ -48,6 +50,8 @@ export async function openFileLook(one: Shown, from?: Element | null): Promise<v
 }
 
 const bare = (name: string): string => name.replace(/\.[^.]+$/, "") || name
+/** Markdown and plain text: set as words in the app's own type, never a picture of them (17 Nov: "docs/mark down files are opened raw as images"). */
+const asWords = (name: string): boolean => /\.(md|markdown|txt|text)$/i.test(name)
 type Start = { image: string; width: number; height: number }
 
 function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | null; start: Start | null; onClose: () => void }): React.JSX.Element {
@@ -89,13 +93,15 @@ function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | n
     backdrop.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: EASING })
   }, [])
   const openOwn = (): void => void window.api.openFile(one.src, one.name).then((done) => (done ? (chime("open"), close()) : refuse("No app on this Mac opens it")))
+  // Brought in as a note, as the same file opened from Finder is, and opened there.
+  const asNote = (): void => void call<boolean>("media:as-note", one.src, one.name).then((done) => (done ? (chime("promote"), close()) : refuse("This file could not be brought in as a note")))
   return (
     <div ref={box} tabIndex={-1} className="mf-look outline-none" role="dialog" aria-label={`Preview of ${one.name || kindWord(one)}`} aria-modal="true" data-file-look={one.kind}>
       <div ref={backdrop} className="mf-look-backdrop" onClick={close} />
       <div data-drag-strip="" aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />
       <div className="pointer-events-none absolute inset-x-12 top-12 bottom-24 flex items-center justify-center">
         <div ref={frame} className="pointer-events-auto flex max-h-full max-w-full items-center justify-center">
-          {one.kind === "video" ? <Player one={one} onOpenOwn={openOwn} /> : <Page one={one} start={start} />}
+          {one.kind === "video" ? <Player one={one} onOpenOwn={openOwn} /> : asWords(one.name) ? <Words one={one} /> : <Page one={one} start={start} />}
         </div>
       </div>
       <div className="mf-look-foot">
@@ -103,6 +109,12 @@ function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | n
           <span className="mf-look-caption" data-file-look-name>{bare(one.name) || kindWord(one)}</span>
           <ToolbarSeparator />
           <ToolbarGroup>
+            {asWords(one.name) && (
+              <Button data-style="ghost" data-file-look-as-note aria-label="Import as a note" onClick={asNote}>
+                <FileInput className="tiptap-button-icon" />
+                <span className="tiptap-button-text">Import as a note</span>
+              </Button>
+            )}
             <Button data-style="ghost" data-file-look-open aria-label="Open in its app" onClick={openOwn}>
               <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
               <span className="tiptap-button-text">Open in its app</span>
@@ -140,6 +152,30 @@ function Player({ one, onOpenOwn }: { one: Shown; onOpenOwn: () => void }): Reac
       <VideoPlayer src={one.src} poster={face && !face.icon ? face.image : null} length={place?.seconds} from={place?.played} autoPlay windowKeys onOpenOwn={onOpenOwn}
         onShape={(w, h) => (setShape(w / h), setOwn(Math.max(480, Math.min(1280, w * 2))))} pictureStyle={{ aspectRatio: shape }} />
     </span>
+  )
+}
+
+/**
+ * A Markdown or text file as a page of words, set as a note is (read only, in the app's own editor, so its headings,
+ * lists, code and links read as they do in a note, and every word can be picked and copied); a very long one shows
+ * its first 200,000 letters and says so.
+ */
+function Words({ one }: { one: Shown }): React.JSX.Element {
+  const [got, setGot] = useState<{ text: string; more: boolean } | null | undefined>(undefined)
+  useEffect(() => {
+    let live = true
+    void call<{ text: string; more: boolean } | null>("media:text", one.src).then((found) => live && setGot(found), () => live && setGot(null))
+    return () => void (live = false)
+  }, [one.src])
+  return (
+    <div data-file-look-words className="flex h-[calc(100vh-9rem)] w-[min(46rem,calc(100vw-6rem))] flex-col overflow-y-auto rounded-xl bg-background px-2 py-6 shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">
+      {got === undefined ? <span className="grid flex-1 place-items-center"><Orb label="Reading it…" /></span>
+        : got === null ? <p className="m-auto max-w-[30ch] text-center text-body text-foreground">Its words could not be read here: “Open in its app” opens it.</p>
+        : <>
+            <HaligtreeEditor defaultContent={got.text} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+            {got.more && <p className="px-12 pt-4 text-control text-muted-foreground">The first 200,000 letters: “Open in its app” shows the rest.</p>}
+          </>}
+    </div>
   )
 }
 
