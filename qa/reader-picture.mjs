@@ -28,7 +28,8 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v, electron } = c
 const shots = process.env.QA_SHOTS
-const notice = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((one) => one.textContent).join(' | '))
+// The app's notices are its own (ui.tsx, role=status), not Sonner's: the highlight's went unread.
+const notice = () => h.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent).join(' | '))
 try {
   await electron.evaluate((_, [site, page, pic]) => {
     globalThis.__realFetch ??= globalThis.fetch
