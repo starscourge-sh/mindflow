@@ -9,6 +9,7 @@ import { findCaptures } from '@/lib/capture-links'
 import { readTask } from '../../../../main/task-words'
 import { HaligtreeEditor } from './haligtree-editor'
 import { TINT, tintOf } from './task-input'
+import { vimPluginKey } from '@/extensions/vim-mode'
 import type { AtLink } from './at-notes'
 
 /**
@@ -256,7 +257,9 @@ export function DayLine({ lineKey, value, register, onKey, onLeave, onPaste, onT
           slash={false}
           outline={false}
           search={false}
-          vim={false}
+          // Vim as the page's switch says, only while the row's words are being written (an editor only then), opening
+          // ready to type; the row's own keys come first, except Escape while typing, which is Vim's (to normal mode).
+          vimStart="insert"
           math={false}
           smoothScroll={false}
           marks={[]}
@@ -267,7 +270,11 @@ export function DayLine({ lineKey, value, register, onKey, onLeave, onPaste, onT
           defaultContent={contentOf(shown)}
           placeholder={placeholder}
           style={{ '--mf-padding': '0' } as React.CSSProperties}
-          onKeyDown={(event) => keys.current(event, handle.current)}
+          onKeyDown={(event) => {
+            const vim = editor.current && vimPluginKey.getState(editor.current.state)
+            if (vim?.enabled && vim.mode === 'insert' && event.key === 'Escape') return false
+            return keys.current(event, handle.current)
+          }}
           onReady={(one) => {
             editor.current = one
             one.on('update', () => typed.current?.(lineOf(one.state.doc).text))
