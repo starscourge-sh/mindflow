@@ -3698,7 +3698,7 @@ html[data-pill-open='left'] #root { right: 0; }
 /* Its words at the field's own size, as the plain field before it was: a field, not a page. No typewriter room after
    the last line, and no band on the caret's line (too loud in a field, as on a sticky). Its hint in italic, as before. */
 [data-plain-field] .haligtree-editor-content > .tiptap.ProseMirror.haligtree-editor { font-size: calc(var(--text-body) * var(--mf-text-scale, 1)); line-height: 1.5; padding: 0; }
-[data-plain-field] .vim-cursor-line::before { display: none; }
+[data-plain-field] .vim-cursor-line:not(.is-empty[data-placeholder])::before { display: none; }
 [data-plain-field] .tiptap.ProseMirror .is-empty[data-placeholder]::before { font-style: italic; }
 /* Its round controls stand beside its right end at its own height, in the room main keeps there (hint-room.ts).
    Grown into the box, they go in a row above it, level with its right edge, at their usual size (note 57aa1710),
