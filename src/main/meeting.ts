@@ -7,7 +7,7 @@ import { app, ipcMain, shell, systemPreferences } from 'electron'
 import helper from '../../resources/meeting?asset&asarUnpack'
 import { database, keepMeeting, setting } from './captures'
 import { assetsDir } from './pictures'
-import { caps } from './understand'
+import { caps, understand } from './understand'
 import { meets } from './needs'
 import { foundActions, writtenActions, type MeetingLine } from './meeting-doc'
 import { readTake } from './meeting-take'
@@ -510,7 +510,39 @@ async function discardLeft(id: string): Promise<void> {
 }
 const undoDiscard = (id: string): Promise<void> => rename(join(discardedDir(), id), join(meetingsDir(), id))
 
+/** What Apple Intelligence is asked of a recording read again: the five lists a new one gets (native/meeting.swift `take`). */
+const READ_AGAIN = `You read part of a meeting's transcript and write what to take from it, plainly. Answer in exactly these sections, each line starting with "- ":
+SUMMARY (two or three sentences, no list), DECISIONS, ACTIONS, OPEN QUESTIONS, ABOUT YOU (things said about "You" or your work).
+ACTIONS holds only a real promise someone made ("I'll send it by Friday") or a real ask of someone ("can you check the invoice?"), each "- [owner] what, by when if said [12s]".
+Never a story, a feeling, a quote, lyrics, or a line only because it has "tell", "will" or "going to" in it. Most parts have few actions or none.
+Keep each line's [seconds] from the transcript. Write "- none" under a heading with nothing.`
+
+/**
+ * A recording kept without Apple Intelligence's read (made on a Mac or a day without it): read now, a part at a time,
+ * since a long meeting is more than the model takes at once. The summary is the first part's; the lists are every
+ * part's. Said plainly when this Mac has no Apple Intelligence, so the page keeps the lines found by rule.
+ */
+async function readAgain(lines: MeetingLine[]): Promise<{ take: Record<string, unknown>; actions: ReturnType<typeof writtenActions> } | { unavailable: string } | { failed: string }> {
+  const ai = (await caps()).ai
+  if (ai !== 'available') return { unavailable: ai }
+  const said = lines.map((one) => `[${Math.floor(one.at)}s] ${one.who === 'you' ? 'You' : `Speaker ${one.who.slice(1)}`}: ${one.text}`)
+  const parts: string[] = []
+  for (const line of said) {
+    if (!parts.length || parts[parts.length - 1].length + line.length > 10_000) parts.push(line)
+    else parts[parts.length - 1] += `\n${line}`
+  }
+  const texts: string[] = []
+  for (const [at, part] of parts.entries()) {
+    const answer = await understand('write', { instructions: READ_AGAIN + (at ? '\nThis is a later part: write "- none" under SUMMARY.' : ''), prompt: part })
+    if (answer.error) return { failed: answer.error.message }
+    texts.push(String(answer.text ?? ''))
+  }
+  const take = { text: texts.join('\n') }
+  return { take, actions: writtenActions(readTake(take)?.actions ?? [], lines) }
+}
+
 export function registerMeeting(show: Shown): void {
+  ipcMain.handle('haligtree:meeting:read-again', (_event, lines: unknown) => readAgain(Array.isArray(lines) ? (lines as MeetingLine[]) : []))
   shown = show
   ipcMain.handle('haligtree:meeting:left', () => recordingsLeft())
   ipcMain.handle('haligtree:meeting:left-keep', (_event, id: unknown) => (isFolderId(id) ? keepLeft(id) : {}))

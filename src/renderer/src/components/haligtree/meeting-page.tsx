@@ -7,14 +7,14 @@ import { cn } from '@/lib/cn'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { makeTask } from '@/lib/tasks'
-import { haligtree, useLive } from '@/lib/haligtree'
+import { call, haligtree, useLive } from '@/lib/haligtree'
 import { pointAtLine } from '@/extensions/meeting'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { SoundPlayer, clock } from './sound-player'
 import { toast } from './ui'
 import { readTake, type Take } from '@/lib/meeting-take'
 import { aimNow, aimTaken } from '@/lib/meeting'
-import { transcriptLines, voiceName, type ActionItem, type MeetingLine } from '../../../../main/meeting-doc'
+import { settledVoices, transcriptLines, voiceName, type ActionItem, type MeetingLine } from '../../../../main/meeting-doc'
 
 type Found = { dates: Said[]; actions: Said[]; questions: Said[]; names: { name: string; times: number }[] }
 type Said = { text: string; at: number; speaker?: string; date?: string | null }
@@ -32,7 +32,7 @@ const QUIET_BUTTON = 'flex h-7 shrink-0 cursor-pointer items-center gap-1 rounde
  * the fix as it undoes anything in the note.
  */
 export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): React.JSX.Element {
-  const a = node.attrs as { audio: string; seconds: number; startedAt: string; event: { title: string } | null; people: string[]; speakers: string[]; names: Record<string, string>; moments: Said[]; found: Found | null; take: Record<string, unknown> | null; words: string | null; lines: MeetingLine[]; actions: ActionItem[]; heard: number | null; stopped: string | null; quietMic: string | null }
+  const a = node.attrs as { audio: string; seconds: number; startedAt: string; event: { title: string } | null; people: string[]; speakers: string[]; names: Record<string, string>; moments: Said[]; found: Found | null; take: Record<string, unknown> | null; words: string | null; lines: MeetingLine[]; actions: ActionItem[]; heard: number | null; stopped: string | null; quietMic: string | null; readAgain: string | null }
   const lines = useMemo(() => a.lines ?? [], [a.lines])
   const box = useRef<HTMLDivElement>(null)
   const said = useRef<HTMLDivElement>(null)
@@ -223,6 +223,40 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
     updateAttributes({ lines: lines.map((one) => (one.id === id ? { ...one, text } : one)) })
     chime('saved')
   }
+
+  // A recording kept before its voices were settled, or before Apple Intelligence read it (8 Nov: nine voices for one
+  // person, "tell the same" as an action item): done once as it opens. The voices at once, said at once with their
+  // Undo; then Apple Intelligence, where this Mac has it, reads the lines with the voices settled (a minute or more for
+  // an hour), and says what it found when it has, with its own Undo. Marked as read again, Undo too, so it is done once.
+  const settling = useRef(false)
+  const latest = useRef(node)
+  latest.current = node
+  useEffect(() => {
+    if (!editable || settling.current || !lines.length || a.readAgain) return
+    const settled = settledVoices({ lines, speakers: a.speakers, names: a.names, actions: a.actions, moments: a.moments })
+    if (!settled && a.take) return
+    settling.current = true
+    const stamp = new Date().toISOString()
+    if (settled) {
+      const was = { lines: a.lines, speakers: a.speakers, names: a.names, moments: a.moments, actions: a.actions }
+      updateAttributes({ lines: settled.lines, speakers: settled.speakers, names: settled.names, actions: settled.actions, moments: settled.moments, readAgain: stamp })
+      chime('settled')
+      // Its items go back too only while they are still the ones it had: Apple Intelligence's, come since, stay.
+      toast(`${num(settled.speakers.length)} speakers in this recording, not ${num(settled.was)}: a voice heard in under 1 line in 20 is one of the others misheard`,
+        () => updateAttributes({ ...was, actions: latest.current.attrs.take ? latest.current.attrs.actions : was.actions, readAgain: stamp }))
+    }
+    if (a.take) return
+    void call<{ take: Record<string, unknown>; actions: ActionItem[] } | { unavailable: string } | { failed: string }>('meeting:read-again', settled?.lines ?? lines).then((read) => {
+      if (editor.isDestroyed || !('take' in read)) return
+      const before = { take: latest.current.attrs.take, actions: latest.current.attrs.actions as ActionItem[] }
+      // Ticked or made a task already: that item is kept as it is.
+      const kept = (before.actions ?? []).filter((one) => one.done || one.task)
+      updateAttributes({ take: read.take, actions: [...kept, ...read.actions.map((one, at) => ({ ...one, id: `a${kept.length + at}` }))], readAgain: stamp })
+      chime('settled')
+      toast(read.actions.length ? `Apple Intelligence read this recording and found ${num(read.actions.length)} action ${read.actions.length === 1 ? 'item' : 'items'}` : 'Apple Intelligence read this recording and found no action items in it',
+        () => updateAttributes({ ...before, readAgain: stamp }))
+    }, () => undefined)
+  }, [editable, lines.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dropRecording = (): void => {
     const before = { audio: a.audio, you: node.attrs.you, others: node.attrs.others }
