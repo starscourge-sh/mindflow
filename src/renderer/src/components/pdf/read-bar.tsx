@@ -410,7 +410,7 @@ export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: numb
     void window.api.haligtree<{ question?: string } | { error: string }>("ai:help", "card", about).then((said) => {
       if (!live || !("question" in said) || !said.question) return
       setWhy((was) => (was ? was : said.question!))
-      requestAnimationFrame(() => field.current?.value === said.question && field.current.select())
+      requestAnimationFrame(() => field.current?.value === said.question && field.current?.select())
     }, () => undefined)
     return () => void (live = false)
   }, [about])

@@ -967,10 +967,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               set({ sessionTick })
             }} />
           </Setting>
-          <Setting under off={!settings.sounds ? 'Turn “Sounds” on to change this.' : !settings.sessionTick && 'Turn on “Session ticking” to change this.'} title="Ticking volume" note="How loud the ticking is; let go to hear it.">
+          <Setting under off={!settings.sounds ? 'Turn “Sounds” on to change this.' : !settings.sessionTick && 'Turn on “Session ticking” to change this.'} title="Session sound volume" note="How loud the session's sound is; let go to hear it.">
             <SettingSlider disabled={!settings.sounds || !settings.sessionTick} min={0} max={1} step={0.05} value={settings.sessionTickVolume ?? 0.5} onSave={(sessionTickVolume) => set({ sessionTickVolume })} sample={(level) => tickSample(settings.sessionTickSound ?? 'wall', level)} />
           </Setting>
-          <Setting under off={!settings.sounds ? 'Turn “Sounds” on to change this.' : !settings.sessionTick && 'Turn on “Session ticking” to change this.'} title="Ticking sound" note="Which clock ticks; pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session">
+          <Setting under off={!settings.sounds ? 'Turn “Sounds” on to change this.' : !settings.sessionTick && 'Turn on “Session ticking” to change this.'} title="Session sound" note="A clock, or something tenser, while you focus; pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session heartbeat drone tense pulse ominous suspense braam grandfather mantel">
             <div inert={!settings.sounds || !settings.sessionTick} className={settings.sounds && settings.sessionTick ? '' : 'opacity-50'}>
               <Chips className="shrink-0" options={TICKS} on={(id) => id === (settings.sessionTickSound ?? 'wall')} pick={(id) => {
                 const sessionTickSound = id as TickSound

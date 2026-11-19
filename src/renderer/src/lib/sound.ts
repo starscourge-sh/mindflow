@@ -13,6 +13,16 @@ import tenseUrl from '@/assets/sounds/clock-tense.m4a'
 import alarmUrl from '@/assets/sounds/clock-alarm.m4a'
 import saberOnUrl from '@/assets/sounds/saber-on.m4a'
 import saberOffUrl from '@/assets/sounds/saber-off.m4a'
+import sessionPulseUrl from '@/assets/sounds/session-pulse.m4a'
+import sessionHeartbeatUrl from '@/assets/sounds/session-heartbeat.m4a'
+import sessionTenseLoopUrl from '@/assets/sounds/session-tense-loop.m4a'
+import sessionApproachingUrl from '@/assets/sounds/session-approaching.m4a'
+import sessionBraamUrl from '@/assets/sounds/session-braam.m4a'
+import sessionOminousUrl from '@/assets/sounds/session-ominous.m4a'
+import sessionDroneUrl from '@/assets/sounds/session-drone.m4a'
+import sessionSuspenseUrl from '@/assets/sounds/session-suspense.m4a'
+import sessionGrandfatherUrl from '@/assets/sounds/session-grandfather.m4a'
+import sessionMantelUrl from '@/assets/sounds/session-mantel.m4a'
 import { markKeyed } from './motion'
 
 /**
@@ -864,12 +874,23 @@ export async function saberLength(up: boolean): Promise<number> {
  * session pauses, ends or is called off, and none of it plays in safe mode.
  */
 type Clock = { running: boolean; left: number | null; tick: boolean; level: number; sound?: TickSound }
-/** The ticks to choose from in Settings, each a short loop (assets/sounds/SOURCES.txt). */
+/** What plays while a session runs, to choose from in Settings: clocks, then tenser sounds, each a loop (assets/sounds/SOURCES.txt). */
 export const TICKS = [
   { id: 'old', label: 'Old clock', url: tickUrl },
   { id: 'wall', label: 'Wall clock', url: wallUrl },
   { id: 'watch', label: 'Pocket watch', url: watchUrl },
-  { id: 'desk', label: 'Desk clock', url: deskUrl }
+  { id: 'desk', label: 'Desk clock', url: deskUrl },
+  // Ten more the user chose (17 Nov), for a session that wants tension rather than a clock: each a loop of up to 30 s.
+  { id: 'pulse', label: 'Dark pulse', url: sessionPulseUrl },
+  { id: 'heartbeat', label: 'Heartbeat', url: sessionHeartbeatUrl },
+  { id: 'tense-loop', label: 'Tense loop', url: sessionTenseLoopUrl },
+  { id: 'approaching', label: 'Approaching', url: sessionApproachingUrl },
+  { id: 'braam', label: 'Braam', url: sessionBraamUrl },
+  { id: 'ominous', label: 'Ominous', url: sessionOminousUrl },
+  { id: 'drone', label: 'Deep drone', url: sessionDroneUrl },
+  { id: 'suspense', label: 'Soft suspense', url: sessionSuspenseUrl },
+  { id: 'grandfather', label: 'Grandfather clock', url: sessionGrandfatherUrl },
+  { id: 'mantel', label: 'Mantel clock', url: sessionMantelUrl }
 ] as const
 export type TickSound = (typeof TICKS)[number]['id']
 const tickOf = (sound?: TickSound): string => (TICKS.find((one) => one.id === (sound ?? 'wall')) ?? TICKS[1]).url

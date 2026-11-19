@@ -13,3 +13,19 @@ The eight above came with no licence text in the files. Their file names follow 
 page-turn.m4a: the first 0.3s of paper-fold.m4a, faded and brought up to a level you can hear (a piece of writing opened, a note opened in a new pane; played faster and softer when stepping with the arrow keys). The first cut was so quiet it could not be heard.
 paper-slide.m4a: 0.28s from the middle of paper-rip.m4a, made mono, its rasp filtered off and faded in and out (read mode opening, the reading queue moving on). A pane closing plays paper-fold.m4a faster and softer.
 paper-crumple.m4a: "Crumpling Paper" by freesound_community (Pixabay, sound 106666), supplied by the project owner, made mono (a sheet crumpled on its way to the Bin, a picture taken out of a note). Pixabay's Content License allows use in an app without credit.
+
+The session sounds (Settings, "Session sound"), sent by the project owner on 17 Nov 2026 from Pixabay. Each is the
+file's start, at most 30 s (20 s for the grandfather clock), made mono, brought to one loudness and saved as 64k AAC;
+the originals were not changed. Their names follow Pixabay's download naming (user, title, sound number), and
+Pixabay's Content License allows them inside an app that is sold, without credit, though not sold or shared on their
+own as sound files; the sources are named here anyway. Not checked on Pixabay's own pages (no web from here).
+  session-pulse.m4a        "Atmosphere Dark & Tense Pulsing" by tomas_herudek (Pixabay, 256195)
+  session-heartbeat.m4a    "Heartbeat Tense" by pwlpl (Pixabay, 377249)
+  session-tense-loop.m4a   "Tense Loop" by freeeverythingxx (Pixabay, 271270)
+  session-approaching.m4a  "Approaching" by soundreality (Pixabay, 161554)
+  session-braam.m4a        "SFX Cinematic Suspenseful and Intense Braam Styled Sound Effect" by fronbondi_skegs (Pixabay, 359408)
+  session-ominous.m4a      "Ominous Soundscape for Intense Moments" by universfield (Pixabay, 158460)
+  session-drone.m4a        "Drone Cinematic Slow Driving Subbass Ambient Background" by fronbondi_skegs (Pixabay, 456761)
+  session-suspense.m4a     "Soft Suspense Music" by freesound_community (Pixabay, 28126)
+  session-grandfather.m4a  "Clock" by freesound_community (Pixabay, 24340)
+  session-mantel.m4a       "Clock Ticking" by universfield (Pixabay, 149907)

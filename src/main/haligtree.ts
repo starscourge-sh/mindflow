@@ -332,7 +332,7 @@ const DEFAULTS = {
   sessionTick: true,
   sessionTickVolume: 0.5,
   // Which tick, from the recordings in Settings.
-  sessionTickSound: 'wall' as 'old' | 'wall' | 'watch' | 'desk',
+  sessionTickSound: 'wall' as 'old' | 'wall' | 'watch' | 'desk' | 'pulse' | 'heartbeat' | 'tense-loop' | 'approaching' | 'braam' | 'ominous' | 'drone' | 'suspense' | 'grandfather' | 'mantel',
   // A soundscape while you write on today's page or in the writing room, off at first.
   writingSound: 'off' as 'off' | 'shore' | 'rain' | 'hearth',
   // Now and then a light glides across the session bubble, in case it was forgotten.
