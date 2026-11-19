@@ -202,6 +202,13 @@
   height: auto;
   margin-right: -100%;
 }
+/* A one-line field (quick capture's pill, a title, a task's line) keeps its hint to its one line: the end is dropped
+   where it would wrap. Wrapped, the pill cut the second line off under the first, and the top of its words showed
+   under the "W" (the user's "clipped things under the 'W'"); a title or task line grew a second line for its hint. */
+:is(.app-container[data-pill], .is-line) .tiptap.ProseMirror .is-editor-empty[data-placeholder]:has(> .ProseMirror-trailingBreak:only-child)::before {
+  height: 1lh;
+  overflow: hidden;
+}
 
 /* =====================
      DROPCURSOR
