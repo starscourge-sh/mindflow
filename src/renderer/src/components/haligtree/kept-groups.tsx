@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { askFolder } from '@/lib/folders'
 import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
 import { NameInPlace } from './name-in-place'
@@ -1107,9 +1108,9 @@ export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, o
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={later(onRename)}>Rename…</ContextMenuItem>
       <ContextMenuItem onSelect={later(onIcon)}>Change icon…</ContextMenuItem>
-      {/* The one thing that tells a folder from a group, either way (16 Nov: "convert a group into a folder and vice versa"). */}
-      <ContextMenuItem data-group-kind onSelect={() => convert(group)}>
-        {group.folder ? <Hinted label="Make it a group" hint={`Its ${noun}s back in the list`} /> : <Hinted label="Make it a folder" hint={`Its ${noun}s live only in it`} />}
+      {/* A group is not a place: what it holds is kept in a folder of Folders, the group staying as it is (folders.ts). */}
+      <ContextMenuItem data-group-kind onSelect={() => askFolder(members.map((id) => ({ type: 'nugget' as const, id })))}>
+        <Hinted label={`Keep its ${noun}s in folder…`} hint="The group stays as it is" />
       </ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive {word}</ContextMenuItem>

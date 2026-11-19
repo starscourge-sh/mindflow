@@ -226,7 +226,7 @@ const RULES: [RegExp, LucideIcon][] = [
   // A new folder and a new page side by side in one menu (Writing's, a folder's) each wear their own sign.
   [/^new folder/i, FolderPlus],
   // Folders (side-folder-section.tsx, folder-view.tsx): kept in one, taken out, on or off the sidebar, archived, gone.
-  [/^keep (\S+ )?in folder/i, FolderInput],
+  [/^keep .*in folder/i, FolderInput],
   [/^take out of /i, FolderMinus],
   [/^all folders/i, Folder],
   [/^show in the sidebar$/i, Star],
