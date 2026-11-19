@@ -4,7 +4,7 @@ import { askFolder } from '@/lib/folders'
 import { LengthMark } from './length-mark'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Branches } from './branches'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { showIn } from '@/lib/same-words'
 import { remindersItem } from '@/lib/reminders'
@@ -1733,8 +1733,9 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           onChange={(notes) => ((sentNotes.current = JSON.stringify(notes)), void haligtree.saveTask(task.id, { notes }))}
           foot={(editor) => <SessionFooter editor={editor} note={`task-${task.id}`} />}
         />
-        {/* Keyed by the list itself, so a change made elsewhere (the other window, an undo) shows. */}
-        <Checklist key={JSON.stringify(task.subtasks)} task={task} onOpen={onOpen} />
+        {/* Kept while the task is: a change made elsewhere (the other window, an undo) is taken in by the list itself, so
+            writing the next subtask is never thrown out of its field by its own save. */}
+        <Checklist key={task.id} task={task} onOpen={onOpen} />
       </div>
       <Props>
         {/* The focus timer turned off (Settings, Tasks): no sessions to start or count. */}
@@ -2220,13 +2221,74 @@ function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
   return !task.blocker ? <Tip label="What is in the way: one of your tasks, or a few words. It shows on the row, and “Blocked” in the filter finds it">{field}</Tip> : field
 }
 
+/** A subtask's tick, round as Today's rows are (a smaller ring): filled and checked when done. */
+const STEP_TICK = 'relative flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/70 transition-colors after:absolute after:-inset-1.5 after:rounded-full'
+/** A subtask's row, as Today's list draws one: its own fill under the pointer, the words at the list's size. */
+const STEP_ROW = '-mx-2 flex min-h-9 items-center gap-3 rounded-md px-2 text-body transition-colors hover:bg-accent/50 focus-within:bg-accent/50'
+
+/**
+ * A task's subtasks as a list ready to write in, as Things' checklist and Today's own rows: an empty row at its end
+ * (or where ↵ was pressed) to type the next in, ↵ making it and opening the row after, ⇧↵ splitting a row at the caret,
+ * ⌫ on an empty new row closing it. (17 Nov: "should be a list by default ... i can even hit shift+enter to seperate".)
+ */
 function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const [items, setItems] = useState(task.subtasks)
+  // A change made elsewhere (the other window, an undo) taken in; its own saves come back the same.
+  const saved = JSON.stringify(task.subtasks)
+  useEffect(() => setItems(JSON.parse(saved)), [saved])
   const [draft, setDraft] = useState('')
+  // Where the new row stands: after the row ↵ was pressed in, or at the end (null).
+  const [at, setAt] = useState<number | null>(null)
+  // The field to put the caret in once the rows are drawn: a subtask's (its index) or the new row's.
+  const caret = useRef<{ row: number | 'new'; at?: number } | null>(null)
+  const list = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    const want = caret.current
+    if (!want) return
+    caret.current = null
+    const field = list.current?.querySelector<HTMLInputElement>(want.row === 'new' ? '[data-subtask-new]' : `[data-subtask="${want.row}"]`)
+    field?.focus()
+    if (field && want.at !== undefined) field.setSelectionRange(want.at, want.at)
+  })
   const save = (next: typeof items): void => {
     setItems(next)
     void haligtree.saveTask(task.id, { subtasks: next })
   }
+  const place = at === null ? items.length : Math.min(at, items.length)
+  const newRow = (
+    <li key="new" className={STEP_ROW}>
+      <span aria-hidden className={`${STEP_TICK} border-dashed`} />
+      <input
+        data-subtask-new
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && at !== null) return (event.stopPropagation(), setDraft(''), setAt(null))
+          if (event.key === 'Backspace' && !draft && at !== null) return (event.preventDefault(), (caret.current = { row: place - 1 }), setAt(null))
+          if (event.key !== 'Enter' || !draft.trim()) return
+          event.preventDefault()
+          chime('tap')
+          save([...items.slice(0, place), { text: draft.trim(), done: false }, ...items.slice(place)])
+          setDraft('')
+          // The next row opens under the one just made, ready for the next.
+          if (at !== null) setAt(place + 1)
+          caret.current = { row: 'new' }
+        }}
+        // A pasted list is a subtask a line, ticked ones done; one line pastes as words.
+        onPaste={(event) => {
+          const lines = readLines(event.clipboardData.getData('text/plain'))
+          if (lines.length < 2) return
+          event.preventDefault()
+          chime('gather')
+          save([...items.slice(0, place), ...lines.map((line) => ({ text: line.text, done: line.done })), ...items.slice(place)])
+          quietly(() => save(items))
+        }}
+        aria-label="A new subtask"
+        placeholder={items.length ? 'Add another' : 'Add a subtask'}
+        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+      />
+    </li>
+  )
   return (
     <section className="page-narrow mx-auto w-full px-12 pb-10">
       {task.linked.length > 0 && (
@@ -2249,9 +2311,11 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
       <h3 className="mb-2 text-control font-semibold">
         Subtasks {items.length ? <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={`${num(items.filter((one) => one.done).length)}/${num(items.length)}`} /></span> : null}
       </h3>
-      <ul className="space-y-1">
+      <ul ref={list as React.RefObject<HTMLUListElement>} data-subtasks className="flex flex-col">
         {items.map((item, index) => (
-          <li key={`${index}:${item.text}`} className="group flex items-center gap-2">
+          <Fragment key={`${index}:${item.text}`}>
+          {index === place && at !== null && newRow}
+          <li className={`group ${STEP_ROW}`}>
             <button
               type="button"
               role="checkbox"
@@ -2261,7 +2325,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
                 if (!item.done) chime('done')
                 save(items.map((one, at) => (at === index ? { ...one, done: !one.done } : one)))
               }}
-              className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 shrink-0 items-center justify-center rounded border transition-colors"
+              className={`${STEP_TICK} cursor-pointer`}
               style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
             >
               {item.done && <Check className="size-3 mf-on-accent" />}
@@ -2269,7 +2333,26 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
             {/* Its words written straight into, as a new line in Today's list is; ⌥↑ ⌥↓ move it. */}
             <input data-subtask={index} defaultValue={item.text} aria-label={`Step: ${item.text}`} title={item.text}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') return event.currentTarget.blur()
+                const field = event.currentTarget
+                // ⇧↵ splits it where the caret is: the words after it become the next subtask.
+                if (event.key === 'Enter' && event.shiftKey) {
+                  event.preventDefault()
+                  const cut = field.selectionStart ?? field.value.length
+                  const [head, tail] = [field.value.slice(0, cut).trim(), field.value.slice(cut).trim()]
+                  if (!head || !tail) return chime('nope')
+                  chime('tap')
+                  caret.current = { row: index + 1, at: 0 }
+                  return save([...items.slice(0, index), { ...item, text: head }, { text: tail, done: false }, ...items.slice(index + 1)])
+                }
+                // ↵ keeps it and opens a new row under it, ready for the next.
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  const words = field.value.trim()
+                  if (words && words !== item.text) save(items.map((one, at) => (at === index ? { ...one, text: words } : one)))
+                  caret.current = { row: 'new' }
+                  setDraft('')
+                  return setAt(index + 1)
+                }
                 if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
                 event.preventDefault()
                 const to = index + (event.key === 'ArrowUp' ? -1 : 1)
@@ -2303,28 +2386,10 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
             </button>
             </Tip>
           </li>
+          </Fragment>
         ))}
+        {(at === null || place >= items.length) && newRow}
       </ul>
-      <input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' || !draft.trim()) return
-          save([...items, { text: draft.trim(), done: false }])
-          setDraft('')
-        }}
-        // A pasted list is a subtask a line, ticked ones done; one line pastes as words.
-        onPaste={(event) => {
-          const lines = readLines(event.clipboardData.getData('text/plain'))
-          if (lines.length < 2) return
-          event.preventDefault()
-          chime('gather')
-          save([...items, ...lines.map((line) => ({ text: line.text, done: line.done }))])
-          quietly(() => save(items))
-        }}
-        placeholder="Add a subtask"
-        className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-muted-foreground"
-      />
     </section>
   )
 }
