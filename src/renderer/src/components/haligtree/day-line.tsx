@@ -8,7 +8,7 @@ import { TAGS, tokensInText } from '@/extensions/tokens'
 import { findCaptures } from '@/lib/capture-links'
 import { readTask } from '../../../../main/task-words'
 import { HaligtreeEditor } from './haligtree-editor'
-import { TINT } from './task-input'
+import { TINT, tintOf } from './task-input'
 import type { AtLink } from './at-notes'
 
 /**
@@ -49,8 +49,8 @@ export function lineOf(doc: PMNode): { text: string; link?: AtLink; at: number[]
 }
 
 /** How a task word is lit, the same in the editor and in a line drawn as text. */
-const wordLook = (span: { kind: keyof typeof TINT; guess?: unknown }): React.CSSProperties & Record<string, string> => {
-  const tint = TINT[span.kind]
+const wordLook = (span: { kind: keyof typeof TINT; from: number; to: number; guess?: unknown }, text: string): React.CSSProperties & Record<string, string> => {
+  const tint = tintOf(span, text)
   return {
     background: `var(--mf-chip-bg-${tint})`,
     color: `var(--mf-chip-ink-${tint})`,
@@ -68,7 +68,7 @@ const lit = (doc: PMNode): DecorationSet => {
     const from = at[span.from]
     const to = at[span.to - 1]
     if (from === undefined || to === undefined || from < 0 || to < 0) continue
-    const look = wordLook(span)
+    const look = wordLook(span, text)
     marks.push(Decoration.inline(from, to + 1, { 'data-task-word': span.kind, class: 'rounded-sm', style: Object.entries(look).map(([name, said]) => `${name.replace(/[A-Z]/g, (one) => `-${one.toLowerCase()}`)}: ${said}`).join('; ') }))
   }
   return DecorationSet.create(doc, marks)
@@ -126,7 +126,7 @@ function Drawn({ text, placeholder }: { text: string; placeholder: string }): Re
         <span className="tiptap-token" data-token={token.name} data-token-color={token.color}
           {...(token.name === 'tag' ? { 'data-note-hover': '', 'data-note': `tag:${token.value.replace(/^#/, '').toLowerCase()}` } : {})}>{part}</span>
       )
-      if (word) part = <span data-task-word={word.kind} className="rounded-sm" style={wordLook(word)}>{part}</span>
+      if (word) part = <span data-task-word={word.kind} className="rounded-sm" style={wordLook(word, text)}>{part}</span>
       return <Fragment key={from}>{part}</Fragment>
     })
   }, [text])

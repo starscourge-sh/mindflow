@@ -3,7 +3,7 @@ import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock,
 import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { exampleCard, exampleGoals, exampleIdeas, exampleInbox, exampleMonth, exampleQuestions, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
 import { MCard, MChip, MLabel, MLines, MRow, MTitle, Peek, tinted } from './peek'
-import { taskName } from '@/lib/tasks'
+import { PRIORITY_TINT, taskName } from '@/lib/tasks'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
 import { APP_NAME } from '../../../../main/name'
@@ -37,7 +37,7 @@ function TaskRows({ ids, metas }: { ids: number[]; metas: string[] }): React.JSX
   const all = tasks()
   return <>{ids.map((id, n) => {
     const task = all[id - 1]
-    const tint = task.priority === 1 ? 'red' : task.priority === 2 ? 'orange' : task.priority === 3 ? 'blue' : 'gray'
+    const tint = PRIORITY_TINT[task.priority ?? 0] ?? 'gray'
     return <MRow key={id} check tint={tint} meta={metas[n]}>{taskName(task.title).text}</MRow>
   })}</>
 }

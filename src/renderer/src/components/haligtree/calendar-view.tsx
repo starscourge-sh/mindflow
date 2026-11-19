@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { chime } from '@/lib/sound'
 import { detent, slotTicker } from '@/lib/proximity'
 import { EASING, byKeys, glideWay, still } from '@/lib/motion'
-import { taskName } from '@/lib/tasks'
+import { PRIORITY_TINT, taskName } from '@/lib/tasks'
 import { edgeScroll } from '@/lib/edge-scroll'
 import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
@@ -108,9 +108,8 @@ const minuteOf = (iso: string): number => { const at = dayjs(iso); return at.hou
 const timed = (task: Task): boolean => task.status === 'open' && !!task.dueAt && !task.allDay
 /** On the grid: open timed tasks, and the ones done, struck through where they were. */
 const onGrid = (task: Task): boolean => (task.status === 'open' || task.status === 'done') && !!task.dueAt && !task.allDay
-/** A task's tick, tinted by its priority the way Todoist has it: red, orange, blue, then plain. */
-const PRIORITY = ['', 'var(--tt-color-text-red)', 'var(--tt-color-text-orange)', 'var(--tt-color-text-blue)']
-const tickOf = (task: Task): string => PRIORITY[task.priority ?? 0] || 'color-mix(in oklab, var(--foreground) 45%, transparent)'
+/** A task's tick, tinted by its priority the way Todoist has it, from the one table (lib/tasks.ts): red, orange, blue, then plain. */
+const tickOf = (task: Task): string => (task.priority && task.priority < 4 ? `var(--tt-color-text-${PRIORITY_TINT[task.priority]})` : 'color-mix(in oklab, var(--foreground) 45%, transparent)')
 const atMinute = (day: string, minute: number): string => dayjs(day).startOf('day').add(minute, 'minute').toISOString()
 
 /** Where the pointer is over the calendar: a time in a day, a day's untimed line, or a month's day. */
@@ -861,7 +860,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                           if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), void moveToBin([{ type: 'task', id: task.id, status: task.status }]))
                         }}
                         className={`flex h-8 w-full touch-none items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground transition-[scale] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none ${task.id === picked ? 'bg-accent' : ''} ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
-                        <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: task.priority === 1 ? 'var(--tt-color-text-orange)' : ACCENT }} />
+                        <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: task.priority && task.priority < 4 ? tickOf(task) : ACCENT }} />
                         <span dir="auto" className="min-w-0 flex-1 truncate">{taskName(task.title).text}</span>
                       </button>
                       </Tip>
@@ -1100,7 +1099,7 @@ function Upcoming({ tasks, name, onEvent, onTask }: { tasks: Task[]; name: (one:
       ...allDayOn(list, key).map((one) => ({ key: one.key, start: -1, color: one.color, title: one.title || 'New event', said: `All day · ${name(one)}`, one })),
       ...list.filter((one) => !one.allDay && dayKey(one.start) === key && (n > 0 || dayjs(one.end).isAfter(now))).map((one) => ({ key: one.key, start: dayjs(one.start).valueOf(), color: one.color, title: one.title || 'New event', said: `${timeSpan(one.start, one.end)} · ${name(one)}`, one })),
       ...tasks.filter((task) => timed(task) && dayKey(task.dueAt!) === key && (n > 0 || dayjs(task.dueAt!).add(task.estimate ?? USUAL, 'minute').isAfter(now))).map((task) => ({
-        key: task.id, start: dayjs(task.dueAt!).valueOf(), color: task.priority === 1 ? 'var(--tt-color-text-orange)' : ACCENT, title: taskName(task.title).text,
+        key: task.id, start: dayjs(task.dueAt!).valueOf(), color: task.priority && task.priority < 4 ? tickOf(task) : ACCENT, title: taskName(task.title).text,
         said: `${task.estimate ? timeSpan(task.dueAt!, dayjs(task.dueAt!).add(task.estimate, 'minute').toISOString()) : hm(task.dueAt!)} · Task`, task
       }))
     ].sort((a, b) => a.start - b.start)
@@ -1571,7 +1570,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
 } & BlockProps): React.JSX.Element {
   const name = taskName(task.title).text
   const short = length < 45
-  const color = PRIORITY[task.priority ?? 0] || ACCENT
+  const color = task.priority && task.priority < 4 ? tickOf(task) : ACCENT
   const finished = task.status === 'done'
   const repeats = !!task.recurrence
   const busy = !!carry && 'task' in carry && carry.task.id === task.id

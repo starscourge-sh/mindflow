@@ -10,6 +10,15 @@ import { PRIORITY_NAMES, bucketOf, monthKey, readTask, readySaid } from '../../.
 import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay, whenInLine, plural } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
+
+/**
+ * Each priority its own colour from the theme, as Todoist's: Urgent red, High orange, Medium blue, Low grey (they were
+ * all one orange in the box, its chip and the marks). The marks' shapes still tell them apart without colour: a
+ * square with "!", then three, two and one bars. The one table for every list, chip, Calendar tick and lit word.
+ */
+export const PRIORITY_TINT: Record<number, 'red' | 'orange' | 'blue' | 'gray'> = { 1: 'red', 2: 'orange', 3: 'blue', 4: 'gray' }
+/** The level a priority's words say: "!!!" or "p1" is Urgent, "!" or "p3" Medium (main/task-words.ts reads them so). */
+export const levelSaid = (words: string): number => (words.trim().startsWith('!') ? 4 - words.trim().length : Number(words.trim()[1]))
 import { quoted } from '../../../main/clip'
 
 /**

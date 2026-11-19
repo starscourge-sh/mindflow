@@ -13,6 +13,7 @@ import { short } from '@/lib/clock'
 import dayjs from 'dayjs'
 import { lengthSaid, roundsFrom, timerAsked, timerFrom, type Rounds } from './timer'
 import { saidBy } from './welcome-box'
+import { PRIORITY_TINT, levelSaid } from './tasks'
 import { clueTarget } from '@/components/haligtree/questions-view'
 import { TAG_DOES } from '@/components/capture-kinds/kind-fields'
 import type { CaptureType } from '@/components/capture-kinds/capture-kind-picker'
@@ -306,8 +307,8 @@ function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now =
     kept.some((one) => (Array.isArray(kind) ? kind.includes(one.kind) : one.kind === kind) && one.from < to && one.to > from)
   const token = (kind: TokenKind, from: number, to: number, effect: string): BoxToken => {
     const text = doc.textBetween(from, to, '\n', (leaf) => String(leaf.attrs.label ?? ''))
-    // A task's #tag in its own colour, as every list draws it.
-    return { id: `${kind}:${text}`, kind, from, to, text, color: kind === 'task-tag' ? tagHue(text.replace(/^#/, '')) : COLOR[kind], effect }
+    // A task's #tag in its own colour, as every list draws it; a priority in its level's (lib/tasks.ts).
+    return { id: `${kind}:${text}`, kind, from, to, text, color: kind === 'task-tag' ? tagHue(text.replace(/^#/, '')) : kind === 'priority' ? (PRIORITY_TINT[levelSaid(text)] ?? COLOR.priority) : COLOR[kind], effect }
   }
 
   // "+name: …": a clue for a question, or a log for a goal, and nothing else.

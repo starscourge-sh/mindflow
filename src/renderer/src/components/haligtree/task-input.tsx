@@ -5,7 +5,7 @@ import { CalendarDays, Timer } from 'lucide-react'
 
 import { chime, step } from '@/lib/sound'
 import { useLive, haligtree, type Task } from '@/lib/haligtree'
-import { BUCKETS, bucket, planKey } from '@/lib/tasks'
+import { BUCKETS, PRIORITY_TINT, bucket, levelSaid, planKey } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
 import { PRIORITY_NAMES, TAG_HERE, bucketOf, readTask, readySaid, type ReadTask, type Span } from '../../../../main/task-words'
 import { Rolling, Tip, toast, quietly } from './ui'
@@ -42,9 +42,10 @@ export const markRoom = (tasks: readonly Pick<Task, 'priority'>[]): boolean => t
 export const byPriority = (a: Pick<Task, 'priority'>, b: Pick<Task, 'priority'>): number => (a.priority || 5) - (b.priority || 5)
 
 export function PriorityIcon({ level, className = 'size-3.5' }: { level: number; className?: string }): React.JSX.Element {
+  const ink = { color: `var(--tt-color-text-${PRIORITY_TINT[level]})` }
   if (level === 1)
     return (
-      <svg viewBox="0 0 16 16" aria-hidden className={className} style={{ color: 'var(--tt-color-text-orange)' }}>
+      <svg viewBox="0 0 16 16" aria-hidden className={className} style={ink}>
         <rect x="1" y="1" width="14" height="14" rx="3" fill="currentColor" />
         <path d="M8 4v5M8 11.5v.5" stroke="var(--background, white)" strokeWidth="2" strokeLinecap="round" />
       </svg>
@@ -56,7 +57,7 @@ export function PriorityIcon({ level, className = 'size-3.5' }: { level: number;
       </svg>
     )
   return (
-    <svg viewBox="0 0 16 16" aria-hidden className={className}>
+    <svg viewBox="0 0 16 16" aria-hidden className={className} style={ink}>
       {[[1.5, 8], [6.5, 5], [11.5, 2]].map(([x, y], bar) => (
         <rect key={x} x={x} y={y} width="3" height={14 - y} rx="1" fill="currentColor" opacity={bar < 5 - level ? 1 : 0.3} />
       ))}
@@ -89,6 +90,9 @@ export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'
 }
 
 export const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray', snooze: 'gray', ready: 'yellow' }
+/** How a word read from a task is lit, in the box and on a line: a priority in its own level's colour (lib/tasks.ts). */
+export const tintOf = (span: Pick<Span, 'kind' | 'from' | 'to'>, text: string): BlockColor =>
+  span.kind === 'priority' ? (PRIORITY_TINT[levelSaid(text.slice(span.from, span.to))] ?? TINT.priority) : TINT[span.kind]
 
 /** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. */
 function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
@@ -101,7 +105,7 @@ function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
   if (read?.deadline) chips.push({ key: 'deadline', icon: <CalendarClock className="size-3" />, label: week ? `Due ${week}` : `Due by ${short(read.deadline, !read.deadlineTimed)}`, tint: TINT.deadline, guess: guess('deadline') })
   if (read?.recurrence) chips.push({ key: 'repeat', icon: <Repeat className="size-3" />, label: read.recurrence.replace(/^every!?\s*/i, 'Every '), tint: TINT.repeat })
   if (read?.plan) chips.push({ key: 'plan', icon: <Telescope className="size-3" />, label: BUCKETS[bucketOf(read.plan)!], tint: TINT.plan })
-  if (read?.priority) chips.push({ key: 'priority', icon: <PriorityIcon level={read.priority} className="size-3" />, label: PRIORITY_NAMES[read.priority], tint: TINT.priority })
+  if (read?.priority) chips.push({ key: 'priority', icon: <PriorityIcon level={read.priority} className="size-3" />, label: PRIORITY_NAMES[read.priority], tint: PRIORITY_TINT[read.priority] ?? TINT.priority })
   if (read?.estimate) chips.push({ key: 'length', icon: <Timer className="size-3" />, label: `~${hoursSaid(read.estimate)}`, tint: TINT.length })
   if (read?.snooze) chips.push({ key: 'snooze', icon: <Telescope className="size-3" />, label: `Hidden until ${short(read.snooze, true)}`, tint: TINT.snooze })
   if (read?.getReady) chips.push({ key: 'ready', icon: <CalendarClock className="size-3" />, label: `Get ready ${readySaid(read.getReady)}`, tint: TINT.ready })
@@ -192,7 +196,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
     el.setSelectionRange(landing.current, landing.current)
     landing.current = null
   }, [value])
-  const spans: { from: number; to: number; tint: string; guess?: boolean }[] = (read?.spans ?? []).map((span) => ({ from: span.from, to: span.to, tint: TINT[span.kind], guess: !!span.guess }))
+  const spans: { from: number; to: number; tint: string; guess?: boolean }[] = (read?.spans ?? []).map((span) => ({ from: span.from, to: span.to, tint: tintOf(span, value), guess: !!span.guess }))
   for (const match of value.matchAll(TAGS)) {
     const from = match.index + match[1].length
     const to = from + match[2].length
