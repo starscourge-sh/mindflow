@@ -392,7 +392,8 @@ export function NotePreview(): React.JSX.Element | null {
         </p>
       ) : shown.type === 'person' ? (
         <p data-preview-kind className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          {shown.cast ? <VenetianMask className="size-3.5 shrink-0" /> : <UserRound className="size-3.5 shrink-0" />}
+          {/* One picture per person: with a portrait beside the name, the kind's own figure would be a second face (17 Nov, "why 2 avatars"). */}
+          {!shown.picture && (shown.cast ? <VenetianMask className="size-3.5 shrink-0" /> : <UserRound className="size-3.5 shrink-0" />)}
           {shown.cast ? 'Character' : 'Person'}
         </p>
       ) : look && !shown.lead && (
