@@ -59,12 +59,33 @@ export function layoutOf(ids: string[], groups: { id: string; members: string[];
   for (const group of groups) for (const id of group.members) if (known.has(id)) of.set(id, group.id)
   const top: string[] = []
   const lists: Record<string, string[]> = {}
-  const add = (group: string, key: string): void => {
+  // What each list holds, as sets beside them: asked once for every note, a scan of a folder of 2,000 each time
+  // took four seconds to draw Gems or Writing on a big book.
+  const inTop = new Set<string>()
+  const inList = new Map<string, Set<string>>()
+  const listed = new Set<string>()
+  const holds = (group: string): Set<string> => {
+    let seen = inList.get(group)
+    if (!seen) inList.set(group, (seen = new Set(lists[group] ?? [])))
+    return seen
+  }
+  const add = (group: string, key: string, first = false): void => {
     const list = (lists[group] ??= [])
-    if (!list.includes(key)) list.push(key)
+    const seen = holds(group)
+    if (seen.has(key)) return
+    seen.add(key)
+    listed.add(key)
+    if (first) list.unshift(key)
+    else list.push(key)
+  }
+  const toTop = (key: string, first = false): void => {
+    if (inTop.has(key)) return
+    inTop.add(key)
+    if (first) top.unshift(key)
+    else top.push(key)
   }
   const place = (path: string[]): void => {
-    if (!top.includes(KEY + path[0])) top.push(KEY + path[0])
+    toTop(KEY + path[0])
     for (let i = 1; i < path.length; i++) add(path[i - 1], KEY + path[i])
   }
   // The groups holding a note, or a subgroup that does.
@@ -82,20 +103,21 @@ export function layoutOf(ids: string[], groups: { id: string; members: string[];
     const home = of.get(id)
     if (!home) {
       top.push(id)
+      inTop.add(id)
       continue
     }
     place(chain(home))
     add(home, id)
   }
   // The groups with no note in them yet, first in what holds them.
-  const empty = groups.filter((group) => !top.includes(KEY + group.id) && !Object.values(lists).some((list) => list.includes(KEY + group.id)))
+  const empty = groups.filter((group) => !inTop.has(KEY + group.id) && !listed.has(KEY + group.id))
   for (const group of [...empty].sort((x, y) => levelOf(x.id) - levelOf(y.id))) {
     const path = chain(group.id)
     lists[group.id] ??= []
-    if (path.length === 1) top.unshift(KEY + group.id)
+    if (path.length === 1) toTop(KEY + group.id, true)
     else {
       place(path.slice(0, -1))
-      ;(lists[path.at(-2)!] ??= []).unshift(KEY + group.id)
+      add(path.at(-2)!, KEY + group.id, true)
     }
   }
   return { top, groups: lists }

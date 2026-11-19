@@ -99,10 +99,21 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   const layout = layoutOf([...order, ...all.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], all)
   // The saved order drawn: everything at once where it now stands.
   useLayoutEffect(() => void (landing && (clearWay(true), setLanding(null))), [all, order]) // eslint-disable-line react-hooks/exhaustive-deps
-  const kids = (parent: string | null): NoteGroup[] => {
-    const at = parent ? layout.groups[parent] ?? [] : layout.top
-    return all.filter((one) => (one.parent && all.some((other) => other.id === one.parent) ? one.parent : null) === parent).sort((a, b) => at.indexOf(KEY + a.id) - at.indexOf(KEY + b.id))
+  // Each folder's subfolders in the list's order, sorted once a draw: worked out per folder for every count, with
+  // 300 folders it read every folder against every other and took seconds to draw the sidebar.
+  const known = new Set(all.map((one) => one.id))
+  const under = new Map<string | null, NoteGroup[]>()
+  for (const one of all) {
+    const parent = one.parent && known.has(one.parent) ? one.parent : null
+    const these = under.get(parent)
+    if (these) these.push(one)
+    else under.set(parent, [one])
   }
+  for (const [parent, these] of under) {
+    const at = new Map((parent ? layout.groups[parent] ?? [] : layout.top).map((key, i) => [key, i]))
+    these.sort((a, b) => (at.get(KEY + a.id) ?? -1) - (at.get(KEY + b.id) ?? -1))
+  }
+  const kids = (parent: string | null): NoteGroup[] => under.get(parent) ?? []
   // A folder being carried, and where it would land: inside one, or just before or after one.
   const [carried, setCarried] = useState<{ id: string; x: number; y: number } | null>(null)
   const [aim, setAim] = useState<Aim | null>(null)
