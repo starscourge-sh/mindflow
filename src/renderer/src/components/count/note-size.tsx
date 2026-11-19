@@ -120,7 +120,9 @@ export function NoteSize({ editor }: { editor: Editor | null }): React.JSX.Eleme
           onClick={(event) => (event.preventDefault(), show(true, true))}
           // Where the bar folds its date away (the smallest window: there its lines would cut “Inbox” to “Inb…”), it folds too,
           // keeping its place unseen (no width, out of the tab order), so ⇧⌘W's card still opens under the bar, never at a corner.
-          className="invisible w-0 shrink-0 overflow-hidden rounded-md py-1 text-meta whitespace-nowrap text-muted-foreground tabular-nums transition-colors hover:bg-accent hover:text-foreground @[26rem]/head:visible @[26rem]/head:w-auto @[26rem]/head:px-1.5">
+          // Shown again by taking the note's own visibility, never `visible`: that showed it alone over the page before,
+          // while the note it counts was still waiting, unseen, for its reads.
+          className="invisible w-0 shrink-0 overflow-hidden rounded-md py-1 text-meta whitespace-nowrap text-muted-foreground tabular-nums transition-colors hover:bg-accent hover:text-foreground @[26rem]/head:[visibility:inherit] @[26rem]/head:w-auto @[26rem]/head:px-1.5">
           {lines}
           <span className="hidden @[36rem]/head:inline"> · {words}</span>
         </button>
