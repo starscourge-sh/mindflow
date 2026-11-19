@@ -22,14 +22,14 @@ const meetingOf = async (id) => {
 }
 const voices = () => h.evaluate(() => [...document.querySelectorAll('[data-meeting-voice]')].map((one) => one.textContent.trim()))
 const notice = (words, ms) => h.waitForFunction((w) => (window.__said ?? []).some((one) => one.includes(w)), words, { timeout: ms }).then(() => true, () => false)
-const undo = (words) => h.locator('[data-sonner-toast]', { hasText: words }).locator('button', { hasText: 'Undo' }).first().click()
+const undo = (words) => h.locator('[data-sonner-toast], [role=status]', { hasText: words }).locator('button', { hasText: 'Undo' }).first().click()
 try {
   const id = (await sql("select id from captures where body like '%Recording, 8 Nov at 15:28%'"))[0]?.id
   check('the copy holds the 8 Nov recording', !!id)
   const was = await meetingOf(id)
   console.log(`before: ${was.speakers.length} speakers, ${was.actions.length} items by ${[...new Set(was.actions.map((one) => one.by))].join(',')}, read by Apple Intelligence: ${!!was.take}`)
   // Every notice from here on, as it comes: one may take the place of another.
-  await h.evaluate(() => { window.__said = []; new MutationObserver(() => { for (const one of document.querySelectorAll('[data-sonner-toast]')) { const t = one.textContent ?? ''; if (!window.__said.includes(t)) window.__said.push(t) } }).observe(document.body, { childList: true, subtree: true, characterData: true }) })
+  await h.evaluate(() => { window.__said = []; new MutationObserver(() => { for (const one of document.querySelectorAll('[data-sonner-toast], [role=status]')) { const t = one.textContent ?? ''; if (!window.__said.includes(t)) window.__said.push(t) } }).observe(document.body, { childList: true, subtree: true, characterData: true }) })
   await send('capture', id)
   await h.waitForSelector('[data-meeting-voices]', { timeout: 15000 })
   if (PART === 'voices') {
