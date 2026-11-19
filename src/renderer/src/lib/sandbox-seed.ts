@@ -2061,9 +2061,9 @@ view: 0, 6, 0, 4
   // The 3, 4, 5 triangle with a square on each side, the figure of Elements I.47, drawn in Excalidraw.
   const pythagoras = convertToExcalidrawElements([
     { type: 'line', x: 0, y: 0, points: [[0, 0], [120, 0], [0, -90], [0, 0]], strokeColor: INK, strokeWidth: 2 },
-    { type: 'rectangle', x: 0, y: 0, width: 120, height: 120, strokeColor: '#1971c2', backgroundColor: '#a5d8ff', fillStyle: 'hachure' },
-    { type: 'rectangle', x: -90, y: -90, width: 90, height: 90, strokeColor: '#2f9e44', backgroundColor: '#b2f2bb', fillStyle: 'hachure' },
-    { type: 'line', x: 0, y: -90, points: [[0, 0], [120, 90], [210, -30], [90, -120], [0, 0]], strokeColor: '#e8590c', backgroundColor: '#ffd8a8', fillStyle: 'hachure', strokeWidth: 2 },
+    { type: 'rectangle', x: 0, y: 0, width: 120, height: 120, strokeColor: '#1971c2', backgroundColor: '#a5d8ff', fillStyle: 'solid' },
+    { type: 'rectangle', x: -90, y: -90, width: 90, height: 90, strokeColor: '#2f9e44', backgroundColor: '#b2f2bb', fillStyle: 'solid' },
+    { type: 'line', x: 0, y: -90, points: [[0, 0], [120, 90], [210, -30], [90, -120], [0, 0]], strokeColor: '#e8590c', backgroundColor: '#ffd8a8', fillStyle: 'solid', strokeWidth: 2 },
     { type: 'text', x: 44, y: 46, text: 'b² = 16', fontSize: 20, strokeColor: '#1971c2' },
     { type: 'text', x: -78, y: -56, text: 'a² = 9', fontSize: 20, strokeColor: '#2f9e44' },
     { type: 'text', x: 70, y: -120, text: 'c² = 25', fontSize: 20, strokeColor: '#e8590c' },
@@ -2087,13 +2087,11 @@ For the 3, 4, 5 triangle: $3^2 + 4^2 = 9 + 16 = 25 = 5^2$. The Babylonians liste
 ## How the book gets there
 
 \`\`\`mermaid
-flowchart LR
-  D[23 definitions] --> P[5 postulates]
-  P --> I1[I.1: an equal-sided triangle]
-  I1 --> I4[I.4: two triangles alike]
-  I4 --> I46[I.46: a square on a line]
+flowchart TD
+  D[23 definitions and 5 postulates] --> I1[I.1: an equal-sided triangle]
+  I1 --> I46[I.4 to I.46: triangles alike, a square on a line]
   I46 --> I47[I.47: a² + b² = c²]
-  P -.-> F[Postulate 5: parallels]
+  D -.-> F[Postulate 5: parallel lines]
   F -.-> I47
 \`\`\`
 
