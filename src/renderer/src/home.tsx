@@ -2599,7 +2599,9 @@ export function Home(): React.JSX.Element {
                   {(block === 'Library' || block === 'Look') && items.length > 0 ? (() => {
                     const [head, id] = block === 'Library' ? [LIBRARY, 'library'] as const : [LOOK_BACK, 'look'] as const
                     // The page you are on is in sight: its fold opens when you go there from elsewhere.
-                    const here = items.some((one) => light === `place:${one.id}`)
+                    // A note lit under its folder, or a folder's page, is in sight under its list's row (Gems is in Library).
+                    const lit = (one: { id: string }): boolean => light === `place:${one.id}` || (light.startsWith('note:') && one.id === (noteList === 'article' ? 'articles' : 'nuggets')) || (light.startsWith('folder:') && one.id === view.id)
+                    const here = items.some(lit)
                     // Library and Look back fold under their headings, folded to start; each stays as you leave it,
                     // and keeps that itself (Folding), so a fold draws the group alone.
                     return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
