@@ -42,7 +42,10 @@ export function PickerAt({ at, label, onClose, children }: { at: DOMRect; label:
     <Popover open onOpenChange={(open) => !open && onClose()}>
       <PopoverAnchor virtualRef={anchor} />
       {/* The sidebar card's own placing too (peek.tsx `Peek`): to the right, 10px off, clear of the title bar. */}
-      <PopoverContent role="dialog" aria-label={label} side="right" align="start" sideOffset={10} className={`${PEEK_SURFACE} gap-0 overflow-hidden`} onCloseAutoFocus={(event) => event.preventDefault()}>
+      <PopoverContent role="dialog" aria-label={label} side="right" align="start" sideOffset={10} className={`${PEEK_SURFACE} gap-0 overflow-hidden`} onCloseAutoFocus={(event) => event.preventDefault()}
+        // The menu it was chosen from hands the keys back to its row as it shuts, after the picker took them: that is
+        // no leaving (a press outside still is), so the keys come straight back to the picker's own field.
+        onFocusOutside={(event) => (event.preventDefault(), (event.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>('input')?.focus({ preventScroll: true }))}>
         {children}
       </PopoverContent>
     </Popover>
