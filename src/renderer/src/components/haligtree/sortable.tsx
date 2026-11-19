@@ -162,6 +162,17 @@ export function SortableList<T>(props: ListProps<T>): React.JSX.Element {
 }
 
 /** The new order, held from the drop until the saved one arrives, and the lift's own state. */
+/** A held order let go of when anything is undone (ui.tsx `undone`): what the book says is drawn again. */
+export function useLetGoOnUndo(letGo: () => void): void {
+  const latest = useRef(letGo)
+  latest.current = letGo
+  useEffect(() => {
+    const on = (): void => latest.current()
+    window.addEventListener('haligtree:undone', on)
+    return () => window.removeEventListener('haligtree:undone', on)
+  }, [])
+}
+
 function useHeld<T>(items: T[], keyOf: (item: T) => string): { shown: T[]; keys: string[]; setHeld: (ids: string[]) => void; sorting: boolean; lifting: () => void; landed: () => void } {
   const [held, setHeld] = useState<string[] | null>(null)
   const [sorting, setSorting] = useState(false)
@@ -169,6 +180,7 @@ function useHeld<T>(items: T[], keyOf: (item: T) => string): { shown: T[]; keys:
   const incoming = items.map(keyOf).join('\n')
   // The saved order (or anything else) has arrived: it is the truth again.
   useEffect(() => setHeld(null), [incoming])
+  useLetGoOnUndo(() => setHeld(null))
   // The same list from one draw to the next unless the rows or their held order change: what is drawn from it is kept (Rows).
   const shown = useMemo(() => {
     if (!held) return items
@@ -418,6 +430,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   const hid = useRef<HTMLElement | null>(null)
   const incoming = blocks.map((one) => `${one.key}:${one.items.map(keyOf).join(',')}`).join('\n')
   useEffect(() => setHeld(null), [incoming])
+  useLetGoOnUndo(() => setHeld(null))
   const byId = new Map(blocks.flatMap((one) => one.items.map((item): [string, T] => [keyOf(item), item])))
   const shown = held ? held.map((one) => ({ key: one.key, items: one.ids.map((id) => byId.get(id)).filter((item): item is T => !!item) })) : blocks
   // The new order drawn after a drop: everything at once where it now stands, nothing sliding back first.

@@ -1593,7 +1593,8 @@ function BackupPlace(): React.JSX.Element {
           <Button variant="outline" size="sm" data-folders-put-back="" onClick={() => void (moveState === 'moved' ? putFoldersBack() : moveFoldersAgain())}>
             {moveState === 'moved' ? 'Put the old folders back' : 'Move the old folders into Folders'}
           </Button>
-          <span className="text-xs text-muted-foreground">{moveState === 'moved' ? 'Writing’s and Gems’ folders, as they were before Folders' : 'They are in Writing and Gems, as before Folders'}</span>
+          {/* What the button does, at the row's own size (never small grey): it is the one thing this line is for. */}
+          <span className="text-sm text-foreground">{moveState === 'moved' ? 'Writing’s and Gems’ folders, as they were before Folders.' : 'They are in Writing and Gems, as before Folders.'}</span>
         </div>
       )}
     </div>

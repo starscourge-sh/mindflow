@@ -1050,6 +1050,13 @@ export type Made = { type: string; id: string; title?: string; /** Where in it t
  * work?" and the plan's undo-everywhere in one: three seconds, then gone.
  * Given what it made, a click on the words opens that, as a row's click does.
  */
+/**
+ * Something was just undone (a notice's Undo, ⌘Z). A list holding a dropped order until its save is read back
+ * (sortable.tsx `useLetGoOnUndo`) lets go of it: undone before that read was shown, the order read back is the one
+ * from before the drop, the same as the list already had, so the list never changed and the drop stayed drawn.
+ */
+const undone = (): void => void window.dispatchEvent(new CustomEvent('haligtree:undone'))
+
 export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction, made?: Made): void => {
   beam(tone)
   window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, made } }))
@@ -1667,6 +1674,7 @@ export function Toaster(): React.JSX.Element | null {
       chime('undo')
       quietFor(UNDO_HUSH)
       back.undo()
+      undone()
       if (back === top) setHeld((was) => was.filter((one) => one !== top))
       else setShown(null)
       keepHeld()
@@ -1811,6 +1819,7 @@ export function Toaster(): React.JSX.Element | null {
             chime('undo')
             quietFor(UNDO_HUSH)
             shown.undo?.()
+            undone()
             setShown(null)
             keepHeld()
           }}

@@ -88,9 +88,8 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
   })
   // Carried by its row, the app's one drag (sortable.tsx, as Tags' rows are): by another's edge it goes before or
   // after it, beside it; rested on another's middle it goes inside. Each said with Undo; refusals say why.
-  // The list holds a dropped order until the saved one is read back (sortable.tsx `useHeld`). Undone before that read
-  // is shown, the order read back is the one from before the drop, so it never changes and the drop stayed drawn
-  // (the sidebar said To read above Thesis while the book said the other way). Undo starts the list afresh.
+  // The list holds a dropped order until the saved one is read back (sortable.tsx `useHeld`); Undo lets go of it
+  // there (`useLetGoOnUndo`). A drop refused here changes nothing to read back, so the list starts afresh.
   const [epoch, setEpoch] = useState(0)
   const afresh = (): void => setEpoch((n) => n + 1)
   const place = (id: string, target: string, after: boolean): void => {
@@ -98,7 +97,7 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
     void folders.place(id, target, after).then((was) => {
       if (!was) return (afresh(), refuse('A folder can’t go inside itself'))
       chime('gather')
-      toast(`Moved ${name} ${after ? 'after' : 'before'} ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.arrange(id, was).then(afresh))
+      toast(`Moved ${name} ${after ? 'after' : 'before'} ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.arrange(id, was))
     })
   }
   const nest = (id: string, target: string): void => {
@@ -106,7 +105,7 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
     void folders.nest(id, target).then((done) => {
       if (done !== true) return (afresh(), refuse(done))
       chime('gather')
-      toast(`Moved ${was?.name ?? 'the folder'} into ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.nest(id, was?.parent ?? null).then(afresh))
+      toast(`Moved ${was?.name ?? 'the folder'} into ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.nest(id, was?.parent ?? null))
     })
   }
   return (

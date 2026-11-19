@@ -24,7 +24,7 @@ import { DOT_IN_LINE, SessionDot, TaskSpent, useTaskTime, type TaskTime } from '
 import { RowMenu } from './row-menu'
 import { MORE_STEP, ShowMore } from './show-more'
 import { CarriedCard, Clear, DropLine, HELD, OwnRoom } from './carry'
-import { Overlay, SETTLE, underPointer } from './sortable'
+import { Overlay, SETTLE, underPointer, useLetGoOnUndo } from './sortable'
 import { Button } from '@/components/ui/button'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
@@ -89,6 +89,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
   const [held, setHeld] = useState<string[] | null>(null)
   const saving = useRef(0)
   useEffect(() => void (saving.current || setHeld(null)), [tasks])
+  useLetGoOnUndo(() => setHeld(null))
   // Where a card carried in its own box will go: above or below the card under it.
   const [between, setBetween] = useState<{ id: string; after: boolean } | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
