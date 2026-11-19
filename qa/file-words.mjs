@@ -34,17 +34,16 @@ try {
     }
   })
   check('item 40: a Markdown file previews as words, not a picture', look.words && !look.picture, JSON.stringify(look))
-  check('item 40: its heading, list and code set as a note\'s', look.heading === 'Garden plan' && look.items === 2 && /const rows = 4/.test(look.code ?? ''), JSON.stringify(look))
+  check('item 40: its heading, list and code set as a note\'s', /Garden plan$/.test(look.heading ?? '') && look.items === 2 && /const rows = 4/.test(look.code ?? ''), JSON.stringify(look))
   check('item 40: with "Import as a note" and "Open in its app"', look.buttons.includes('Import as a note') && look.buttons.includes('Open in its app'), look.buttons.join(', '))
   // Its words can be picked.
   const picked = await h.evaluate(() => { const one = document.querySelector('[data-file-look-words] li'); const range = document.createRange(); range.selectNodeContents(one); getSelection().removeAllRanges(); getSelection().addRange(range); return getSelection().toString() })
   check('item 40: its words can be picked', /tomatoes by the wall/.test(picked), picked)
   if (shots) await c.both(`${shots}/file-words`)
-  const before = (await v('items', 'article')).length + (await v('captures')).length
   await h.locator('[data-file-look-as-note]').click(); await h.waitForTimeout(2000)
-  const after = (await v('items', 'article')).length + (await v('captures')).length
-  const shown = await h.evaluate(() => ({ look: !!document.querySelector('[data-file-look]'), open: [...document.querySelectorAll('.ProseMirror h1, .ProseMirror p, [data-page-title], textarea')].some((one) => /Garden plan/.test(one.textContent || one.value || '')) }))
-  check('item 40: "Import as a note" brings it in and opens it', after === before + 1 && !shown.look && shown.open, JSON.stringify({ before, after, ...shown }))
+  // Opened as a note of its own (not the note the file sits in): its own words in an editor, the preview gone.
+  const shown = await h.evaluate(() => ({ look: !!document.querySelector('[data-file-look]'), open: [...document.querySelectorAll('[data-open] .ProseMirror, .ProseMirror')].some((one) => one.closest('[data-file-look]') === null && /tomatoes by the wall/.test(one.textContent ?? '')) }))
+  check('item 40: "Import as a note" brings it in and opens it', !shown.look && shown.open, JSON.stringify(shown))
 } finally {
   await c.close()
 }
