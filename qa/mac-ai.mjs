@@ -62,10 +62,17 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
     check(`${level}: a clue offered for a question ${ai ? 'says why it may help, written on this Mac' : 'has no why line'}`, ai ? /stand-in's reason/.test(why ?? '') && /Written on this Mac/.test(why) : why === '', why)
     if (ai && process.env.SHOT) await c.both(`${process.env.SHOT}/ai-why`)
     // What Haligtree can do.
+    // The page opens in tabs (27d91f0ff): each tab clicked in turn, its Apple Intelligence cards read.
     await c.go('powers')
     await wait(1200)
-    const cards = await h.evaluate(() => [...document.querySelectorAll('[data-power][data-mac-needs="ai"]')].map((one) => ({ id: one.getAttribute('data-power'), lacking: one.hasAttribute('data-mac-lacking'), says: /Needs Apple Intelligence/.test(one.textContent) })))
-    check(`${level}: What Haligtree can do lists the three ${ai ? 'as working here' : 'as needing Apple Intelligence'}`, cards.length >= 3 && cards.every((one) => (ai ? !one.lacking : one.lacking && one.says)), JSON.stringify(cards))
+    const cards = []
+    for (const tab of await h.evaluate(() => [...document.querySelectorAll('[data-section]')].map((one) => one.getAttribute('data-section')))) {
+      await h.evaluate((name) => document.querySelector(`[data-section="${name}"]`)?.click(), tab)
+      await wait(300)
+      cards.push(...await h.evaluate(() => [...document.querySelectorAll('[data-power][data-mac-needs="ai"]')].map((one) => ({ id: one.getAttribute('data-power'), lacking: one.hasAttribute('data-mac-lacking'), says: /Needs Apple Intelligence/.test(one.textContent) }))))
+    }
+    const three = cards.filter((one) => ['weekparagraph', 'untitled', 'cluewhy'].includes(one.id))
+    check(`${level}: What Haligtree can do lists the three ${ai ? 'as working here' : 'as needing Apple Intelligence'}`, three.length === 3 && cards.every((one) => (ai ? !one.lacking : one.lacking && one.says)), JSON.stringify(cards))
     check(`${level}: no page errors`, !c.errors.length, c.errors.slice(0, 3).join(' | '))
   } finally {
     await c.close()
