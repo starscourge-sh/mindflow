@@ -96,6 +96,10 @@ const measure = (w, scope) => w.evaluate((scope) => {
   }
   // Cards laid out in a grid (Questions opens on its cards, 8a6f493c8): the first column is on the edge, the others beside it.
   const firsts = []
+  // Rows side by side are cards in a grid: each card is a box on the edge, its words inside its own padding, as a card
+  // of the Inbox's kinds is (Questions opened on its cards and read 23.5 against the page's 21.5).
+  const tops = rows.map((one) => Math.round(one.getBoundingClientRect().top))
+  const grid = tops.some((top, at) => tops.indexOf(top) !== at)
   for (const row of rows) {
     const tick = row.querySelector('[data-task-tick]')
     const r = row.getBoundingClientRect()
@@ -105,6 +109,7 @@ const measure = (w, scope) => w.evaluate((scope) => {
     // A row inside a card (the Inbox's kinds): the card is the box on the edge, and its rows line up inside it.
     const card = cardOf(row)
     if (card) { add('card box', x(card.getBoundingClientRect().left)); continue }
+    if (grid) { add('card box', x(r.left)); continue }
     add('row box', x(r.left))
     // A list holding today's numbers keeps a column for them before the tick (quick capture's Tasks): that column is
     // the row's first mark, on the "+" edge, whether its own row has a number or not; with none, the tick is.
