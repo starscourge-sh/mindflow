@@ -137,16 +137,23 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     if (fromTop.current) box.scrollTop = 0
     fromTop.current = false
     placed.current = !kept || !!takenFlash.current
+    // Where `put` itself sent the page: any other scroll is the person's (keys, Find, a heading in the contents, the
+    // scrollbar), and from then the place is theirs. Only the wheel and a press stopped it before, so a late put (the
+    // pictures making the page tall enough) yanked the page back from where Find or a link had just taken it.
+    let ours = -1
     const put = (): void => {
       if (placed.current || !kept) return
-      if (box.scrollHeight - box.clientHeight >= kept.top - 1) (box.scrollTop = kept.top, (placed.current = true))
+      if (box.scrollHeight - box.clientHeight >= kept.top - 1) (ours = kept.top, (box.scrollTop = kept.top), (placed.current = true))
     }
     put()
     const grows = new ResizeObserver(put)
     if (body.current) grows.observe(body.current)
     const stop = (): void => void (placed.current = true)
     let top = box.scrollTop
-    const onScroll = (): void => void (top = box.scrollTop)
+    const onScroll = (): void => {
+      top = box.scrollTop
+      if (Math.abs(top - ours) > 1) placed.current = true
+    }
     box.addEventListener('scroll', onScroll, { passive: true })
     box.addEventListener('wheel', stop, { passive: true })
     box.addEventListener('pointerdown', stop)
