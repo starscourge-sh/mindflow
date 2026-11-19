@@ -198,7 +198,7 @@ export const PickedBlocks = Extension.create({
     let last: { doc: Block; from: number; to: number; set: DecorationSet } | null = null
     return [
       new Plugin({
-        view: () => (installBox(), {}),
+        view: (view) => (installBox(), views.add(view), { destroy: () => void views.delete(view) }),
         props: {
           decorations: (state) => {
             const { selection, doc } = state
@@ -270,15 +270,21 @@ let box: Box | null = null
  */
 function marginOf(target: EventTarget | null, x: number, y: number): EditorView | null {
   if (!(target instanceof HTMLElement)) return null
-  const roots = target.classList.contains("ProseMirror") ? [target] : [...target.querySelectorAll<HTMLElement>(".haligtree-editor-wrapper.has-handles .ProseMirror")]
-  for (const root of roots) {
-    const view = (root as HTMLElement & { editor?: { view: EditorView } }).editor?.view
+  // The editors on the page, known as they are made, never looked for: a press on a box round a note searched every
+  // element under it for editors (".haligtree-editor-wrapper .ProseMirror"), and with the largest note open that
+  // search and the measuring after it held the window (the user's freeze, 18 Nov 18:24, marginOf). Only an editable
+  // one with grips, inside what was pressed, is measured, and only once those cheap checks pass.
+  for (const view of views) {
+    const root = view.dom
+    if (!view.editable || (root !== target && !target.contains(root)) || !root.closest(".has-handles")) continue
     const page = root.closest(".haligtree-editor-wrapper")?.parentElement?.getBoundingClientRect()
     const box = root.getBoundingClientRect()
-    if (view?.editable && root.closest(".has-handles") && page && x >= page.left && x <= page.right && y >= box.top && y <= box.bottom) return view
+    if (page && x >= page.left && x <= page.right && y >= box.top && y <= box.bottom) return view
   }
   return null
 }
+/** Every editor with this extension on the page now. */
+const views = new Set<EditorView>()
 
 /** The words' own column: inside the page's padding. */
 function columnOf(view: EditorView): { left: number; right: number; top: number; bottom: number } {
