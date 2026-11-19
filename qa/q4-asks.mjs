@@ -105,7 +105,7 @@ try {
       return { name: picked.textContent, inView: b.top >= a.top && b.bottom <= a.bottom, scrolled: Math.round(scroll.scrollTop) }
     })
     check('the Text font picker opens with Geneva in view', seen.inView && seen.name?.includes('Geneva'), JSON.stringify(seen))
-    if (SHOTS) await h.screenshot({ path: `${SHOTS}/q4-font-picker.png` })
+    if (SHOTS) await c.both(`${SHOTS}/q4-font-picker`)
     await h.keyboard.press('Escape')
     await wait(400)
     // By the keys: open with Enter, and the picked one is lit.
@@ -120,7 +120,8 @@ try {
     const sample = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-setting-title="Heading font"] *')].find((n) => n.textContent === 'How the system holds up'); return one ? getComputedStyle(one).fontFamily : null })
     const drawn = await h.evaluate(() => document.fonts.check('32px "Instrument Serif"'))
     check('Instrument Serif is a heading font, drawn from the app\'s own files', /Instrument Serif/.test(String(sample)) && drawn, `${sample} / loaded ${drawn}`)
-    if (SHOTS) await h.locator('[data-setting-title="Heading font"]').first().screenshot({ path: `${SHOTS}/q4-instrument.png` }).catch(() => {})
+    if (SHOTS) for (const look of ['light', 'dark']) (await c.look(look), await h.locator('[data-setting-title="Heading font"]').first().screenshot({ path: `${SHOTS}/q4-instrument-${look}.png` }).catch(() => {}))
+    await c.look('light')
     await v('settings:set', { headingFont: 'default' })
   }
   if (PART === 'offer') {
