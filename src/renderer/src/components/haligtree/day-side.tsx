@@ -11,7 +11,7 @@ import { readTask } from '../../../../main/task-words'
 import { sameTask } from '@/lib/calendar'
 import { haligtree, whenInLine, type Task, type TaskFull } from '@/lib/haligtree'
 import { clock, dayjs, dayKey, plural } from '../../../../main/dates'
-import { TaskInput } from './task-input'
+import { TaskInput, keptIn, useKept } from './task-input'
 import { TaskDetail } from './tasks-view'
 import { Kbd, Tip, refuse, toast, untoast } from './ui'
 import { EventDetail } from './calendar-events'
@@ -202,7 +202,8 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
 }): React.JSX.Element {
   const own = useState(first)
   const [text, setText] = words ?? own
-  const read = useMemo(() => readTask(text), [text])
+  const kept = useKept()
+  const read = useMemo(() => readTask(text, new Date(), keptIn(kept.list, text)), [text, kept.list])
   const name = taskName(read.title).text.trim()
   useEffect(() => onName?.(name), [name]) // eslint-disable-line react-hooks/exhaustive-deps
   const field = useRef<HTMLInputElement>(null)
@@ -226,6 +227,8 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
   held.current = (task ? changed : text.trim()) ? () => save(false) : null
   const save = async (stay = true): Promise<void> => {
     const words = text.trim()
+    // Words kept as words (the chips' ×, ⌫ just after them), as on every task line (task-input.tsx).
+    const plain = keptIn(kept.list, words)
     if (task) {
       if (!words) return refuse('A task needs a name: type one')
       // Nothing changed: ↵ only closes it.
@@ -234,7 +237,7 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
       busy.current = true
       const was = task.title
       // A day, a time or a priority written into the name is read as everywhere else a task is typed, and said with Undo.
-      const set = await renameTask(task, [words, ...[...new Set(named!.tags)].map((tag) => `#${tag}`)].join(' '))
+      const set = await renameTask(task, [words, ...[...new Set(named!.tags)].map((tag) => `#${tag}`)].join(' '), plain)
       busy.current = false
       chime('tap')
       toast(set ? set.said : 'Renamed', set ? set.undo : () => void haligtree.saveTask(task.id, { title: was }))
@@ -244,7 +247,7 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
     if (!words) return refuse('Nothing to add yet: type the task')
     if (busy.current) return
     busy.current = true
-    const made = await makeTask({ text: words }, 'Added', { quiet: true })
+    const made = await makeTask({ text: words, plain }, 'Added', { quiet: true })
     busy.current = false
     if (!made) return
     const got = (await haligtree.tasks()).find((one) => one.id === made.id)
@@ -269,7 +272,7 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
     <form data-day-side-draft data-task-open={task?.id} className="flex flex-col px-3 pt-2.5 pb-3" onSubmit={(event) => (event.preventDefault(), void save())}>
       <div className="flex w-full flex-col gap-2.5">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
-          <TaskInput inputRef={field} value={text} onChange={setText} label={task ? 'The task’s name' : `A new task for ${dayjs(day).format('dddd D MMMM')}`}
+          <TaskInput inputRef={field} value={text} onChange={setText} kept={kept} label={task ? 'The task’s name' : `A new task for ${dayjs(day).format('dddd D MMMM')}`}
             placeholder="Call the dentist 10am #home !!" />
           <Button type="submit" size="sm" variant={task ? 'ghost' : undefined} data-day-side-add aria-label={task ? 'Keep' : 'Add'}><Kbd>↵</Kbd></Button>
         </div>

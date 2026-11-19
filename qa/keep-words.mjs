@@ -43,6 +43,23 @@ try {
   await h.keyboard.press('Backspace'); await h.waitForTimeout(200)
   check('item 20: the next ⌫ deletes as ever', (await field.inputValue()) === 'ring the vet tomorro', await field.inputValue())
   await field.fill('')
+  // The Calendar's own task field (day-side.tsx), opened by N as a person would: the same × and the same name.
+  await go('calendar'); await h.waitForTimeout(900)
+  await h.keyboard.press('n'); await h.waitForTimeout(500)
+  await h.locator('[data-cal-add] [data-day-side-kind="task"]').click().catch(() => {})
+  await h.waitForTimeout(300)
+  const cal = h.locator('[data-cal-add] [data-task-input]').first()
+  await cal.click()
+  await h.keyboard.type('pay the 12 dec invoice')
+  await h.waitForTimeout(300)
+  const calBefore = await h.evaluate(() => document.querySelector('[data-cal-add] [data-task-chip="date"]')?.textContent ?? null)
+  await h.locator('[data-cal-add] [data-keep-words="date"]').click().catch(() => {})
+  await h.waitForTimeout(250)
+  const calSaid = await h.evaluate(() => ({ chip: document.querySelector('[data-cal-add] [data-task-chip="date"]')?.textContent ?? null, when: document.querySelector('[data-cal-add] [data-day-side-when]')?.textContent ?? '' }))
+  await h.keyboard.press('Enter'); await h.waitForTimeout(800)
+  const dec12 = (iso) => !!iso && new Date(iso).getMonth() === 11 && new Date(iso).getDate() === 12
+  const calMade = await made('pay the 12 dec invoice')
+  check('item 20: the Calendar\'s task field keeps words the same way, its line saying the day it is on, not 12 Dec', !!calBefore && calSaid.chip === null && !/12 December/.test(calSaid.when) && !!calMade && !dec12(calMade.dueAt), JSON.stringify({ calBefore, ...calSaid, made: calMade && { title: calMade.title, due: calMade.dueAt } }))
 } finally {
   await c.close()
 }
