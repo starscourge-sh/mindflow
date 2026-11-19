@@ -334,6 +334,17 @@ try {
       const keysOk = keys.join(',') === '1,2'
       if (!keysOk) failed++
       console.log(`${keysOk ? 'PASS' : 'FAIL'} Ready's choices are keyed 1 and 2  (${keys.join(', ')})`)
+      // Pressed for real: 2 opens "Bring my notes" in place (its map of sources takes the cards' room), ↵ opens the book.
+      // (1 opens the example book, whose seeding is the heaviest thing a run does: its key is the same handler, one less.)
+      await h.keyboard.press('2'); await h.waitForTimeout(600)
+      const bring = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-start-choices]').length, still: !!document.querySelector('.mf-welcome'), words: document.querySelector('.mf-welcome main')?.textContent ?? '' }))
+      const bringOk = bring.cards === 0 && bring.still && /Obsidian|Apple Notes/.test(bring.words)
+      if (!bringOk) failed++
+      console.log(`${bringOk ? 'PASS' : 'FAIL'} on Ready, 2 opens “Bring my notes” in place  (${JSON.stringify({ cards: bring.cards, still: bring.still })})`)
+      await h.keyboard.press('Enter'); await h.waitForTimeout(1500)
+      const opened = await h.evaluate(() => !document.querySelector('.mf-welcome'))
+      if (!opened) failed++
+      console.log(`${opened ? 'PASS' : 'FAIL'} on Ready, ↵ opens the book  (welcome ${opened ? 'gone' : 'still up'})`)
       break
     }
     // On: Next, or past Your turn without trying it.
