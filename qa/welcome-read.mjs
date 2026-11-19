@@ -192,7 +192,8 @@ try {
     console.log(`${works ? 'ok' : 'FAIL'}: the empty-frame and overlap checks catch a made-up empty panel over another`)
     if (!works) failed++
   }
-  const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours']
+  // Every chapter to the last, Ready, as a newcomer walks it (17 Nov: "the welcome screens are still broken").
+  const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Name it', 'Ready']
   let total = 0
   const holdRows = []
   for (let at = 0; at < steps.length; at++) {
@@ -326,6 +327,15 @@ try {
     for (const one of over) console.log(`FAIL no demo part over another  (${one})`)
     empties += empty.size
     overs += over.size
+    // Ready is the end: its press opens the book, not another chapter.
+    if (at === steps.length - 1) {
+      // Its two cards' keys count from 1, as they are pressed ("Open my book" is ↵): they said 2 and 3 with no 1 (17 Nov).
+      const keys = await h.evaluate(() => [...document.querySelectorAll('[data-start-choices] [data-choice]')].map((one) => one.lastElementChild?.textContent?.trim()))
+      const keysOk = keys.join(',') === '1,2'
+      if (!keysOk) failed++
+      console.log(`${keysOk ? 'PASS' : 'FAIL'} Ready's choices are keyed 1 and 2  (${keys.join(', ')})`)
+      break
+    }
     // On: Next, or past Your turn without trying it.
     const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
     const was = await chapter()

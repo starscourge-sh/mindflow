@@ -655,7 +655,8 @@ export function Welcome(): React.JSX.Element | null {
       else if (event.key === 'ArrowRight' || event.key === ' ') {
         if (at !== LAST) next()
       } else if (event.key === 'ArrowLeft') back()
-      else if (at === LAST && /^[123]$/.test(event.key)) start(Number(event.key) as 1 | 2 | 3)
+      // The two cards' keys, 1 and 2, as they show them: "Open my book" is ↵ (it said 2 and 3 with no 1 anywhere, 17 Nov).
+      else if (at === LAST && /^[12]$/.test(event.key)) start((Number(event.key) + 1) as 2 | 3)
       else if (at === DIAL && reel.current.done && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
         if (!dial || dial.contains(target)) return
@@ -2371,7 +2372,7 @@ function Start({ state, onState, name, kept, mine, skipped, importing, still, on
                   <span className="text-[clamp(1rem,min(1.7vw,2.4vh),1.1875rem)] leading-snug font-semibold text-foreground">{row.title}</span>
                   <span className="text-[clamp(0.9375rem,min(1.5vw,2.1vh),1.0625rem)] leading-snug text-(--mf-wl-body)">{row.line}</span>
                 </span>
-                <Kbd className="mt-0.5 h-6 min-w-6 shrink-0">{row.key}</Kbd>
+                <Kbd className="mt-0.5 h-6 min-w-6 shrink-0">{row.key - 1}</Kbd>
               </motion.button>
             )
           })}
