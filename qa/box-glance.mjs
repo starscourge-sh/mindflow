@@ -120,7 +120,26 @@ if (part('tabs')) {
   check('the row starts past the pill\'s round end by a tab\'s foot (36px in) and stops short of the grabber at its middle', now.tabs.every((one) => one.x >= now.card.x + 35.5 && one.x + one.w <= now.card.x + now.card.w / 2 - 32), JSON.stringify(now.tabs.map((one) => [Math.round(one.x - now.card.x), Math.round(one.x + one.w - now.card.x)])))
   check('every tab shows the hand and is at least 24px tall', now.tabs.every((one) => one.hand === 'pointer' && one.h >= 24), JSON.stringify(now.tabs.map((one) => [one.hand, one.h])))
   check('Write is the pill as it was: its kind icon and ⌘↵, its own prompt, no glance under it', now.ends && now.writing?.placeholder === LINES.write && !now.writing.hidden && !now.panel && !now.line, JSON.stringify({ ends: now.ends, said: now.writing?.placeholder, panel: now.panel }))
+  // Its hint keeps to its one line at every text size, the end dropped where it would wrap: wrapped, the pill cut the
+  // second line off under the first (the user's "clipped things under the 'W'").
+  const hint = []
+  for (const textSize of [1, 1.25, 1.4, 1.6]) {
+    await v('settings:set', { textSize })
+    await wait(500)
+    hint.push(await page.evaluate((size) => {
+      const p = document.querySelector('.app-container[data-pill] .tiptap.ProseMirror p.is-editor-empty')
+      if (!p) return { size, none: true }
+      const lh = parseFloat(getComputedStyle(p).lineHeight)
+      const said = parseFloat(getComputedStyle(p, '::before').height)
+      return { size, lh: Math.round(lh), p: p.offsetHeight, said: Math.round(said) }
+    }, textSize))
+    if (shots) await page.screenshot({ path: `${shots}/glance-hint-${Math.round(textSize * 100)}.png` }).catch(() => {})
+  }
+  await v('settings:set', { textSize: 1 })
+  await wait(500)
+  check('the empty line\'s hint is one line tall at text sizes 100% to 160%, nothing of it under the line', hint.every((one) => !one.none && one.p <= one.lh * 1.2 && one.said <= one.lh + 0.5), JSON.stringify(hint))
   // A draft on the line waits behind the other tabs' lines, and is there again on Write.
+  await page.click(EDITOR)
   await page.keyboard.type('Call Mu')
   await wait(300)
   const steps = [['notes', 'pointer'], ['today', 'pointer'], ['write', 'pointer'], ['notes', 'Meta+Shift+BracketRight'], ['today', 'Meta+Shift+BracketRight'], ['write', 'Meta+Shift+BracketRight'], ['today', 'Meta+Shift+BracketLeft'], ['notes', 'Meta+Shift+BracketLeft'], ['today', 'Control+Alt+Digit3'], ['write', 'Control+Alt+Digit1'], ['notes', 'Control+Alt+Digit2']]
@@ -174,14 +193,30 @@ if (part('tabs')) {
   await page.keyboard.press('Escape')
   await wait(900)
   check('Esc again puts the box away', (await onScreen())?.visible === false)
-  // Every open starts on Write.
+  // Every open starts on Write, and its first frame back on screen is already Write: put back as it hides, never
+  // as it shows (the user's "it snaps abruptly to 'write'"). Each frame the page draws on screen says its tab.
   await page.evaluate(() => window.api.showPrompt())
   await wait(700)
   await pick('today')
   await page.evaluate(() => window.api.hideWindow())
   await wait(700)
-  await page.evaluate(() => window.api.showPrompt())
+  const away = await drawn()
+  check('put away on Today, it is on Write before it is shown again (no glance, the writing not hidden)', chosen(away) === 'write' && !away.panel && !away.writing?.hidden, JSON.stringify({ chosen: chosen(away), panel: !!away.panel }))
+  await page.evaluate(() => {
+    window.__back = []
+    const tick = () => {
+      if (window.__back.length > 40) return
+      if (document.visibilityState === 'visible') window.__back.push(document.querySelector('[data-glance-tab][aria-selected="true"]')?.getAttribute('data-glance-tab') ?? 'none')
+      requestAnimationFrame(tick)
+    }
+    tick()
+  })
+  const reopen = () => page.evaluate(() => window.api.showPrompt())
+  if (film) await (await import('./cast-lib.mjs')).castFrames(page, film, 'reopen-after-today', reopen, 700)
+  else await reopen()
   await wait(900)
+  const back = await page.evaluate(() => window.__back)
+  check('…and every frame from its first back on screen shows Write', back.length > 3 && back.every((one) => one === 'write'), back.join(' '))
   at = await drawn()
   check('opened again, it is on Write', chosen(at) === 'write' && !at.panel, `chosen ${chosen(at)}`)
   // A second line still grows it into the box, and the tabs go with the pill.
