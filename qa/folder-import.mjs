@@ -57,7 +57,13 @@ try {
   const filed = await c.v('folders:of', 'nuggets')
   check('each is kept in a folder', once.every((one) => filed[one.id]))
   check('the closing notice says where they are', first.notes.some((one) => /kept in .*Imports › Obsidian/.test(one)), first.notes[0])
-  // A folder named Archive: offered once.
+  // The card's main button opens the import's own folder; nothing else floats while it is up.
+  check('the closing card opens the import\'s folder', /Open “Obsidian: vault”/.test((await h.locator('[data-open-import-folder]').textContent().catch(() => '')) ?? ''), await h.locator('[data-open-import-folder]').textContent().catch(() => 'none'))
+  check('no notice under the card', !(await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].some((one) => /called “Archive”/.test(one.textContent ?? '')))))
+  await h.locator('[data-open-import-folder]').click()
+  await h.waitForTimeout(900)
+  check('it opens on that folder\'s page', ((await h.locator('[data-folder-title]').textContent().catch(() => '')) ?? '').includes('Obsidian: vault'))
+  // A folder named Archive: offered once, now the card is away.
   const offers = await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent ?? '').filter((one) => /called “Archive”/.test(one)))
   check('its "Archive" folder is offered to be archived instead', offers.length === 1, offers[0])
 

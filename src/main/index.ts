@@ -116,7 +116,7 @@ import { cardInView, cardOf, LIFT_MS, onFrames, outCubic, outQuart, outQuint, pa
 import { registerDefine } from './define'
 import { findVaultNotes, isVault, registerObsidian, vaultChoices, vaultRoots } from './obsidian'
 import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
-import { fileIntoGroups, filedSaid, registerNoteImports } from './note-imports'
+import { fileIntoGroups, filedSaid, importFolder, registerNoteImports } from './note-imports'
 import { assetsDir, known, lookAhead, registerPictures, smallCopy } from './pictures'
 import { registerPictureSight } from './picture-sight'
 import { registerContacts } from './contacts'
@@ -4513,6 +4513,7 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
       if (got.denied && !got.made.length) return inHome('haligtree:import-folders', { from: 'Apple Notes', refused: 'denied' })
       inHome('haligtree:import-done', {
         from: 'Apple Notes',
+        folder: groups.length ? importFolder('Apple Notes') : null,
         made: got.made.length,
         writing: got.made.length,
         pictures: got.pictures,
@@ -4842,6 +4843,8 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   // Said in the main window, on a card of its own, while the notes become documents behind it.
   inHome('haligtree:import-done', {
     from: basename(root),
+    // Its own folder in Imports, which the card opens (Folders: "the import's last notice opens its folder").
+    folder: filed.length ? importFolder(`${existsSync(join(root, '.obsidian')) ? 'Obsidian' : 'Markdown'}: ${basename(root)}`) : null,
     made: made.length,
     inbox,
     writing: pick ? made.length : 0,

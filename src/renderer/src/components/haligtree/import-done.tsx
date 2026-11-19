@@ -21,6 +21,8 @@ type ImportDone = {
   inbox?: number
   /** Filed into Pages, in a group for each folder, not yet sorted. */
   writing?: number
+  /** The import's own folder in Folders ("Imports › Obsidian: Unisa"), which its main button opens. */
+  folder?: { id: string; name: string } | null
   /** Anki cards, become gems. */
   gems?: number
   /** Cards from shared decks, on Review's Decks shelf. */
@@ -122,6 +124,8 @@ export function ImportDoneCard(): React.JSX.Element {
   }, [])
   useEffect(() => void (done && setTimeout(() => card.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus(), 30)), [done])
   const close = (): void => setDone(null)
+  // Put away: what waited for it (an import's "Archive" offer, folder-picker.tsx) may speak now, one float at a time.
+  useEffect(() => void (done === null && window.dispatchEvent(new CustomEvent('haligtree:import-closed'))), [done])
   // Escape puts it away wherever the focus is: the page under it can take the focus back as the import ends.
   useEffect(() => {
     if (!done) return
@@ -214,7 +218,9 @@ export function ImportDoneCard(): React.JSX.Element {
               {done.writing ? (
                 <>
                   <Button variant="ghost" size="lg" onClick={() => (chime('tap'), close())}>Done</Button>
-                  <Button size="lg" data-autofocus="" data-open-writing="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'articles'))}>Open Writing</Button>
+                  {done.folder
+                    ? <Button size="lg" data-autofocus="" data-open-import-folder="" onClick={() => (chime('tap'), close(), window.api.openInHome('folder', done.folder!.id))}>Open “{done.folder.name}”</Button>
+                    : <Button size="lg" data-autofocus="" data-open-writing="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'articles'))}>Open Writing</Button>}
                 </>
               ) : done.inbox ? (
                 <>

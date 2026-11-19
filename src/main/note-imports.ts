@@ -58,6 +58,13 @@ export function fileIntoGroups(folders: { path: string[]; ids: string[] }[], mad
   return named
 }
 
+/** The import's own folder ("Imports › Obsidian: Engineering Codex"), for its closing card to open. */
+export function importFolder(source: string): { id: string; name: string } | null {
+  const db = database()
+  const row = db.prepare(`select g.id, g.name from note_groups g join note_groups p on p.id = g.parent_id where g.list = '${LIST}' and p.name = 'Imports' and p.parent_id is null and g.name = ? order by g.created_at desc limit 1`).get(source) as { id: string; name: string } | undefined
+  return row ?? null
+}
+
 /**
  * Where an import's notes went, in one line: the group, or how many groups,
  * and any lone note that stayed in the list outside them ("1 on its own"),

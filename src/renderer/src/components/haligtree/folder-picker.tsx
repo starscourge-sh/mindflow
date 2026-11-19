@@ -64,11 +64,16 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
   // An import's "Archive" folder, offered once: archive what it holds instead (Folders are places, Archive is a state).
   const offers = useLive(folders.offers, [] as { id: string; name: string; n: number }[], [], undefined, 'folders:offers')
   useEffect(() => {
-    for (const one of offers)
+    if (!offers.length) return
+    // Said once the import's own card is put away: never a notice under that card (one floating thing at a time).
+    const say = (): void => { for (const one of offers)
       toast(`The import brought a folder called “${one.name}”. Archive ${one.n === 1 ? 'its 1 note' : `these ${num(one.n)} notes`} instead?`, undefined, 'info', {
         label: 'Archive them', key: 'A',
         run: () => void folders.archiveInstead(one.id).then((was) => was && (chime('tuck'), toast(`Archived ${num(was.things.length)}: kept, out of sight, in the folder that held “${one.name}”`, () => void folders.unarchive(was))))
-      })
+      }) }
+    if (!document.querySelector('[data-import-done]')) return say()
+    window.addEventListener('haligtree:import-closed', say, { once: true })
+    return () => window.removeEventListener('haligtree:import-closed', say)
   }, [offers])
   if (!asked || !things) return null
   const close = (): void => (setAsked(null), before.current?.isConnected ? before.current.focus({ preventScroll: true }) : (document.activeElement as HTMLElement | null)?.blur())
