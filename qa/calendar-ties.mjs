@@ -54,6 +54,24 @@ try {
   const tick = await h.evaluate((id) => getComputedStyle(document.querySelector(`[data-cal-layer="${id}"] [role="checkbox"] span`)).backgroundColor, made.id)
   const want = await h.evaluate((t) => { const probe = document.createElement('span'); probe.style.color = `var(--tt-color-text-${window.__tagHue?.(t) ?? 'x'})`; return null }, tag)
   check('its tick wears a colour', !!tick && tick !== 'rgba(0, 0, 0, 0)', `${tick} ${want ?? ''}`)
+  // 4. A goal's sessions on a calendar of its own, from the goal page's "…": a session on a task tied to the goal shows
+  //    there, read only; taken off, the calendar goes.
+  const goal = (await v('items', 'goal')).find((one) => !one.closedAt)
+  const step = await v('study', goal.id, 'Practise the opening for the goal')
+  const session = await v('session:start', step.id, undefined, 60_000)
+  await wait(300); await v('session:end', session, '', true); await wait(300)
+  await send('goal', goal.id); await wait(1800)
+  await h.locator('[data-open] button[aria-label="More"], [data-open] [data-menu-button]').first().click(); await wait(400)
+  await menuLine('Show its sessions on the Calendar').click(); await wait(700)
+  const own = (await v('calendars')).find((one) => one.goal === goal.id)
+  check('the goal page\'s "…" puts its sessions on a calendar of its own, named for it', !!own && goal.title.startsWith(own.name.replace(/…$/, '')), JSON.stringify(own))
+  const day = new Date(); day.setHours(0, 0, 0, 0)
+  const on = await v('events', day.toISOString(), new Date(day.getTime() + 86_400_000).toISOString())
+  const mine = on.find((one) => one.calendarId === own?.id)
+  check('a session on its task shows there, read only', !!mine && mine.readOnly === true && mine.key.startsWith('session:'), JSON.stringify(mine))
+  await h.locator('[data-open] button[aria-label="More"], [data-open] [data-menu-button]').first().click(); await wait(400)
+  await menuLine('Take its sessions off the Calendar').click(); await wait(700)
+  check('and taken off, its calendar goes', !(await v('calendars')).some((one) => one.goal === goal.id))
 } finally {
   await close()
 }

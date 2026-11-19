@@ -733,7 +733,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   if (openNow) lastOpened.current = { event: openedEvent, task: openedTask }
   const drawnEvent = openNow ? openedEvent : lastOpened.current.event
   const drawnTask = openNow ? openedTask : lastOpened.current.task
-  const calendarName = (one: Shown): string => one.readOnly ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
+  const calendarName = (one: Shown): string => one.calendarId.startsWith('mac:') ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
   const left = side && !roomless && (fits.left || kept)
   // The left panel's switch: on while it is up, off hides it; on again shows it, room or not.
   const leftPanel = (): void => {

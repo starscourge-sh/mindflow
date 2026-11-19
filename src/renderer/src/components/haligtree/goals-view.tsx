@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Chips } from './display'
 import { ListSearch, NoteList, type Entry } from './note-list'
 import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
+import { calendarsNow, events, useCalendars } from '@/lib/events'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, typing, useListKeys, quietly } from './ui'
@@ -483,7 +484,14 @@ const goalMenu = (item: Item): MenuItem[] => [
   binItem([{ type: 'goal', id: item.id }])
 ]
 /** A goal page's "…": only what its panel does not already hold (the panel has how it ends, its day, Home and privacy). */
-const pageMenu = (item: Item): MenuItem[] => [...openItems('goal', item.id), 'separator', copyLinkItem(`goal:${item.id}`, item.title), binItem([{ type: 'goal', id: item.id }])]
+/** Its focus sessions on a calendar of its own (main/events.ts `goal:calendar`), shown or put away, with Undo. */
+const sessionsOnCalendar = (item: Item): MenuItem => {
+  const on = calendarsNow().some((one) => one.goal === item.id)
+  const set = (to: boolean): void => void events.goalCalendar(item.id, to).then((done) => done && (chime(to ? 'on' : 'off'),
+    toast(to ? `Its sessions are on the Calendar, on ${item.title}` : 'Its sessions are off the Calendar', () => void events.goalCalendar(item.id, !to).then(() => chime('undo')))))
+  return { label: on ? 'Take its sessions off the Calendar' : 'Show its sessions on the Calendar', icon: <CalendarDays />, run: () => set(!on) }
+}
+const pageMenu = (item: Item): MenuItem[] => [...openItems('goal', item.id), sessionsOnCalendar(item), 'separator', copyLinkItem(`goal:${item.id}`, item.title), binItem([{ type: 'goal', id: item.id }])]
 
 /**
  * Goals, in the main window: the open ones nearest first, the settled ones
@@ -718,6 +726,8 @@ export function Answers({ item, small = false, onPick }: { item: { id: string; g
  * dates, the beacon and the ways it can end.
  */
 function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): React.JSX.Element {
+  // Read here, so its "…" menu knows whether its sessions are on the Calendar.
+  useCalendars()
   const today = useToday()
   const settings = useLive(haligtree.settings, null as Settings | null)
   useHomeGoals(settings)

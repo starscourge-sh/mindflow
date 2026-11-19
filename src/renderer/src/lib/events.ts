@@ -24,6 +24,8 @@ export const events = {
   drop: (key: string, scope?: Scope) => call<{ undo: string } | null>('event:drop', key, scope),
   undo: (token: string) => call<boolean>('events:undo', token),
   calendars: () => call<Calendar[]>('calendars'),
+  /** A goal's focus sessions on a calendar of its own: on, made or shown again; off, put away. */
+  goalCalendar: (goal: string, on: boolean) => call<boolean | null>('goal:calendar', goal, on),
   /** A folder's page: the next four weeks of the calendars that keep their notes in it. */
   ofFolder: (folder: string) => call<{ calendars: Pick<Calendar, 'id' | 'name' | 'color' | 'tag'>[]; events: Occurrence[] }>('folder:events', folder),
   setCalendar: (patch: Partial<Calendar> & { binned?: boolean }) => call<{ id: string; was: (Calendar & { binned: boolean }) | null } | null>('calendar:set', patch),

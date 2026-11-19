@@ -27,7 +27,7 @@ import { fileThings } from './folders'
  * else"): `folder`, a folder its events' notes are kept in, whose page shows its events; `tag`, a tag whose colour it
  * wears, so a calendar and its tag read as one.
  */
-export type Calendar = { id: string; name: string; color: string; hidden: boolean; folder: string | null; tag: string | null }
+export type Calendar = { id: string; name: string; color: string; hidden: boolean; folder: string | null; tag: string | null; /** A goal whose focus sessions it shows, read only: its own calendar. */ goal: string | null }
 
 /** One time an event happens: a one-off, one time of a series, or a time of a series changed on its own. */
 export type Occurrence = {
@@ -56,6 +56,8 @@ export type Occurrence = {
   ink: string | null
   /** Called off: kept on the calendar, struck through. */
   cancelled: boolean
+  /** Not an event of yours to change: a goal's focus session, on the goal's own calendar. */
+  readOnly?: boolean
 }
 
 export type EventPatch = Partial<{
@@ -127,7 +129,7 @@ function tables(): void {
     create table if not exists event_notes (event_key text not null, capture_id text not null, created_at text not null, primary key (event_key, capture_id));
     create table if not exists event_told (key text primary key, at text not null);
     create table if not exists task_remind (task_id text primary key, before integer not null);`)
-  for (const column of ['folder_id text', 'tag text']) {
+  for (const column of ['folder_id text', 'tag text', 'goal_id text']) {
     try {
       db.exec(`alter table calendars add column ${column}`)
     } catch {
@@ -146,7 +148,7 @@ function tables(): void {
 }
 
 export function calendars(): Calendar[] {
-  return (db.prepare('select id, name, color, hidden, folder_id as folder, tag from calendars where binned_at is null order by sort, created_at').all() as (Omit<Calendar, 'hidden'> & { hidden: number })[])
+  return (db.prepare('select id, name, color, hidden, folder_id as folder, tag, goal_id as goal from calendars where binned_at is null order by sort, created_at').all() as (Omit<Calendar, 'hidden'> & { hidden: number })[])
     .map((row) => ({ ...row, hidden: !!row.hidden }))
 }
 
@@ -187,6 +189,18 @@ function eventsBetween(from: string, to: string): Occurrence[] {
       out.push(shape(master, `${master.id}@${start}`, start, end, noted, master))
     }
     for (const one of own) if (!one.binned_at && one.start_at < to && one.end_at > from) out.push(shape(one, `${master.id}@${one.original_start}`, one.start_at, one.end_at, noted, master))
+  }
+  // A goal's own calendar: the focus sessions spent on it (on a task tied to the goal, or started for it by its name),
+  // each where it ran, read only.
+  for (const cal of calendars().filter((one) => one.goal)) {
+    const goal = db.prepare("select coalesce(nullif(trim(title), ''), 'Goal') as title from nuggets where id = ? and tier = 'goal'").get(cal.goal) as { title: string } | undefined
+    if (!goal) continue
+    const sessions = db.prepare(`select s.id, s.started_at as start, s.ended_at as end, coalesce(nullif(trim(s.goal), ''), t.title, ?) as title from sessions s left join tasks t on t.id = s.task_id
+      where s.ended_at is not null and s.started_at < ? and s.ended_at > ? and (s.task_id in (select task_id from task_links where item_id = ?) or lower(trim(coalesce(s.goal, ''))) = lower(trim(?)))`)
+      .all(goal.title, to, from, cal.goal, goal.title) as { id: string; start: string; end: string; title: string }[]
+    for (const one of sessions)
+      out.push({ key: `session:${one.id}`, id: one.id, series: null, start: one.start, end: one.end, allDay: false, title: one.title, place: null, people: [], video: null, notes: `A focus session for ${goal.title}`,
+        calendarId: cal.id, remind: null, repeat: null, repeatSaid: null, noted: 0, ink: null, cancelled: false, readOnly: true })
   }
   return out.sort((a, b) => a.start.localeCompare(b.start))
 }
@@ -493,6 +507,21 @@ export function registerEvents(open: (type: string, id: string) => void): void {
     })
 
   handle('calendars', () => calendars())
+  // A goal's sessions on a calendar of its own, named for it: made the first time, shown or put away after.
+  // Gives back what was, for Undo.
+  handle('goal:calendar', (goal: string, on: boolean) => {
+    const row = db.prepare('select id, binned_at from calendars where goal_id = ?').get(String(goal)) as { id: string; binned_at: string | null } | undefined
+    const title = (db.prepare("select coalesce(nullif(trim(title), ''), 'Goal') as title from nuggets where id = ? and tier = 'goal'").get(String(goal)) as { title: string } | undefined)?.title
+    if (!title) return null
+    if (on && !row) {
+      const id = randomUUID()
+      db.prepare('insert into calendars (id, name, color, hidden, sort, created_at, goal_id) values (?, ?, ?, 0, (select coalesce(max(sort), 0) + 1 from calendars), ?, ?)')
+        .run(id, clean(title, 40) || 'Goal', CAL_COLORS[calendars().length % CAL_COLORS.length], now(), String(goal))
+    } else if (row) db.prepare('update calendars set binned_at = ?, hidden = 0 where id = ?').run(on ? null : now(), row.id)
+    changed()
+    eventsTold()
+    return true
+  })
   // Made or changed: name, colour, shown or hidden. Gives back what it was, for an undo.
   handle('calendar:set', (patch: Partial<Calendar> & { binned?: boolean }) => {
     const was = patch.id ? (db.prepare('select id, name, color, hidden, binned_at, folder_id as folder, tag from calendars where id = ?').get(patch.id) as (Calendar & { binned_at: string | null }) | undefined) : undefined
