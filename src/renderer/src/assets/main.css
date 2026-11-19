@@ -3688,7 +3688,7 @@ html[data-pill-open='left'] #root { right: 0; }
 /* Up 4px: the writing column's top padding was set for 17px words; at 20px they sat below the pill's middle.
    A touch tighter, as large text wants (apple-design, typography): Spotlight's words are set close. */
 .app-container[data-one-line] .tiptap.ProseMirror.haligtree-editor { font-size: calc(1.1875rem * var(--mf-text-scale, 1)); line-height: 1.3; letter-spacing: -0.01em; margin-top: -4px; }
-/* Keep sits in the right end, wider than the kind mark, so the line stops before it. The mode word is for a page, not this one line. */
+/* Keep sits in the right end, wider than the kind mark, so the line stops before it. */
 .app-container[data-pill] .tiptap.ProseMirror.haligtree-editor { padding-right: 7.5rem; }
 .app-container[data-pill] [data-vim-status] { display: none; }
 /* A field on a page (presets.tsx PlainField) keys as a note does, but the page's mode word is the note's, not a field's. */

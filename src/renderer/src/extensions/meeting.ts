@@ -42,6 +42,8 @@ export const Meeting = Node.create({
       actions: { default: [] },
       /** Until when anything was heard, in seconds: the quiet after it is said, not hidden. */
       heard: { default: null },
+      /** An older recording read again as it opened (meeting-page.tsx): when, so it is read again only once, an Undo kept. */
+      readAgain: { default: null },
       /** The folder it was recorded in (main/meeting.ts): it is never kept twice. */
       recording: { default: null },
       /** Why it ended by itself: 'crash' or 'disk'. Its page says so. */

@@ -58,21 +58,26 @@ type Wrapped = {
   days: Record<string, number>
   well: string[]
   sites: { site: string; count: number }[]
+  reads: Reads
 }
+/** Articles read in the reader this span (main/read-time.ts): finished only with their end reached and half their reading time spent. */
+type Reads = { total: number; finished: number; left: { title: string; minutes: number; needs: number }[] }
 
 async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
   const [since, until] = [dayjs(from).startOf('day').toISOString(), dayjs(to).endOf('day').toISOString()]
   const mondays: string[] = []
   for (let monday = dayjs(from).startOf('week'); dayKey(monday) <= to; monday = monday.add(1, 'week')) mondays.push(dayKey(monday))
-  const [recap, sessions, tasks, gems, days, pages, sent] = await Promise.all([
+  const [recap, sessions, tasks, gems, days, pages, sent, read] = await Promise.all([
     haligtree.recap(period, since),
     haligtree.sessionsSpan(since, until) as Promise<SpanSession[]>,
     haligtree.tasks() as Promise<Task[]>,
     haligtree.items('nugget'),
     haligtree.dayCaptures(from, to),
     Promise.all(mondays.map((monday) => haligtree.period(`week:${monday}`))),
-    sentAwaySince(since)
+    sentAwaySince(since),
+    window.api.haligtree('read:stats', since) as Promise<{ rows: { title: string; minutes: number; needs: number; finished: boolean; lastAt: string }[] }>
   ])
+  const inSpan = read.rows.filter((one) => one.lastAt <= until)
   const minutes = new Map<string, number>()
   const worked = new Set<string>()
   let total = 0
@@ -104,7 +109,8 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
     busy: [...busy],
     days: days.counts,
     well: [...new Set(well)],
-    sites: bySite(sent, since, until)
+    sites: bySite(sent, since, until),
+    reads: { total: inSpan.length, finished: inSpan.filter((one) => one.finished).length, left: inSpan.filter((one) => !one.finished).map((one) => ({ title: one.title, minutes: one.minutes, needs: one.needs })) }
   }
 }
 
@@ -137,11 +143,11 @@ type Facts = {
   planned: number; did: number; planRows: { name: string; planned: number; did: number }[]
   pictures: { src: string; title: string; type: string; id: string }[]; notes: string[]; notesLabel: string; gems: number
   run: number; runFrom: string; runTo: string; busy: string[]; days: Record<string, number>
-  busiest: { label: string; day: string; n: number } | null; well: string[]; kind: string; sites: { site: string; count: number }[]
+  busiest: { label: string; day: string; n: number } | null; well: string[]; kind: string; sites: { site: string; count: number }[]; reads: Reads
   /** Captures by hour of the day, and the hour most came in; null with too few to say. */
   hours: number[]; hour: number | null
 }
-type Kind = 'intro' | 'tags' | 'focus' | 'sites' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
+type Kind = 'intro' | 'tags' | 'focus' | 'sites' | 'reading' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
 
 /** What the month most was, in a word: the report card's "Top kind". */
 const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number }): string =>
@@ -177,7 +183,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
 
   const facts = useMemo<Facts | null>(() => {
     if (!data || !pictures) return null
-    const { recap, focus, plan, gems, run, well, name, busy, days, sites } = data
+    const { recap, focus, plan, gems, run, well, name, busy, days, sites, reads } = data
     // The span's pictures, and its gems with none of their own on their paper drawing: one flowing row.
     const pictured = new Set(pictures.map((one) => one.id))
     const flow = [...pictures, ...gems.filter((gem) => !pictured.has(gem.id)).map((gem) => ({ src: drawingFor(gem.id).url, title: gem.title || 'New note', type: 'gem', id: gem.id }))]
@@ -192,7 +198,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       busiest: recap.busiestDay ? { label: dayName(noon(recap.busiestDay.name), 'never'), day: recap.busiestDay.name, n: recap.busiestDay.n } : null,
       // An hour is said only with enough caught to mean something, and one hour clearly ahead of the next.
       hours: recap.hours, hour: thinkingHour(recap.hours),
-      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites,
+      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites, reads,
       ...worst
     }
   }, [data, pictures]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -206,6 +212,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     if (f.tags.length || f.captures) middle.push([1, 'tags'])
     if (f.minutes >= 1) middle.push([2, 'focus'])
     if (f.sites.length) middle.push([2.5, 'sites'])
+    if (f.reads.total) middle.push([3.5, 'reading'])
     if (f.planRows.length) middle.push([3, 'plan'])
     if (f.pictures.length) middle.push([3, 'pictures'])
     if (f.notes.length) middle.push([4, 'notes'])
@@ -388,7 +395,8 @@ function Ranked({ rows, accent }: { rows: { name: string; n: number }[]; accent:
 }
 
 /** Bars, one a row, each with its name and what it stands for in words: the first in the loud colour. */
-function Rows({ rows: all, p, wide }: { rows: { name: ReactNode; key: string; said: string; n: number }[]; p: Palette; wide: boolean }): React.JSX.Element {
+// `of`: each row's own whole (a read's minutes of its reading time), so a bar is its share of that, never of the longest row.
+function Rows({ rows: all, p, wide }: { rows: { name: ReactNode; key: string; said: string; n: number; of?: number }[]; p: Palette; wide: boolean }): React.JSX.Element {
   // Three on a small card, so the list never reaches the card's foot.
   const rows = all.slice(0, wide ? 5 : 3)
   const most = Math.max(1, ...rows.map((row) => row.n))
@@ -397,7 +405,7 @@ function Rows({ rows: all, p, wide }: { rows: { name: ReactNode; key: string; sa
       {rows.map((row, i) => (
         <In key={row.key} at={0.3 + i * 0.07} from="left" className="min-w-0">
           <p className="flex items-baseline gap-3 text-[15px] font-semibold"><span className="min-w-0 flex-1 truncate" dir="auto">{row.name}</span><span className="shrink-0 tabular-nums">{row.said}</span></p>
-          <motion.div className="mt-1.5 h-2 origin-left rounded-none" style={{ width: `${Math.max(2, (row.n / most) * 100)}%`, background: i ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : p.accent }}
+          <motion.div className="mt-1.5 h-2 origin-left rounded-none" style={{ width: `${Math.max(2, Math.min(1, row.n / (row.of ?? most)) * 100)}%`, background: i ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : p.accent }}
             initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.4 + i * 0.07, duration: 0.4, ease: EASE }} />
         </In>
       ))}
@@ -520,6 +528,13 @@ function Card({ kind, f, look, variant, seed, wide, open }: { kind: Kind; f: Fac
         return split(<><In at={0.12}><h2 className={fit(first.site)}>Kept you off <span style={{ color: p.accent }}>{siteWords(first.site)}</span> {timesSaid(first.count)} this {f.period}</h2></In>
           <In at={0.45}><p className={CAPTION}>{rest.length ? `and ${and(rest.slice(0, 2).map((one) => `${one.site} ${timesSaid(one.count)}`))}${rest.length > 2 ? `, and ${plural(rest.length - 2, 'more site')}` : ''}: sent away ${plural(total, 'time')} while you focused.` : 'The one site it had to send away while you focused.'}</p></In></>,
           <Rows p={p} wide={wide} rows={f.sites.slice(0, 5).map((one) => ({ key: one.site, name: one.site, said: timesSaid(one.count), n: one.count }))} />)
+      }
+      case 'reading': {
+        // Finished means its end reached with half its reading time spent on it: said under the number, so it is never a guess.
+        const { total, finished, left } = f.reads
+        return split(<><In at={0.12}><h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2></In>
+          <In at={0.45}><p className={CAPTION}>{`Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up.` : ''}`}</p></In></>,
+          left.length ? <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} /> : cover())
       }
       case 'plan': {
         const rows = [...f.planRows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, wide ? 4 : 2)

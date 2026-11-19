@@ -5,15 +5,16 @@ import { LengthMark } from './length-mark'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Branches } from './branches'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { Editor } from '@tiptap/core'
 import { showIn } from '@/lib/same-words'
 import { remindersItem } from '@/lib/reminders'
 import { useToday } from '@/lib/use-today'
 import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
-import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import type { Editor, JSONContent } from '@tiptap/core'
+import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, Link2, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { saveImage } from '@/extensions/image-drop'
+import { hrefFor, looksLikeAddress } from '@/extensions/link-tidy'
 import { tagTint } from './tag-icon'
 
 import { HaligtreeEditor } from '../haligtree'
@@ -28,7 +29,7 @@ import { NoteComing } from './note-coming'
 import { fromBefore, BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem, yourOrder } from '@/lib/tasks'
 import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPriority, useKept } from './task-input'
-import { useArrivals } from './note-list'
+import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
 import { Display, arrange, openDisplay, useView, type Facet } from './display'
@@ -769,6 +770,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
   const [open, setOpen] = useState<TaskFull | null>(() => (focus ? readNow<TaskFull>('task', focus) ?? null : null))
   const [draft, setDraft] = useState('')
   const kept = useKept()
+  const [typed, setTyped] = useState('')
   const { ticking: leaving, tickOff: complete } = useTickOff(280)
   // The row a thought is being written under, without opening the task.
   const [glossing, setGlossing] = useState<string | null>(null)
@@ -843,7 +845,10 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
   // day it comes back from hiding: then it is on Today too, saying "Back today",
   // as the sidebar's count (onToday) has it.
   // Each open task has one home tab (homeOf); All has every one. Waiting ones sit in their own group of that tab.
-  const open_ = chosenTasks.filter((task) => task.status === 'open')
+  // Found by its words as you type, the lists' own search field (note-list.tsx `ListSearch`), as the Bin is: its name
+  // and its tags, what its row shows. Every list (Today, Upcoming, All...) and the buttons act on what it leaves.
+  const found = (task: Task): boolean => !typed.trim() || task.title.toLowerCase().includes(typed.trim().toLowerCase())
+  const open_ = chosenTasks.filter((task) => task.status === 'open' && found(task))
   const live = mode === 'alltasks' ? open_ : open_.filter((task) => !task.waitingOn && (homeOf(task) === home || (mode === 'today' && !!task.recurrence && dayOf(task) < startOfDay(1))))
   const waiting = mode === 'alltasks' ? [] : open_.filter((task) => task.waitingOn && homeOf(task) === home)
   // Late lives on Today alone: every other tab says it in one quiet line that leads there, never a red group of its own.
@@ -985,6 +990,21 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
   // “Show in list” (⌥⌘L): every group here is open, so its row is only scrolled to and lit.
   const showOpen = useShowInList(open?.id, () => undefined)
   const addRef = useRef<HTMLInputElement>(null)
+  // What goes with the task being written, before it is made: a link pasted (a chip, never its long address), and in
+  // its details a description and pictures pasted. Kept as its description once it is made (ask 45, 17 Nov).
+  const [extra, setExtra] = useState<Extra>(NO_EXTRA)
+  // The description is the task's own notes editor, as on its page (one editor per kind of thing): made as it opens.
+  const detail = useRef<Editor | null>(null)
+  // A new editor for each task written: its words never carry over to the next.
+  const [drafts, setDrafts] = useState(0)
+  // It takes the keys as it appears (autofocus), or at once when it is open already.
+  const openDetails = (): void => void (chime('open'), setExtra((now) => ({ ...now, open: true })), detail.current?.commands.focus('end'))
+  /** A picture into the description: into the editor when it is open, else into what it opens with. */
+  const putPicture = (src: string): void => {
+    const editor = detail.current
+    if (editor && !editor.isDestroyed) return void editor.chain().focus('end').setImage({ src }).run()
+    setExtra((now) => ({ ...now, open: true, notes: { type: 'doc', content: [...((now.notes as { content?: unknown[] } | null)?.content ?? []), { type: 'image', attrs: { src } }] } }))
+  }
 
   // How far through the day: what was done today (routines too) against that and what is left.
   // Not read yet (undefined) is not none done (null): "2 of 7 done" waits with the list rather than pushing it down a beat later.
@@ -1305,13 +1325,30 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : givenLead ?? lead} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : givenLead ?? lead} search={!example && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder={`Find in ${TASK_TABS.find((one) => one.id === mode)?.label ?? 'Tasks'}`} />} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
         {said}
 
         <form
           className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
           // A pasted list is a task a line, its indented lines their steps; one Undo for all.
           onPasteCapture={(event) => {
+            // A picture: into the details, opened for it.
+            const picture = [...event.clipboardData.files].find((one) => one.type.startsWith('image/'))
+            if (picture) {
+              event.preventDefault()
+              openDetails()
+              return void saveImage(picture).then((src) => src && putPicture(src))
+            }
+            // A link alone: a chip with its site's mark and its page's name, not its long address in the words.
+            const pasted = event.clipboardData.getData('text/plain').trim()
+            if (looksLikeAddress(pasted) && event.target === addRef.current) {
+              event.preventDefault()
+              const href = hrefFor(pasted)
+              chime('tap')
+              setExtra((now) => (now.links.some((one) => one.href === href) ? now : { ...now, links: [...now.links, { href, title: URL.parse(href)?.hostname.replace(/^www\./, '') ?? href, icon: null }] }))
+              void window.api.fetchLinkMetadata(href).then((meta) => setExtra((now) => ({ ...now, links: now.links.map((one) => (one.href === href ? { ...one, title: meta.title || one.title, icon: meta.icon || null } : one)) })), () => undefined)
+              return
+            }
             const lines = tasksOf(readLines(event.clipboardData.getData('text/plain')))
             if (lines.length < 2 && !lines[0]?.steps.length) return
             event.preventDefault()
@@ -1333,13 +1370,21 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             if (!draft.trim()) return
             const text = draft
             const plain = keptIn(kept.list, text)
+            const withIt = extra
             setDraft('')
             kept.set([])
-            // Taken back, the words are in the line again, ahead of anything typed since.
+            setExtra(NO_EXTRA)
+            detail.current = null
+            setDrafts((n) => n + 1)
+            // Taken back, the words are in the line again, ahead of anything typed since, and what went with them.
             void makeTask({ text, today: mode === 'today', plain }, (made) => landed(made, mode), { onUndo: () => {
               setDraft((now) => (now.trim() ? `${text} ${now}` : text))
+              setExtra({ ...withIt, open: false })
               requestAnimationFrame(() => (addRef.current?.focus(), addRef.current?.setSelectionRange(text.length, text.length)))
-            } })
+            } }).then((made) => {
+              const notes = notesOf(withIt)
+              if (made && !made.existed && notes) void haligtree.saveTask(made.id, { notes })
+            })
           }}
         >
           <Plus className="list-plus size-4 text-muted-foreground" />
@@ -1349,9 +1394,45 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             onChange={setDraft}
             kept={kept}
             placeholder={mode === 'later' ? 'Add a task: “learn Spanish someday”, “book the holiday this year”' : 'Add a task: “call the accountant tomorrow 10am”, “file taxes by friday !!”'}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && event.shiftKey) (event.preventDefault(), openDetails())
+            }}
           />
+          {extra.links.map((one) => (
+            <span key={one.href} data-task-link className="flex max-w-[12rem] shrink-0 items-center gap-1 rounded-full border bg-background py-0.5 pr-1 pl-2 text-meta text-foreground">
+              {one.icon ? <img src={one.icon} alt="" className="size-3.5 shrink-0 rounded-sm" /> : <Link2 aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
+              <span className="min-w-0 truncate">{one.title}</span>
+              <button type="button" aria-label={`Take ${one.title} off`} onClick={() => (chime('off'), setExtra((now) => ({ ...now, links: now.links.filter((other) => other.href !== one.href) })))}
+                className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"><X className="size-3" /></button>
+            </span>
+          ))}
+          <Tip label="Add a description or a picture  ⇧↵">
+            <button type="button" data-task-details aria-expanded={extra.open} onClick={() => (extra.open ? (chime('fold'), setExtra((now) => ({ ...now, open: false }))) : openDetails())}
+              className={`grid size-7 shrink-0 cursor-pointer place-items-center rounded-md transition-colors hover:bg-accent ${extra.open || extra.notes ? 'text-foreground' : 'text-muted-foreground'}`}>
+              <AlignLeft className="size-4" />
+            </button>
+          </Tip>
           <Kbd>↵</Kbd>
         </form>
+        {extra.open && (
+          // ⌘↵ adds the task from here too; Esc folds the description away and goes back to the name.
+          <div data-task-details-box className="list-box mt-1 rounded-md border px-1 py-1"
+            onKeyDownCapture={(event) => {
+              if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation(), addRef.current?.closest('form')?.requestSubmit())
+              else if (event.key === 'Escape' && !document.querySelector('[role="menu"], [role="listbox"]')) (event.preventDefault(), event.stopPropagation(), chime('fold'), setExtra((now) => ({ ...now, open: false })), addRef.current?.focus())
+            }}>
+            <HaligtreeEditor
+              key={drafts}
+              toolbar={{ fixed: false }}
+              lineNumbers={false}
+              autofocus="end"
+              placeholder="Add a description: the details, links, steps and pictures. ⌘↵ adds the task"
+              defaultContent={(extra.notes as JSONContent | null) ?? ''}
+              onReady={(editor) => void (detail.current = editor)}
+              onChange={(notes) => setExtra((now) => ({ ...now, notes }))}
+            />
+          </div>
+        )}
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
         {mode === 'today' && hints && !example && !reading && dayDone > 0 && (
           <div data-day-progress data-said={daySaid} className="list-words mt-3 flex items-center gap-3">
@@ -1621,6 +1702,16 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
  * The quiet rows under an open task's line in its popover (cal-add.tsx): its day and time, and its tags, each the
  * control its page has (the Scheduled date, the tags under its name). A change is kept as it is made, said with Undo.
  */
+/** What goes with a task being written before it is made: links pasted, a description, pictures (ask 45). */
+type Extra = { links: { href: string; title: string; icon: string | null }[]; open: boolean; notes: unknown }
+const NO_EXTRA: Extra = { links: [], open: false, notes: null }
+/** Them as the task's description: what its editor holds (words, pictures), then each link by its page's name. Null with none. */
+const notesOf = (extra: Extra): unknown => {
+  const written = ((extra.notes as { content?: { type?: string; content?: unknown[] }[] } | null)?.content ?? []).filter((one) => one.type !== 'paragraph' || one.content?.length)
+  const content = [...written, ...extra.links.map((one) => ({ type: 'paragraph', content: [{ type: 'text', text: one.title, marks: [{ type: 'link', attrs: { href: one.href } }] }] }))]
+  return content.length ? { type: 'doc', content } : null
+}
+
 export function TaskRows({ task }: { task: Task }): React.JSX.Element {
   const tagField = useRef<HTMLInputElement>(null)
   const named = splitTags(task.title)

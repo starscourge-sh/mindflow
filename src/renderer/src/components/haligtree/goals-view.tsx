@@ -23,7 +23,7 @@ import { ShowMore, useShowMore } from './show-more'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Chips } from './display'
-import { NoteList, type Entry } from './note-list'
+import { ListSearch, NoteList, type Entry } from './note-list'
 import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
@@ -502,7 +502,9 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const listOf = (which: Tab): Item[] => which === 'open' ? openOnes(all)
     : which === 'someday' ? [...somedayOnes(all), ...all.filter((one) => one.closedAt && !one.archivedAt && tabOf(one) === 'someday').sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))]
     : all.filter((one) => one.closedAt && !one.archivedAt && tabOf(one) === which).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
-  const items = listOf(show)
+  // Found by its name as you type, the lists' own search field (note-list.tsx `ListSearch`), as the Bin is; the tabs' counts stay whole.
+  const [typed, setTyped] = useState('')
+  const items = listOf(show).filter((one) => !typed.trim() || one.title.toLowerCase().includes(typed.trim().toLowerCase()))
   // Goals grouped by area of life ("Health", "Travel"), the way Writing groups its pages, with the same groups code
   // (items-view's useFolding): ⌘G, ⇧⌘G, drag in and out, a name, a fold and tree lines. A group spans the kinds and
   // shows under each tab with only that tab's goals in it; goals in no group stay loose below the groups, in the tab's
@@ -630,7 +632,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     <ReadsIn className="contents">
       {/* Sent here for one goal: the page waits for it too, so it opens on the goal beside the list, not on the list alone first;
           the goal never waits for the list, which comes in whole beside it once drawn. */}
-      <Page aside={!!open || !!coming} waiting={unloaded(all) || unloaded(own.order) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || undefined} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
+      <Page aside={!!open || !!coming} waiting={unloaded(all) || unloaded(own.order) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" search={!unloaded(all) && all.length > 0 && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder="Find a goal" />} count={several.chosen.length || undefined} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         // Which goals show, at the line's left before the count, on the list's edges as Tasks' tabs (qa/list-edges.mjs): apart from the buttons that make or gather goals.
         lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><TabChips name="goals" tabs={TABS.map((one) => ({ value: one.id, label: one.label, count: unloaded(all) ? undefined : listOf(one.id).length }))} value={show} onChange={switchTo} drops={Object.fromEntries(TABS.map((one) => [one.id, one.id]))} /></div>}
         actions={several.bar ??

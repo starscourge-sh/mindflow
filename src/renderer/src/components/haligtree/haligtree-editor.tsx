@@ -45,7 +45,6 @@ import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight, whenGrammars } from "@/lib/lowlight"
 import { setHost, type HaligtreeHost } from "@/lib/host"
 import { currentVim, onVimChange } from "@/lib/vim"
-import { vimPluginKey } from "@/extensions/vim-mode"
 import { cue } from "@/lib/cues"
 import { byKeys } from "@/lib/motion"
 import "katex/dist/katex.min.css"
@@ -326,6 +325,7 @@ import { NoteLink, kindsAsked, onKindsAsked, showingDocument, takePendingHeading
 import { useReading } from "@/lib/reads-in"
 import { BlockIds } from "@/extensions/block-ids"
 import { LinkTidy, looksLikeAddress } from "@/extensions/link-tidy"
+import { TagsOffName } from "@/extensions/tags-off-name"
 import { LinkButtons, LinkEditor } from "./link-editor"
 import { NoteEmbed } from "@/extensions/note-embed"
 import { embedRenderer, noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
@@ -1566,6 +1566,8 @@ function Surface({
       NoteEmbed,
       // A line's lasting name, given when a link is made to it.
       BlockIds,
+      // A #tag typed into a note's name goes to its line of tags as the name is left (a capture: a page has a name of its own).
+      TagsOffName.configure({ on: () => /^capture-/.test(String(documentId ?? "")) }),
       // Web links that behave: ⌘Z takes an automatic one back, edited words unlink themselves.
       ...(has("link") ? [LinkTidy] : []),
       // `enableTabIndentation` is the extension's own Tab handling: it indents
@@ -2416,7 +2418,6 @@ function Surface({
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}
-        {shape === "document" && !readOnly && <VimSaid editor={editor} />}
         {shape === "document" && !readOnly && (foot ? foot(editor) : <WordCount editor={editor} />)}
 
         {/* The dock earns its place only if something is in it. */}
@@ -2555,24 +2556,3 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
   )
 }
 
-/** Vim's mode, in words, at the foot of the page. The caret shape was the only sign, and normal mode swallows letters. */
-function VimSaid({ editor }: { editor: Editor | null }) {
-  const [word, setWord] = useState<string | null>(null)
-  useEffect(() => {
-    if (!editor) return
-    const read = (): void => {
-      const vim = vimPluginKey.getState(editor.state)
-      const next = !vim?.enabled ? null : vim.mode === "insert" ? "Insert" : vim.mode === "visual" || vim.mode === "visualLine" ? "Visual" : "Normal"
-      setWord((was) => (was === next ? was : next))
-    }
-    read()
-    editor.on("transaction", read)
-    return () => { editor.off("transaction", read) }
-  }, [editor])
-  if (!word) return null
-  return (
-    <span data-vim-status role="status" className="pointer-events-none absolute bottom-2 left-3 z-10 text-meta text-muted-foreground">
-      {word}
-    </span>
-  )
-}

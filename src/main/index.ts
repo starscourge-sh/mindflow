@@ -80,6 +80,8 @@ import { peopleNow, registerEvents, whenEvents } from './events'
 import { followEvents, forgetAnyway, setSignal, showAnyway, shownAnyway, watchMac, whenMeeting } from './in-meeting'
 import { anywayKept, deskAway } from './meeting-away'
 import { registerReadingQueue } from './reading-queue'
+import { registerReadTime } from './read-time'
+import { registerStatsMore } from './stats-more'
 import { registerPractices, whenPracticeOffer, type Offer } from './practices'
 import { registerIssues } from './issues'
 import { brief, clock, dayKey, dayMonth, dayName, howLong, num, useTwelveHour, plural } from './dates'
@@ -1153,6 +1155,8 @@ let pillHome: Point | null = null
 /** Put somewhere by hand in this session: it stays there until the session is over, wherever the pointer rests. */
 let pillByHand = false
 let pillGliding: (() => void) | null = null
+/** Where it sat before it rose to open whole above the screen's bottom edge (`focus:size`): it goes back there as it shuts. */
+let pillRaisedFrom: number | null = null
 const pillGlide = (to: Point): void => {
   if (!focusPill || focusPill.isDestroyed()) return
   pillGliding?.()
@@ -1189,7 +1193,7 @@ function showFocus(on: boolean): void {
   // it is what rings and glows when the time is up.
   if (!on || !focusBubbleShown()) focusPill?.hide()
   // Put away, its window goes back to the pill's own size for next time.
-  if (!on && focusPill && !focusPill.isDestroyed()) focusPill.setBounds({ ...focusPill.getBounds(), height: PILL_REST })
+  if (!on && focusPill && !focusPill.isDestroyed()) (focusPill.setBounds({ ...focusPill.getBounds(), y: pillRaisedFrom ?? focusPill.getBounds().y, height: PILL_REST }), (pillRaisedFrom = null))
   if (!on) return
   if (focusPill && !focusPill.isDestroyed()) return void (placeFocus(), pillUp() && focusPill.showInactive())
   // Top centre of the screen you are on, hung just under the menu bar the way
@@ -5553,6 +5557,8 @@ app.whenReady().then(() => {
   registerMilestones()
   registerEvents((type, id) => sendHome(type, id, undefined, 'notification'))
   registerReadingQueue()
+  registerReadTime()
+  registerStatsMore()
   registerPractices()
   // A practice's offer is asked in one place at a time: inside the main window when that is in front, else the corner's
   // card with the other asks. It never starts by itself.
@@ -6131,7 +6137,14 @@ app.whenReady().then(() => {
     if (!win || win !== focusPill) return false
     const bounds = win.getBounds()
     const next = Math.round(Math.max(PILL_REST, Math.min(640, Number(height) || PILL_REST)))
-    if (next !== bounds.height) win.setBounds({ ...bounds, height: next })
+    // Opened where the screen's bottom would cut it (put at the bottom right by hand, 17 Nov: its lower half went off
+    // the screen): it rises as far as it must to show whole, and comes back to its place as it shuts.
+    const { workArea } = screen.getDisplayMatching(bounds)
+    const home = pillRaisedFrom ?? bounds.y
+    const onScreen = home >= workArea.y && home < workArea.y + workArea.height
+    const y = next > PILL_OPEN && onScreen ? Math.max(workArea.y, Math.min(home, workArea.y + workArea.height - next)) : home
+    pillRaisedFrom = y !== home ? home : null
+    if (next !== bounds.height || y !== bounds.y) win.setBounds({ ...bounds, y, height: next })
     // Back at rest with the pointer already lying beside it (it opens for a moment as a session begins, and whenever
     // it is pointed at): it steps aside now, as it would have had it been at rest when the pointer stopped.
     if (bounds.height > PILL_OPEN && next <= PILL_OPEN && rested >= REST_MS && stepsAside()) pillStepsAside(screen.getCursorScreenPoint())

@@ -167,3 +167,37 @@ export function writtenActions(actions: { text: string; at: number; owner?: stri
     return { id: `a${n}`, text: one.text, owner: who, date: one.date ? String(one.date).slice(0, 10) : null, at: Number(one.at) || 0, done: false, task: null, by: 'ai' as const }
   })
 }
+
+/**
+ * A recording kept before its voices were settled (native/meeting.swift `settle`, 8 Nov): a voice heard in under 5%
+ * of the others' lines is one of them misheard, so its lines go to the voice heard nearest them in time, and the
+ * speakers are numbered 1, 2, 3 again in the order they first spoke, their names, items and moments with them. Null
+ * when every voice already holds its share. Asked again, it changes nothing.
+ */
+export function settledVoices(meeting: { lines: MeetingLine[]; speakers: string[]; names?: Record<string, string>; actions?: ActionItem[]; moments?: { speaker?: string }[] }):
+  { lines: MeetingLine[]; speakers: string[]; names: Record<string, string>; actions: ActionItem[]; moments: { speaker?: string }[]; was: number } | null {
+  const others = meeting.lines.filter((one) => one.who !== 'you')
+  const count = new Map<string, number>()
+  for (const one of others) count.set(one.who, (count.get(one.who) ?? 0) + 1)
+  const small = new Set([...count].filter(([, n]) => n < others.length * 0.05).map(([who]) => who))
+  // A name given is the person's own word for that voice: never folded into another.
+  for (const who of Object.keys(meeting.names ?? {})) small.delete(who)
+  if (!small.size || small.size === count.size) return null
+  const kept = others.filter((one) => !small.has(one.who))
+  const nearest = (at: number): string => kept.reduce((best, one) => (Math.abs(one.at - at) < Math.abs(best.at - at) ? one : best)).who
+  const folded = meeting.lines.map((one) => (small.has(one.who) ? { ...one, who: nearest(one.at) } : one))
+  const order = [...new Set(folded.filter((one) => one.who !== 'you').map((one) => one.who))]
+  const renamed = new Map(order.map((who, at) => [who, `s${at + 1}`]))
+  const to = (who: string | undefined): string | undefined => (who === undefined || who === 'you' ? who : small.has(who) ? renamed.get(nearestOf(who)) : renamed.get(who) ?? who)
+  // An item or moment of a folded voice: the voice its first line went to.
+  const nearestOf = (who: string): string => folded[meeting.lines.findIndex((one) => one.who === who)]?.who ?? who
+  const names = Object.fromEntries(Object.entries(meeting.names ?? {}).map(([who, name]) => [to(who)!, name]))
+  return {
+    lines: folded.map((one) => ({ ...one, who: to(one.who)! })),
+    speakers: order.map((who) => renamed.get(who)!),
+    names,
+    actions: (meeting.actions ?? []).map((one) => ({ ...one, owner: /^s\d+$/.test(one.owner) ? to(one.owner)! : one.owner })),
+    moments: (meeting.moments ?? []).map((one) => (one.speaker ? { ...one, speaker: to(one.speaker) } : one)),
+    was: count.size
+  }
+}

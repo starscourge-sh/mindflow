@@ -1062,6 +1062,15 @@ export const toast = (text: string, undo?: () => void, tone: ToastTone = 'succes
   window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, made } }))
 }
 
+/**
+ * News of something done earlier, not by what you just did (a one-time move made as the book opened): said like any
+ * notice, but it never takes the place of one whose Undo is up. It waits for that one to go, so the newest act's Undo
+ * is the one in sight (19 Nov: the folders' news hid a recording's "4 speakers, not 8" and its Undo).
+ */
+export const news = (text: string, undo?: () => void, tone: ToastTone = 'info', action?: ToastAction): void => {
+  window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, news: true } }))
+}
+
 /** A notice with Undo for a change still being saved: said at once, so a quick ⌘Z takes back this change and not the one
  *  before; its Undo waits for the save first. */
 export const sayNow = (saved: Promise<unknown>, text: string, undo: () => void, tone?: ToastTone): void => toast(text, () => void saved.then(undo), tone)
@@ -1501,7 +1510,11 @@ export function Toaster(): React.JSX.Element | null {
     const gone = shownNow.current
     setShown(null)
     if (gone?.undo) setHeld((was) => was.filter((one) => one.key > gone.key))
+    // News that waited for this one (`news`): its turn now.
+    const next = waiting.current.shift()
+    if (next) window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { ...next, news: false } }))
   }
+  const waiting = useRef<Record<string, unknown>[]>([])
   const [wait, setWait] = useState<{ label: string; state: OrbState; job?: string } | null>(null)
   useEffect(() => {
     const onWait = (event: Event): void => setWait((event as CustomEvent).detail)
@@ -1598,6 +1611,8 @@ export function Toaster(): React.JSX.Element | null {
         if (detail.undo) quietly(detail.undo)
         return
       }
+      // News of an earlier act waits behind a notice whose Undo is up: the newest act's Undo stays in sight.
+      if (detail.news && shownNow.current?.undo) return void waiting.current.push(detail)
       stop()
       // A notice over one that had an Undo: that Undo stays ⌘Z's, a step behind this one's (if it has one).
       const before = shownNow.current
