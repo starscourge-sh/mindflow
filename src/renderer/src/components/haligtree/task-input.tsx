@@ -1,5 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { tagTint } from './tag-icon'
+import { NoteList } from '@/components/note-link/note-link-menu'
+import type { SuggestionListHandle } from '@/components/suggestion/suggestion-renderer'
+
+/** One canvas for measuring where a # stands in a task's field. */
+let measure: CanvasRenderingContext2D | undefined
 import { AnimatePresence, motion } from 'motion/react'
 import { CalendarDays, Timer, X } from 'lucide-react'
 
@@ -204,22 +209,27 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
   const follow = (event: React.SyntheticEvent<HTMLInputElement>): void => void (mirror.current && (mirror.current.scrollLeft = event.currentTarget.scrollLeft))
   // The tag being typed, and the tags in use that start with it, then hold it.
   const [caret, setCaret] = useState<number | null>(null)
-  const [pick, setPick] = useState(0)
   const [shut, setShut] = useState<string | null>(null)
   const all = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
   const typed = caret === null ? null : TAG_AT.exec(value.slice(0, caret))
   const part = typed ? typed[1].toLowerCase() : null
   const offered = part === null || shut === value ? []
     : [...all.filter((one) => one.tag.startsWith(part)), ...all.filter((one) => !one.tag.startsWith(part) && one.tag.includes(part))].filter((one) => one.tag !== part).slice(0, 6)
-  const at = Math.min(pick, Math.max(0, offered.length - 1))
+  const list = useRef<SuggestionListHandle>(null)
+  // Where the # being typed stands in the field, as drawn (its scroll taken off): the list opens under it.
+  const tagAt = (() => {
+    const el = own.current
+    if (!el || caret === null || part === null) return 0
+    const paint = (measure ??= document.createElement('canvas').getContext('2d')!)
+    paint.font = getComputedStyle(el).font
+    return Math.max(0, Math.min(el.clientWidth - 240, paint.measureText(value.slice(0, caret - part.length - 1)).width - el.scrollLeft - 8))
+  })()
   const take = (tag: string): void => {
     if (caret === null || part === null) return
     const from = caret - part.length
     const next = `${value.slice(0, from)}${tag} ${value.slice(caret).replace(/^\s+/, '')}`
     const end = from + tag.length + 1
-    chime('tap')
     onChange(next)
-    setPick(0)
     landing.current = end
     setCaret(end)
   }
@@ -278,13 +288,10 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
             const after = kept && event.key === 'Backspace' && !event.metaKey && !event.altKey && !event.ctrlKey && el.selectionStart === el.selectionEnd
               ? read?.spans.filter((one) => one.to === el.selectionStart) ?? [] : []
             if (after.length) return (event.preventDefault(), keep(after))
-            if (offered.length && !event.metaKey && !event.ctrlKey && !event.altKey) {
-              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault()
-                return setPick((at + (event.key === 'ArrowDown' ? 1 : offered.length - 1)) % offered.length)
-              }
+            if (offered.length && !event.metaKey && !event.altKey) {
               // A tag typed out whole is kept as typed: ↵ adds the task, Tab still takes the one offered.
-              if (event.key === 'Tab' || (event.key === 'Enter' && !all.some((one) => one.tag === part))) return (event.preventDefault(), event.stopPropagation(), take(offered[at].tag))
+              const keys = event.key === 'Tab' ? new KeyboardEvent('keydown', { key: 'Enter' }) : event.key === 'Enter' && all.some((one) => one.tag === part) ? null : event.nativeEvent
+              if (keys && list.current?.onKeyDown({ event: keys } as never)) return (event.preventDefault(), event.stopPropagation(), chime('settled'))
               if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), setShut(value))
             }
             onKeyDown?.(event)
@@ -293,16 +300,10 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
           className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-muted-foreground placeholder-shown:text-ellipsis"
         />
         {offered.length > 0 && (
-          <div data-tag-offers role="listbox" aria-label="Tags in use"
-            className="absolute top-full left-0 z-50 mt-1.5 flex w-56 flex-col rounded-lg bg-popover p-1 text-control text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">
-            {offered.map((one, index) => (
-              <button key={one.tag} type="button" role="option" aria-selected={index === at} data-tag-offer={one.tag} tabIndex={-1}
-                onMouseDown={(event) => (event.preventDefault(), take(one.tag))} onPointerEnter={() => setPick(index)}
-                className={`flex items-center justify-between gap-3 rounded-md px-2 py-1 text-left transition-colors ${index === at ? 'bg-accent' : ''}`}>
-                <span className="truncate" style={{ color: tagTint(one.tag) }}>#{one.tag}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">{one.count}</span>
-              </button>
-            ))}
+          // The editor's own # list (note-link-menu.tsx NoteList), at the # being typed, never at the field's far left.
+          <div data-tag-offers className="tiptap-suggestion-popup absolute top-full mt-1.5" style={{ left: tagAt }}
+            onMouseDown={(event) => event.preventDefault()}>
+            <NoteList ref={list} items={offered.map((one) => ({ id: one.tag, label: `#${one.tag}`, hint: String(one.count), tint: tagTint(one.tag), group: 'Tags' }))} command={(item) => take(item.id)} />
           </div>
         )}
       </span>
