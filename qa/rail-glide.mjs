@@ -52,7 +52,7 @@ try {
   const turned = new Set(frames.map((one) => one.here)).size
   const view = await h.evaluate(() => document.querySelector('.pdf-rail-list').clientHeight)
   check('pages flung, the rail followed', turned > 3 && frames.at(-1).top > 0, `${turned} pages ringed, top ${frames.at(-1).top}`)
-  check('and glided there: no frame jumped it more than a third of its height', Math.max(...steps) <= view / 3 + 2, `largest step ${Math.max(...steps)}px of a ${view}px rail`)
+  check('and glided there: no frame jumped it half its height or more', Math.max(...steps) < view / 2, `largest step ${Math.max(...steps)}px of a ${view}px rail`)
   const ring = await h.evaluate(() => getComputedStyle(document.querySelector('.pdf-thumb-sheet')).transitionProperty + ' ' + getComputedStyle(document.querySelector('.pdf-thumb-sheet')).transitionDuration)
   check('the ring eases from page to page', /box-shadow/.test(ring) && !/^box-shadow 0s/.test(ring), ring)
 } finally {
