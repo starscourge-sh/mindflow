@@ -7,6 +7,7 @@ import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Pressed, Tip } from './ui'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { RoomAcross } from './carry'
 import { plural } from '../../../../main/dates'
 
 /** A tab as its row draws it. `open`: `type:id` for a tab on a note, so carrying it can pin it. */
@@ -134,7 +135,8 @@ function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): Rea
   const gap = now.gap?.pane === group.pane ? now.gap : null
   const shown = now.gap ? group.tabs.filter((one) => one.key !== now.from) : group.tabs
   const parts = shown.map((tab) => <OneTab key={tab.key} tab={tab} group={group} actions={actions} faint={tab.key === now.from} />)
-  if (gap) parts.splice(gap.at, 0, <span key="gap" data-tab-gap aria-hidden className="mx-0.5 my-1 shrink-0 rounded-full bg-foreground/[0.09]" style={{ flexBasis: gap.width, maxWidth: gap.width, flexGrow: 0 }} />)
+  // The gap it would land in: the app's one room and drop line (carry.tsx), in this row or another pane's.
+  if (gap) parts.splice(gap.at, 0, <span key="gap" data-tab-gap aria-hidden className="relative mx-0.5 my-1 shrink-0" style={{ flexBasis: gap.width, maxWidth: gap.width, flexGrow: 0 }}><RoomAcross how={`${gap.pane}:${gap.at}`} /></span>)
   return (
     <div ref={box} role="tablist" aria-label="Tabs" data-tab-row={group.pane} style={{ flex: `${Math.max(1, group.tabs.length)} 1 0` }}
       // A tab with the keys: ← → to its neighbours, ⌫ closes it, as a list's row does.

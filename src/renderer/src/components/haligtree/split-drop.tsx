@@ -328,6 +328,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       // it where there is no room under), so the name it is aimed at is never covered; sideways it keeps the side it
       // was taken by.
       if (queue && !row && rest !== null) toY = rest
+      // Over a row of tabs, the card rides just under it, so the room opening there is never under the card.
+      if (row) toY = row.getBoundingClientRect().bottom + 6 + (document.querySelector<HTMLElement>('[data-split-card]')?.offsetHeight ?? 32) * 0.43
       if (quiet) {
         card.x.jump(toX)
         card.y.jump(toY)
@@ -361,9 +363,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       shown = zonesIn(box, dividers(), down.source.column ? down.column : undefined, !!down.source.edgeOnly)
       const tabbed = down.source.carried.tab
       if (tabbed) {
-        // Its own pane's edges would change nothing for a lone tab there.
-        const lone = document.querySelectorAll('[data-pane]').length === 1 && document.querySelectorAll('[data-tab]').length === 1
-        places = lone ? [] : shown
+        // A pane's only tab: a new pane beside its own (its own two edges) would rebuild the layout it already has
+        // ("but im moving the only tab causing the 2 splits in the first place"). Only what changes something is
+        // offered: the other pane's tabs or page (merging the two), or the far side (the panes swap).
+        const panes = [...document.querySelectorAll<HTMLElement>('[data-split-area] [data-pane]')]
+        const own = panes.findIndex((one) => one.dataset.pane === tabbed.pane)
+        const alone = own >= 0 && panes[own].querySelectorAll('[data-tab]').length === 1
+        places = alone ? shown.filter((zone) => zone.at !== own && zone.at !== own + 1) : shown
         shown = []
         setCarry({ from: tabbed.key, gap: null })
       }

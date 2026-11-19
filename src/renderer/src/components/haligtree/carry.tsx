@@ -297,6 +297,17 @@ export const RoomIn = ({ moves, how }: { moves: boolean; how: string }): React.J
   ) : <OwnRoom />
 
 /**
+ * The room in a row that runs across (a pane's tabs): the same quiet band, with the one line standing upright through
+ * its middle, its dot at its top, waiting for the row to make way as a list's room does.
+ */
+export const RoomAcross = ({ how }: { how: string }): React.JSX.Element => (
+  <Fragment key={how}>
+    <span aria-hidden data-drop-room="1" className={cn(ROOM, 'inset-y-0 inset-x-0')} style={{ animation: roomWait() }} />
+    <DropLine upright how={how} style={{ left: '50%', top: 7, bottom: 5, animation: roomWait() }} />
+  </Fragment>
+)
+
+/**
  * Where it lands, the one line every list draws: a dot at its start. In a row's
  * room it runs through the band's middle; `fixed`, it is laid over the page at a
  * place read off it, for rows that stay where they are (the sidebar's trees).
