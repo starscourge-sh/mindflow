@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 
-import { database } from './captures'
+import { database, quietly } from './captures'
 import { dayKey } from './dates'
 
 /**
@@ -29,8 +29,13 @@ export function registerUsage(): void {
   ipcMain.handle('haligtree:usage:count', (_event, page: unknown, way: unknown) => {
     const day = dayKey(new Date())
     const how: Via = WAYS.includes(way as Via) ? (way as Via) : 'other'
-    if (typeof page === 'string' && page && page.length < 80) add.run(day, 'page', page)
-    add.run(day, 'way', how)
+    // Kept quietly (captures.ts): only Stats' own page reads it, asked fresh, so it never moves the book's stamp. Moving
+    // it on every page opened read every kept list again on the next page (the Inbox's, files, focus totals, the
+    // menu bar's count).
+    quietly(() => {
+      if (typeof page === 'string' && page && page.length < 80) add.run(day, 'page', page)
+      add.run(day, 'way', how)
+    })
   })
   // The last `days` days, summed: each page and each way with its count, most first.
   ipcMain.handle('haligtree:usage', (_event, days: unknown = 30): Usage => {
