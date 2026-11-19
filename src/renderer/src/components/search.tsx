@@ -543,7 +543,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                       <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
                         {/* Words read in a picture: the picture itself, small, beside them. */}
                         {capture.picture && <img src={capture.picture} alt="" className="size-5 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
-                        <span className="min-w-0 truncate">{capture.near?.length ? <span data-near-word className="text-(--mf-muted-strong)">Has {capture.near.map((one) => quoted(one, 30)).join(', ')}{capture.line ? ': ' : ''}</span> : null}{capture.picture && <span className="text-muted-foreground">In a picture: </span>}{capture.line && <Marked text={capture.line} query={(capture.near?.length ? capture.near : words).join(' ')} />}</span>
+                        <span className="min-w-0 truncate">{capture.near?.length ? <span data-near-word className="text-(--mf-muted-strong)">Has {capture.near.map((one) => quoted(one, 30)).join(', ')}{capture.line ? ': ' : ''}</span> : null}{capture.picture && <span className="text-muted-foreground">In a picture: </span>}{capture.line && <Marked text={capture.line} query={[...(capture.near ?? []), ...words].join(' ')} />}</span>
                       </span>
                     )}
                   </button>
@@ -830,7 +830,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} words={current.near ?? words} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} words={[...(current.near ?? []), ...words]} />
                   : look
                   ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? look.count ?? ''}`} one={look} words={lookWords} offline={!!outside?.offline} open={openSites.includes(look.site.id)} />
                   : action?.keep

@@ -21,7 +21,7 @@ export const FREE_SITES: FreeSite[] = [
   { id: 'gutenberg', name: 'Project Gutenberg', say: 'Project Gutenberg', word: 'Gutenberg', prefix: 'pg', host: 'www.gutenberg.org', pages: /^\/(ebooks\/\d+|cache\/epub\/\d+\/)/ },
   { id: 'sep', name: 'the Stanford Encyclopedia of Philosophy', say: 'the Stanford Encyclopedia', word: 'Stanford Encyclopedia', prefix: 'sep', host: 'plato.stanford.edu', pages: /^\/entries\/[\w-]+/ },
   // No page of it is followed in the reader as one of these sites' own: `pages` matches nothing.
-  { id: 'fandom', name: 'Fandom', say: 'Fandom', word: 'Fandom', prefix: 'fan', host: 'www.fandom.com', pages: /(?!)/, opens: (words) => `https://www.fandom.com/?s=${encodeURIComponent(words)}` }
+  { id: 'fandom', name: 'Fandom', say: 'Fandom', word: 'Fandom', prefix: 'fandom', host: 'www.fandom.com', pages: /(?!)/, opens: (words) => `https://www.fandom.com/?s=${encodeURIComponent(words)}` }
 ]
 /** The sites “Look things up as I search” may ask, ticked in Settings: those whose terms allow it. */
 export const AS_YOU_TYPE = FREE_SITES.filter((one) => one.asYouType)

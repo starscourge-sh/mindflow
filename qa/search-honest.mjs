@@ -101,6 +101,12 @@ try {
   check('Settings has “Look things up as I search”, off at first', hasSetting === 1 && (await toggle.getAttribute('aria-checked')) === 'false', `${hasSetting} found`)
   if (hasSetting) await toggle.click()
   await wait(400)
+  for (const theme of ['paper', 'dark']) {
+    await wear(theme)
+    await wait(300)
+    await h.screenshot({ path: `${shots}/a52-settings-${theme}.png` })
+  }
+  await wear('paper')
   const kept = await v('settings')
   check('…and its switch turns it on, Wikipedia and Wiktionary ticked', kept.lookAsYouSearch === true && kept.lookSources?.join() === 'wikipedia,wiktionary', JSON.stringify({ on: kept.lookAsYouSearch, sites: kept.lookSources }))
 
