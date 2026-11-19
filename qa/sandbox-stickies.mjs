@@ -68,7 +68,9 @@ await visit('after Reset', '--sandbox --sandbox-reset')
   for (let i = 0; i < 180 && !seeded(); i++) await new Promise((done) => setTimeout(done, 500))
   check('a reload mid-seed: the new run sets the examples out', !!seeded())
   await new Promise((done) => setTimeout(done, 4000))
-  try { execFileSync('pkill', ['-9', '-f', entry]) } catch {}
+  // Only the app's own process: a bare path also matched any queued job whose command line names this build (a
+  // waiting `solo env QA_ENTRY=...` was killed by it on 19 Nov).
+  try { execFileSync('pkill', ['-9', '-f', `MacOS/Electron .*${entry}`]) } catch {}
   await new Promise((done) => setTimeout(done, 1500))
 }
 await visit('after a reload mid-seed', '--sandbox')
