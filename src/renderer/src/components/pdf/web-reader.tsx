@@ -912,7 +912,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             {carding && (
               <WhyAfter
                 at={carding}
-                ask={{ kept: `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: 'The question these words answer' }}
+                ask={{ kept: `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: 'The question these words answer', about: carding.quote }}
                 onSave={(question) => void cardOf(question, carding.quote, carding.gem)}
                 onDone={() => (getSelection()?.removeAllRanges(), setCarding(null))}
               />

@@ -270,8 +270,13 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       if (!offered || !help) return { offered }
       await h.hover('[data-writing-help-menu]'); await wait(400)
       const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-help]')].map((one) => one.getAttribute('data-help')))
-      // Making a card has one home now: the menu's own "Make a card", which asks the Mac for its question.
-      if (help === 'card') { await h.click('[role="menu"] [data-make-card]'); await opened() } else { await h.click(`[role="menu"] [data-help="${help}"]`); await opened() }
+      // Making a card has one home now: the menu's own "Make a card", its question field filled with the Mac's question.
+      if (help === 'card') {
+        await h.click('[role="menu"] [data-make-card]')
+        await h.waitForFunction(() => /What do these words say/.test(document.querySelector('.pdf-why-field')?.value ?? ''), null, { timeout: 5000 }).catch(() => {})
+        return { offered, rows, question: await h.evaluate(() => document.querySelector('.pdf-why-field')?.value ?? null) }
+      }
+      await h.click(`[role="menu"] [data-help="${help}"]`); await opened()
       let shown = await card()
       for (let t = 0; t < 10000 && shown?.state === 'working'; t += 150) (await wait(150), (shown = await card()))
       return { offered, rows, shown }
@@ -281,7 +286,7 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
     if (ai) {
       check('ai: in a PDF it holds only the two that keep something, making a card being the menu\'s own line', inPdf?.rows?.join(',') === 'ask,quote', inPdf?.rows?.join(','))
       if (shot) await c.both(`${shot}/pdf-card-preview`)
-      check('ai: in a PDF, “Make a card” shows the Mac\'s card by the words first', inPdf?.shown?.state === 'ready' && inPdf.shown.text.includes('What do these words say?'), JSON.stringify(inPdf?.shown))
+      check('ai: in a PDF, “Make a card” fills its question with the Mac\'s', /What do these words say/.test(inPdf?.question ?? ''), JSON.stringify(inPdf?.question))
       await h.keyboard.press('Enter'); await wait(1200)
       const cards = async () => [...(await v('items', 'card')), ...(await v('items', 'nugget'))].filter((one) => (one.prompt ?? '').startsWith('What do these words say?'))
       const made = await cards()

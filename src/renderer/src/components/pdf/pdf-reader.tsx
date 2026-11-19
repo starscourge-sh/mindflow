@@ -1236,7 +1236,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             {carding && (
               <WhyAfter
                 at={carding}
-                ask={{ kept: carding.quote.startsWith("![](") ? "Answer: the figure" : `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: carding.quote.startsWith("![](") ? "The question this figure answers" : "The question these words answer" }}
+                ask={{ kept: carding.quote.startsWith("![](") ? "Answer: the figure" : `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: carding.quote.startsWith("![](") ? "The question this figure answers" : "The question these words answer", about: carding.quote.startsWith("![](") ? undefined : carding.quote }}
                 onSave={(question) => {
                   void cardOf(question, carding.quote, carding.page, !!walking, carding.gem)
                   const one = marks.find((each) => each.id === carding.markId)

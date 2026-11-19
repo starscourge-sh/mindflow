@@ -222,11 +222,7 @@ function readPeeks(picked: Picked, keyed = true): Record<string, MenuPeekEntry> 
 export function PickedMenu({ actions, about }: { actions: ReadActions; about: () => Picked }): React.JSX.Element {
   const now = lastColor()
   const [peeks] = useState(() => readPeeks(about()))
-  const makeCard = (): void => {
-    if (!actions.written || !meets(capsNow(), "ai")) return actions.card?.()
-    const range = getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect() : null
-    helpWords("card", about().words, { ...actions.written, rect: range ?? { left: innerWidth / 2 - 180, top: innerHeight / 3, bottom: innerHeight / 3 } })
-  }
+  const makeCard = (): void => actions.card?.()
   return (
     <>
       <MenuPeek entries={peeks} />
@@ -243,8 +239,8 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
         <ContextMenuShortcut>K</ContextMenuShortcut>
       </ContextMenuItem>
       {/* One line for making a card (the user, 18 Nov: four lines did it): a press makes the card, as C does; its other
-          ways wait beside it, each with its own key still. Where the Mac has Apple Intelligence, the question is its,
-          shown by the words to keep with ↵ (writing-help.tsx); Writing help keeps no copy of it. */}
+          ways wait beside it, each with its own key still. Where the Mac has Apple Intelligence, the card's question
+          field is filled with its question while nothing is typed (WhyAfter `about`); Writing help keeps no copy of it. */}
       {actions.card ? (
         <ContextMenuSub>
           <ContextMenuSubTrigger data-peek="card" data-make-card onClick={makeCard}>
@@ -401,11 +397,23 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
  * clicking away, leaves it unsaid: the book, page and words are kept anyway.
  * The reason is the gem's own thought, as any line written on a gem is.
  */
-export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: number; /** Where the picked words' last line ends: the field goes under it when the line above holds words. */ bottom?: number }; onSave: (why: string) => void; onDone: () => void; /** Asked for a card's question instead: what it says, and the line that says what is kept. */ ask?: { kept: string; label: string; placeholder: string } }): React.JSX.Element {
+export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: number; /** Where the picked words' last line ends: the field goes under it when the line above holds words. */ bottom?: number }; onSave: (why: string) => void; onDone: () => void; /** Asked for a card's question instead: what it says, the line that says what is kept, and the words it is made of (`about`), whose question Apple Intelligence offers where the Mac has it. */ ask?: { kept: string; label: string; placeholder: string; about?: string } }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const field = useRef<HTMLInputElement>(null)
   const { style, placed } = usePlaced(box, at)
   const [why, setWhy] = useState("")
+  // The Mac's question for these words, put in the field while nothing is typed there, picked so typing replaces it.
+  const about = ask?.about
+  useEffect(() => {
+    if (!about || !meets(capsNow(), "ai")) return
+    let live = true
+    void window.api.haligtree<{ question?: string } | { error: string }>("ai:help", "card", about).then((said) => {
+      if (!live || !("question" in said) || !said.question) return
+      setWhy((was) => (was ? was : said.question!))
+      requestAnimationFrame(() => field.current?.value === said.question && field.current.select())
+    }, () => undefined)
+    return () => void (live = false)
+  }, [about])
   // Focused once it is in its place, and without scrolling the pane to it.
   useEffect(() => { if (placed) field.current?.focus({ preventScroll: true }) }, [placed])
   return (
