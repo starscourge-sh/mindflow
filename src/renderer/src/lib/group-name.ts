@@ -30,12 +30,21 @@ export function sharedWords(titles: string[]): string | null {
   return best?.run ?? null
 }
 
-/** What the model said, as a name, or null when it is not one: empty, a sentence, too long, a note's own title, or a name already taken. */
+/** Words that name no topic: the model saying what the things are ("Notes from titles"), not what they share. */
+const EMPTY = /\b(notes?|titles?|groups?|things?|items?|folders?|misc|miscellaneous|various)\b/i
+
+/**
+ * What the model said, as a name, or null when it is not one: empty, a sentence, too long, a note's own title, a name
+ * already taken, or words that name no topic. Its first line only: the Mac's model answers "ambition habits \nall
+ * explore human struggles", a name and then why, and a whole answer with a line break was refused, so no group was
+ * ever named by it (19 Nov, the user's "Group 3").
+ */
 export function cleanName(said: unknown, titles: string[], taken: Set<string>): string | null {
-  if (typeof said !== 'string' || said.includes('\n')) return null
-  const name = said.trim().replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').replace(/[.:!]+$/, '').trim()
+  if (typeof said !== 'string') return null
+  const first = said.split('\n').find((one) => one.trim()) ?? ''
+  const name = first.trim().replace(/^(name|topic|the shared topic)\s*:\s*/i, '').replace(/^["'\u201c\u2018]+|["'\u201d\u2019]+$/g, '').replace(/[.:!]+$/, '').trim()
   const lower = name.toLowerCase()
-  if (!/\p{L}/u.test(name) || name.length > 32 || wordsOf(name).length > 4) return null
+  if (!/\p{L}/u.test(name) || name.length > 32 || wordsOf(name).length > 4 || EMPTY.test(name)) return null
   if (taken.has(lower) || titles.some((one) => one.trim().toLowerCase() === lower)) return null
   return name
 }

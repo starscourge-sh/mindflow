@@ -202,11 +202,12 @@ export function registerStudyAi(on: () => boolean): void {
     const have = await caps()
     if (have.major < 26 || !on() || !Array.isArray(titles)) return null
     const stand = process.env.HALIGTREE_QA_GROUP_NAME
-    const prompt = titles.slice(0, 12).map((one) => `- ${String(one).slice(0, 80)}`).join('\n')
+    const prompt = `Titles:\n${titles.slice(0, 12).map((one) => `- ${String(one).slice(0, 80)}`).join('\n')}\n\nThe shared topic:`
     const said = stand
       ? (have.ai === 'available' ? new Promise<Answer>((done) => setTimeout(() => done(stand === 'fail' ? { error: { code: 'failed', message: 'no' } } : { text: stand }), Number(process.env.HALIGTREE_QA_GROUP_NAME_MS ?? 300))) : Promise.resolve<Answer>({ error: { code: 'unavailable', message: 'no' } }))
       // The helper checks the Mac afresh, so Apple Intelligence turned on or its model downloaded counts without a restart.
-      : understand('write', { instructions: 'You name a group of notes from their titles. Answer with only the name: at most three words, in the language of the titles, with no quotes and no full stop. Say what the notes have in common.', prompt })
+      // Asked for "the topic" with the titles laid out: asked for "a name", it answered "Notes from titles" (19 Nov).
+      : understand('write', { instructions: 'You name a folder that holds some notes, the way a person names a folder on their desk. Read the note titles, find the one topic they share, and answer with that topic alone: one to three words, Title Case, in the language of the titles. Never the words "notes", "titles", "group" or "things". No quotes, no full stop, nothing else.', prompt })
     const answer = await Promise.race([said, new Promise<null>((done) => setTimeout(() => done(null), 5000))])
     return answer && !answer.error && typeof answer.text === 'string' ? answer.text : null
   })

@@ -261,8 +261,12 @@ function useArrivals(tier: string, all: Item[]): void {
  * document. Same row underneath, so one view, drawn two ways.
  */
 
-/** Groups already named for their notes once (or named by you), kept between launches: none is renamed twice. */
-const AUTO_TRIED = 'groups:auto-named'
+/**
+ * Groups already named for their notes once (or named by you), kept between launches: none is renamed twice. A new
+ * key since the model's answers were read right (group-name.ts cleanName, 19 Nov): every group tried before was
+ * refused, so each "Group N" is tried once more.
+ */
+const AUTO_TRIED = 'groups:auto-named-2'
 const autoTried = new Set<string>((() => { try { return JSON.parse(localStorage.getItem(AUTO_TRIED) ?? '[]') as string[] } catch { return [] } })())
 const triedNaming = (id: string): void => {
   autoTried.add(id)
@@ -2139,8 +2143,9 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     const apply = (name: string): void => {
       const now = live.current.list.find((one) => one.id === group.id)
       if (!now || !AUTO.test(now.name) || name.toLowerCase() === now.name.toLowerCase()) return
-      // Asked from its name field (a new group, "Rename…"): only ever offered there; left before the answer, it is dropped.
-      if (loud) return void (live.current.renaming === group.id && setSuggested({ id: group.id, name }))
+      // Asked from its name field (a new group, "Rename…"): put in the field, picked, while it is open; left before the
+      // answer with the counting name kept, the group takes it all the same (before, it stayed "Group 3" for good).
+      if (loud && live.current.renaming === group.id) return void setSuggested({ id: group.id, name })
       void noteGroupsApi.set(group.id, { name })
     }
     const local = naming(members, !!group.folder)

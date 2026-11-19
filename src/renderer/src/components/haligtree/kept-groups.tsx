@@ -3,6 +3,7 @@ import { askFolder } from '@/lib/folders'
 import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
 import { NameInPlace } from './name-in-place'
+import { lacks, meets, useCaps } from '@/lib/needs'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, type SortingStrategy } from '@dnd-kit/sortable'
 
@@ -767,6 +768,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   const [picking, setPicking] = useState(false)
   const [pointing, setPointing] = useState(false)
   const [parted, setParting] = useState(false)
+  const caps = useCaps()
   const parting = parted || !!group.parting
   // A folder is a place: one row that opens it. A group is the panel it always was, its notes inside it in the list.
   const place = group.folder
@@ -883,6 +885,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                         className={cn('min-w-0 flex-1 rounded-sm bg-transparent outline-none placeholder:text-muted-foreground', place ? 'text-control font-medium' : 'text-xs font-semibold')}
                         placeholder={place ? 'Name the folder' : 'Name the group'}
                       />
+                      {/* A counting name stays only where no model can name it from its notes: said, once, beside it. */}
+                      {!place && caps && !meets(caps, 'ai') && /^Group \d+$/.test(group.name) && <span data-why-counting className="shrink-0 truncate text-xs text-muted-foreground">{lacks(caps, 'ai')} to name it from its notes</span>}
                     </div>
                   ) : place ? (
                     <button
