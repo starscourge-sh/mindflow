@@ -506,7 +506,7 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
       ) : view.id === 'queue' ? (
         <QueueView />
       ) : view.id === 'folders' ? (
-        <FoldersView focus={view.focus} onOpen={go} onPlace={(id) => does.setView({ id: 'folders', focus: id ?? 'all' }, key)} />
+        <FoldersView focus={view.focus} tab={view.tab} onTab={(tab) => does.setView({ id: 'folders', focus: view.focus, tab }, key)} onOpen={go} onPlace={(id) => does.setView({ id: 'folders', focus: id ?? 'all' }, key)} />
       ) : view.id === 'tags' ? (
         <TagsView onOpen={go} focus={view.focus} />
       ) : view.id === 'sources' ? (

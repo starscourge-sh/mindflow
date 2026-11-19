@@ -274,8 +274,15 @@ const triedNaming = (id: string): void => {
   try { localStorage.setItem(AUTO_TRIED, JSON.stringify([...autoTried].slice(-2000))) } catch { /* kept for this run only */ }
 }
 
-export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, only , ask = 'open', onAsk }: {
+export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, only , ask = 'open', onAsk, inFolder, lead: givenLead, said }: {
   tier: 'nugget' | 'article'
+  /** A folder of Folders: this same list, its rows, groups, keys and the note beside it, holding only what the folder
+   *  keeps (folder-view.tsx). A folder's page is Writing's (or Gems', or Questions') list, never a list of its own. */
+  inFolder?: { id: string; name: string }
+  /** At the line's left, before the count: a folder's kinds. */
+  lead?: React.ReactNode
+  /** Over the list: a folder's fact line and the folders inside it. */
+  said?: React.ReactNode
   focus?: string
   /** The folder opened from the sidebar: the list narrowed to what it holds, a chip back out through `onFolder`. */
   folder?: string
@@ -318,6 +325,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const gatherer = sideFolder?.startsWith(GROUP_KEY) ? smart.find((one) => GROUP_KEY + one.id === sideFolder) : undefined
   const gathered = useGathered(gatherer)
   const listed = useMemo(() => {
+    if (inFolder) return all.filter((one) => (inFolder.id === 'unfiled' ? !folderOfItem[one.id] : folderOfItem[one.id] === inFolder.id))
     if (gatherer) return all.filter((one) => gathered?.has(one.id))
     if (!opened) return all
     const under = new Set([opened.id])
@@ -327,7 +335,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     }
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
-  }, [all, shelf, opened, gatherer, gathered])
+  }, [all, shelf, opened, gatherer, gathered, inFolder, folderOfItem])
   const { groups: arranged, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
@@ -738,7 +746,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
   // In a group, gathered from every folder, a row says which folder it lives in, as a small mark before its line.
   const folderOf = new Map(!gatherer ? [] : filed.flatMap((group) => group.members.map((id) => [id, group] as const)))
-  const inFolder = (entry: Entry, one: Item): Entry => {
+  const groupMarked = (entry: Entry, one: Item): Entry => {
     const home = folderOf.get(one.id)
     return home ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-folder={home.id} className="flex shrink-0 items-center gap-1"><GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
   }
@@ -752,7 +760,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const from = sourceSaid(one)
     return from ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-source className="min-w-0 max-w-[50%] shrink truncate">{from}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
   }
-  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : sourced(inFolder(itemEntry(one, () => menuFor(one)), one), one), one)
+  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : sourced(groupMarked(itemEntry(one, () => menuFor(one)), one), one), one)
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
@@ -780,13 +788,13 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         waiting={listUnread || !listShown}
         // Sent here for one note: the note is on show at once, and the list comes in whole beside it once read.
         apart={sent}
-        title={tier === 'nugget' ? 'Gems' : questionsOnly ? 'Questions' : 'Writing'}
+        title={inFolder?.name ?? (tier === 'nugget' ? 'Gems' : questionsOnly ? 'Questions' : 'Writing')}
         // Questions' lists at the line's left before the count, the pill on the list's box edge and its words on the ink edge as Tasks' tabs (qa/list-edges.mjs).
         // Kept while rows are picked, so picking never moves the line.
-        lead={questionsOnly && onAsk ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><QuestionTabs on={ask ?? 'open'} pick={(one) => (onAsk(one), setCursor(-1))} /></div> : undefined}
+        lead={givenLead ?? (questionsOnly && onAsk ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><QuestionTabs on={ask ?? 'open'} pick={(one) => (onAsk(one), setCursor(-1))} /></div> : undefined)}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
-        search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Writing'}`} />}
+        search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${inFolder?.name ?? (tier === 'nugget' ? 'Gems' : 'Writing')}`} />}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
         unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : questionsOnly ? (onAsk && ask === 'words' ? ['word', 'words'] : ['question', 'questions']) : ['page', 'pages']}
         actions={
@@ -885,6 +893,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
             </div>
         </Unfold>
         <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">
+          {said}
           {questionsOnly && onAsk && <QuestionsSaid on={ask} />}
           {gatherer && (
             // A group's own head: the way back, its sparkle and name, and its rule on a line of its own, so what it is shows at once.

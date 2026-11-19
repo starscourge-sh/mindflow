@@ -102,20 +102,38 @@ try {
   check('one step makes the folder and keeps the gem in it', await until(async () => !!reading && (await c.v('folders:of', 'nuggets'))[gem] === reading.id), await said())
   check('Gems lists it with its folder label', (await h.locator(`[data-page="nuggets"] [data-id="${gem}"] [data-row-folder="${reading?.id}"]`).count()) === 1)
 
-  // The folder's page: only what is in it, the fact on its own line.
+  // The folder's page is Writing's own list, holding only what the folder keeps: a second page, both in a group.
+  const pages = (await c.v('items', 'article')).filter((one) => one.id !== page).slice(0, 1).map((one) => one.id)
+  await c.v('folders:file', pages.map((id) => ({ type: 'article', id })), thesis.id)
+  await c.v('groups:arrange', 'article', { top: ['g:qa-deep'], groups: { 'qa-deep': [page, pages[0]] }, make: { id: 'qa-deep', name: 'Deep dives' } })
   await h.locator(`[data-side-folder="${thesis.id}"]`).click()
-  await wait(900)
-  check('Thesis opens on its page, holding only its page', (await h.locator('[data-folder-item]').count()) === 1 && (await h.locator(`[data-folder-item="${page}"]`).count()) === 1)
-  check('its name is the title on the bar', ((await h.locator('[data-folder-title]').textContent()) ?? '').trim() === 'Thesis', await h.locator('[data-folder-title]').textContent())
+  await wait(1200)
+  const rows = () => h.locator('[data-page="folders"] button[data-row]')
+  const ids = async () => (await rows().evaluateAll((all) => all.map((one) => one.getAttribute('data-id'))))
+  check('Thesis opens on Writing\'s own list, holding only its two pages', (await ids()).sort().join() === [page, pages[0]].sort().join(), JSON.stringify(await ids()))
+  check('the group shows there as it does in Writing', (await h.locator('[data-page="folders"] [data-group-block]').count()) >= 1)
+  check('no list of its own is left behind', (await h.locator('[data-folder-item]').count()) === 0)
+  check('its name is the title over the list', ((await h.locator('[data-folder-title]').textContent()) ?? '').trim() === 'Thesis', await h.locator('[data-folder-title]').textContent())
   check('one row lit in the sidebar', (await h.evaluate(() => document.querySelectorAll('aside [data-side-row][aria-current="page"]').length)) === 1)
-  check('its fact says what it holds', /Thesis holds 1: 1 page/.test((await h.locator('[data-folder-fact]').textContent()) ?? ''), await h.locator('[data-folder-fact]').textContent())
+  check('its fact says what it holds', /Thesis holds 2: 2 pages/.test((await h.locator('[data-folder-fact]').textContent()) ?? ''), await h.locator('[data-folder-fact]').textContent())
   check('its sidebar row is marked as the page you are on', (await h.locator(`[data-side-folder="${thesis.id}"]`).getAttribute('aria-current')) === 'page')
   await shot('folder-page')
+  // A row opens its page beside the list, as Writing does; ↓ goes on to the next of the folder's.
+  const first = (await ids())[0]
+  await rows().first().click()
+  await wait(1200)
+  check('a row opens its page beside the list', (await h.locator(`[data-page="folders"] button[data-row][data-id="${first}"][data-open]`).count()) === 1 && (await h.locator('[data-page="folders"] .ProseMirror').count()) >= 1)
+  await shot('folder-page-open')
+  await h.locator('body').press('Escape').catch(() => {})
+  await h.keyboard.press('ArrowDown')
+  await wait(900)
+  const second = (await ids()).find((one) => one !== first)
+  check('↓ moves to the next page of the folder', (await h.locator(`[data-page="folders"] button[data-row][data-id="${second}"][data-cursor], [data-page="folders"] button[data-row][data-id="${second}"][data-open]`).count()) >= 1)
   // Taken out from its own page: back in no folder, stays in Writing.
-  await menu(h.locator(`[data-folder-item="${page}"]`), 'Take out of Thesis')
-  await wait(500)
-  check('"Take out of Thesis" empties it', (await h.locator('[data-folder-item]').count()) === 0 && !(await c.v('folders:of', 'nuggets'))[page])
-  check('the empty folder says so', /Nothing in Thesis yet/.test((await h.locator('[data-folder-fact]').textContent()) ?? ''))
+  await menu(h.locator(`[data-page="folders"] button[data-row][data-id="${page}"]`), 'Take out of Thesis')
+  check('"Take out of Thesis" takes it off this page', await until(async () => !(await c.v('folders:of', 'nuggets'))[page] && !(await ids()).includes(page)), JSON.stringify(await ids()))
+  await c.v('folders:file', [{ type: 'article', id: pages[0] }], null)
+  check('the empty folder says so', await until(async () => /Nothing in Thesis yet/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
 
   // Unstarred from its right-click: off the sidebar; starred back by Undo.
   await menu(h.locator(`[data-side-folder="${reading.id}"]`), 'Remove from the sidebar')

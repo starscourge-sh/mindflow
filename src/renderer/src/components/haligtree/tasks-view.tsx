@@ -721,10 +721,18 @@ const byWhen = (list: Task[]): [string, Task[]][] => {
   ]
 }
 
-export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later' | 'alltasks'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later' | 'alltasks'; focus?: string; onOpen?: (type: string, id: string) => void
+  /** Only these, as a folder's page shows its own tasks (folder-view.tsx): the same list, rows and keys. */
+  keep?: (task: Task) => boolean
+  /** In place of the tabs at the line's left: a folder's kinds. */
+  lead?: React.ReactNode
+  /** A line over the list: a folder's fact and its folders. */
+  said?: React.ReactNode
+}): React.JSX.Element {
   // Tomorrow is the top of Upcoming: its tasks live there.
   const home = mode === 'tomorrow' ? 'upcoming' : mode
-  const real = useLive(haligtree.tasks, [] as Task[])
+  const every = useLive(haligtree.tasks, [] as Task[])
+  const real = useMemo(() => (keep && !unloaded(every) ? every.filter(keep) : every), [every, keep])
   // Drawn again at midnight: Overdue, Today and Tomorrow are the new day's when the page is left open.
   useToday()
   // What a fresh start holds stays in its own tab, folded and dimmed under "On hold" at the foot: never moved out of sight.
@@ -742,7 +750,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
   // Written in, the list is yours from the first line: the made-up tasks give way to it.
   const [writing, setWriting] = useState<{ after: string | null; /** A line above this task (⇧O) rather than under `after`. */ before?: string; step?: string; text: string } | null>(null)
-  const example = !writing && !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? homeOf(task) === 'later' : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
+  const example = !keep && !writing && !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? homeOf(task) === 'later' : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
   // A drop's new places, drawn from the moment it is let go until the saved ones come back: the list switching to your
   // own order on that drop re-sorted it by the old places first, so the task stood back where it was picked up until
@@ -1294,7 +1302,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : givenLead ?? lead} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+        {said}
 
         <form
           className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"

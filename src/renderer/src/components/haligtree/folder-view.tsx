@@ -1,6 +1,10 @@
 import { useState } from 'react'
-import { ChevronRight, CircleCheck, FileStack, FileText, FolderPlus, Gem, HelpCircle, StickyNote } from 'lucide-react'
+import { ChevronRight, FileStack, FolderPlus } from 'lucide-react'
 import { Island, Page } from './ui'
+import { ItemsView } from './items-view'
+import { CapturesView } from './captures-view'
+import { TasksView } from './tasks-view'
+import { TabChips } from './tab-chips'
 import { Button } from '@/components/ui/button'
 import { GroupIcon } from './kept-groups'
 import { RowMenu } from './row-menu'
@@ -8,87 +12,83 @@ import { Branches } from './branches'
 import { ListSearch } from './note-list'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
-import { askFolder, folders, keepIn, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
+import { folders, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { deepCount, folderMenu, newFolderHere } from './side-folder-section'
-import { age, num, plural } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 
-/** Each kind in a folder, writing first (order-implies-purpose): its island's name and its icon. */
-const KINDS: { types: FolderKind[]; one: string; many: string; icon: typeof FileText }[] = [
-  { types: ['article'], one: 'page', many: 'pages', icon: FileText },
-  { types: ['capture'], one: 'note', many: 'notes', icon: StickyNote },
-  { types: ['nugget', 'question'], one: 'gem', many: 'gems', icon: Gem },
-  { types: ['task'], one: 'task', many: 'tasks', icon: CircleCheck }
-]
-const iconOf = (type: FolderKind): typeof FileText => (type === 'question' ? HelpCircle : KINDS.find((one) => one.types.includes(type))?.icon ?? FileText)
 
 /**
  * Folders as a page: every folder (`focus` empty), one folder's contents (its id), or the pages and gems in no folder
  * ('unfiled'). A folder shows only what is inside it (folders isolate): the folders in it first, then one island per
  * kind, writing first. What is archived stays in its folder, under "Show archived (N)".
  */
-export function FoldersView({ focus, onOpen, onPlace }: { focus?: string; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
+export function FoldersView({ focus, tab, onTab, onOpen, onPlace }: { focus?: string; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const all = useFolders()
   if (!focus || focus === 'all') return <AllFolders all={all} onPlace={onPlace} />
-  return <OneFolder key={focus} id={focus} all={all} onOpen={onOpen} onPlace={onPlace} />
+  return <OneFolder key={focus} id={focus} all={all} tab={tab} onTab={onTab} onOpen={onOpen} onPlace={onPlace} />
 }
 
-function OneFolder({ id, all, onOpen, onPlace }: { id: string; all: Folder[]; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
+/** A folder's kinds, writing first (order-implies-purpose): each drawn by the list that kind has everywhere else. */
+type KindTab = 'pages' | 'gems' | 'questions' | 'notes' | 'tasks'
+const KIND_TABS: { id: KindTab; label: string; types: FolderKind[] }[] = [
+  { id: 'pages', label: 'Pages', types: ['article'] },
+  { id: 'notes', label: 'Notes', types: ['capture'] },
+  { id: 'gems', label: 'Gems', types: ['nugget'] },
+  { id: 'questions', label: 'Questions', types: ['question'] },
+  { id: 'tasks', label: 'Tasks', types: ['task'] }
+]
+
+/**
+ * One folder's page (or "Not in a folder"): Writing's own list, Gems', the Inbox's or Tasks', each the same component
+ * with its rows, pictures, groups, sort, display, keys, picking and the note opened beside it, holding only what this
+ * folder keeps. A switch at the line's left picks the kind (one shown at a time, as Tasks' tabs are); over the list,
+ * where the folder is, its one fact and the folders inside it. Never a list of its own (the user, 19 Nov: "what a
+ * downgrade", beside Writing).
+ */
+function OneFolder({ id, all, tab, onTab, onOpen, onPlace }: { id: string; all: Folder[]; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const items = useLive(() => folders.items(id), null as FolderItem[] | null, [id], undefined, `folders:items:${id}`)
-  const [archived, setArchived] = useState(false)
+  const ofCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
+  const ofTasks = useLive(() => folders.of('tasks'), {} as Record<string, string>, [], undefined, 'folders:of:tasks')
   const unfiled = id === 'unfiled'
   const folder = all.find((one) => one.id === id)
   const path = unfiled ? [] : pathOf(all, id)
   const inside = unfiled ? [] : all.filter((one) => one.parent === id && !one.archived)
   const name = unfiled ? 'Not in a folder' : folder?.name ?? 'Folder'
   const shown = (items ?? []).filter((one) => !one.archived)
-  const hidden = (items ?? []).filter((one) => one.archived)
-  const islands = KINDS.map((kind) => ({ kind, rows: shown.filter((one) => kind.types.includes(one.type)) })).filter((one) => one.rows.length)
+  const counted = KIND_TABS.map((kind) => ({ ...kind, n: shown.filter((one) => kind.types.includes(one.type)).length }))
+  // The kinds it holds, and Pages always, so the switch never stands empty; "Not in a folder" is pages and gems.
+  const tabs = counted.filter((one) => one.id === 'pages' || one.n > 0 || (unfiled && one.id === 'gems'))
+  const on = (tabs.find((one) => one.id === tab) ?? tabs.find((one) => one.n > 0) ?? tabs[0]).id
+  const islands = counted.filter((one) => one.n)
   // The one fact, on its own line: what it holds, every kind counted.
   const fact = unfiled
     ? `${plural(shown.length, 'page or gem', 'pages and gems')} in no folder.`
     : !shown.length && !inside.length ? `Nothing in ${name} yet.`
-    : `${name} holds ${num(shown.length)}${islands.length ? `: ${islands.map(({ kind, rows }) => plural(rows.length, kind.one, kind.many)).join(', ')}` : ''}${inside.length ? `${shown.length ? ', and' : ' things, and'} ${num(inside.length)} ${inside.length === 1 ? 'folder' : 'folders'}` : ''}.`
-  const row = (one: FolderItem): React.JSX.Element => {
-    const Icon = iconOf(one.type)
-    return (
-      <RowMenu key={one.id} items={[
-        { label: 'Open', run: () => onOpen(one.type, one.id) },
-        { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) },
-        !unfiled && { label: `Take out of ${name}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : one.type === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
-      ]}>
-        <button type="button" data-folder-item={one.id} data-type={one.type} onClick={() => onOpen(one.type, one.id)}
-          className="flex w-full min-w-0 cursor-pointer items-center gap-2.5 px-3 py-2 text-left hover:bg-accent/60">
-          <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="private-text min-w-0 flex-1 truncate">{one.title.trim() || (one.type === 'article' ? 'Untitled' : 'New note')}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">{age(one.at)}</span>
-        </button>
-      </RowMenu>
-    )
-  }
-  return (
-    <Page title={name} waiting={items === null}
-      lead={
-        <nav aria-label="Where this folder is" data-folder-path="" className="flex min-w-0 items-center gap-1 text-control text-muted-foreground">
-          <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>
-          {path.slice(0, -1).map((one) => (
-            <span key={one.id} className="flex min-w-0 items-center gap-1"><ChevronRight className="size-3 shrink-0" /><button type="button" onClick={() => onPlace(one.id)} className="cursor-pointer truncate rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">{one.name}</button></span>
-          ))}
-          {/* Its own name last, the page's title on the bar as Writing's and the Inbox's are. */}
-          <ChevronRight className="size-3 shrink-0" />
-          <h1 data-folder-title="" className="flex min-w-0 items-center gap-1.5 truncate px-1 text-control font-medium text-foreground">
-            {folder && <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />}{name}
-          </h1>
-        </nav>
-      }
-      actions={!unfiled && (path.length < 6) ? (
-        <Button variant="ghost" data-folder-new-inside="" onClick={() => newFolderHere(id)}><FolderPlus className="size-3.5" /> New folder</Button>
-      ) : undefined}>
-      <p data-folder-fact="" className="mt-1 mb-4 px-1 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
-      {!unfiled && !shown.length && !inside.length && (
-        <p className="px-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>
-      )}
+    : `${name} holds ${num(shown.length)}${islands.length ? `: ${islands.map((one) => plural(one.n, one.label.toLowerCase().replace(/s$/, ''), one.label.toLowerCase())).join(', ')}` : ''}${inside.length ? `${shown.length ? ', and' : ' things, and'} ${num(inside.length)} ${inside.length === 1 ? 'folder' : 'folders'}` : ''}.`
+  const kinds = tabs.length > 1 ? (
+    <div data-list-tabs data-folder-kinds="" className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
+      <TabChips name="folder-kinds" tabs={tabs.map((one) => ({ value: one.id, label: one.label, count: one.n }))} value={on} onChange={(next) => onTab(next)} />
+    </div>
+  ) : undefined
+  const said = (
+    <div data-folder-head="" className="mb-3">
+      <nav aria-label="Where this folder is" data-folder-path="" className="-ml-1.5 flex min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
+        <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>
+        {path.slice(0, -1).map((one) => (
+          <span key={one.id} className="flex min-w-0 items-center gap-1"><ChevronRight className="size-3 shrink-0" /><button type="button" onClick={() => onPlace(one.id)} className="cursor-pointer truncate rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">{one.name}</button></span>
+        ))}
+        <ChevronRight className="size-3 shrink-0" />
+        <h1 data-folder-title="" className="flex min-w-0 items-center gap-1.5 truncate px-1 text-control font-medium text-foreground">
+          {folder && <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />}{name}
+        </h1>
+        {!unfiled && path.length < 6 && (
+          <button type="button" data-folder-new-inside="" onClick={() => newFolderHere(id)} className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><FolderPlus className="size-3.5" />New folder</button>
+        )}
+      </nav>
+      <p data-folder-fact="" className="mt-2 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
+      {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
       {inside.length > 0 && (
-        <Island title={`Folders · ${num(inside.length)}`}>
+        <Island className="mt-3" title={`Folders · ${num(inside.length)}`}>
           {inside.map((one) => (
             <RowMenu key={one.id} items={() => folderMenu(one, all, () => onPlace(one.id), () => onPlace(one.id))}>
               <button type="button" data-folder-open={one.id} data-keep-drop={one.id} data-folder-name={one.name} onClick={() => (chime('page'), onPlace(one.id))}
@@ -101,21 +101,13 @@ function OneFolder({ id, all, onOpen, onPlace }: { id: string; all: Folder[]; on
           ))}
         </Island>
       )}
-      {islands.map(({ kind, rows }) => (
-        <Island key={kind.many} title={`${kind.many[0].toUpperCase()}${kind.many.slice(1)} · ${num(rows.length)}`}>{rows.slice(0, 500).map(row)}</Island>
-      ))}
-      {hidden.length > 0 && (
-        <div className="mt-6">
-          <button type="button" data-folder-archived="" aria-expanded={archived} onClick={() => (chime(archived ? 'fold' : 'slide'), setArchived(!archived))}
-            className="flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 text-control text-muted-foreground hover:text-foreground">
-            <ChevronRight className={`size-3 transition-transform duration-80 ${archived ? 'rotate-90' : ''}`} />
-            {archived ? 'Hide archived' : `Show archived (${num(hidden.length)})`}
-          </button>
-          {archived && <Island>{hidden.map(row)}</Island>}
-        </div>
-      )}
-    </Page>
+    </div>
   )
+  const box = { id, name }
+  // Keyed by folder and kind: each its own list, its cursor and its open note, as switching Writing to Gems is.
+  if (on === 'notes') return <CapturesView key={`${id}:notes`} title={name} keep={(one) => ofCaptures[one.id] === id && one.status !== 'discarded'} lead={kinds} said={said} onOpen={onOpen} />
+  if (on === 'tasks') return <TasksView key={`${id}:tasks`} mode="alltasks" keep={(one) => ofTasks[one.id] === id} lead={kinds} said={said} onOpen={onOpen} />
+  return <ItemsView key={`${id}:${on}`} tier={on === 'gems' ? 'nugget' : 'article'} only={on === 'questions' ? 'questions' : undefined} inFolder={box} lead={kinds} said={said} onOpen={onOpen} />
 }
 
 /** Every folder, as a tree that folds, or found by its name as you type: 1,000 of them read as fast as 10. */
