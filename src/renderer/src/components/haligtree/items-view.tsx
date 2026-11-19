@@ -357,7 +357,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Questions is a view by kind, not a place: every question is a plain row there, and a folder (Writing's or Gems')
   // shows only in the section that owns it. A question in one says so on its row (`inFolder`, qa/questions-no-folders.mjs).
   const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? everyShown : null,
-    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, undefined, heads ? (id) => heads.get(id) : undefined)
+    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, undefined, heads ? (id) => heads.get(id) : undefined, !!inFolder)
   // Under headings (by kind, by date) the list's own rule says which heading a row stands under: carried over another
   // heading's rows it is refused in words, as Tasks' rows are (carry.tsx's useTargets), never offered a place it would not keep.
   const underHeads = heads ? {
@@ -1971,7 +1971,9 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
    * under its heading): a drop never puts a row among another part's rows. In a list of another kind, the rows of
    * one part stand in your own order.
    */
-  part?: (id: string) => string | undefined): {
+  part?: (id: string) => string | undefined,
+  /** A folder's page: only groups holding something of the folder's stand (Writing's empty ones are Writing's). */
+  onlyFilled = false): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -2101,7 +2103,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))
   // A hand-made group folded shows its heading alone: its notes are not rows until it is unfolded.
   // A list of another kind (Goals' tabs) shows a group only where it holds some of what is on show.
-  const level = (from: Layout, own = ordered): Block[] => blocks(from, undefined, undefined, own).filter((one) => (one.group ? !kind || one.items.length : true))
+  const level = (from: Layout, own = ordered): Block[] => blocks(from, undefined, undefined, own).filter((one) => (one.group ? (!kind && !onlyFilled) || one.items.length : true))
   const rowsOf = (from: Layout): Item[] => level(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
   // The rows on show, in order, groups' own rows too: what the list draws, and what a drop's preview says it will draw.
   const keysOf = (from: Block[]): string[] => from.flatMap((one) => (one.group

@@ -162,6 +162,9 @@ try {
   check('pointed at, it offers a cover and words', (await h.locator('[data-folder-cover-add]').isVisible()) && (await h.locator('[data-folder-words-add]').isVisible()))
   await h.locator('[data-folder-words-add]').click()
   await wait(500)
+  const focused = await h.evaluate(() => !!document.activeElement?.closest('[data-folder-words]'))
+  check('"Add words" puts the caret in the words', focused)
+  if (!focused) await h.locator('[data-folder-words] .ProseMirror').click()
   await h.keyboard.type('Chapters for the thesis, and where the reading lives.')
   await shot('folder-front')
   // Left: the words go with the folder.

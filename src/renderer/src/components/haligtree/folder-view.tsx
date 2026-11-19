@@ -76,7 +76,6 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   ) : undefined
   const said = (
     <div data-folder-head="" className="mb-3">
-      {folder && <FolderFront key={folder.id} folder={folder} />}
       <nav aria-label="Where this folder is" data-folder-path="" className="-ml-1.5 flex min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
         <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>
         {path.slice(0, -1).map((one) => (
@@ -90,6 +89,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
           <button type="button" data-folder-new-inside="" onClick={() => newFolderHere(id)} className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><FolderPlus className="size-3.5" />New folder</button>
         )}
       </nav>
+      {/* Under its name, as a Notion page's cover and words sit with its title. */}
+      {folder && <FolderFront key={folder.id} folder={folder} />}
       <p data-folder-fact="" className="mt-2 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
       {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
       {inside.length > 0 && (
@@ -154,11 +155,11 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
     </label>
   )
   return (
-    <div data-folder-front="" className="group/front mb-2">
+    <div data-folder-front="" className="group/front mt-1">
       {folder.cover && (
         <div className="relative mb-3">
           <img data-folder-cover="" src={folder.cover} alt="" draggable={false} className="h-36 w-full rounded-xl object-cover" />
-          <span className="absolute right-2 bottom-2 flex gap-1 rounded-lg bg-popover/95 p-0.5 text-control text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
+          <span className="absolute right-2 bottom-2 flex gap-1 rounded-lg bg-popover p-0.5 text-control text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
             {upload('Change cover')}
             <button type="button" onClick={() => cover(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Remove</button>
           </span>
@@ -172,7 +173,9 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
       )}
       {words && (
         <div data-folder-words="" onBlur={save} className="-mx-1">
-          <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
+          <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} lineNumbers={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
+            // Asked for by "Add words": the caret in it at once, as a new page's is (once ready, StrictMode's second editor too).
+            onReady={(editor) => void (!doc && editor.commands.focus('end'))}
             onChange={(next) => void (latest.current = next)} />
         </div>
       )}
