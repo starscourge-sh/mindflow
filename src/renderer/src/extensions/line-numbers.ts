@@ -397,7 +397,9 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
         if (wide !== width) ((width = wide), (sized = false), rows.length && size())
       } else if (!fresh.delete(entry.target)) moved = true
     }
-    if (moved && rows.length) schedule()
+    // Placed now, after the browser laid the blocks out and before it paints them: placed a frame later, the numbers
+    // stood one frame where the blocks had been (a gem's Properties coming in above its words left "2" 59px high).
+    if (moved && rows.length) (cancelAnimationFrame(frame), place())
   })
   const watched = new Set<HTMLElement>()
   // Its outer box only: the room given inside it changes its inner size, which would be told again at once.
