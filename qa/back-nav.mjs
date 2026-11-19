@@ -192,7 +192,10 @@ try {
 
   // --- Tags ------------------------------------------------------------------------------------
   await run('Tags: a tag picked from the list', async () => { await go('tags') }, () => click('[class*="@container/page"] button', 'renaissance'))
-  await run('Tag page: an entry opened', async () => { await send('tag', 'renaissance'); await wait() }, () => click('[class*="@container/page"] article [role="link"]'))
+  // Its first entry pressed with the pointer, in whichever view the page is in: a row in List (the first view since
+  // the tag page's List and Stream), the entry's words in Stream.
+  await run('Tag page: an entry opened', async () => { await send('tag', 'renaissance'); await wait() },
+    async () => { await h.locator('[data-tag-page] [data-row][data-id], [data-tag-page] article [role="link"]').first().click(); await wait() })
   await run('Tag page: Manage, then a section', async () => { await send('tag', 'renaissance'); await wait(); await h.locator('[data-list-tabs] button[aria-label="Manage"]').click() }, () => side('Inbox'))
 
   // --- Beside the page -------------------------------------------------------------------------
