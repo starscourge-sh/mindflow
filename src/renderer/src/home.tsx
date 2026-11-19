@@ -2224,7 +2224,7 @@ export function Home(): React.JSX.Element {
             const NoteIcon = noteNow?.name.icon
             const noteRow = noteNow && NoteIcon && (
               <RowMenu key="note-row" items={fullMenu(noteNow.type, noteNow.id, () => open(noteNow.type, noteNow.id)) ?? []}>
-                <button type="button" data-side-row data-side-note={noteNow.id} aria-current="page" data-private={noteNow.name.private ? '' : undefined} onClick={() => open(noteNow.type, noteNow.id)}
+                <button type="button" data-side-row data-side-note={noteNow.id} aria-current="page" data-private={noteNow.name.private ? '' : undefined} title={noteNow.name.private ? undefined : noteNow.name.title || undefined} onClick={() => open(noteNow.type, noteNow.id)}
                   className="flex w-full min-w-0 items-start gap-2 rounded-md py-1 pr-2 pl-2 text-foreground">
                   {/* A long title goes on to a second line, as a folder's name does, rather than being cut; the icon stays on its first. */}
                   <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center"><NoteIcon className="size-3.5 shrink-0" style={{ color: noteNow.name.tint }} /></span>
@@ -2518,6 +2518,8 @@ export function Home(): React.JSX.Element {
                       <button
                         type="button"
                         data-private={pin.private ? '' : undefined}
+                        // Cut after two lines, the whole title shows on pointing (the app's own tip, title-tips.tsx, only when cut).
+                        title={narrow || pin.private ? undefined : taskName(pin.title).text || undefined}
                         data-side-row
                         data-drag-open={`${pin.type}:${pin.id}`}
                         // The one open now says so, in full ink, as the page you are on does above.
@@ -2555,7 +2557,7 @@ export function Home(): React.JSX.Element {
                     {heading(recentGroup, recentOpen, setRecentOpen)}
                     <Unfold open={recentOpen}><Branches current={rows.findIndex((one) => light === `recent:${one.id}`)} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       return (
-                        <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
+                        <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
                           onClick={() => open(one.type, one.id)}
                           className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-(--mf-muted-strong)">
                           <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" /></span>

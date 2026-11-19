@@ -430,6 +430,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 data-folder-drop={group.id}
                 data-folder-list={list}
                 data-folder-name={group.name}
+                // Past two lines, the whole name on pointing (title-tips.tsx shows it only when cut).
+                title={group.name}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => onOpen(group.id)}
                 // Under the row's own icon, a step in for each level.

@@ -403,7 +403,7 @@ function TagChips({ tags, strip, className, children }: { tags: string[]; strip:
       {shown.map((tag) => (
         <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-1 rounded-full bg-foreground/[0.06] pr-0.5 pl-2.5" style={{ color: tagTint(tag), '--mf-tag-dot': tagTint(tag) } as React.CSSProperties}>
           {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
-          <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="rounded-sm hover:underline">{tag}</button>
+          <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="mf-hit relative rounded-sm hover:underline">{tag}</button>
           <Tip label={`Take #${tag} off this note`}>
             <button type="button" aria-label={`Remove #${tag}`} className="mf-hit relative grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
           </Tip>
