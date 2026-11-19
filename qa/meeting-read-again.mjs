@@ -44,8 +44,10 @@ try {
   } else {
     // Apple Intelligence reads an hour in parts: minutes on a busy Mac.
     const read = await notice('Apple Intelligence read this recording', 300000)
-    // Whose items the page shows, the moment its notice is up (the saved words come a moment later).
-    const whose = await h.$eval('[data-meeting-take]', (el) => el.getAttribute('data-meeting-take')).catch(() => null)
+    // Its read, saved a moment after the page has it: waited for up to 4 seconds, inside the notice's 6.
+    let saved = await meetingOf(id)
+    for (let i = 0; read && !saved.take && i < 8; i++) (await h.waitForTimeout(500), (saved = await meetingOf(id)))
+    const whose = saved.take ? (saved.actions.every((one) => one.by === 'ai' || one.done || one.task) ? 'ai' : 'mixed') : null
     const said = await h.evaluate(() => (window.__said ?? []).find((one) => one.includes('Apple Intelligence read this recording')) ?? '')
     console.log(`after: page shows items by ${whose}; said: ${said.slice(0, 120)}`)
     if (read) {
