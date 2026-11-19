@@ -496,9 +496,15 @@ html[data-overhang] .app-container {
   background-color: var(--mf-glass-fill);
   box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop);
 }
+/* The pill's height: its one line of writing (the editor's line, 1.6 times its words' size, which grow with “Text size”)
+   and the room round it. 56px at 100%; never shorter, so main's floor (index.ts PILL) holds. Registered as a length so
+   the page reads it in pixels (fit-box.ts pillHeight) and asks main for that height. At 160% the line is 52px and the
+   fixed 56px cut its letters' feet. */
+@property --mf-pill-h { syntax: '<length>'; inherits: true; initial-value: 56px; }
+:root { --mf-pill-h: round(calc(1.1875rem * max(1, var(--mf-text-scale, 1)) * 1.6 + 1.4rem), 1px); }
 /* The one-line pill is Spotlight's capsule: its ends a half circle. */
 html[data-overhang] .app-container[data-pill] {
-  border-radius: 28px;
+  border-radius: calc(var(--mf-pill-h) / 2);
 }
 /* ⌘\'s one move (lib/box-morph.ts). The frost is off for it, so every surface is opaque, as with Reduce
    Transparency; the card's own fill, hairline and shadow are drawn by a stand-in that takes the card's shape each
@@ -741,7 +747,7 @@ html[data-overhang] :is(.mf-pill button, [data-aside] > *)[data-picked] {
 html[data-overhang] [data-control-name] {
   position: fixed;
   z-index: 20;
-  top: calc(var(--mf-room-top) + 28px);
+  top: calc(var(--mf-room-top) + calc(var(--mf-pill-h) / 2));
   right: calc(var(--mf-room-right) + 84px);
   transform: translateY(-50%);
   font-size: 15px;
@@ -3673,17 +3679,17 @@ html[data-overhang]:not([data-controls-above]) .app-container[data-one-line][dat
   top: var(--mf-room-top);
   right: auto;
   left: calc(100vw - var(--mf-room-right) + 12px);
-  height: 56px;
+  height: var(--mf-pill-h);
   pointer-events: auto;
 }
 html[data-overhang]:not([data-controls-above]) .app-container[data-one-line][data-pill] :is(.mf-pill button, [data-aside] > *) {
-  height: 56px;
-  min-width: 56px;
+  height: var(--mf-pill-h);
+  min-width: var(--mf-pill-h);
   font-size: 15px;
   padding-inline: 20px;
 }
 html[data-overhang]:not([data-controls-above]) .app-container[data-one-line][data-pill] .mf-pill button {
-  width: 56px;
+  width: var(--mf-pill-h);
   padding: 0;
 }
 html[data-overhang]:not([data-controls-above]) .app-container[data-one-line][data-pill] :is(.mf-pill button, [data-aside] > *) svg {
@@ -3695,7 +3701,7 @@ html[data-overhang]:not([data-controls-above]) .app-container[data-one-line][dat
 /* Drawn in the page's own layer (App.tsx), so placed by the room: under the pill's left end, 8px below it. */
 html[data-overhang] body > [data-leftover-row] {
   position: fixed;
-  top: calc(var(--mf-room-top) + 56px + 8px);
+  top: calc(var(--mf-room-top) + var(--mf-pill-h) + 8px);
   left: var(--mf-room-left);
   padding: 0;
 }
@@ -3743,8 +3749,8 @@ html[data-overhang] [data-glance-edge] {
   top: var(--mf-room-top);
   left: var(--mf-room-left, var(--mf-room));
   right: var(--mf-room-right, var(--mf-room));
-  height: 56px;
-  border-radius: 28px;
+  height: var(--mf-pill-h);
+  border-radius: calc(var(--mf-pill-h) / 2);
   pointer-events: none;
   box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop);
   clip-path: polygon(-96px -96px, var(--glance-from, 0px) -96px, var(--glance-from, 0px) 1.5px, var(--glance-to, 0px) 1.5px, var(--glance-to, 0px) -96px, calc(100% + 96px) -96px, calc(100% + 96px) calc(100% + 96px), -96px calc(100% + 96px));
@@ -3780,7 +3786,7 @@ html[data-overhang] [data-glance-tab]:hover > [data-glance-round] {
    the # list does from the writing, over the glance: held inside the pill, they were cut off by its edge. */
 html[data-overhang] [data-glance-line] [data-tag-offers] {
   position: fixed;
-  top: calc(var(--mf-room-top) + 56px + 6px);
+  top: calc(var(--mf-room-top) + var(--mf-pill-h) + 6px);
   left: calc(var(--mf-room-left, var(--mf-room)) + 4.75rem);
   margin-top: 0;
   /* In the app's own face, as the same list is in the side panel: not the line's writing face. */
@@ -3798,7 +3804,7 @@ html[data-overhang] [data-glance-line][data-glance-above] [data-tag-offers] {
 html[data-overhang] [data-glance-panel] {
   position: fixed;
   z-index: 10;
-  top: calc(var(--mf-room-top) + 56px + 8px);
+  top: calc(var(--mf-room-top) + var(--mf-pill-h) + 8px);
   left: var(--mf-room-left, var(--mf-room));
   right: var(--mf-room-right, var(--mf-room));
   /* The room kept for the pill's grown box (224px) less its shadow's: never taller when the window keeps more. */

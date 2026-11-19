@@ -9,8 +9,8 @@ import type { Editor } from '@tiptap/react'
  * FIT_MIN and SIZES.compact there.
  */
 const SHORT = 280
-/** "One line to start": the pill, one line and nothing else (PILL in main). */
-const PILL = 56
+/** "One line to start": the pill, one line and nothing else, as tall as its line at the text size (main.css --mf-pill-h; at least PILL in main). */
+const pillHeight = (): number => Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-pill-h'))) || 56
 const FULL = 600
 /** Shorter by this much at once (a block deleted) and the box shrinks now; by a line or two, after a pause, so it never bounces as you type. */
 const CLEARLY = 72
@@ -168,7 +168,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     // The pill stays one line with a list open (/, #, @): the list hangs into the room below it. It grew to full
     // height whenever one opened, and shrank back as it closed (qa/pill-steady.mjs). Only where the screen has no
     // room below does it grow, as the box does.
-    if (pillNow.current && (!popped || (ROOM && !grewForPop.current))) return PILL
+    if (pillNow.current && (!popped || (ROOM && !grewForPop.current))) return pillHeight()
     // With room round the card, a pop-up hangs past the card's foot rather than growing the card.
     const height = fullNow.current || (popped && (!ROOM || grewForPop.current)) ? FULL : (needed(column.current) ?? FULL)
     // A small window (main/small-window.ts) grows with the words past the box's full height, as far as the screen
@@ -193,7 +193,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     // pill's foot for a few frames. Becoming the pill the same: waiting on main, the pill's one line showed in the tall
     // card for three frames. Only the pill: any other height main may keep (the box with its panel, ⌃⇧F's), and a card
     // held at one it never takes stayed squeezed. Never while ⌘\'s move holds the box (`held`): it draws that itself.
-    else if (ROOM && !below.current && !document.hidden && ((height > cardHeight() + 1 && window.innerHeight - roomTop() >= height) || (height === PILL && pillNow.current && height < cardHeight() - 1 && !held.current))) {
+    else if (ROOM && !below.current && !document.hidden && ((height > cardHeight() + 1 && window.innerHeight - roomTop() >= height) || (height === pillHeight() && pillNow.current && height < cardHeight() - 1 && !held.current))) {
       pin(height)
       grown.current = true
     }
