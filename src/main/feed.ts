@@ -307,8 +307,15 @@ export function registerFeed(): void {
       return { day: today, posts, safe: false }
     })
   }
+  // Asked while one look is still waiting its turn, it is answered by that one: Home's card asks on every visit, and
+  // each ask queued a whole look of its own (1.5 s of the reading thread on a big book), so thirty visits left 45 s of
+  // looks running one after another, and a search typed meanwhile waited behind each one.
+  let waiting: Promise<Feed> | null = null
   ipcMain.handle('haligtree:feed', (): Promise<Feed> => {
-    const next = looks.then(look, look)
+    if (waiting) return waiting
+    const begin = (): Promise<Feed> => ((waiting = null), look())
+    const next = looks.then(begin, begin)
+    waiting = next
     looks = next.catch(() => undefined)
     return next
   })

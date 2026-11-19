@@ -157,12 +157,12 @@ try {
     const keys = []
     const words = 'docker shell'
     for (let i = 1; i <= words.length; i++) {
-      const doing = await electron.evaluate(() => globalThis.readerStats?.().doing ?? [])
+      const { doing, asked: before } = await electron.evaluate(() => globalThis.readerStats?.() ?? { doing: [], asked: 0 })
       const t0 = Date.now()
       await h.evaluate((q) => window.api.captures.find(q, undefined, 'scale-probe'), words.slice(0, i))
       keys.push(Date.now() - t0)
       const after = await electron.evaluate(() => globalThis.readerStats?.() ?? {})
-      if (keys.at(-1) > 100) console.log(`  key ${i}: ${keys.at(-1)} ms, the thread had ${JSON.stringify(doing)}, search read the book ${after.reads} times`)
+      if (keys.at(-1) > 100) console.log(`  key ${i}: ${keys.at(-1)} ms, the thread had ${JSON.stringify(doing)}, search read the book ${after.reads} times, ${after.asked - before - 1} other asks came meanwhile`)
     }
     const held = (await stalls()).delay.worst
     const worst = Math.max(...keys)
