@@ -7,7 +7,7 @@
 // What it adds, up to these totals: 20,000 captures, 3,000 notes in Writing
 // in 300 folders (one folder of 2,000), 5,000 tasks, 3,000 study cards with
 // five years of reviews, 50,000 focus sessions, 2,000 tags (one on 8,000
-// captures), 500 people quoted, 2,000 pictures (each its own file). Dates are
+// captures), 500 people quoted, 2,000 pictures (each its own file), the book's giant notes (60,000 characters or more) kept once each. Dates are
 // spread over the five years before today. It prints the counts and how long
 // the writing took.
 import { DatabaseSync } from 'node:sqlite'
@@ -87,12 +87,13 @@ const addPerson = db.prepare('insert or ignore into people (key, name, avatar, u
 people.forEach((name, i) => addPerson.run(name.toLowerCase(), name, across(i, T.people)))
 
 // Captures, cycling through the book's own, in its mix; a promoted one brings its gem.
-const captures = db.prepare('select * from captures order by captured_at').all()
+// The book's giants (a note of a million characters) stay one each: five years bring more notes, not twenty copies of one.
+const captures = db.prepare('select * from captures where length(coalesce(body, \'\')) < 60000 order by captured_at').all()
 const gemOf = new Map(db.prepare("select * from nuggets where capture_id is not null and tier in ('nugget', 'card')").all().map((one) => [one.capture_id, one]))
 const copyCapture = copier('captures')
 const copyGem = copier('nuggets')
 let number = db.prepare('select coalesce(max(number), 0) as n from captures').get().n
-const adding = T.captures - captures.length
+const adding = T.captures - before.captures
 const gems = []
 let quoted = 0
 for (let i = 0; i < adding; i++) {
