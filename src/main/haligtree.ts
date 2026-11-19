@@ -524,6 +524,10 @@ const DEFAULTS = {
   goalsOnHome: 'off' as 'off' | 'nearest' | 'chosen',
   goalsNearest: 2 as 1 | 2 | 3,
   goalsChosen: [] as string[],
+  // ⌘K asks these sites as you type, under your own results: off until chosen, since every word typed in ⌘K then goes
+  // to them. Only sites whose terms let a paid app do that (lib/free-sites.ts `asYouType`), ticked in Settings.
+  lookAsYouSearch: false,
+  lookSources: ['wikipedia', 'wiktionary'] as string[],
   // Pages in the Feed's Notes, beside gems and notes: off to start, as a Feed of short things reads best; Reading has the pages.
   feedPages: false,
   // Notes with a picture in them, and a mostly imported book's notes, in the Feed too: off, so the Feed holds only what you chose to keep.

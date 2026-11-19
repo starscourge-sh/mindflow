@@ -1,7 +1,7 @@
 // A stand-in for the free sites the reader searches and reads (src/main/free-sites.ts):
 // Wikipedia's search and two of its articles, Wiktionary's search, Project Gutenberg's
 // catalogue, the Stanford Encyclopedia of Philosophy's search and Wikimedia's pictures,
-// on this machine. Set HALIGTREE_QA_SITES to its address before the app starts:
+// on this machine. Its search answers by the words asked: a Faust's bargain (any spelling) finds three pages, "nothing" none. Set HALIGTREE_QA_SITES to its address before the app starts:
 // main sends every ask for those sites here (src/main/outside.ts), so a test never asks
 // the real ones. `asked` lists every ask; `offline(true)` makes each one fail as a Mac
 // with no network would.
@@ -67,6 +67,13 @@ const search = {
   },
   'en.wiktionary.org': { pages: [{ id: 9, key: 'serendipity', title: 'serendipity', excerpt: 'A combination of events which have come about by chance, with a happy result', description: null, thumbnail: null }] }
 }
+const FAUST = {
+  pages: [
+    { id: 20, key: 'Deal_with_the_Devil', title: 'Deal with the Devil', excerpt: 'A cultural motif', description: 'Cultural motif of a pact with the Devil', thumbnail: null },
+    { id: 21, key: 'Faust', title: 'Faust', excerpt: 'Faust is the protagonist of a classic German legend', description: 'German legend', thumbnail: null },
+    { id: 22, key: 'Faustian_bargain', title: 'Faustian bargain', excerpt: 'A pact in which a person trades something of supreme value', description: 'Pact trading something of supreme value for worldly gain', thumbnail: null }
+  ]
+}
 const GUTENBERG = `<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Books: frankenstein</title>
 <entry><id>https://www.gutenberg.org/ebooks/authors/search.opds/?query=frankenstein</id><title>Authors</title><content type="text">One author name matches your search.</content></entry>
 <entry><id>https://www.gutenberg.org/ebooks/84.opds</id><title>Frankenstein; or, The modern Prometheus</title><content type="text">Mary Wollstonecraft Shelley</content></entry></feed>`
@@ -88,7 +95,13 @@ export async function standIn() {
     // app once said as "this Mac seems to be offline" (15 Nov 2026).
     const agent = request.headers['user-agent'] ?? ''
     if (!agent || agent === 'node' || /^undici/i.test(agent)) return send(429, 'text/plain', 'Too many requests')
-    if (url.pathname.endsWith('/w/rest.php/v1/search/page') && search[host]) return send(200, 'application/json', JSON.stringify(search[host]))
+    // Words of a Faust's bargain, misspelt or not, find it, as Wikipedia's own search forgives spelling; "nothing" finds nothing.
+    if (url.pathname.endsWith('/w/rest.php/v1/search/page') && search[host]) {
+      const q = url.searchParams.get('q') ?? ''
+      if (/nothing/i.test(q)) return send(200, 'application/json', JSON.stringify({ pages: [] }))
+      if (/faust/i.test(q) && host === 'en.wikipedia.org') return send(200, 'application/json', JSON.stringify(FAUST))
+      return send(200, 'application/json', JSON.stringify(search[host]))
+    }
     if (url.pathname === '/www.gutenberg.org/ebooks/search.opds/') return send(200, 'application/atom+xml', GUTENBERG)
     if (url.pathname === '/plato.stanford.edu/search/searcher.py') return send(200, 'text/html; charset=utf-8', SEP)
     if (url.pathname === '/en.wikipedia.org/wiki/Carthage') return void setTimeout(() => send(200, 'text/html; charset=utf-8', pages[url.pathname]), 1500)

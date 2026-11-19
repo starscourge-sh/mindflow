@@ -30,13 +30,14 @@ import { isReadable, isWebPdf, openArticle } from './pdf/pdf-reader'
 import { FREE_SITES, prefixed, type FreeHit, type FreeSite } from '@/lib/free-sites'
 import { canSplit } from '@/lib/split'
 import { said as tell } from '@/lib/host'
-import { BookOpenText, SearchX, SpellCheck, WifiOff } from 'lucide-react'
+import { BookOpenText, ChevronRight, ExternalLink, SearchX, SpellCheck, WifiOff } from 'lucide-react'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './haligtree/display'
 import { Highlight, useChosen } from './haligtree/glide'
 import { Tip } from '@/components/haligtree/ui'
-import { call, useLive, haligtree, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/haligtree'
+import { call, useLive, haligtree, whenInLine, type Pin, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
+import { Branches } from './haligtree/branches'
 import { RowMenu, type RowItem } from './haligtree/row-menu'
 import { taskMenu, useTaskNow } from './haligtree/tasks-view'
 import { DOT_IN_LINE, SessionDot, spentSaid, useTaskTime } from './haligtree/task-time'
@@ -46,7 +47,7 @@ import { PriorityMark } from './haligtree/task-input'
 import { BUCKETS, bucket, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './haligtree/gloss-line'
-import { age, dayjs, num } from '../../../main/dates'
+import { age, dayjs, num, plural } from '../../../main/dates'
 import { keyFor } from '@/lib/keys'
 import { wordFor } from '@/lib/words'
 import { ALL_WORDS, openWord } from './haligtree/term'
@@ -78,8 +79,10 @@ const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', qu
 /** One of an action's choices: what it does, and a quiet word on where it stands now. `mark`: its own drawing before its words (a book's mark in its colour). */
 export type Choice = { label: string; note?: string; mark?: ReactNode; run: () => void }
 
-/** A row of ⌘K's "Look it up": a free site's line, one of its answers, one plain line on why there are none, or its ask under way. */
-type Look = { site: FreeSite; hit?: FreeHit; said?: string; asking?: boolean }
+/** A row of ⌘K's "Look it up": a free site's line, one of its answers, one plain line on why there are none, or its ask under way.
+ * `count`: a site asked as you type (“Look things up as I search”), folded to one row saying how many it found; `under`: one of
+ * its answers, shown when that row is open, hung under it. */
+type Look = { site: FreeSite; hit?: FreeHit; said?: string; asking?: boolean; count?: number; under?: boolean }
 
 /** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
 const ROOMY = '(min-width: 700px)'
@@ -224,13 +227,38 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const doing = keepFirst ? [...keepingShown, ...actingShown] : [...actingShown, ...keepingShown]
   const [at, setAt] = useState(0)
   // Wikipedia and the other free sites, a line each under your own results, as Raycast's fallback commands: nothing
-  // is sent to a site until its line is picked (↵ or a click), then only the words typed. Its answers take the line's
+  // is sent to a site until its line is picked (↵ or a click), then only the words typed; or, with “Look things up as I
+  // search” on, as you type, to the ticked sites whose terms allow it (below). Its answers take the line's
   // place, or one plain line says it could not be reached; words typed since bring the line back.
   const lookWords = pre?.words ?? typed
   const lookSites = pre ? [pre.site] : menus && !scoped && !address && lookWords.length > 1 && !typed.startsWith('kind:') ? FREE_SITES : []
   const [outside, setOutside] = useState<{ site: FreeSite['id']; words: string; hits: FreeHit[] | null; offline?: boolean; failed?: boolean } | null>(null)
+  // “Look things up as I search” (Settings, off at first): the ticked sites whose terms allow it are asked once your own
+  // results are in, with the words typed and nothing else. Each that found something is one folded row under your
+  // results ("Wikipedia · 5 results ›"); one that found nothing shows nothing; one that did not answer keeps its line,
+  // which asks again and says why. The last answer stays until the next one lands, so nothing blinks as you type.
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  const asYouType = settings?.lookAsYouSearch && !pre ? lookSites.filter((one) => one.asYouType && (settings.lookSources ?? []).includes(one.id)) : []
+  const [typedAsk, setTypedAsk] = useState<Partial<Record<FreeSite['id'], { words: string; hits?: FreeHit[] }>>>({})
+  const [openSites, setOpenSites] = useState<FreeSite['id'][]>([])
+  const typedSites = asYouType.map((one) => one.id).join(' ')
+  useEffect(() => {
+    if (!typedSites || searched !== query) return
+    let old = false
+    for (const site of asYouType)
+      void call<{ hits?: FreeHit[] }>('free:search', site.id, lookWords).then((got) => !old && setTypedAsk((now) => ({ ...now, [site.id]: { words: lookWords, hits: got.hits } })))
+    return () => void (old = true)
+  }, [searched, typedSites]) // eslint-disable-line react-hooks/exhaustive-deps
   const lookRows: Look[] = lookSites.flatMap((site): Look[] => {
     const got = outside?.site === site.id && outside.words === lookWords ? outside : null
+    const typedGot = asYouType.includes(site) ? typedAsk[site.id] : undefined
+    if (!got && typedGot) {
+      if (!typedGot.hits) return [{ site }]
+      if (!typedGot.hits.length) return []
+      return [{ site, count: typedGot.hits.length }, ...(openSites.includes(site.id) ? typedGot.hits.map((hit) => ({ site, hit, under: true })) : [])]
+    }
+    // Not yet answered as you type: nothing until it is, so a line never shows only to give way to its answer.
+    if (!got && asYouType.includes(site)) return []
     if (!got) return [{ site }]
     if (got.offline) return [{ site, said: `${site.word} cannot be reached: this Mac is offline` }]
     if (got.failed) return [{ site, said: `${site.word} did not answer just now` }]
@@ -324,6 +352,14 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   /** A look row picked: an answer opens in the reader (to the side on ⌥, a new tab on ⌘); a line asks its site. */
   const runLook = (one: Look, how?: 'aside' | 'tab'): void => {
     if (one.asking) return
+    // A site's folded answers: opened or folded again, the light staying on its row.
+    if (one.count !== undefined) {
+      const open = openSites.includes(one.site.id)
+      chime(open ? 'fold' : 'slide')
+      return setOpenSites(open ? openSites.filter((id) => id !== one.site.id) : [...openSites, one.site.id])
+    }
+    // A site never asked by the app: its own search, where it builds it.
+    if (one.site.opens) return void (chime('tap'), leave(), window.open(one.site.opens(lookWords), '_blank', 'noopener'))
     if (!one.hit) return askSite(one.site)
     leave()
     openArticle(one.hit.href, undefined, how)
@@ -534,7 +570,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     const on = index === at
     const key = `${one.site.id}:${one.hit?.href ?? (one.said ? 'said' : one.asking ? 'asking' : 'line')}`
     if (one.asking) return <p key={key} data-search-at={on || undefined} data-look-asking={one.site.id} className="relative flex px-2 py-1.5"><Orb label={`Asking ${one.site.name}…`} /></p>
-    const Mark = one.hit ? BookOpen : one.said ? (outside?.offline ? WifiOff : SearchX) : null
+    const Mark = one.hit || one.count !== undefined ? BookOpen : one.said ? (outside?.offline ? WifiOff : SearchX) : null
+    const open = one.count !== undefined && openSites.includes(one.site.id)
     const hit = one.hit
     // An answer's right-click: where it can open, as a link's own menu offers them (turn-into/clicked.tsx).
     const menu: RowItem[] = hit ? [
@@ -545,14 +582,16 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     ] : []
     return (
       <RowMenu key={key} items={menu}>
-      <button type="button" data-search-at={on || undefined} data-look={one.site.id} data-look-kind={one.hit ? 'hit' : one.said ? 'said' : 'line'}
+      <button type="button" data-search-at={on || undefined} data-look={one.site.id} data-look-kind={one.hit ? 'hit' : one.said ? 'said' : one.count !== undefined ? 'count' : 'line'} aria-expanded={one.count !== undefined ? open : undefined}
         className="relative flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left"
         onMouseMove={(event) => realMove(event) && setAt(index)}
         onClick={(event) => (runLook(one, event.altKey ? 'aside' : event.metaKey ? 'tab' : undefined), box.current?.focus())}>
         <span className="flex h-5 w-full min-w-0 items-center gap-2">
           {Mark ? <Mark aria-hidden className="size-4 shrink-0" style={{ color: one.hit ? 'var(--tt-color-text-blue)' : 'var(--muted-foreground)' }} /> : <MenuGlyph label="Search" small />}
-          <span data-look-title className="min-w-0 truncate leading-5">{one.hit ? one.hit.title : one.said ?? `Search ${one.site.say} for ${quoted(clip(lookWords, 40), 80)}`}</span>
-          {one.hit && <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">{one.site.word}</span>}
+          <span data-look-title className="min-w-0 truncate leading-5">{one.hit ? one.hit.title : one.count !== undefined ? `${one.site.word} · ${plural(one.count, 'result')}` : one.said ?? `Search ${one.site.say} for ${quoted(clip(lookWords, 40), 80)}`}</span>
+          {one.hit && !one.under && <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">{one.site.word}</span>}
+          {one.count !== undefined && <ChevronRight aria-hidden className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-(--mf-ease) ${open ? 'rotate-90' : ''}`} />}
+          {one.site.opens && <span className="ml-auto flex shrink-0 items-center gap-1 pl-2 text-xs text-muted-foreground">In your browser <ExternalLink aria-hidden className="size-3" /></span>}
         </span>
         {one.hit && (one.hit.line || one.hit.picture) && (
           <span data-look-line className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
@@ -755,11 +794,22 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 return isle ? <IslandBox key={name} plain name={name} island={isle} shown={list.length} icon={ISLAND_ICON[name]}>{rows}</IslandBox> : <Fragment key={name}>{rows}</Fragment>
               })
             })()}
-            {/* Under your own results: Wikipedia and the other free sites, each asked only when its line is picked. */}
+            {/* Under your own results: Wikipedia and the other free sites, each asked when its line is picked, or as you type where Settings says so. */}
             {lookRows.length > 0 && (
               <IslandBox plain name={pre ? pre.site.word : 'Look it up'} island={{ ...lookIsland, whole: false }} shown={lookRows.length} uncounted
                 icon={<BookOpenText aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
-                {lookShown.map((one, step) => lookRow(one, doing.length + rowsShown.length + step))}
+                {lookShown.map((one, step) => {
+                  if (one.under) return null
+                  const base = doing.length + rowsShown.length
+                  // An open site's answers hang under its row, as children do everywhere (Branches): its trunk lit to the one in the light.
+                  const under = one.count !== undefined && openSites.includes(one.site.id) ? lookShown.flatMap((each, place) => (each.under && each.site === one.site ? [place] : [])) : []
+                  return (
+                    <Fragment key={`${one.site.id}:${step}`}>
+                      {lookRow(one, base + step)}
+                      {under.length > 0 && <Branches current={under.findIndex((place) => base + place === at)} className="ml-5 flex flex-col">{under.map((place) => lookRow(lookShown[place], base + place))}</Branches>}
+                    </Fragment>
+                  )
+                })}
               </IslandBox>
             )}
             </>}
@@ -782,7 +832,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   : current
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} words={current.near ?? words} />
                   : look
-                  ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? ''}`} one={look} words={lookWords} offline={!!outside?.offline} />
+                  ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? look.count ?? ''}`} one={look} words={lookWords} offline={!!outside?.offline} open={openSites.includes(look.site.id)} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -837,7 +887,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
         ) : (
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
-          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing || !menus ? 'pick' : action ? 'use' : look?.hit ? 'read' : look ? 'ask' : 'open'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing || !menus ? 'pick' : action ? 'use' : look?.hit ? 'read' : look?.count !== undefined ? (openSites.includes(look.site.id) ? 'fold' : 'show them') : look?.site.opens ? 'open' : look ? 'ask' : 'open'} /></span>
           {!picking && !choosing && rowsShown.length > 0 && current !== rowsShown[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
           {!picking && !choosing && ((onAside && !action && current) || (canSplit() && look?.hit) || action?.aside) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
           {!picking && !choosing && ((onTab && !action && current) || (canSplit() && look?.hit)) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘↵</Kbd> new tab</span>}
@@ -885,7 +935,7 @@ function WebPeek({ label, site }: { label: string; site: string }): React.JSX.El
  * the right, and where it opens. A site's line: what picking it sends, and
  * the prefix that searches that site alone. A line saying why there is none: itself.
  */
-function LookPeek({ one, words, offline }: { one: Look; words: string; offline: boolean }): React.JSX.Element {
+function LookPeek({ one, words, offline, open }: { one: Look; words: string; offline: boolean; open: boolean }): React.JSX.Element {
   const { site, hit } = one
   // The same mark as its row: the way out of reach, nothing found, or a search.
   const Said = offline ? WifiOff : SearchX
@@ -901,6 +951,20 @@ function LookPeek({ one, words, offline }: { one: Look; words: string; offline: 
           {hit.picture && <img src={hit.picture} alt="" className="size-16 shrink-0 rounded-[4px] object-cover" />}
         </div>
         <p className="text-xs text-pretty text-muted-foreground">From {site.name}{hit.picture ? ', its picture from Wikimedia Commons' : ''}. Read here in the reader and kept with your notes, so it opens again offline.</p>
+      </div>
+    )
+  // A site asked as you type: what it found, and that it was asked because Settings says so.
+  if (one.count !== undefined || site.opens)
+    return (
+      <div data-look-peek className="flex flex-col gap-1.5 px-5 pt-5">
+        {site.opens ? <ExternalLink aria-hidden className="size-6 shrink-0 text-muted-foreground" /> : <BookOpen aria-hidden className="size-6 shrink-0" style={{ color: 'var(--tt-color-text-blue)' }} />}
+        <div>
+          <p className="text-lg font-semibold text-pretty text-foreground">{site.opens ? `Search ${site.name} for ${quoted(clip(words, 40), 80)}` : `${named} found ${plural(one.count ?? 0, 'page')} for ${quoted(clip(words, 40), 80)}`}</p>
+          <p className="mt-0.5 text-body text-pretty text-muted-foreground">{site.opens
+            ? `${named}’s own search, opened in your browser. ${APP_NAME} never asks ${named} itself: its terms allow no app to search it.`
+            : `Asked as you typed, with these words only, because “Look things up as I search” is on in Settings.`}</p>
+          {!site.opens && <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd> {open ? 'folds them away.' : 'shows them, each with a line on what it is.'}</p>}
+        </div>
       </div>
     )
   return (

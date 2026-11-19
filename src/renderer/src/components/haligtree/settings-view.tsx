@@ -34,6 +34,7 @@ import { useCaptures, inInboxWindow } from '../capture-list'
 import { appSizeOf, call, unloaded, useLive, haligtree, windowRootSize, type GiphyMedia, type GiphyPin, type Item, type MomentKind, type Settings } from '@/lib/haligtree'
 import { wearFinish } from './review-toolbar'
 import { Chips } from './display'
+import { AS_YOU_TYPE } from '@/lib/free-sites'
 import { HOME_GOALS, goalsForHome, moveOnHome, openOnes, setOnHome, useHomeGoals } from './goals-view'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, markMe } from './avatar'
@@ -921,6 +922,17 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Typewriter scrolling" note="The line you type on stays near the middle, and the page moves instead." more="Clicking, selecting and scrolling leave it alone; not in quick capture, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
             <TypewriterSample on={!!typewriter} />
             <Switch checked={typewriter} onCheckedChange={setTypewriter} />
+          </Setting>
+        </Group>
+        <Group section="Writing" title="Search">
+          <Setting title="Look things up as I search" note="In ⌘K, under your own results, each site ticked below says what it found as you type." more="Off at first: while it is on, the words typed in ⌘K go to those sites, and nothing of your notes. Only sites whose terms let an app search them as you type can be ticked; Project Gutenberg, the Stanford Encyclopedia and Fandom keep their “Search … for” lines." keywords="wikipedia wiktionary look up lookup online web internet as you type fandom gutenberg stanford results">
+            <Switch checked={settings.lookAsYouSearch === true} onCheckedChange={(lookAsYouSearch) => set({ lookAsYouSearch })} />
+          </Setting>
+          <Setting under off={!settings.lookAsYouSearch && 'Turn on “Look things up as I search” to change this.'} title="Sites asked" note="Each one found something shows as one folded row: “Wikipedia · 5 results”." keywords="wikipedia wiktionary sites sources look up">
+            <div inert={!settings.lookAsYouSearch} className={settings.lookAsYouSearch ? '' : 'opacity-50'}>
+              <Chips className="shrink-0" options={AS_YOU_TYPE.map((site) => ({ id: site.id, label: site.word }))} on={(id) => (settings.lookSources ?? []).includes(id)}
+                pick={(id) => set({ lookSources: (settings.lookSources ?? []).includes(id) ? (settings.lookSources ?? []).filter((one) => one !== id) : [...(settings.lookSources ?? []), id] })} />
+            </div>
           </Setting>
         </Group>
 

@@ -37,7 +37,7 @@ try {
     return { text: row?.textContent ?? null, under: !!row && results.every((one) => one.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING), results: results.length, island: row?.closest('[data-island]')?.querySelector('[data-island-head]')?.textContent ?? null, others: [...document.querySelectorAll('[data-look][data-look-kind="line"]')].map((one) => one.getAttribute('data-look')) }
   })
   check('⌘K offers “Search Wikipedia for “roman empire”” as a line of its own', line.text === 'Search Wikipedia for “roman empire”', JSON.stringify(line))
-  check('…under your own results, with Wiktionary, Project Gutenberg and the Stanford Encyclopedia each a line of its own', line.under && line.others.join() === 'wikipedia,wiktionary,gutenberg,sep', JSON.stringify(line))
+  check('…under your own results, with Wiktionary, Project Gutenberg, the Stanford Encyclopedia and Fandom each a line of its own', line.under && line.others.join() === 'wikipedia,wiktionary,gutenberg,sep,fandom', JSON.stringify(line))
   check('nothing is sent to Wikipedia while typing', searches().length === 0, JSON.stringify(site.asked))
   await c.both(`${shots}/w4-cmdk-line`)
 
