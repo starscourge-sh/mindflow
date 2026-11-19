@@ -1944,7 +1944,7 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
   const deckCard = async (tag: string, prompt: string, answer: string, made: number, reviewed: number, missed = false): Promise<void> => {
     const id = await call<string>('nugget:from', `${answer}\n\n#${tag}`, {})
     cardId[prompt] = id
-    await call('item:save', id, { title: prompt, prompt })
+    await call('item:save', id, { title: prompt.includes('_____') ? answer : prompt, prompt })
     nuggets++
     laterAges.push({ createdAt: at(-made, '21:00'), nuggetId: id })
     const gaps = reviewed ? DECK_GAPS.filter((gap) => gap < made) : []
@@ -2053,6 +2053,118 @@ view: 0, 6, 0, 4
 *Blue: brightness with distance. Purple: what it would be if light only spread in a line. Orange: a brighter star, $k$ times the Sun; slide $k$ to see how far away it can be and still look the same.*
 `)
   laterAges.push({ createdAt: at(-4, '21:40'), nuggetId: keplerDrawn }, { createdAt: at(-9, '20:10'), nuggetId: vanishing }, { createdAt: at(-2, '22:05'), nuggetId: dimming })
+
+  // --- maths as history: three people, a drawing of a proof, a diagram, and graphs to play with -----------
+  // Euclid's Elements (about 300 BC), Euler's papers (1700s) and Noether's 1918 theorem: old enough to be anyone's.
+  const { convertToExcalidrawElements } = await import('@excalidraw/excalidraw')
+  const INK = '#1e1e1e'
+  // The 3, 4, 5 triangle with a square on each side, the figure of Elements I.47, drawn in Excalidraw.
+  const pythagoras = convertToExcalidrawElements([
+    { type: 'line', x: 0, y: 0, points: [[0, 0], [120, 0], [0, -90], [0, 0]], strokeColor: INK, strokeWidth: 2 },
+    { type: 'rectangle', x: 0, y: 0, width: 120, height: 120, strokeColor: '#1971c2', backgroundColor: '#a5d8ff', fillStyle: 'hachure' },
+    { type: 'rectangle', x: -90, y: -90, width: 90, height: 90, strokeColor: '#2f9e44', backgroundColor: '#b2f2bb', fillStyle: 'hachure' },
+    { type: 'line', x: 0, y: -90, points: [[0, 0], [120, 90], [210, -30], [90, -120], [0, 0]], strokeColor: '#e8590c', backgroundColor: '#ffd8a8', fillStyle: 'hachure', strokeWidth: 2 },
+    { type: 'text', x: 44, y: 46, text: 'b² = 16', fontSize: 20, strokeColor: '#1971c2' },
+    { type: 'text', x: -78, y: -56, text: 'a² = 9', fontSize: 20, strokeColor: '#2f9e44' },
+    { type: 'text', x: 70, y: -120, text: 'c² = 25', fontSize: 20, strokeColor: '#e8590c' },
+    { type: 'text', x: -60, y: 150, text: '9 + 16 = 25: the two small squares fill the big one', fontSize: 16, strokeColor: INK }
+  ] as never)
+  const drawn = (markdown: string, elements: unknown[]): JSONContent => {
+    const body = doc(markdown)
+    // The drawing stands where the words say "(the drawing)", as a block of its own.
+    return { ...body, content: (body.content ?? []).map((node) => (node.type === 'paragraph' && node.content?.[0]?.text === '(the drawing)' ? { type: 'excalidraw', attrs: { scene: { elements, files: {} }, height: 340 } } : node)) }
+  }
+  const euclid = await call<string>('article:new')
+  await call('item:save', euclid, { title: 'Euclid, drawn: why a² + b² = c²', body: drawn(`
+Book I of Euclid's *Elements*, about 300 BC, ends on its 47th proposition: in a right-angled triangle, the square on the long side equals the two squares on the others. Every step before it builds toward this one. #maths #history
+
+(the drawing)
+
+$$a^2 + b^2 = c^2$$
+
+For the 3, 4, 5 triangle: $3^2 + 4^2 = 9 + 16 = 25 = 5^2$. The Babylonians listed triples like it a thousand years earlier (the tablet Plimpton 322), but Euclid is the first to prove it holds for every right triangle.
+
+## How the book gets there
+
+\`\`\`mermaid
+flowchart LR
+  D[23 definitions] --> P[5 postulates]
+  P --> I1[I.1: an equal-sided triangle]
+  I1 --> I4[I.4: two triangles alike]
+  I4 --> I46[I.46: a square on a line]
+  I46 --> I47[I.47: a² + b² = c²]
+  P -.-> F[Postulate 5: parallels]
+  F -.-> I47
+\`\`\`
+
+The dotted line is the fifth postulate, the one about parallel lines. Mathematicians spent two thousand years trying to prove it from the other four, and in the 1820s found you cannot: drop it and you get the curved geometries Einstein later needed.
+
+## Try it
+
+With $a$ kept at 3, the long side grows as $b$ does, never as fast as the two together.
+
+\`\`\`graph
+y = sqrt(9 + x^2) {orange}
+y = 3 + x {purple}
+view: 0, 10, 0, 14
+\`\`\`
+*Orange: the long side $c$ for a short side $b$ along the bottom. Purple: $a + b$. The gap between them is why a shortcut across a field saves you walking.*
+`, pythagoras) })
+  nuggets++
+  const euler = await essay('Euler: five numbers in one line', `
+Leonhard Euler (1707 to 1783) wrote more mathematics than anyone before him, much of it after he went blind. His most quoted line ties together the five numbers every course meets: #maths #history
+
+$$e^{i\\pi} + 1 = 0$$
+
+It falls out of a bigger one, his formula for turning round a circle: $e^{i\\theta} = \\cos\\theta + i\\sin\\theta$. Move $t$ below and the point goes round the circle of radius 1; at $t = \\pi$ (about 3.14) it sits at $-1$, which is the identity.
+
+\`\`\`graph
+x^2 + y^2 = 1 {blue}
+(x - cos(t))^2 + (y - sin(t))^2 = 0.004 {red}
+t = 1 (0 to 6.28)
+view: -1.6, 1.6, -1.2, 1.2
+\`\`\`
+*Blue: every number $e^{i\\theta}$. Red: the one for your $t$. Left and right is the real part, up and down the imaginary.*
+
+## His other famous line
+
+Count the corners $V$, edges $E$ and faces $F$ of any solid with flat faces and no holes: $V - E + F = 2$, every time.
+
+| Solid | Corners $V$ | Edges $E$ | Faces $F$ | $V - E + F$ |
+| --- | --- | --- | --- | --- |
+| Tetrahedron | 4 | 6 | 4 | 2 |
+| Cube | 8 | 12 | 6 | 2 |
+| Octahedron | 6 | 12 | 8 | 2 |
+| Dodecahedron | 20 | 30 | 12 | 2 |
+| Icosahedron | 12 | 30 | 20 | 2 |
+
+He also settled the bridges of Königsberg in 1736: no walk crosses all seven once each, since more than two land masses have an odd number of bridges. That paper is counted as the start of graph theory.
+`)
+  const noether = await essay('Emmy Noether: every symmetry keeps something', `
+In 1918 Emmy Noether proved the theorem physicists still lean on most: wherever the laws stay the same under a change, something is kept. She did it while Göttingen would not pay her; Hilbert argued for her, saying the faculty was not a bathhouse. #maths #history #astrophysics
+
+| If the laws are the same… | then this never changes |
+| --- | --- |
+| from one moment to the next | energy |
+| from one place to the next | momentum |
+| whichever way you face | angular momentum |
+
+The last row is the skater in my physics cards: she pulls her arms in and spins faster, because the laws do not care which way she faces.
+
+In Lagrange's form, a quantity $q$ whose law does not depend on $q$ itself is kept:
+
+$$\\frac{d}{dt}\\frac{\\partial L}{\\partial \\dot q} = \\frac{\\partial L}{\\partial q} = 0$$
+
+\`\`\`graph
+y = 0.5*m*v^2 {blue}
+m = 2 (0.5 to 5)
+view: 0, 5, 0, 30
+\`\`\`
+*Energy of a moving thing, $\\frac{1}{2}mv^2$, against its speed $v$ along the bottom. Slide $m$, its mass. Kept energy is why a dropped ball comes back up nearly as high.*
+
+From ${link(keplerDrawn, "Kepler's orbits")}: a planet sweeps equal areas in equal times because angular momentum is kept, Noether's third row.
+`)
+  laterAges.push({ createdAt: at(-12, '21:15'), nuggetId: euclid }, { createdAt: at(-7, '22:20'), nuggetId: euler }, { createdAt: at(-3, '20:45'), nuggetId: noether })
 
   const physics: Deck = [
     ['Why is the sky blue?', 'Air scatters short blue light far more than long red light, so blue reaches you from every part of the sky.', 42, 4],
