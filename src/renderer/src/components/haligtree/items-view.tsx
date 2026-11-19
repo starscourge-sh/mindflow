@@ -1287,7 +1287,11 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                 </Tip>
               </div>
             )}
-            <SourceFoot who={item.attribution} where={item.medium} quote={item.kind === 'quote'} gem={item.tier === 'nugget'} cite={{ table: 'nuggets', id: item.id, fields: item.fields }} />
+            {/* Its source's facts (who said it, the page) in one quiet place, under the quote; the links to their pages
+                wait in the foot with what links here (17 Nov: "footer information placed where the body should be"). */}
+            <SourceFoot part="facts" who={item.attribution} where={item.medium} quote={item.kind === 'quote'} gem={item.tier === 'nugget'} cite={{ table: 'nuggets', id: item.id, fields: item.fields }} />
+            {/* Where your own words go: with nothing under the quote yet, a line ready to type in, in the note's own type. */}
+            {item.tier === 'nugget' && <WriteOn editor={ready} />}
             {/* No question yet: the way into Review, said once under the words. */}
             {/* Offered on the day it was kept only: after that, it is not asked again. */}
             {item.tier === 'nugget' && !prompt && !item.supersededBy && recallOffered(item.createdAt) && (
@@ -1313,6 +1317,10 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             )}
             <PageThoughts id={item.id} />
             {later && <Mentions id={item.id} editor={ready} onOpen={onOpen} />}
+            {/* The foot: everything by them and from that work, after what links here (one rule over both). */}
+            <div data-chrome data-source-foot className="page-narrow mx-auto mt-10 mb-6 w-full border-t px-[4rem] pt-2 empty:hidden [[data-mentions]+&]:-mt-4 [[data-mentions]+&]:border-t-0 [[data-mentions]+&]:pt-0">
+              <SourceFoot part="links" who={item.attribution} where={item.medium} />
+            </div>
           </ReadsIn>}
           foot={(instance) => <WordCount editor={instance} whole={false} />}
           onReady={(instance) => {
@@ -1664,6 +1672,45 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
 }
 
 /** Study this: a task to read it by a date, linked, so it is waiting when the task opens. */
+/** Whether a gem's page holds nothing of your own under its first line (its quote, its idea): only empty lines, if any. */
+const onlyItsLine = (editor: Editor): boolean => {
+  const { doc } = editor.state
+  for (let at = 1; at < doc.childCount; at++) if (doc.child(at).textContent.trim() || !doc.child(at).isTextblock) return false
+  return true
+}
+
+/**
+ * Under a gem's quote with nothing written yet: where your own words go, in the note's own type, ready to type. A
+ * click puts the caret on a fresh line under the quote (a page's first line is its name, so a gem's words start on
+ * the next). It goes once anything is written there.
+ */
+function WriteOn({ editor }: { editor: Editor | null }): React.JSX.Element | null {
+  const [lone, setLone] = useState(() => !!editor && onlyItsLine(editor))
+  useEffect(() => {
+    if (!editor) return
+    const read = (): void => setLone(onlyItsLine(editor))
+    read()
+    editor.on('update', read)
+    return () => void editor.off('update', read)
+  }, [editor])
+  if (!editor || !lone) return null
+  const write = (): void => {
+    const { doc } = editor.state
+    const last = doc.lastChild
+    const chain = editor.chain()
+    if (doc.childCount < 2 || !(last?.type.name === 'paragraph' && !last.textContent)) chain.insertContentAt(doc.content.size, { type: 'paragraph' })
+    chain.focus('end').run()
+  }
+  return (
+    <div data-chrome className="page-narrow mx-auto mt-4 w-full px-[4.5rem]">
+      <button type="button" data-write-on onClick={write}
+        className="tiptap ProseMirror haligtree-editor w-full cursor-text rounded-md !p-0 text-left text-muted-foreground transition-colors hover:text-foreground">
+        <p className="!m-0">What you make of it, in your own words</p>
+      </button>
+    </div>
+  )
+}
+
 function StudyThis({ item }: { item: ItemFull }): React.JSX.Element {
   const [asking, setAsking] = useState(false)
   if (!asking) return <Prop icon={BookOpen} onClick={() => setAsking(true)}>Study this…</Prop>

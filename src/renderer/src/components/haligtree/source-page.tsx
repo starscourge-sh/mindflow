@@ -107,16 +107,18 @@ function SourceLinks({ who, where, pdf }: { who?: string | null; where?: string 
  * with no source has drifted from whoever said it; a gem with none is only a
  * note of yours.
  */
-export function SourceFoot({ who, where, quote = false, gem = false, cite, body }: { who?: string | null; where?: string | null; quote?: boolean; gem?: boolean; /** The note itself, for the page in its source it is from. */ cite?: { table: NoteTable; id: string; fields?: string | null }; /** Its words: a link into a kept PDF in them shows here as the page it came from. */ body?: unknown }): React.JSX.Element | null {
+export function SourceFoot({ who, where, quote = false, gem = false, cite, body, part }: { who?: string | null; where?: string | null; quote?: boolean; gem?: boolean; /** The note itself, for the page in its source it is from. */ cite?: { table: NoteTable; id: string; fields?: string | null }; /** Its words: a link into a kept PDF in them shows here as the page it came from. */ body?: unknown
+  /** One half only: its facts (the page, or the line asking for a source) under the quote, or its links to each page in the page's foot (a gem's page, 17 Nov). */
+  part?: 'facts' | 'links' }): React.JSX.Element | null {
   const pdf = useMemo(() => pdfIn(body), [body])
   const sourced = !!(who?.trim() || where?.trim() || pdf)
-  if (sourced) return (
+  if (sourced) return part === 'links' ? <SourceLinks who={who} where={where} pdf={pdf} /> : (
     <div data-chrome className="page-narrow mx-auto w-full px-[4rem]">
       {cite && (quote || gem) && <PageNumber {...cite} />}
-      <SourceLinks who={who} where={where} pdf={pdf} />
+      {part !== 'facts' && <SourceLinks who={who} where={where} pdf={pdf} />}
     </div>
   )
-  if (!quote && !gem) return null
+  if ((!quote && !gem) || part === 'links') return null
   const item = cite && { type: cite.table === 'captures' ? 'capture' : 'nugget', id: cite.id }
   return (
     <p data-chrome data-no-source className="page-narrow mx-auto mt-2 w-full px-[4.5rem] text-body text-foreground">
