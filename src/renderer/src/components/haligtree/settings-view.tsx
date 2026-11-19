@@ -654,6 +654,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         <Group section="Appearance" title="Layout">
           <Setting title="Page width" note="How wide notes and pages are, also set from a note's ⋯ menu." keywords="full width wide narrow column page layout"
             below={<Choices label="Page width" options={widthChoices} on={(id) => id === widthOf(settings)} pick={(id) => setPageWidth(id as PageWidth)} />} />
+          <Setting title="Articles in the reader" note="How wide a page read from a link is: as wide as your notes, or a book's narrow column." keywords="reader article web page width wide narrow column"
+            below={<Choices label="Articles in the reader" options={[{ id: 'notes', label: 'As wide as notes', show: <span aria-hidden className="flex w-full flex-col items-center gap-1.5 px-3">{[0, 1, 2].map((one) => <span key={one} className="h-1 rounded-full bg-foreground/40" style={{ width: '88%' }} />)}</span>, said: 'Follows Page width above' }, { id: 'book', label: 'A book’s width', show: <span aria-hidden className="flex w-full flex-col items-center gap-1.5 px-3">{[0, 1, 2].map((one) => <span key={one} className="h-1 rounded-full bg-foreground/40" style={{ width: '48%' }} />)}</span>, said: 'About 60 letters a line' }]} on={(id) => id === (settings.readerWidth ?? 'notes')} pick={(id) => set({ readerWidth: id as 'notes' | 'book' })} />} />
           <Setting title="Motion" note="Things ease in and out; point at these cards to see." more="Off, everything appears at once.">
             <MotionSample on={settings.motion} />
             <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />

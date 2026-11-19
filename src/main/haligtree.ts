@@ -755,6 +755,8 @@ export type Settings = typeof DEFAULTS & {
   seasonClosed?: string
   /** Narrow, Wide or Full; unset, it follows fullWidth (see widthOf in reading.ts). */
   pageWidth?: 'narrow' | 'wide' | 'full'
+  /** How wide an article in the reader is: as wide as notes (the usual), or a book's narrow column. */
+  readerWidth?: 'notes' | 'book'
   /** A link card's picture: filling its box (cover), or shown whole (contain). */
   linkPictures?: 'fill' | 'whole'
   /** A face with no picture: a shape from Coolshapes with the initials over it, or the initials in a circle. */

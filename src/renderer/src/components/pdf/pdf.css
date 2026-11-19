@@ -691,6 +691,10 @@
    and the rest of the room outside it. */
 .web-reader-column {
   --web-measure: 36em;
+  /* As wide as a note's words (Settings › Page width), the usual: the room either side was dark and empty. */
+  :root:not([data-reader-width='book']) & {
+    --web-measure: var(--mf-col-editor, 72rem);
+  }
   /* The page's own marks (the site over the title, its rule, the drop cap): the theme's accent, a quarter of the way to
      its ink so the small line reads at 4.5:1 or more on every theme's page (the Dark theme's own accent read 2.6:1). */
   --web-accent: color-mix(in oklab, var(--mf-accent-ink, var(--tt-brand-color-400)) 75%, var(--foreground));
@@ -819,16 +823,7 @@
   display: none !important;
 }
 
-/* A picture wider than the words stands out past them, half way into the margins either side and centred on the
-   words (moved by half its own width, whatever that is), always 2.5em clear of a line: with narrow margins (or none,
-   in a narrow pane) it keeps to the words. One in a table, a list or a line of words keeps to its own place. */
-.web-reader-body img:not([data-inline], :is(td, th, li) img) {
-  position: relative;
-  left: 50%;
-  max-width: calc(100% + 2 * max(0px, min(var(--web-margin) / 2, var(--web-margin) - 2.5em))) !important;
-  margin-inline: 0;
-  translate: -50%;
-}
+/* A picture keeps to the words' width, as a note's does (the user, 19 Nov 2026: "images dont respect the page width"). */
 
 /* On a dark page a drawing made for a white one (black lines on nothing) would
    vanish: under its clear parts lies the theme's own light ink, as the page it
