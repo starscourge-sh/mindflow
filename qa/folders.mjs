@@ -172,7 +172,7 @@ try {
   await h.keyboard.type('Chapters for the thesis, and where the reading lives.')
   await shot('folder-front')
   // Left: the words go with the folder.
-  await h.locator('[data-side-all-folders]').click()
+  await h.locator('[data-folders-all]').click() // "All folders…" is the heading's arrow (63dc63cb7)
   await wait(600)
   check('the words are kept with the folder', await until(async () => /Chapters for the thesis/.test((await c.v('folders')).find((one) => one.id === thesis.id)?.front ?? '')))
 
@@ -283,7 +283,8 @@ try {
     await h.mouse.up()
     await wait(700)
   }
-  const unfiledRow = h.locator('[data-side-unfiled]')
+  // The Folders heading takes what leaves a folder: the sidebar lists folders only, no "Not in a folder" row (63dc63cb7).
+  const unfiledRow = h.locator('[data-side-section-handle="folders"]')
   const folderOfPage = async () => (await c.v('folders:of', 'nuggets'))[page] ?? null
   await c.v('folders:file', [{ type: 'article', id: page }], thesis.id)
   await fRow.hover()
@@ -295,7 +296,7 @@ try {
   await h.locator(`[data-folder-fold="${reading.id}"]`).click()
   await wait(700)
   await drag(h.locator(`aside [data-side-thing="${page}"]`), unfiledRow)
-  check('carried onto "Not in a folder", it leaves every folder', await until(async () => (await folderOfPage()) === null), JSON.stringify(await folderOfPage()))
+  check('carried onto the Folders heading, it leaves every folder', await until(async () => (await folderOfPage()) === null), JSON.stringify(await folderOfPage()))
   await h.keyboard.press('Meta+z')
   check('⌘Z puts it back in its folder', await until(async () => (await folderOfPage()) === reading.id), JSON.stringify(await folderOfPage()))
   // The folder's "Copy link": a link to its page, as a note's Copy link makes one.
