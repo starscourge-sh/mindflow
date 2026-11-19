@@ -86,6 +86,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
+import { LongNamesSetting } from './long-names'
 import { StepAsideSample, BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, LineJumpSample, LineNumbersSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { useDeskAway } from '@/lib/desk-away'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Sparkles, Volume2, X } from '@/components/ui/icons'
@@ -893,6 +894,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <TitleTopSample on={!!settings.topTitle} />
             <Switch checked={settings.topTitle} onCheckedChange={(topTitle) => set({ topTitle })} />
           </Setting>
+          <LongNamesSetting on={settings.nameLong === true} set={(nameLong) => set({ nameLong })} />
           <Setting title="Dates and times lit" note="A date or time in a note is lit as you write it; rest on one to see its day." more="Read as on the day the note was written, so “tomorrow” in an old note says which day it was." keywords="date time day highlight lit tomorrow friday calendar when detect" data-mac-needs="every">
             <DatesSample on={settings.datesLit !== false} />
             <Switch checked={settings.datesLit !== false} onCheckedChange={(datesLit) => set({ datesLit })} />

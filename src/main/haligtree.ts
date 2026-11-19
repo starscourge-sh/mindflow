@@ -1,3 +1,4 @@
+import { nameIfLong } from './long-names'
 import { NameBook, everyday, nameFrom, unlinkable } from './name-match'
 import { occlusionOf } from './occlusion'
 import { chipLabel } from './cite-ids'
@@ -619,6 +620,8 @@ const DEFAULTS = {
   spotlight: true,
   // Apple Intelligence in Review and the reader (understand.ts): answers checked by meaning, hints, cards from a chapter.
   aiStudy: true,
+  // Long names made short by Apple Intelligence as each note or task is made, the long one kept (long-names.ts). Off until asked.
+  nameLong: false,
   // Dates and times lit in notes as they are written, each saying the day it means (extensions/date-words.ts).
   datesLit: true,
   // Back after four hours or more locked or asleep: one line saying what came due (away.ts, back-line.ts).
@@ -860,6 +863,7 @@ export const sleepChoice = (): Settings['sessionSleep'] => settings().sessionSle
 /** The focus timer and website blocking on (Settings, Tasks): off, nothing of either is offered. */
 export const spotlightOn = (): boolean => settings().spotlight !== false
 export const aiStudyOn = (): boolean => settings().aiStudy !== false
+export const nameLongOn = (): boolean => settings().nameLong === true
 export const focusToolsOn = (): boolean => settings().focusTools === true
 /** Whether websites are blocked in a focus round, and which (Settings, “Blocking websites”). */
 export const blockPrefs = (): Pick<Settings, 'siteBlock' | 'blockSites'> => {
@@ -4272,8 +4276,11 @@ export function registerHaligtree(): void {
   handle('snoozed:back', () => db.prepare(`select 'task' as type, id, title, snoozed_until as day from tasks where status = 'open' and snoozed_until > date('now', 'localtime')
     union all select 'capture', id, case when private then 'Private note' else ${LABEL} end, snoozed_until from captures where status != 'discarded' and snoozed_until > date('now', 'localtime')`).all())
   // `plain`: places in the words kept as plain text in the box ("today" kept as a word), never read as a date.
-  handle('task:add', (text: string, origin?: string, today = false, plain?: { from: number; to: number }[]) =>
-    write(addTask(String(text), origin ?? null, today, (Array.isArray(plain) ? plain : []).filter((one) => Number.isInteger(one?.from) && Number.isInteger(one?.to)).map(({ from, to }) => ({ from, to })))))
+  handle('task:add', (text: string, origin?: string, today = false, plain?: { from: number; to: number }[]) => {
+    const made = write(addTask(String(text), origin ?? null, today, (Array.isArray(plain) ? plain : []).filter((one) => Number.isInteger(one?.from) && Number.isInteger(one?.to)).map(({ from, to }) => ({ from, to }))))
+    if (!made.existed) nameIfLong('task', made.id)
+    return made
+  })
   // Study this: a task made from a nugget or an article, linked to it, so the
   // reading has a when and the material is waiting when the task opens.
   // `plain`: where the note's own title sits in the words, read as words and never as a date.

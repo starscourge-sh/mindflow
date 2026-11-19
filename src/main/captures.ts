@@ -1,3 +1,4 @@
+import { nameIfLong } from './long-names'
 import { foldMeeting } from './meeting-doc'
 import { QUESTIONS, type Question } from './journal-words'
 import { app, BrowserWindow, ipcMain } from 'electron'
@@ -608,6 +609,7 @@ export function registerCaptures(): void {
     if (patch.body !== undefined || patch.title !== undefined || patch.markdown !== undefined) resolveWaiting(id)
     changed()
     celebrateAfter('captures:create', event.sender, [raw], id)
+    nameIfLong('capture', id)
     return id
   })
 

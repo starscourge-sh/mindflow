@@ -63,7 +63,8 @@ import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { HINT_ROOM, hintRoom, type HintSide } from './hint-room'
-import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, soundsOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, wasTucked, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, pillYields, sleepChoice, sunPlace } from './haligtree'
+import { registerLongNames } from './long-names'
+import { nameLongOn, aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, soundsOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, wasTucked, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, pillYields, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -5593,6 +5594,7 @@ app.whenReady().then(() => {
   registerPdfText()
   registerUnderstand()
   registerStudyAi(aiStudyOn)
+  registerLongNames(nameLongOn)
   registerServices()
   registerSpotlight()
   registerDictation()

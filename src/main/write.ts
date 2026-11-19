@@ -18,7 +18,7 @@ import { num, plural } from './dates'
 /** The longest wait for the model: past it, the person is told it took too long and nothing changes. */
 const MOST_MS = 30_000
 
-async function write(instructions: string, prompt: string, stand: string): Promise<{ text: string } | { error: string }> {
+export async function write(instructions: string, prompt: string, stand: string): Promise<{ text: string } | { error: string }> {
   if (process.env.HALIGTREE_QA_CAPS === 'ai') return new Promise((done) => setTimeout(() => done({ text: stand }), Number(process.env.HALIGTREE_QA_AI_DELAY ?? 0)))
   const have = await caps()
   if (have.ai !== 'available') return { error: 'Needs Apple Intelligence' }
