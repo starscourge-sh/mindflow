@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
+import { PickerAt, placeFor } from './picker-at'
 import { Merge } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
@@ -32,6 +32,7 @@ export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Elem
 export function MergePicker({ capture, onClose }: { capture: Pick<CaptureMeta, 'id'>; onClose: () => void }): React.JSX.Element {
   const setOpen = (_: false): void => onClose()
   const all = useCaptures()
+  const [at] = useState(() => placeFor())
   const others = all.filter((one) => one.id !== capture.id && one.status !== 'discarded')
   // The same join as "Join them" under a note that nearly repeats another (lib/join-notes.ts): its words under the
   // picked one's, after a rule, this one to the Bin, one notice and one Undo for both.
@@ -41,9 +42,9 @@ export function MergePicker({ capture, onClose }: { capture: Pick<CaptureMeta, '
     void joinNotes({ table: 'captures', id: into.id }, { table: 'captures', id: capture.id }, (added, links) =>
       `Merged into ${name}: ${added ? `${plural(added, 'line')} this one had that it didn't` : 'it had all of this one already'}. This one is in the Bin${links === 1 ? ', and the link to it leads there now' : links ? `, and the ${num(links)} links to it lead there now` : ''}.`)
   }
-  return createPortal(
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => setOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-label="Merge into another note" className="w-[min(30rem,90vw)] overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
+  // Beside what asked for it (the details' row, "Where it goes"), never over a dimmed window (picker-at.tsx).
+  return (
+        <PickerAt at={at} label="Merge into another note" onClose={onClose}>
             <Command onKeyDown={(event) => {
               event.stopPropagation()
               if (event.key === 'Escape') setOpen(false)
@@ -64,8 +65,6 @@ export function MergePicker({ capture, onClose }: { capture: Pick<CaptureMeta, '
                 })}
               </CommandList>
             </Command>
-          </div>
-        </div>,
-        document.body
+        </PickerAt>
       )
 }

@@ -63,12 +63,19 @@ try {
   check('a note in a group keeps its group', groupsKept)
   check('no group sits inside a folder', after.nestedGroups === 0)
   // Undone: every note's group and order as before.
-  check('the move undoes', await c.v('folders:unmove'))
+  // The notice's own Undo, pressed.
+  await c.h.locator('[role="status"] button', { hasText: 'Undo' }).first().click()
+  await c.h.waitForTimeout(1500)
+  check('the notice\'s Undo puts them back, and says so', /old folders are back as they were/.test(await c.h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent).join(' '))))
   const back = ask((db) => db.prepare('select id, group_id as "group", group_order as "order" from nuggets').all())
   const was = new Map(before.notes.map((one) => [one.id, one]))
   const differ = back.filter((one) => was.get(one.id)?.group !== one.group || was.get(one.id)?.order !== one.order)
   check('undone, every note is in its old folder and place', !differ.length, `${differ.length} differ`)
   check('undone, the old folders are back', ask((db) => db.prepare("select count(*) as n from note_groups where folder = 1 and list != 'folders'").get().n) === before.folders.length)
+  // Shown where they were: under Writing's and Gems' rows in the sidebar.
+  check('undone, the sidebar shows them under Writing again', (await c.h.locator('[data-side-folders="article"] [data-side-folder]').count()) >= 1, `${await c.h.locator('[data-side-folders="article"] [data-side-folder]').count()}`)
+  check('Settings > Backups offers the move again', (await c.v('folders:move-state')) === 'undone')
+  if (process.env.QA_SHOTS) await c.both(`${process.env.QA_SHOTS}/move-undone`)
 } finally {
   await c.close()
 }

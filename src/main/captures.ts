@@ -1088,6 +1088,9 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
       // Brought before the time was kept: this import's time is where changes count from.
       if (!had.at) db.prepare('update nuggets set source_at = ? where id = ?').run(now, had.id)
       if (!had.at || had.at >= now) return 'already here'
+      // Its words before, kept in its history (the versions an edit keeps, notes.ts), whatever the ten-minute rule says:
+      // the file's new words are a change made elsewhere, never a keystroke.
+      db.prepare("insert into versions (item_id, body, saved_at) select id, body, ? from nuggets where id = ? and body is not null and body not in ('null', '\"\"')").run(new Date().toISOString(), had.id)
       db.prepare('update nuggets set body = ?, updated_at = ?, source_at = ? where id = ?').run(JSON.stringify(body), new Date().toISOString(), now, had.id)
       changed()
       return 'updated'
@@ -1100,7 +1103,12 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
   }
   if (db.prepare('select 1 from captures where source = ? and named = 1').get(path)) return 'already here'
   // A kind of ours, as an export from here writes it, comes back as that kind with its fields.
-  const kind = (KINDS as readonly string[]).includes(fields.kind) ? (fields.kind as (typeof KINDS)[number]) : 'note'
+  // Otherwise the capture box's own guess, from its words (import.ts `kindOf`): a quote, a word, a link. A note of
+  // several lines is never a task, whatever its first word (a checklist stays a note with its tasks in it); unsure
+  // stays a note.
+  const guess = kindOf(body.split('\n').length > 1 ? body : body.trim())
+  const guessed = guess && !(guess === 'todo' && body.includes('\n')) && guess !== 'checkback' && (KINDS as readonly string[]).includes(guess) ? (guess as (typeof KINDS)[number]) : null
+  const kind = (KINDS as readonly string[]).includes(fields.kind) ? (fields.kind as (typeof KINDS)[number]) : guessed ?? 'note'
   if (kind !== 'note') delete fields.kind
   const own = Object.keys(fields).length ? JSON.stringify(fields) : null
   const { id, number } = insert({ title, kind, body, source: path }, new Date(at).toISOString())

@@ -1,7 +1,7 @@
 import { call, useLive } from '@/lib/haligtree'
 import { useKept } from '@/lib/groups'
 import { chime } from '@/lib/sound'
-import { num } from '../../../main/dates'
+import { num, plural } from '../../../main/dates'
 import { refuse, toast } from '@/components/haligtree/ui'
 
 /**
@@ -31,13 +31,17 @@ export const folders = {
   of: (table: 'nuggets' | 'captures' | 'tasks') => call<Record<string, string>>('folders:of', table),
   set: (id: string, patch: { name?: string; icon?: string | null; color?: string | null; starred?: boolean; archived?: boolean }) => call<boolean>('folders:set', id, patch),
   nest: (id: string, parent: string | null) => call<true | string>('folders:nest', id, parent),
+  place: (id: string, target: string, after: boolean) => call<{ ids: string[]; parent: string | null } | null>('folders:place', id, target, after),
+  arrange: (id: string, was: { ids: string[]; parent: string | null }) => call<boolean>('folders:arrange', id, was),
   remove: (id: string) => call<{ row: Record<string, string | number | null>; things: Thing[]; subs: string[] } | null>('folders:remove', id),
   restore: (was: { row: Record<string, string | number | null>; things: Thing[]; subs: string[] }) => call<boolean>('folders:restore', was),
   moved: () => call<{ folders: number; things: number } | { failed: string } | null>('folders:moved'),
   offers: () => call<{ id: string; name: string; n: number }[]>('folders:offers'),
   archiveInstead: (id: string) => call<{ row: Record<string, string | number | null>; things: Thing[]; subs: string[] } | null>('folders:archive-instead', id),
   unarchive: (was: { row: Record<string, string | number | null>; things: Thing[]; subs: string[] }) => call<boolean>('folders:unarchive', was),
-  unmove: () => call<boolean>('folders:unmove')
+  unmove: () => call<boolean>('folders:unmove'),
+  moveState: () => call<'moved' | 'undone' | null>('folders:move-state'),
+  moveAgain: () => call<{ moved: false; why: string } | { moved: true; folders: number; things: number }>('folders:move-again')
 }
 
 /** Every folder, drawn from the first frame from what it last said (as the sidebar's groups are). */
@@ -91,7 +95,22 @@ export async function keepInNew(things: Thing[], name: string, parent: string | 
 }
 
 /** Asks the one folder picker to open for these things (folder-picker.tsx, mounted once in the main window). */
-export const askFolder = (things: Thing[]): void => void window.dispatchEvent(new CustomEvent('haligtree:keep-in-folder', { detail: things }))
+/** Writing's and Gems' old folders back as they were before the move (folders.ts `unmoveFolders`), said with its own Undo: the move again. */
+export async function putFoldersBack(): Promise<void> {
+  if (!(await folders.unmove())) return refuse('Nothing to put back: the old folders were never moved')
+  chime('separate')
+  toast('Writing’s and Gems’ old folders are back as they were', () => void moveFoldersAgain())
+}
+/** The move made again, after its own backup copy; said with Undo. */
+export async function moveFoldersAgain(): Promise<void> {
+  const done = await folders.moveAgain()
+  if (!done.moved) return refuse(done.why === 'nothing to move' ? 'No folders in Writing or Gems to move' : `Not moved: ${done.why}`)
+  chime('gather')
+  toast(`Moved into Folders again: ${plural(done.folders, 'folder')} holding ${plural(done.things, 'thing')}`, () => void putFoldersBack())
+}
+
+/** `at`: what it stands beside; left out, what was last pressed (picker-at.tsx `placeFor`). */
+export const askFolder = (things: Thing[], at?: Element | null): void => void window.dispatchEvent(new CustomEvent('haligtree:keep-in-folder', { detail: { things, at } }))
 
 /** Finds a folder by its name or a path typed with "/" between levels, any case: quick capture's `>work/clients`. */
 export function findFolder(all: Folder[], typed: string): Folder | undefined {

@@ -25,7 +25,7 @@ import { SimilarNotes } from './similar-notes'
 import { chime, pageShown, pageTurn } from '@/lib/sound'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, ArrowLeft, ArrowUpRight, Calendar, Check, ChevronRight, FolderPlus, Library, Plus, SquareDashed } from 'lucide-react'
+import { Archive, ArrowLeft, ArrowUpRight, Calendar, Check, ChevronRight, Library, Plus, SquareDashed } from 'lucide-react'
 
 import { Unfold } from './glide'
 
@@ -465,16 +465,15 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // The open folder's path, as Finder's path bar shows it: the list itself, then each folder down to this one.
   const path: NoteGroup[] = []
   for (let at = opened; at && !path.includes(at); at = shelf.find((one) => one.id === at!.parent)) path.unshift(at)
-  // ⌘↑ goes to the folder that holds this one, as in Finder; ⇧⌘N makes a folder here, named as it is made.
-  const keysRef = useRef({ up: (): void => undefined, make: (): void => undefined })
+  // ⌘↑ goes to the folder that holds this one, as in Finder. Writing and Gems make no folders (Folders does).
+  const keysRef = useRef({ up: (): void => undefined })
   keysRef.current = {
-    up: () => opened && (chime('tuck'), onFolder?.(opened.parent && shelf.some((one) => one.id === opened.parent) ? opened.parent : null)),
-    make: () => folding.newFolder()
+    up: () => opened && (chime('tuck'), onFolder?.(opened.parent && shelf.some((one) => one.id === opened.parent) ? opened.parent : null))
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.altKey || event.ctrlKey || typing()) return
-      const which = event.key === 'ArrowUp' && !event.shiftKey ? 'up' : event.shiftKey && event.key.toLowerCase() === 'n' ? 'make' : null
+      const which = event.key === 'ArrowUp' && !event.shiftKey ? 'up' : null
       if (!which) return
       event.preventDefault()
       event.stopPropagation()
@@ -656,7 +655,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // list's order, the same orders as its "Sort".
   const listMenu: RowItem[] = [
     writing && !questionsOnly && { label: 'New page', run: newPage },
-    folding.rows && { label: 'New folder', keys: '⇧⌘N', run: () => folding.newFolder() },
     sorts.length > 1 && { label: 'Sort', items: sorts.map((one) => ({ label: one.label, trail: view.sort === one.id ? <Check className="size-3.5" /> : undefined, run: () => (chime('tap'), setView({ ...view, sort: one.id })) })) },
   ]
   const manyMenu: RowItem[] | null = chosen.length > 1 ? [
@@ -798,8 +796,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               <Tip label="Group them here  ⌘G">
                 <Button variant="ghost" size="default" onClick={() => folding.groupNew(chosen)}>Group</Button>
               </Tip>
-              <Tip label="Put them in a new folder  ⌃⌘N">
-                <Button variant="ghost" size="default" onClick={() => folding.gatherNew(chosen)}>New folder</Button>
+              <Tip label="Keep them in a folder you pick or make  ⇧⌘M">
+                <Button variant="ghost" size="default" onClick={(event) => (askFolder(chosen.map((id) => ({ type: items.find((one) => one.id === id)?.tier === 'question' ? 'question' as const : tier === 'article' ? 'article' as const : 'nugget' as const, id })), event.currentTarget))}>Keep in folder…</Button>
               </Tip>
               {tier === 'nugget' && <Button variant="secondary" size="default"
  
@@ -856,14 +854,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
                     <span className={questionsOnly ? undefined : 'invisible'} aria-hidden={!questionsOnly}>New question</span>
                   </span>
                 </Button>
-              )}
-              {/* Beside "New page", as the list's own right-click and ⇧⌘N make one (16 Nov: "why cant i add new folder from this page"). */}
-              {writing && !questionsOnly && folding.rows && (
-                <Tip label="A folder in this list  ⇧⌘N">
-                  <Button variant="ghost" size={open ? 'icon' : 'default'} aria-label="New folder" data-new-folder="" onClick={() => folding.newFolder()}>
-                    <FolderPlus className="size-3.5" />{!open && ' New folder'}
-                  </Button>
-                </Tip>
               )}
               <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                 <Button variant="ghost" size={open ? 'icon' : 'default'} aria-label="Read through" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
@@ -1218,6 +1208,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, { label: 'Writing tools', items: writerMenu(ready, (text) => toast(text, undefined, 'info')) }, 'separator' as const] : []),
             // Proofread when asked, on any page; a piece of Writing has it in its writer's lines above.
             ...(item.tier !== 'article' ? [{ label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread }] : []),
+            // Where it lives: the one folder picker, beside this menu's button.
+            { label: 'Keep in folder…', run: () => askFolder([{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]) },
             ...itemMenu(item),
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
@@ -2192,7 +2184,8 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   }
   const notes = (n: number): string => (kind ? (n === 1 ? kind.noun[0] : `${num(n)} ${kind.noun[1]}`) : n === 1 ? 'note' : `${num(n)} notes`)
   // Kept in a folder of Folders, picked or made in the one picker (folder-picker.tsx).
-  const gatherNew = (ids: string[]): void => askFolder(inOrder(ids).map((id) => ({ type: thingOf(id), id })))
+  // Beside the first of them, where the keys or the right click left it.
+  const gatherNew = (ids: string[]): void => askFolder(inOrder(ids).map((id) => ({ type: thingOf(id), id })), ids[0] ? document.querySelector(`[data-row][data-id="${CSS.escape(ids[0])}"]`) : null)
   // Figma's ⌘G: the picked notes gathered into a group where the first of them is, in the list or folder you are in.
   const groupNew = (ids: string[]): void => {
     const these = inOrder(ids.filter((id) => !isGroup(id)))

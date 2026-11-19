@@ -172,6 +172,8 @@ export async function moveFolders(copy: (to: string) => Promise<void> = (to) => 
   type Row = { id: string; list: string; name: string; parent: string | null; icon: string | null; color: string | null; folded: number; made: string; folder: number }
   const all = () => db.prepare('select id, list, name, parent_id as parent, icon, color, folded, created_at as made, folder from note_groups').all() as Row[]
   if (!all().some((one) => one.folder && one.list !== LIST)) return { moved: false, why: 'nothing to move' }
+  // Put back by the person ("Put the old folders back"): left so until they ask for the move again.
+  if (setting<{ undone?: string } | null>('folderMove', null)?.undone) return { moved: false, why: 'nothing to move' }
   const dir = join(backupDir(), 'database')
   const backup = join(dir, `haligtree-before-folders-${dayKey()}.db`)
   try {
@@ -309,6 +311,37 @@ export function registerFolders(): void {
     changed()
     return true
   })
+  // A folder dropped by another's edge: just before or after it, beside it in what holds that one. Gives back the
+  // order and the parent it had, for Undo (`folders:arrange`).
+  const writeOrder = (ids: string[]): void => {
+    db.prepare(`delete from note_order where list = '${LIST}'`).run()
+    const add = db.prepare(`insert into note_order (list, id, position) values ('${LIST}', ?, ?)`)
+    ids.forEach((one, at) => add.run('g:' + one, at))
+  }
+  handle('folders:place', (id: string, target: string, after: boolean) => {
+    const all = listFolders()
+    const me = all.find((one) => one.id === id)
+    const by = all.find((one) => one.id === target)
+    if (!me || !by || id === target) return null
+    for (let at: string | null = by.parent; at; at = all.find((one) => one.id === at)?.parent ?? null) if (at === id) return null
+    const was = { ids: all.map((one) => one.id), parent: me.parent }
+    const ids = was.ids.filter((one) => one !== id)
+    ids.splice(ids.indexOf(target) + (after ? 1 : 0), 0, id)
+    atomically(() => {
+      writeOrder(ids)
+      db.prepare('update note_groups set parent_id = ? where id = ?').run(by.parent, id)
+    })
+    changed()
+    return was
+  })
+  handle('folders:arrange', (id: string, was: { ids: string[]; parent: string | null }) => {
+    atomically(() => {
+      writeOrder(was.ids)
+      db.prepare('update note_groups set parent_id = ? where id = ?').run(was.parent, id)
+    })
+    changed()
+    return true
+  })
   // A folder put in another (null: the top), refused deeper than folders go or inside itself.
   handle('folders:nest', (id: string, parent: string | null) => {
     const folders = listFolders()
@@ -344,6 +377,18 @@ export function registerFolders(): void {
     return true
   })
   handle('folders:unmove', () => unmoveFolders())
+  // For Settings > Backups: whether the move can be put back, or made again after it was.
+  handle('folders:move-state', () => {
+    const said = setting<{ at?: string; undone?: string } | null>('folderMove', null)
+    const kept = (db.prepare('select count(*) as n from folder_move').get() as { n: number }).n
+    return kept ? 'moved' : said?.undone ? 'undone' : null
+  })
+  handle('folders:move-again', async () => {
+    db.prepare("delete from settings where key = 'folderMove'").run()
+    const done = await moveFolders()
+    if (done.moved) db.prepare("insert or replace into settings (key, value) values ('folderMove', ?)").run(JSON.stringify({ at: now(), folders: done.folders, things: done.things, backup: done.backup, told: true }))
+    return done
+  })
   // Each import's "Archive" folder still to offer, with what it holds; taken off the list once said.
   handle('folders:offers', () => {
     const ids = setting<string[]>('archiveOffers', [])

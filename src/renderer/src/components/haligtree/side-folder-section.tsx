@@ -5,10 +5,15 @@ import { NameInPlace } from './name-in-place'
 import { GroupIcon } from './kept-groups'
 import { Unfold, Weighted } from './glide'
 import { RowMenu, type RowItem } from './row-menu'
-import { Count, Tip, quietly, sayNow, toast, typing } from './ui'
+import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
+import { SortableList, SortableRow } from './sortable'
+import { num } from '../../../../main/dates'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { FOLDER_DEPTH, folders, heldIn, pathOf, useFolders, type Folder } from '@/lib/folders'
+
+/** Starred folders shown before the rest fold behind "Show all". */
+const SHOWN = 12
 
 /** Where the sidebar sends a press: a folder's page, "Not in a folder", or every folder (null). */
 export type FolderPlace = string | 'unfiled' | null
@@ -64,7 +69,41 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
       ...(kids.length ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={lit(kids)} className="ml-5 flex flex-col gap-px">{kids.flatMap((kid) => row(kid, depth + 1))}</Branches></div>] : [])
     ]
   }
-  const rows = tops.filter((one) => ids.has(one.id))
+  // Many starred: the first 12, and the one you are in, the rest a press away, so they never push the sidebar long.
+  const [every, setEvery] = useState(false)
+  const starred = tops.filter((one) => ids.has(one.id))
+  const rows = every || starred.length <= SHOWN ? starred : starred.filter((one, at) => at < SHOWN || one.id === here || path.includes(one.id))
+  // F2 renames the folder whose row has the keys, or the one you are in, in place (Finder's way).
+  useEffect(() => {
+    const key = (event: KeyboardEvent): void => {
+      if (event.key !== 'F2' || event.metaKey || event.ctrlKey || event.altKey) return
+      const row = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-side-folder]')
+      const id = row?.dataset.sideFolder ?? (!typing() && typeof here === 'string' && here !== 'unfiled' && ids.has(here) ? here : null)
+      if (!id) return
+      event.preventDefault()
+      setNaming(id)
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  })
+  // Carried by its row, the app's one drag (sortable.tsx, as Tags' rows are): by another's edge it goes before or
+  // after it, beside it; rested on another's middle it goes inside. Each said with Undo; refusals say why.
+  const place = (id: string, target: string, after: boolean): void => {
+    const name = live.find((one) => one.id === id)?.name ?? 'the folder'
+    void folders.place(id, target, after).then((was) => {
+      if (!was) return refuse('A folder can’t go inside itself')
+      chime('gather')
+      toast(`Moved ${name} ${after ? 'after' : 'before'} ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.arrange(id, was))
+    })
+  }
+  const nest = (id: string, target: string): void => {
+    const was = live.find((one) => one.id === id)
+    void folders.nest(id, target).then((done) => {
+      if (done !== true) return refuse(done)
+      chime('gather')
+      toast(`Moved ${was?.name ?? 'the folder'} into ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.nest(id, was?.parent ?? null))
+    })
+  }
   return (
     <div data-side-section="folders" data-side-folders-section="" style={style} className="flex flex-col">
       <RowMenu items={[{ label: 'New folder', keys: '⌃⌘N', run: () => newFolderHere(null) }, { label: 'All folders…', run: () => onOpen(null) }]}>
@@ -90,8 +129,17 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
         </div>
       </RowMenu>
       <Unfold open={open}>
-        <Branches current={here === 'unfiled' ? rows.length : here === null ? rows.length + 1 : lit(rows)} className="ml-5 flex flex-col gap-px">
-          {rows.flatMap((one) => row(one, 0))}
+        <Branches rows=":scope > *" current={here === 'unfiled' ? rows.length + (starred.length > SHOWN ? 1 : 0) : here === null ? rows.length + 1 + (starred.length > SHOWN ? 1 : 0) : lit(rows)} className="ml-5 flex flex-col gap-px">
+          <SortableList items={rows} keyOf={(one) => one.id} onMove={place} onNest={nest}>{(items) => items.map((one) => (
+            <SortableRow key={one.id} id={one.id} glide={`side-folder-${one.id}`}><div className="flex flex-col gap-px">{row(one, 0)}</div></SortableRow>
+          ))}</SortableList>
+          {starred.length > SHOWN && (
+            <button type="button" data-side-row data-folders-more={starred.length} onClick={() => (chime(every ? 'fold' : 'slide'), setEvery(!every))}
+              className="flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
+              <span className="size-4 shrink-0" />
+              <span className="flex-1 text-left">{every ? 'Show fewer folders' : `Show all ${num(starred.length)} folders`}</span>
+            </button>
+          )}
           <button type="button" data-side-row data-side-unfiled="" aria-current={here === 'unfiled' ? 'page' : undefined} onClick={() => (chime('page'), onOpen('unfiled'))}
             className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here === 'unfiled' ? 'text-foreground' : 'text-muted-foreground'}`}>
             <span className="size-4 shrink-0" />

@@ -1,4 +1,5 @@
 import { themeActions } from '@/lib/theme'
+import { askFolder } from '@/lib/folders'
 import { deskAwayAction, useDeskAway } from '@/lib/desk-away'
 import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
@@ -2177,6 +2178,8 @@ export default function App(): React.JSX.Element {
         setTimeout(() => document.querySelector<HTMLInputElement>('[data-box-where]')?.focus(), 250)
       } }] : []),
       { label: 'Copy as Markdown', hint: 'Ready to paste anywhere', keys: '⇧⌘C', run: copyMarkdown },
+      // Where it lives: Folders' one picker, beside this menu's button (lib/folders.ts).
+      ...(editing ? [{ label: 'Keep in folder…', hint: 'Out of the Inbox, into a folder you pick or make', run: () => askFolder([{ type: 'capture', id: editing.id }]) }] : []),
       ...(editing ? [{ label: 'Stick on the desktop', hint: 'Over every window, until you take it off', run: () => stickOnDesktop('capture', editing.id) }] : []),
       { label: 'Fold every heading', hint: 'Only its headings show', run: () => void (foldEverything(true) || chime('nope')) },
       { label: 'Unfold every heading', hint: 'Everything under them shows again', run: () => void (foldEverything(false) || chime('nope')) }

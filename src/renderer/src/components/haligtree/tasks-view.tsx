@@ -618,7 +618,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
     !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'New note', 80)}`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
     thought && { label: 'Add a thought…', keys: ';', run: thought },
-    { label: 'Keep in folder…', run: () => askFolder([{ type: 'task', id: task.id }]) }
+    { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: 'task', id: task.id }]) }
   ]
   const leaving: RowItem[] = [
     copyLinkItem(`task:${task.id}`, splitTags(task.title).text || task.title),

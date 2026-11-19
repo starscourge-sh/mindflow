@@ -56,6 +56,14 @@ try {
   const page = await row.getAttribute('data-id')
   await menu(row, 'Keep in folder…')
   check('"Keep in folder…" opens the picker', await h.locator('[data-folder-picker]').isVisible())
+  // Beside the row it was asked from, the window never dimmed (the gate's first rule).
+  const spot = await h.evaluate((id) => {
+    const row = document.querySelector(`[data-row][data-id="${id}"]`)?.getBoundingClientRect()
+    const pick = document.querySelector('[data-folder-picker]')?.getBoundingClientRect()
+    const dim = [...document.querySelectorAll('body *')].some((one) => { const s = getComputedStyle(one); return s.position === 'fixed' && one.getBoundingClientRect().width >= innerWidth - 2 && one.getBoundingClientRect().height >= innerHeight - 2 && /rgba\(0, 0, 0, 0\.[1-9]/.test(s.backgroundColor) })
+    return row && pick ? { gap: Math.round(Math.min(Math.abs(pick.top - row.bottom), Math.abs(row.top - pick.bottom))), dim } : null
+  }, await row.getAttribute('data-id'))
+  check('the picker stands by the row, the window not dimmed', !!spot && spot.gap <= 12 && !spot.dim, JSON.stringify(spot))
   await shot('picker')
   await h.keyboard.type('thes')
   await wait(200)
@@ -95,6 +103,8 @@ try {
   await h.locator(`[data-side-folder="${thesis.id}"]`).click()
   await wait(900)
   check('Thesis opens on its page, holding only its page', (await h.locator('[data-folder-item]').count()) === 1 && (await h.locator(`[data-folder-item="${page}"]`).count()) === 1)
+  check('its name is the title on the bar', ((await h.locator('[data-folder-title]').textContent()) ?? '').trim() === 'Thesis', await h.locator('[data-folder-title]').textContent())
+  check('one row lit in the sidebar', (await h.evaluate(() => document.querySelectorAll('aside [data-side-row][aria-current="page"]').length)) === 1)
   check('its fact says what it holds', /Thesis holds 1: 1 page/.test((await h.locator('[data-folder-fact]').textContent()) ?? ''), await h.locator('[data-folder-fact]').textContent())
   check('its sidebar row is marked as the page you are on', (await h.locator(`[data-side-folder="${thesis.id}"]`).getAttribute('aria-current')) === 'page')
   await shot('folder-page')
@@ -111,6 +121,32 @@ try {
   await h.keyboard.press('Meta+z')
   await wait(600)
   check('⌘Z stars it again', (await h.locator(`[data-side-folder="${reading.id}"]`).count()) === 1)
+
+  // F2 on a folder's row renames it in place; Enter keeps the name, ⌘Z takes it back.
+  await h.locator(`[data-side-folder="${reading.id}"]`).focus()
+  await h.keyboard.press('F2')
+  await wait(300)
+  check('F2 opens its name for typing', await h.locator(`input[data-folder-name="${reading.id}"]`).isVisible())
+  await h.keyboard.press('Meta+a')
+  await h.keyboard.type('To read')
+  await h.keyboard.press('Enter')
+  check('the new name is kept', await until(async () => (await c.v('folders')).find((one) => one.id === reading.id)?.name === 'To read'))
+
+  // Carried by its row above Thesis: the order is saved, one line drawn, ⌘Z puts it back.
+  const order = async () => (await c.v('folders')).filter((one) => one.starred && !one.parent).map((one) => one.id)
+  const was = await order()
+  const from = await h.locator(`[data-side-folder="${reading.id}"]`).boundingBox()
+  const to = await h.locator(`[data-side-folder="${thesis.id}"]`).boundingBox()
+  await h.mouse.move(from.x + 30, from.y + from.height / 2)
+  await h.mouse.down()
+  for (let i = 1; i <= 12; i++) await (h.mouse.move(from.x + 30, from.y + from.height / 2 + ((to.y + 3) - (from.y + from.height / 2)) * (i / 12)), wait(30))
+  await wait(250)
+  if (shots) await h.screenshot({ path: `${shots}/folder-drag.png` })
+  await h.mouse.up()
+  const now = await until(async () => { const one = await order(); return one.indexOf(reading.id) < one.indexOf(thesis.id) ? one : null })
+  check('dragged above Thesis, it stays there', !!now, JSON.stringify((await order()).slice(-3)))
+  await h.keyboard.press('Meta+z')
+  check('⌘Z puts the order back', await until(async () => (await order()).join() === was.join()))
 
   // All folders: found by its name.
   await h.locator('[data-side-all-folders]').click()

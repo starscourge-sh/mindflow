@@ -65,12 +65,15 @@ try {
   writeFileSync(join(vault, 'Unisa', 'A note added later.md'), '# A note added later\n\nNew in the source.\n')
   const gone = files[1]
   rmSync(gone)
+  const versions = () => { const db = new DatabaseSync(join(process.env.QA_DATA, 'sandbox', 'haligtree.db'), { readOnly: true }); try { return db.prepare("select count(*) as n from versions where item_id = (select id from nuggets where source like ?)").get(`%${basename(files[0])}`).n } finally { db.close() } }
+  const versionsBefore = versions()
   const third = await bring('again, one edited, one added, one deleted')
   const now = await pages()
   check('the added note came in, once', third.made === 1 && now.length === brought + 1, `${third.made} made, ${now.length} pages`)
   check('the edited one was updated in place, said so', third.notes.some((one) => /1 was changed in .* since the last import/.test(one)), third.notes.join(' / '))
   const edited = now.find((one) => one.source.endsWith(basename(files[0])))
   check('its words are the new ones', String(edited?.body ?? '').includes('A line added in the source'))
+  check('its old words are kept in its history, as an edit\'s are', versions() > versionsBefore, `${versionsBefore} → ${versions()} versions`)
   check('the deleted one was left alone here', now.some((one) => one.source.endsWith(basename(gone))))
   check('no note is here twice', new Set(now.map((one) => one.source)).size === now.length)
 } finally {

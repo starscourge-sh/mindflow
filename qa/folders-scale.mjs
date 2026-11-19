@@ -70,8 +70,14 @@ try {
   await h.waitForTimeout(250)
   const picker = await time('the picker opened', () => h.getByRole('menuitem', { name: 'Keep in folder…' }).first().click(), () => !!document.querySelector('[data-folder-picker]'))
   check('the picker opens over 1,000 folders in under half a second', picker < 500, `${picker}`)
-  const typed = await time('the picker filtered', () => h.keyboard.type('Area 7'), () => document.querySelectorAll('[data-folder-pick]').length < 1000)
+  check('the picker draws at most 100 rows, the rest said', (await h.locator('[data-folder-pick]').count()) <= 100, `${await h.locator('[data-folder-pick]').count()}`)
+  // Typed into the picker's own field: only folders named (or filed under a path) with those words are left.
+  const typed = await time('the picker filtered', () => h.keyboard.type('Area 1.'), () => {
+    const rows = [...document.querySelectorAll('[data-folder-pick]')]
+    return rows.length > 0 && rows.every((one) => one.textContent.toLowerCase().includes('area 1.'))
+  })
   check('it filters as you type', typed < 1000, `${typed}`)
+  check('the field kept the keys', (await h.evaluate(() => document.activeElement?.closest('[data-folder-picker]') !== null)))
   await h.keyboard.press('Escape')
 } finally {
   await c.close()

@@ -1,4 +1,5 @@
 import { lacks, meets, useCaps } from '@/lib/needs'
+import { folders, moveFoldersAgain, putFoldersBack } from '@/lib/folders'
 import { calendar } from '@/lib/mac-calendar'
 import { SunSetting } from './sun-setting'
 import { eveningAt } from '@/lib/sun'
@@ -1550,6 +1551,7 @@ function ThemeDialRow(): React.JSX.Element {
 function BackupPlace(): React.JSX.Element {
   const [where, setWhere] = useState('')
   const [status, setStatus] = useState<{ at: number | null; failing: string | null; chosen: boolean } | null>(null)
+  const moveState = useLive(folders.moveState, null as 'moved' | 'undone' | null, [], undefined, 'folders:move-state')
   // Read again when a backup is chosen elsewhere or main says how they are going, and each minute for the "ago".
   const [, setTick] = useState(0)
   useEffect(() => {
@@ -1583,6 +1585,15 @@ function BackupPlace(): React.JSX.Element {
           <Button variant="outline" size="sm" data-backup-now onClick={() => void working(haligtree.backupNow()).then((next) => { setStatus(next); if (next.failing) refuse(`That backup did not work: ${next.failing}`); else chime('done') })}>Back up now</Button>
           <Button variant="outline" size="sm" onClick={() => void choose()}>Choose another folder…</Button>
           {status?.chosen && <Button variant="ghost" size="sm" onClick={() => void choose(true)}>Use the usual place</Button>}
+        </div>
+      )}
+      {/* The one-time move of Writing's and Gems' folders into Folders (folders.ts), undone or made again from here. */}
+      {moveState && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-1" data-folder-move-state={moveState}>
+          <Button variant="outline" size="sm" data-folders-put-back="" onClick={() => void (moveState === 'moved' ? putFoldersBack() : moveFoldersAgain())}>
+            {moveState === 'moved' ? 'Put the old folders back' : 'Move the old folders into Folders'}
+          </Button>
+          <span className="text-xs text-muted-foreground">{moveState === 'moved' ? 'Writing’s and Gems’ folders, as they were before Folders' : 'They are in Writing and Gems, as before Folders'}</span>
         </div>
       )}
     </div>

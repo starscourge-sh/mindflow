@@ -13,7 +13,7 @@ import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import { warmBin } from '@/lib/fly-home'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react'
 import { wearFinish } from './components/haligtree/review-toolbar'
-import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, FolderPlus, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
+import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -55,7 +55,7 @@ import { MapView } from './components/haligtree/map-view'
 import { FeedView, showLiked } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
-import { RailFolders, SideFolders, newFolder } from './components/haligtree/side-folders'
+import { RailFolders, SideFolders } from './components/haligtree/side-folders'
 import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
 import { askFolder, folders, useFolders, type FolderKind } from '@/lib/folders'
 import { FolderOpen } from 'lucide-react'
@@ -1734,6 +1734,9 @@ export function Home(): React.JSX.Element {
   const inRecent = !!view.focus && (!!noteNow || view.id === 'pdf' || view.id === 'web') && noteNow?.type !== 'task' && (!!noteNow || recents.some((one) => one.id === view.focus))
   /** Where the light belongs, whatever is folded: the kind of row, and which. */
   const wanted = (() => {
+    // A folder's page, "Not in a folder" or every folder: the one row of the Folders section that is lit (one light
+    // at a time: with no key of its own, the light stayed on the last folder when "All folders…" was opened).
+    if (view.id === 'folders') return `folders:${view.focus ?? 'all'}`
     if (noteList && homeFolder && foldersOn(noteList)) return `note:${noteNow!.id}`
     if (noteNow && noteNow.type !== 'task' && pinsOn && pins.some((one) => one.id === noteNow.id)) return `pin:${noteNow.id}`
     if (inRecent && recentOn) return `recent:${view.focus}`
@@ -2222,9 +2225,8 @@ export function Home(): React.JSX.Element {
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 ...openItems('view', section.id),
-                // Writing makes pages, first; Writing and Gems hold folders: a new one, named at once (side-folders.tsx).
+                // Writing makes pages, first. Folders live in Folders, not in Writing or Gems (they keep only groups).
                 section.id === 'articles' && { label: 'New page', run: () => addPage() },
-                (section.id === 'articles' || section.id === 'nuggets') && { label: 'New folder', run: () => setTimeout(() => newFolder(section.id === 'articles' ? 'article' : 'nugget'), 120) },
                 // And groups that gather by a rule, a tag, moving nothing (lib/smart-groups.tsx).
                 (section.id === 'articles' || section.id === 'nuggets') && { label: 'New group by a tag…', hint: 'Gathers, moves nothing', run: () => void newSmartGroup(section.id === 'articles' ? 'article' : 'nugget', (id) => setView({ id: section.id, folder: GROUP_KEY + id })) },
                 // The lists commonplace keepers start with, one press each: a folder of Gems, named, given its emoji and opened.
@@ -2317,13 +2319,15 @@ export function Home(): React.JSX.Element {
                       <AliveIcon icon={DotsHorizontalIcon} size={14} />
                     </button>
                   </Tip>
-                  <Tip label={list === 'article' ? 'Add a page' : 'New folder'}>
-                    <button type="button" data-folder-new={list} aria-label={list === 'article' ? 'Add a page to Writing' : `New folder in ${section.label}`} onClick={() => (list === 'article' ? addPage() : newFolder(list))}
-                      className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                      {/* One sign per act: a page's "+" beside Writing, a folder's own sign where the button makes a folder. */}
-                      {list === 'article' ? <Plus className="size-3.5" /> : <FolderPlus className="size-3.5" />}
-                    </button>
-                  </Tip>
+                  {/* Writing's "+" makes a page; Gems makes none from blank (gems come from notes), and no folders (Folders does). */}
+                  {list === 'article' && (
+                    <Tip label="Add a page">
+                      <button type="button" data-folder-new={list} aria-label="Add a page to Writing" onClick={() => addPage()}
+                        className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                        <Plus className="size-3.5" />
+                      </button>
+                    </Tip>
+                  )}
                 </span>
               )}
               {/* Writing's and Gems' fold: quiet, over the icon, until pointed at (Notion's way). */}

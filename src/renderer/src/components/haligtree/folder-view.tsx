@@ -73,6 +73,11 @@ function OneFolder({ id, all, onOpen, onPlace }: { id: string; all: Folder[]; on
           {path.slice(0, -1).map((one) => (
             <span key={one.id} className="flex min-w-0 items-center gap-1"><ChevronRight className="size-3 shrink-0" /><button type="button" onClick={() => onPlace(one.id)} className="cursor-pointer truncate rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">{one.name}</button></span>
           ))}
+          {/* Its own name last, the page's title on the bar as Writing's and the Inbox's are. */}
+          <ChevronRight className="size-3 shrink-0" />
+          <h1 data-folder-title="" className="flex min-w-0 items-center gap-1.5 truncate px-1 text-control font-medium text-foreground">
+            {folder && <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />}{name}
+          </h1>
         </nav>
       }
       actions={!unfiled && (path.length < 6) ? (
