@@ -54,7 +54,7 @@ import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
 import { resolveWaiting, resolveWithin } from './renames'
 import { importApkg, HOLD_OVER, type ApkgAsk, type ApkgChoice } from './anki-apkg'
-import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
+import { alreadyImported, sourceChanged, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
@@ -4661,7 +4661,8 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     missingHere.length = 0
     // Known by its path, so its pictures are not read again; new notes may still link to it.
     const before = alreadyImported(relative(root, path))
-    if (before) {
+    // Changed in the vault since it came: read again, and its words updated where it is kept (captures.ts `importNote`).
+    if (before && !sourceChanged(relative(root, path), (await stat(path)).mtime)) {
       already += 1
       known.push(before)
       if (!byName.has(before.title.toLowerCase())) byName.set(before.title.toLowerCase(), before.link)

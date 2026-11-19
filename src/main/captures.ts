@@ -1034,6 +1034,17 @@ export function alreadyImported(path: string): Imported | null {
   return row ? { ...row, path } : null
 }
 
+/**
+ * An imported page whose file changed since it was last brought (its file time later than `source_at`): read again,
+ * to be updated in place (`importNote`). One brought before the time was kept takes this time as where changes count.
+ */
+export function sourceChanged(path: string, modified: Date): boolean {
+  const row = db.prepare("select id, source_at as at from nuggets where tier = 'article' and source = ?").get(path) as { id: string; at: string | null } | undefined
+  if (!row) return false
+  if (!row.at) return (db.prepare('update nuggets set source_at = ? where id = ?').run(modified.toISOString(), row.id), false)
+  return row.at < modified.toISOString()
+}
+
 /** A vault note once it is here: what links to it are rewritten to point at. */
 export type Imported = { link: string; title: string; path: string; private?: boolean }
 

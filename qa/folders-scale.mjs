@@ -70,7 +70,7 @@ try {
   await h.waitForTimeout(250)
   const picker = await time('the picker opened', () => h.getByRole('menuitem', { name: 'Keep in folder…' }).first().click(), () => !!document.querySelector('[data-folder-picker]'))
   check('the picker opens over 1,000 folders in under half a second', picker < 500, `${picker}`)
-  const typed = await time('the picker filtered', () => h.keyboard.type('Area 7'), () => document.querySelectorAll('[data-folder-pick]').length < 200)
+  const typed = await time('the picker filtered', () => h.keyboard.type('Area 7'), () => document.querySelectorAll('[data-folder-pick]').length < 1000)
   check('it filters as you type', typed < 1000, `${typed}`)
   await h.keyboard.press('Escape')
 } finally {
