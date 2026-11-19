@@ -49,8 +49,10 @@ try {
   }, MENU)
   // At the pointer, inside the picture (19 Nov: "why not just open the right click context menu next to the cursor but
   // within the image"): it opened above the picture, far from the pointer.
-  const near = await h.evaluate(([menu, x, y]) => { const b = document.querySelector(menu).getBoundingClientRect(); return { left: Math.round(b.left), top: Math.round(b.top), dx: Math.round(b.left - x), dy: Math.round(b.top - y) } }, [MENU, box.x + box.width / 2, box.y + box.height / 2])
-  check('its menu opens at the pointer, inside the picture', Math.abs(near.dx) < 24 && Math.abs(near.dy) < 24 && near.top >= box.y && near.top <= box.y + box.height, JSON.stringify(near))
+  const near = await h.evaluate(([menu, x, y]) => { const b = document.querySelector(menu).getBoundingClientRect(); return { left: Math.round(b.left), top: Math.round(b.top), bottom: Math.round(b.bottom), dx: Math.round(b.left - x), dy: Math.round(b.top - y), beside: b.top <= y + 24 && b.bottom >= y } }, [MENU, box.x + box.width / 2, box.y + box.height / 2])
+  // Beside the pointer: its top at the pointer, or lifted as far as the window and the thought dock under the note ask
+  // (block-menu.tsx collisionPadding), the pointer still level with the menu; a picture low in the note lifts it.
+  check('its menu opens at the pointer, inside the picture', Math.abs(near.dx) < 24 && near.beside && near.top >= box.y && near.top <= box.y + box.height, JSON.stringify(near))
   if (process.env.QA_SHOTS) await c.both(`${process.env.QA_SHOTS}/picture-menu-at`)
   const has = (title) => menu.titles.includes(title)
   check('one list, nothing folded under "Picture ›"', !menu.folded, JSON.stringify(menu.groups))
