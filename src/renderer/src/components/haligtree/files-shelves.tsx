@@ -409,7 +409,7 @@ function PictureMosaic({ files, across, by, cursor, chosen, keyOf, ways }: { fil
             return (
               <span key={keyOf(one)} className="relative block">
                 <Square one={one} here={index === cursor} picked={chosen.includes(keyOf(one))} ways={ways} small />
-                {label && <span data-mosaic-label className="pointer-events-none absolute top-1 left-1 z-[1] rounded-full bg-background/90 px-1.5 py-px text-[11px] font-semibold whitespace-nowrap text-foreground shadow-sm">{label}</span>}
+                {label && <span data-mosaic-label className="pointer-events-none absolute top-1 left-1 z-[1] rounded-full bg-background px-1.5 py-px text-[11px] font-semibold whitespace-nowrap text-foreground shadow-sm">{label}</span>}
               </span>
             )
           })}
