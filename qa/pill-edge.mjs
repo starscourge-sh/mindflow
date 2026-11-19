@@ -35,12 +35,15 @@ try {
   await c.h.keyboard.press('Enter'); await wait(1500)
   const pill = await windowOf('view=focus')
   await wait(2500)
+  // At rest first: it opens for a moment as a session begins.
+  for (let i = 0; i < 40 && (await placed()).box.height > 110; i++) await wait(250)
   // Put at the bottom right of its screen, as by hand.
   const home = await electron.evaluate(({ BrowserWindow, screen }) => {
     const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=focus'))
     const { workArea } = screen.getDisplayMatching(win.getBounds())
     const box = win.getBounds()
-    const to = { x: workArea.x + workArea.width - box.width - 8, y: workArea.y + workArea.height - box.height - 8 }
+    // By its resting height (70): it may be open for a moment as a session begins.
+    const to = { x: workArea.x + workArea.width - box.width - 8, y: workArea.y + workArea.height - 70 - 8 }
     win.setPosition(to.x, to.y)
     return to
   })
