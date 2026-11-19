@@ -48,6 +48,12 @@ import './pdf.css'
 // Picking words in the article, forgiving as in Apple's apps.
 import './reader-select'
 import { plural, num } from '../../../../main/dates'
+import { createPortal } from 'react-dom'
+import { Search as NotePicker } from '@/components/search'
+import { keepInFiles, noteTitle, putInNote } from '@/lib/media-files'
+import { pictureLines } from '@/lib/picture-actions'
+import { openLook } from '@/components/image/image-look'
+import { quoted } from '../../../../main/clip'
 
 /** A web page kept as an article: its words and pictures, read offline. */
 export type Article = {
@@ -167,6 +173,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const [hit, setHit] = useState<PdfMark | null>(null)
   // A link right-clicked in the article: its own rows in the menu.
   const [linkHit, setLinkHit] = useState<string | null>(null)
+  // A picture right-clicked in the article (kept here, haligtree://): a picture's own lines, as Files gives one.
+  const [pictureHit, setPictureHit] = useState<{ src: string; name: string; img: HTMLImageElement } | null>(null)
+  // "Put in a note…": the notes' own search as the picker, as Files asks.
+  const [putting, setPutting] = useState<{ src: string; name: string } | null>(null)
   const drawn = useRef<{ mark: PdfMark; range: Range }[]>([])
   const [moved, setMoved] = useState<Set<string>>(() => new Set())
   useEffect(() => {
@@ -282,7 +292,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y, bottom: picked.bottom })
     getSelection()?.removeAllRanges()
     setPicked(null)
-    said(gem ? 'Kept as a gem' : color === 'later' ? 'Marked for a card' : 'Highlighted', true, gemId ? { type: 'nugget', id: gemId, title: picked.quote } : undefined, { cue: 'saved' })
+    // Its notice has Undo and ⌘Z, as taking one away has; the first ever says once where highlights go, and only what is
+    // true here: kept with the page, listed under the bar's highlighter, gathered into a note from there.
+    const first = !gem && color !== 'later' && !localStorage.getItem(TOLD)
+    if (first) localStorage.setItem(TOLD, '1')
+    const words = gem ? 'Kept as a gem' : color === 'later' ? 'Marked for a card' : first ? 'Highlighted. Kept with this page: the highlighter in the bar lists them, and “Gather into a note” puts them in one' : 'Highlighted'
+    said(words, true, gemId ? { type: 'nugget', id: gemId, title: picked.quote } : undefined, {
+      cue: 'saved',
+      undo: () => void call('pdf:unhighlight', id).then(() => (setMarks((all) => all.filter((one) => one.id !== id)), chime('undo')))
+    })
   }
   const copyCited = async (quote: string): Promise<void> => {
     await navigator.clipboard.writeText(cited(quote.replace(/\s+/g, ' ').trim(), [byline(), whereFrom()].filter(Boolean).join(', ')))
@@ -400,7 +418,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const remove = async (mark: PdfMark): Promise<void> => {
     await call('pdf:unhighlight', mark.id)
     setMarks((all) => all.filter((one) => one.id !== mark.id))
-    said(mark.color === 'later' ? 'Card mark removed' : 'Highlight removed', true, undefined, { cue: 'away' })
+    said(mark.color === 'later' ? 'Card mark removed' : 'Highlight removed', true, undefined, {
+      cue: 'away',
+      undo: () => void call('pdf:highlight', href, mark).then(() => (setMarks((all) => [...all, mark]), chime('undo')))
+    })
   }
 
   // Asked again (“Read it again” after a stop or a failure, the bar's “Read the page again”, ⌘R): the page is
@@ -705,12 +726,14 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           <Button
             data-style="ghost"
             aria-label="Highlights"
-            title={marks.length ? 'Highlights' : 'Highlights: none in this page yet'}
+            title={marks.length ? `${plural(marks.length, 'highlight')} in this page: list them, to go to each` : 'Highlights: none in this page yet'}
             disabled={!marks.length}
             data-active-state={showMarks && marks.length ? 'on' : 'off'}
             onClick={() => setShowMarks(!showMarks)}
           >
             <Highlighter className="tiptap-button-icon" />
+            {/* How many this page has, in a room kept from the start so nothing in the bar moves as the first is made. */}
+            <span data-marks-count className="tiptap-button-text min-w-[2ch] text-left tabular-nums">{marks.length || ''}</span>
           </Button>
           <Button
             data-style="ghost"
@@ -857,7 +880,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             className="pdf-reader-scroll web-reader-scroll"
             onPointerDown={() => flash && setFlash(null)}
             onClick={follow}
-            // A highlight, picked words and a link have a menu: anywhere else the right click is the page's own.
+            // A picture kept here drags out as itself, to a note or to Finder, as a picture in a note does (drag-out in main).
+            onDragStart={(event) => {
+              const img = event.target instanceof HTMLImageElement && body.current?.contains(event.target) ? event.target : null
+              const src = img?.getAttribute('src')
+              if (!img || !src?.startsWith('haligtree://')) return
+              event.preventDefault()
+              window.api.dragOut(src, pictureName(img))
+            }}
+            // A highlight, picked words, a picture and a link have a menu: anywhere else the right click is the page's own.
             onContextMenu={(event) => {
               const on = drawn.current.find(({ range }) =>
                 [...range.getClientRects()].some(
@@ -871,7 +902,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               setHit(on?.mark ?? null)
               const link = (event.target as Element).closest?.('a[href]') as HTMLAnchorElement | null
               setLinkHit(link && body.current?.contains(link) ? link.href : null)
-              if (!on && !picked && !(link && body.current?.contains(link))) event.preventDefault()
+              const img = (event.target as Element).closest?.('img') as HTMLImageElement | null
+              const kept = img && body.current?.contains(img) && img.getAttribute('src')?.startsWith('haligtree://') ? img : null
+              setPictureHit(kept && { src: kept.getAttribute('src')!, name: pictureName(kept), img: kept })
+              if (!on && !picked && !kept && !(link && body.current?.contains(link))) event.preventDefault()
             }}
           >
             {/* The page: the pane's width sets its margins and the article's own size its words (pdf.css); its two
@@ -945,6 +979,21 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
           {hit && picked && <ContextMenuSeparator />}
           {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked.quote)} />}
+          {/* A picture: Files' own lines for one (media-view.tsx mediaMenu): look at it, put it in a note, copy it, save a
+              copy, keep it in Files, and its words when the Mac reads some. */}
+          {pictureHit && !hit && !picked && (
+            <>
+              <ContextMenuItem data-reader-picture="look" onSelect={() => void openLook(pictureHit.src, pictureHit.img, pictureHit.name)}>Look at it</ContextMenuItem>
+              <ContextMenuItem data-reader-picture="put" onSelect={() => setPutting({ src: pictureHit.src, name: pictureHit.name })}>Put in a note…</ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem data-reader-picture="copy" onSelect={() => void window.api.copyImage(pictureHit.src).then((done) => (done ? (chime('copy'), said('Copied the picture')) : said('Could not copy the picture', false)))}>Copy image</ContextMenuItem>
+              {host().saveFileAs && <ContextMenuItem data-reader-picture="save" onSelect={() => void host().saveFileAs?.(pictureHit.src, `${pictureHit.name}.${pictureHit.src.split('.').pop()}`)}>Save a copy</ContextMenuItem>}
+              {pictureLines(pictureHit.src).map((one) => <ContextMenuItem key={one.label} onSelect={one.run}>{one.label}</ContextMenuItem>)}
+              <ContextMenuSeparator />
+              <ContextMenuItem data-reader-picture="keep" onSelect={() => void keepInFiles(pictureHit.src, true)}>Keep in Files</ContextMenuItem>
+              {linkHit && <ContextMenuSeparator />}
+            </>
+          )}
           {/* A link: here, to the side, or the browser, as a link in a note offers them (turn-into/clicked.tsx). */}
           {linkHit && !hit && !picked && (
             <>
@@ -956,6 +1005,16 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           )}
         </ContextMenuContent>
       </ContextMenu>
+      {putting && createPortal(
+        <NotePicker menus={false} placeholder={`Put ${quoted(putting.name, 80)} in which note?`}
+          onClose={() => setPutting(null)}
+          onOpen={(type, id) => {
+            const one = putting
+            setPutting(null)
+            void noteTitle(type, id).then((title) => putInNote([{ src: one.src, kind: 'picture', name: one.name, size: 0 }], type, id, title))
+          }} />,
+        document.body
+      )}
       </div>
       </div>
     </div>
@@ -983,6 +1042,12 @@ const dayOf = (iso: string): string => new Date(iso).toLocaleDateString(undefine
 
 /** The contents' rows carry no page numbers: an article's sections are places in one page. */
 const NO_PAGE = (): string => ''
+
+/** Said once, ever: where a highlight goes (mark). */
+const TOLD = 'web-highlight-told'
+/** A reader picture's name: its words (alt), or its caption, or "Picture". */
+const pictureName = (img: HTMLImageElement): string =>
+  (img.getAttribute('alt') || img.closest('figure')?.querySelector('figcaption')?.textContent || 'Picture').replace(/\s+/g, ' ').trim().slice(0, 80)
 
 /** The highlight list a colour's marks are drawn by: the book's own is the plain `-mark`. */
 const markName = (names: string, color: string | null): string => `${names}-mark${color ? `-${color}` : ''}`
