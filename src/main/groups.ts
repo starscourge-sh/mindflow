@@ -30,7 +30,7 @@ export function dropEmptyGroups(ids: string[]): void {
   const db = database()
   atomically(() => {
     for (const id of ids) {
-      if (db.prepare('select 1 from nuggets where group_id = ? limit 1').get(id) || db.prepare('select 1 from note_groups where parent_id = ? limit 1').get(id)) continue
+      if (db.prepare('select 1 from nuggets where group_id = ? or folder_id = ? limit 1').get(id, id) || db.prepare('select 1 from note_groups where parent_id = ? limit 1').get(id)) continue
       db.prepare('delete from note_order where id = ?').run(KEY + id)
       db.prepare('delete from note_groups where id = ?').run(id)
     }

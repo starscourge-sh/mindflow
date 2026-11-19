@@ -56,6 +56,10 @@ import { FeedView, showLiked } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { RailFolders, SideFolders, newFolder } from './components/haligtree/side-folders'
+import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
+import { askFolder, folders, type FolderKind } from '@/lib/folders'
+import { FoldersView } from './components/haligtree/folder-view'
+import { FolderPicker } from './components/haligtree/folder-picker'
 import { GROUP_KEY, newSmartGroup } from '@/lib/smart-groups'
 import { hoverNote } from './components/haligtree/note-preview'
 import { groups, isFolder, useGroups } from '@/lib/groups'
@@ -263,7 +267,7 @@ function landing(view: View): View {
 const caretInNote = (): boolean => !!document.activeElement?.closest('.ProseMirror[contenteditable="true"]')
 /** Settings as a place: the gear its button at the sidebar's foot draws, for a pane on it. */
 const SETTINGS_PLACE: Place = { id: 'settings', label: 'Settings', icon: SettingsLine, alive: GearIcon, emoji: '⚙️', tint: 'gray' }
-const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf', 'web'].includes(id)
+const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'folders', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf', 'web'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'alltasks', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
@@ -271,7 +275,7 @@ const stepOf = (type: string, id: string): View =>
   // A Writing or Gems folder: "article:<group>" or "nugget:<group>", its list opened inside it.
   // One tag's cards studied in Review.
   type === 'study' ? { id: 'review', focus: id }
-  : type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
+  : type === 'folder' ? { id: 'folders', focus: id.slice(id.indexOf(':') + 1) }
   // A person's link: their own page in People, the one the People list opens.
   : type === 'person' || type === 'character' ? { id: 'source', focus: `attribution:${id}` }
   // A work found in ⌘K: its page among the sources.
@@ -346,12 +350,12 @@ const STARTER_LISTS: [string, string][] = [
 ]
 async function startList(icon: string, name: string): Promise<string> {
   // Started already: that one is opened, never a second of the same name.
-  const had = (await groups.list('nugget')).find((one) => !one.parent && one.name.trim().toLowerCase() === name.toLowerCase())
-  if (had) return (toast(`${quoted(name, 80)} is already a list in Gems`), had.id)
-  const made = await groups.make('nugget', name)
-  await groups.set(made, { icon })
+  const had = (await folders.list()).find((one) => !one.parent && one.name.trim().toLowerCase() === name.toLowerCase())
+  if (had) return (toast(`${quoted(name, 80)} is already a folder`), had.id)
+  const made = await folders.make(name)
+  await folders.set(made, { icon })
   chime('settled')
-  toast(`${quoted(name, 80)} is a list in Gems now`, () => void groups.remove(made))
+  toast(`${quoted(name, 80)} is a folder now, in the sidebar`, () => void folders.remove(made))
   return made
 }
 
@@ -500,6 +504,8 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
         <GoalsView focus={view.focus} onOpen={go} />
       ) : view.id === 'queue' ? (
         <QueueView />
+      ) : view.id === 'folders' ? (
+        <FoldersView focus={view.focus} onOpen={go} onPlace={(id) => does.setView({ id: 'folders', focus: id ?? undefined }, key)} />
       ) : view.id === 'tags' ? (
         <TagsView onOpen={go} focus={view.focus} />
       ) : view.id === 'sources' ? (
@@ -1124,7 +1130,7 @@ export function Home(): React.JSX.Element {
   // Library and Look back folded, Bin, Archived and the powers in the foot), then stays wherever it is dragged.
   useEffect(() => {
     if (!settings || settings.sidebarByUseOnce) return
-    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['library', 'look', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
+    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['folders', 'library', 'look', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
   }, [settings?.sidebarByUseOnce]) // eslint-disable-line react-hooks/exhaustive-deps
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
   useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1874,6 +1880,7 @@ export function Home(): React.JSX.Element {
     <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} data-frame-grain={settings?.frameGrain === false ? undefined : ''} style={{ '--mf-frame-depth': settings?.frameDepth ?? 75 } as CSSProperties} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div data-toast-lane className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
+      <FolderPicker onFolders={() => setView({ id: 'folders' })} />
       <PracticeAsked onHome={split.panes.some((one) => onShow(one).id === 'home')} />
       <PickDays />
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
@@ -2053,7 +2060,11 @@ export function Home(): React.JSX.Element {
             { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
             // The starter lists, found by name too ("Start a list: Overheard"), not only from Gems' right-click.
-            ...STARTER_LISTS.map(([icon, name]) => ({ label: `Start a list: ${name}`, hint: `${icon} A folder of Gems`, cue: null, run: () => void startList(icon, name).then((folder) => setView({ id: 'nuggets', folder })) })),
+            ...STARTER_LISTS.map(([icon, name]) => ({ label: `Start a list: ${name}`, hint: `${icon} A folder for what you keep`, cue: null, run: () => void startList(icon, name).then((folder) => setView({ id: 'folders', focus: folder })) })),
+            // Folders: the open note kept in one, a new one, every one.
+            ...(noteNow && ['capture', 'article', 'nugget', 'question', 'task'].includes(noteNow.type) ? [{ label: 'Keep in folder…', hint: 'The open note, in a folder you pick or make', keys: '⇧⌘M', cue: null, run: () => askFolder([{ type: noteNow.type as FolderKind, id: noteNow.id }]) }] : []),
+            { label: 'New folder', hint: 'In Folders, named as it is made', keys: '⌃⌘N', cue: null, run: () => newFolderHere(null) },
+            { label: 'All folders', hint: 'Every folder, to find one by its name', cue: null, run: () => setView({ id: 'folders' }) },
             ...(settings?.safeMode || desk?.hidden ? [] : [{ label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', hint: 'Line the sticky notes up in a neat column', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', hint: 'For now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
@@ -2212,7 +2223,7 @@ export function Home(): React.JSX.Element {
                 // And groups that gather by a rule, a tag, moving nothing (lib/smart-groups.tsx).
                 (section.id === 'articles' || section.id === 'nuggets') && { label: 'New group by a tag…', hint: 'Gathers, moves nothing', run: () => void newSmartGroup(section.id === 'articles' ? 'article' : 'nugget', (id) => setView({ id: section.id, folder: GROUP_KEY + id })) },
                 // The lists commonplace keepers start with, one press each: a folder of Gems, named, given its emoji and opened.
-                section.id === 'nuggets' && { label: 'Start a list', items: STARTER_LISTS.map(([icon, name]) => ({ label: name, icon: <span aria-hidden className="flex size-4 items-center justify-center text-[0.9rem] leading-none">{icon}</span>, run: () => void startList(icon, name).then((folder) => setView({ id: 'nuggets', folder })) })) },
+                section.id === 'nuggets' && { label: 'Start a list', items: STARTER_LISTS.map(([icon, name]) => ({ label: name, icon: <span aria-hidden className="flex size-4 items-center justify-center text-[0.9rem] leading-none">{icon}</span>, run: () => void startList(icon, name).then((folder) => setView({ id: 'folders', focus: folder })) })) },
                 'separator',
                 ...orderItems({ setting: 'sidebarOrder', usual: sections.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0 || Object.keys(settings?.sidebarGroups ?? {}).length > 0),
                 'separator',
@@ -2583,6 +2594,8 @@ export function Home(): React.JSX.Element {
             const tagRows = !narrow && !quiet && shown.includes('tags') && tags.length > 0
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
+            // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
+            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} here={view.id === 'folders' ? view.focus ?? null : undefined} onOpen={(place) => setView({ id: 'folders', focus: place ?? undefined })} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList
@@ -2593,6 +2606,7 @@ export function Home(): React.JSX.Element {
                 refuse={{ selector: 'aside nav [data-side-drop]', said: 'A page can’t go in Pinned or Tags' }}
                 row={(section, among) => row(section, among)}
                 around={(block, at, box, items) => (<>
+                  {block === 'rest' && foldersPart}
                   {block === 'rest' && tagRows && tagsPart}
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
@@ -2618,6 +2632,7 @@ export function Home(): React.JSX.Element {
                   {block === 'Write' && pinned}
                 </>)}
               />
+              {!parts.some((part) => part.key === 'rest') && foldersPart}
               {!parts.some((part) => part.key === 'rest') && tagRows && tagsPart}
             </>)
           })()}
@@ -2627,7 +2642,7 @@ export function Home(): React.JSX.Element {
         {/* The section carried, as a lifted card under the pointer, named as its heading is, saying what letting go would do. */}
         {sectionDrag.carrying && sectionDrag.at && (
           <CardAt x={sectionDrag.at.x} y={sectionDrag.at.y}>
-            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
           </CardAt>
         )}
 

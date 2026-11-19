@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { keepIn, type FolderKind } from '@/lib/folders'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react'
 import { AppWindow, Columns2 } from 'lucide-react'
@@ -207,7 +208,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     // Read under the carried picture too: over the list's path bar it sits right under the pointer.
     const queueAt = (px: number, py: number): HTMLElement | null => {
       for (const one of document.elementsFromPoint(px, py)) {
-        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-writing-drop], [data-tab-row]')
+        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-keep-drop], [data-writing-drop], [data-tab-row]')
         if (place) return place
       }
       return null
@@ -312,7 +313,9 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         // A light tap on the trackpad too, as a row coming over a new place in a list gives (lib/haptics.ts).
         else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || (click('tick'), detent())
         queued = queue
-        if (down?.source.node.dataset.type === 'capture') setSaid(toWritingSaid(queue, down.source.node))
+        if (queue?.dataset.keepDrop) setSaid(`Keep in “${queue.dataset.folderName ?? 'this folder'}”`)
+        else if (down?.source.node.dataset.type === 'capture') setSaid(toWritingSaid(queue, down.source.node))
+        else setSaid(undefined)
         // Where the card rests while it is over this place, read once as it comes over it.
         const box = queue && !row ? queue.getBoundingClientRect() : null
         const tall = (document.querySelector<HTMLElement>('[data-split-card]')?.offsetHeight ?? 32) * 0.86
@@ -455,6 +458,14 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         dropListDrag()
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('haligtree:to-writing', { detail: { ids: [what.row.id], folder: queued?.dataset.folderDrop ?? null } }))
+      } else if (!side && queued?.dataset.keepDrop && what.row) {
+        // Onto a folder of Folders: kept there, any kind; a list with picked rows answers for all of them (items-view.tsx).
+        dropListDrag()
+        event.preventDefault()
+        const type = down.source.node?.dataset.type
+        const thing = { type: (['article', 'nugget', 'question', 'capture', 'task'].includes(type ?? '') ? type : down.source.node?.closest('[data-task-row]') ? 'task' : 'nugget') as FolderKind, id: what.row.id }
+        const folder = { id: queued.dataset.keepDrop, name: queued.dataset.folderName ?? 'the folder' }
+        if (window.dispatchEvent(new CustomEvent('haligtree:keep-drop', { cancelable: true, detail: { folder, thing } }))) void keepIn([thing], folder)
       } else if (!side && queued?.dataset.folderNo !== undefined && what.row) {
         dropListDrag()
         event.preventDefault()

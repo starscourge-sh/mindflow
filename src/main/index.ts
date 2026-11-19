@@ -72,6 +72,7 @@ import { registerNotes } from './notes'
 import { fitSmall, isSmall, registerSmallWindows } from './small-window'
 import { registerGroups } from './groups'
 import { registerSections } from './sections'
+import { registerFolders } from './folders'
 import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
 import { peopleNow, registerEvents, whenEvents } from './events'
@@ -4508,7 +4509,7 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
       const got = await bringAppleNotes(notesReader(), folders, signal, (done, total) => importProgress({ done, total, what: 'notes', stop: true }))
       importProgress(null)
       const names = new Map(folders.map((one) => [one.id, one.name]))
-      const groups = fileIntoGroups([...got.byFolder].map(([id, ids]) => ({ path: [names.get(id) ?? 'Notes'], ids })))
+      const groups = fileIntoGroups([...got.byFolder].map(([id, ids]) => ({ path: [names.get(id) ?? 'Notes'], ids })), undefined, 'Apple Notes')
       if (got.denied && !got.made.length) return inHome('haligtree:import-folders', { from: 'Apple Notes', refused: 'denied' })
       inHome('haligtree:import-done', {
         from: 'Apple Notes',
@@ -4811,7 +4812,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     ? fileIntoGroups([...new Set(made.map((one) => dirOf(one.path)))].filter(Boolean).map((dir) => ({
         path: dir.split('/'),
         ids: made.filter((one) => dirOf(one.path) === dir).map((one) => one.link.replace(/^article:/, ''))
-      })), groups)
+      })), groups, `${existsSync(join(root, '.obsidian')) ? 'Obsidian' : 'Markdown'}: ${basename(root)}`)
     : []
   const report = [
     `${num(made.length)} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${num(pictures)} pictures, ${num(attached)} files and ${num(linked)} links.`,
@@ -5533,6 +5534,7 @@ app.whenReady().then(() => {
   smallWindows.restore()
   registerGroups()
   registerSections()
+  registerFolders()
   registerNoteImports()
   registerPeriods()
   // Words written, counted as you save, for Stats: once every page's table is there.

@@ -1,6 +1,7 @@
 import { openItems } from '@/lib/split'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NameInPlace } from './name-in-place'
+import { newFolderHere } from './side-folder-section'
 import { Branches } from './branches'
 
 import { haligtree } from '@/lib/haligtree'
@@ -22,9 +23,8 @@ import { Count, Tip, quietly, refuse, sayNow, toast } from './ui'
 import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, tagsSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 import '@/lib/carry-cursor'
 
-/** Asks the sidebar for a new, empty folder in a list (from the row's +, or its right click), named as it is made. */
-export const newFolder = (list: 'article' | 'nugget', parent: string | null = null): void =>
-  void window.dispatchEvent(new CustomEvent('haligtree:folder-new', { detail: { list, parent } }))
+/** A new, empty folder, in Folders (one tree for the whole book), named as it is made. */
+export const newFolder = (_list: 'article' | 'nugget', parent: string | null = null): void => newFolderHere(parent)
 
 /**
  * A folder named as a tag is (case aside, "Money" and #money), once: an offer

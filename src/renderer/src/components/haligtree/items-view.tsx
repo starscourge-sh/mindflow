@@ -1,5 +1,7 @@
 import { QuestionTabs, QuestionsSaid, type Asked } from './questions-view'
 import { GROUP_KEY, GroupMark, ruleSaid, tagsSaid, useGathered, useSmartGroups } from '@/lib/smart-groups'
+import { askFolder, keepIn, useFolderOf, useFolders, type Folder, type FolderKind } from '@/lib/folders'
+import { newFolderHere } from './side-folder-section'
 import { BlankPanel, cardPerNumber } from './blank-panel'
 import { BLANK, addBlank, clozeNumbers, listItemCount, typedAsGaps } from '@/lib/blanks'
 import { ContextField } from './context-field'
@@ -91,7 +93,7 @@ import { ThoughtDock } from './thought-bar'
 import { dayjs, num, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Signed } from './signature'
-import { groups as noteGroupsApi, isFolder, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
+import { groups as noteGroupsApi, isFolder, useGroups, type NoteGroup } from '@/lib/groups'
 import { useReveal } from './islands'
 import { cleanName, sharedWords } from '@/lib/group-name'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
@@ -127,18 +129,14 @@ export const itemEntry = (item: Item, menu?: RowItem[] | (() => RowItem[])): Ent
 /** What an empty folder's card is drawn from in a grid: a folder emptied stays, with no note of its own to show. */
 const NO_GROUPS: NoteGroup[] = []
 
-/** Where a question lives when it is in a folder: the section that owns the folder, and the folder's path in it. */
-type Home = { group: NoteGroup; section: 'Writing' | 'Gems'; path: string[] }
-
 /**
- * A quiet "in Gems › Obsidian" in a question's line on Questions: Questions is a view by kind, so the folder is never
- * a row there; this only says where the question is filed. A label, not a link: Gems' folders list only gems, so the
- * folder opened from here looked empty. A click on it is a click on the row.
+ * The folder a page, gem or question lives in, quietly, on its row in Writing, Gems or Questions: these are views by
+ * kind, listing filed and unfiled alike, so the row says where it is kept. A click on it is a click on the row.
  */
-function FolderCue({ home }: { home: Home }): React.JSX.Element {
+function FolderCue({ home }: { home: Folder }): React.JSX.Element {
   return (
-    <span data-row-folder={home.group.id} className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground">
-      <GroupIcon icon={home.group.icon} color={home.group.color} className="size-3" />{`in ${[home.section, ...home.path].join(' › ')}`}
+    <span data-row-folder={home.id} className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground">
+      <GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}
     </span>
   )
 }
@@ -293,8 +291,10 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Read on Questions only: Writing lists pages alone, so its count is the sidebar's (a question lives in Questions).
   const held = useLive(() => (questionsOnly ? haligtree.items('question') : Promise.resolve([] as Item[])), [] as Item[], [questionsOnly], ['item'], 'writing-questions')
   const filed = useGroups(tier)
-  // Gems' folders, read for Questions' rows: a question an import filed in one says so (`homes`).
-  const gemFolders = useGroups('nugget')
+  // Where each row lives, for its quiet folder label (`placed`).
+  const everyFolder = useFolders()
+  const folderById = useMemo(() => new Map(everyFolder.map((one) => [one.id, one])), [everyFolder])
+  const folderOfItem = useFolderOf()
   const pinnedQuestions = useLive(haligtree.pinnedQuestions, [] as Awaited<ReturnType<typeof haligtree.pinnedQuestions>>)
   const inView = new Set(pinnedQuestions.map((one) => one.id))
   // Whether open questions come back at all, so each row's "can come back" line is true (question:back).
@@ -587,11 +587,22 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
       if (typing()) return
-      // ⌃⌘N: a new group of the rows picked, or of the one under the cursor.
-      if (event.ctrlKey && event.metaKey && event.code === 'KeyN') {
+      // ⇧⌘M: "Keep in folder…" for the rows picked, or the one under the cursor.
+      if (event.shiftKey && event.metaKey && !event.ctrlKey && !event.altKey && event.code === 'KeyM') {
+        const these = chosen.length ? chosen : items[at.current] ? [items[at.current].id] : []
+        if (!these.length) return
         event.preventDefault()
         event.stopPropagation()
-        return folding.gatherNew(chosen.length ? chosen : items[at.current] ? [items[at.current].id] : [])
+        return folding.gatherNew(these)
+      }
+      // ⌃⌘N: a new folder for the rows picked, or the one under the cursor.
+      if (event.ctrlKey && event.metaKey && event.code === 'KeyN') {
+        const these = chosen.length ? chosen : items[at.current] ? [items[at.current].id] : []
+        // No row here: an empty folder, as anywhere else (side-folder-section.tsx).
+        if (!these.length) return
+        event.preventDefault()
+        event.stopPropagation()
+        return folding.gatherNew(these)
       }
       // ⌘G groups the picked rows where they are, as Figma does (⌘K's "Group the picked notes" too); ⇧⌘G takes apart the group they (or the row under the cursor) are in.
       if (event.metaKey && !event.ctrlKey && !event.altKey && event.code === 'KeyG' && folding.rows) {
@@ -682,23 +693,33 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     binItem(binRefs([item.id]))
   ]
 
-  // Where the open page lives, said over it: its folder, or the list's own name, and the folders it can move to: the
-  // lines its row's menu has under “Move to folder”, so the move, its notice and its Undo are the list's one way.
-  // Writing and Gems, which have folders; Questions is a view by kind, not a place.
+  // Where the open page lives, said over it: its folder in Folders, or the list's own name, with the lines its row's
+  // menu has ("Keep in folder…", "Take out of …"), so the move, its notice and its Undo are the one way (lib/folders.ts).
   const placeOf = (one: Item): React.ReactNode => {
-    const section = SECTIONS.find((each) => each.id === (tier === 'article' ? 'articles' : 'nuggets'))
-    if (questionsOnly || gatherer || one.tier === 'question' || !section) return null
-    const folder = folding.home(one.id)
-    const lines = folding.menu([one.id])
-    const move = lines.find((line): line is { label: string; items: RowItem[] } => !!line && line !== 'separator' && 'items' in line && line.label === 'Move to folder')
-    const to = (move?.items ?? []).filter(Boolean)
-    const out = lines.filter((line) => !!line && line !== 'separator' && 'run' in line && line.label === 'Remove from folder')
+    const section = SECTIONS.find((each) => each.id === (one.tier === 'question' ? 'questions' : tier === 'article' ? 'articles' : 'nuggets'))
+    if (gatherer || !section) return null
+    const folder = folderById.get(folderOfItem[one.id] ?? '')
+    const thing = { type: (one.tier === 'question' ? 'question' : tier === 'article' ? 'article' : 'nugget') as FolderKind, id: one.id }
     return (
-      <PlaceChip label={folder?.name ?? section.label} tip="Move to folder"
+      <PlaceChip label={folder?.name ?? section.label} tip="Keep in folder"
         icon={folder ? <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /> : <section.icon aria-hidden className="size-3.5 shrink-0" style={{ color: `var(--mf-icon-tint, var(--tt-color-text-${section.tint}))` }} />}
-        items={[{ heading: 'Move to folder' }, ...to, ...(to.length ? [] : [{ label: 'New folder…', run: folding.newFolder }]), 'separator', ...out]} />
+        items={[
+          { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([thing]) },
+          folder && { label: `Take out of ${folder.name}`, hint: tier === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([thing], null) }
+        ]} />
     )
   }
+  // A picked row carried onto a folder of Folders: every picked row goes with it, one notice and one Undo (split-drop.tsx).
+  useEffect(() => {
+    const onKeep = (event: Event): void => {
+      const { folder, thing } = (event as CustomEvent<{ folder: { id: string; name: string }; thing: { type: FolderKind; id: string } }>).detail
+      if (chosen.length < 2 || !chosen.includes(thing.id)) return
+      event.preventDefault()
+      void keepIn(chosen.map((id) => ({ type: thing.type, id })), folder).then(() => setChosen([]))
+    }
+    window.addEventListener('haligtree:keep-drop', onKeep)
+    return () => window.removeEventListener('haligtree:keep-drop', onKeep)
+  }, [chosen])
   // A row (or every picked row, it among them) carried onto one of this list's folders in the sidebar (split-drop.tsx).
   const moveIntoRef = useRef(folding.moveInto)
   moveIntoRef.current = folding.moveInto
@@ -718,23 +739,11 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const home = folderOf.get(one.id)
     return home ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-folder={home.id} className="flex shrink-0 items-center gap-1"><GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
   }
-  // On Questions (and its Words), one that lives in a folder (Writing's or Gems', an import's) says where, quietly.
-  const homes = useMemo(() => {
-    if (!questionsOnly || unloaded(filed) || unloaded(gemFolders)) return new Map<string, Home>()
-    const shelfOf = (list: NoteGroup[], section: Home['section']): [string, Home][] => {
-      const byId = new Map(list.map((one) => [one.id, one]))
-      const named = (group: NoteGroup): string[] => {
-        const path = [group.name]
-        for (let up = byId.get(group.parent ?? ''); up && path.length < 4; up = byId.get(up.parent ?? '')) path.unshift(up.name)
-        return path
-      }
-      return list.flatMap((group) => group.members.map((id) => [id, { group, section, path: named(group) }] as [string, Home]))
-    }
-    return new Map([...shelfOf(filed, 'Writing'), ...shelfOf(gemFolders, 'Gems')])
-  }, [questionsOnly, filed, gemFolders])
+  // Writing, Gems and Questions list every one of their kind, filed or not (the user, 19 Nov: Gems is "a kind of
+  // premium list of things already in my folders"): one in a folder says which, quietly, after its date.
   const placed = (entry: Entry, one: Item): Entry => {
-    const home = homes.get(one.id)
-    return home ? { ...entry, sub: <><FolderCue home={home} />{entry.sub ? <> · {entry.sub}</> : null}</> } : entry
+    const home = folderById.get(folderOfItem[one.id] ?? '')
+    return home ? { ...entry, sub: <>{entry.sub ? <>{entry.sub} · </> : null}<FolderCue home={home} /></> } : entry
   }
   const sourced = (entry: Entry, one: Item): Entry => {
     const from = sourceSaid(one)
@@ -1026,6 +1035,7 @@ export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   { label: 'Open', keys: '↵', run: open },
   'separator',
   { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+  { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]) },
   ...itemMenu(item),
   'separator',
   copyLinkItem(`${item.tier}:${item.id}`, item.title),
@@ -1759,6 +1769,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'kind' })
   // Archived ones are out of sight until Display's Marked asks for them.
   const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
+  const folderOf = useFolderOf()
   const own = useOwnOrder(name)
   // Moving a row is choosing your own order: the list switches to it.
   // Gives back the way to undo that, when it did switch.
@@ -1784,7 +1795,9 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
     { key: 'when', label: 'Saved', options: AGES, test: (one, when) => period(one.createdAt) === when },
     { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
-    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') }
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') },
+    // The view before 19 Nov, for anyone who wants it: only what has no folder yet.
+    { key: 'folder', label: 'Folder', options: [{ id: 'unfiled', label: 'Only ones not in a folder' }], test: (one) => !folderOf[one.id] }
   ]
   // Status and rating, the properties a kind asks for: filtered and sorted by once any gem has them.
   const statuses = [...new Set(all.map((one) => propOf(one).status).filter((one): one is string => !!one))].sort()
@@ -1955,6 +1968,10 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   ungroup: (ids: string[]) => void
 } {
   const list = useGroups(tier)
+  const folderOf = useFolderOf()
+  const everyFolder = useFolders()
+  // What a row is, as Folders files it: a question kept in Writing's list is still a question.
+  const thingOf = (id: string): FolderKind => (every.find((one) => one.id === id)?.tier === 'question' ? 'question' : tier === 'article' ? 'article' : 'nugget')
   const [held, setHeld] = useState<Layout | null>(null)
   const [opened, setOpened] = useState<Record<string, boolean>>({})
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -2174,12 +2191,8 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     return [...ids].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0))
   }
   const notes = (n: number): string => (kind ? (n === 1 ? kind.noun[0] : `${num(n)} ${kind.noun[1]}`) : n === 1 ? 'note' : `${num(n)} notes`)
-  const gatherNew = (ids: string[]): void => {
-    const these = inOrder(ids)
-    // A group is two notes or more.
-    if (these.length < 2) return refuse('Pick two or more rows to make a folder')
-    commit(gather(layout, these[0], these, make(these, true)(), groupOf(layout, these[0]) ?? null), 'gather', these.length > 1 ? `Put ${num(these.length)} notes in a new folder` : 'New folder')
-  }
+  // Kept in a folder of Folders, picked or made in the one picker (folder-picker.tsx).
+  const gatherNew = (ids: string[]): void => askFolder(inOrder(ids).map((id) => ({ type: thingOf(id), id })))
   // Figma's ⌘G: the picked notes gathered into a group where the first of them is, in the list or folder you are in.
   const groupNew = (ids: string[]): void => {
     const these = inOrder(ids.filter((id) => !isGroup(id)))
@@ -2207,24 +2220,15 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   const menu = (ids: string[]): RowItem[] => {
     const these = inOrder(ids)
     const n = these.length
-    // The open folder itself is where its loose notes already are: nothing to remove them from.
-    const theirs = new Set(these.map((one) => groupOf(layout, one)).filter((one) => one && one !== within && folders.has(one)))
+    // The folders they are kept in (Folders, folders.ts), for "Take out of …".
+    const kept = [...new Set(these.map((id) => folderOf[id]).filter(Boolean))]
+    const keptName = everyFolder.find((one) => one.id === kept[0])?.name ?? 'its folder'
     const inGroups = these.some((one) => { const at = groupOf(layout, one); return !!at && !folders.has(at) })
     // All in one pass, at the group's end: one at a time went over the whole list for each, and 2,500 took seconds.
     const picked = new Set(these)
-    const into = (group: string): Layout => moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null })
-    const others = list.filter((one) => isFolder(one) && layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
     // Groups on show where these notes are (the list, or the open folder), not the one they are all in already.
     const here = groupOf(layout, these[0]) ?? null
     const groupsHere = list.filter((one) => !isFolder(one) && layout.groups[one.id] && inside(layout, KEY + one.id) && !these.every((id) => groupOf(layout, id) === one.id) && (groupOf(layout, KEY + one.id) ?? null) === (here && !folders.has(here) ? groupOf(layout, KEY + here) ?? null : here))
-    // Two folders of one name (a "Drafts" in "Notes" and one in "Essays") said with the folders they sit in: "Notes / Drafts".
-    const named = (one: (typeof list)[number]): string => one.name.trim().toLowerCase()
-    const placeOf = (one: (typeof list)[number]): string => {
-      if (list.filter((other) => named(other) === named(one)).length < 2) return one.name
-      const path = [one.name]
-      for (let up = list.find((other) => other.id === one.parent); up && path.length < 4; up = list.find((other) => other.id === up!.parent)) path.unshift(up.name)
-      return path.length > 1 ? path.join(' / ') : one.name
-    }
     const groupLines: RowItem[] = [
       n > 1 && { label: `Group ${notes(n)}`, keys: '⌘G', run: () => groupNew(these) },
       // The groups in this list (or folder) to put them in, as the old "Move to group" did.
@@ -2249,24 +2253,11 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     if (kind) return groupLines
     return [
       ...groupLines,
-      n > 1 && { label: `New folder with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
-      {
-        label: 'Move to folder',
-        items: [
-          ...others.map((one) => ({
-            label: placeOf(one),
-            icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />,
-            trail: <span className="ml-auto size-2 rounded-full shrink-0" style={{ background: tintOf(one.color) ?? 'color-mix(in srgb, var(--foreground) 25%, transparent)' }} />,
-            run: () => commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`)
-          })),
-          others.length && n > 1 ? 'separator' : null,
-          n > 1 && { label: 'New folder…', run: () => gatherNew(these) }
-        ]
-      },
-      theirs.size > 0 && {
-        label: 'Remove from folder',
-        // Each group's own come out together, in their order, just after it.
-        run: () => commit([...theirs].reduce<Layout>((next, own) => moveMany(next, these.filter((one) => groupOf(layout, one) === own), { group: groupOf(next, KEY + own!) ?? null, after: KEY + own }), layout), 'separate', `Removed ${notes(n)} from ${theirs.size === 1 ? info.get([...theirs][0]!)?.name ?? 'the folder' : 'their folders'}`)
+      { label: n > 1 ? `Keep ${num(n)} in folder…` : 'Keep in folder…', keys: '⇧⌘M', run: () => gatherNew(these) },
+      kept.length > 0 && {
+        label: kept.length === 1 ? `Take out of ${keptName}` : 'Take out of their folders',
+        hint: tier === 'article' ? 'Stays in Writing' : 'Stays in Gems',
+        run: () => void keepIn(these.filter((id) => folderOf[id]).map((id) => ({ type: thingOf(id), id })), null)
       },
       'separator',
       {
@@ -2397,7 +2388,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     commit(moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null }), 'gather', `Moved ${notes(these.length)} to ${target.name}`)
     return true
   }
-  const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
+  const newFolder = (): void => newFolderHere(null)
   const home = (id: string): NoteGroup | null => {
     for (let at = groupOf(layout, id), up = 0; at && up < 8; at = groupOf(layout, KEY + at), up++) if (folders.has(at)) return info.get(at) ?? null
     return null
