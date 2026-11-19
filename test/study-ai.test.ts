@@ -31,10 +31,29 @@ const outline = [
   { title: 'Three', depth: 0, page: 100 }
 ]
 
-test('the chapter comes from the outline’s top level, its sections as headings; no outline, the pages on screen', () => {
-  assert.deepEqual(chapterRange(outline, 30, 120, [30, 31]), { from: 20, to: 99, title: 'Two', headings: [outline[2]] })
+test('cards come from the section being read, its own sections as headings; no outline, the pages on screen', () => {
+  assert.deepEqual(chapterRange(outline, 30, 120, [30, 31]), { from: 24, to: 99, title: 'Two, part a', headings: [] })
+  assert.deepEqual(chapterRange(outline, 22, 120, [22, 23]), { from: 20, to: 99, title: 'Two', headings: [outline[2]] })
   assert.deepEqual(chapterRange(outline, 110, 120, [110, 111]).to, 120)
   assert.deepEqual(chapterRange([], 7, 120, [7, 8]), { from: 7, to: 8, title: null, headings: [] })
+})
+
+// 17 Nov: reading "Planning AI Applications" (page 52 of 535), the cards came from "Table of Contents", pages v to x.
+test('a book whose outline puts its contents page and its parts on top reads the section you are in', () => {
+  const book = [
+    { title: 'Table of Contents', depth: 0, page: 5 },
+    { title: 'Part I: Foundations', depth: 0, page: 11 },
+    { title: 'Workflow Automation', depth: 1, page: 47 },
+    { title: 'Planning AI Applications', depth: 1, page: 52 },
+    { title: 'Use Case Evaluation', depth: 2, page: 53 },
+    { title: 'Setting Expectations', depth: 2, page: 56 },
+    { title: 'The AI Engineering Stack', depth: 1, page: 59 },
+    { title: 'Part II', depth: 0, page: 200 }
+  ]
+  assert.deepEqual(chapterRange(book, 52, 535, [52, 53]), { from: 52, to: 58, title: 'Planning AI Applications', headings: [book[4], book[5]] })
+  assert.equal(chapterRange(book, 54, 535, [54, 55]).title, 'Use Case Evaluation')
+  // A section of one page is read with the one it is in.
+  assert.equal(chapterRange([...book, { title: 'A one-page aside', depth: 2, page: 58 }], 58, 535, [58, 59]).title, 'Planning AI Applications')
 })
 
 test('an 80-page chapter is read across, highlights and headings first, within the budget', () => {

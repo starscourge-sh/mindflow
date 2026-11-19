@@ -65,18 +65,29 @@ export function hintedTimes(times: Record<number, string>, now: number, hints: n
 export type OutlineRow = { title: string; depth: number; page: number }
 
 /**
- * The part of a book to make cards from: the chapter the page is in, from the
- * outline's top level (its sections are headings inside it), or with no
- * outline the pages on screen.
+ * The part of a book to make cards from: the section being read, the outline's last heading at or before the page
+ * (the deepest of those on that page), running to the next heading at its level or above; the headings inside it are
+ * its headings. A section of one page is read with the one it is in, so it has words enough. With no outline, the
+ * pages on screen. (17 Nov: the reader was in "Planning AI Applications" and the cards came from "Table of Contents",
+ * pages v to x: the top level of that book's outline held its contents page and the parts its chapters sit in.)
  */
 export function chapterRange(outline: OutlineRow[], page: number, pages: number, onScreen: [number, number]): { from: number; to: number; title: string | null; headings: OutlineRow[] } {
-  const top = Math.min(...outline.map((row) => row.depth))
-  const chapters = outline.filter((row) => row.depth === top).sort((a, b) => a.page - b.page)
-  const at = chapters.findLastIndex((row) => row.page <= page)
+  const rows = [...outline].sort((a, b) => a.page - b.page || a.depth - b.depth)
+  const end = (at: number): number => {
+    const next = rows.slice(at + 1).find((row) => row.page > rows[at].page && row.depth <= rows[at].depth)
+    return Math.max(rows[at].page, Math.min(pages, (next?.page ?? pages + 1) - 1))
+  }
+  let at = rows.findLastIndex((row) => row.page <= page)
   if (at < 0) return { from: onScreen[0], to: onScreen[1], title: null, headings: [] }
-  const from = chapters[at].page
-  const to = Math.max(from, Math.min(pages, (chapters[at + 1]?.page ?? pages + 1) - 1))
-  return { from, to, title: chapters[at].title, headings: outline.filter((row) => row.depth > top && row.page >= from && row.page <= to) }
+  // Of one page: the section it is in (the nearest heading above it at a higher level).
+  while (end(at) === rows[at].page) {
+    const up = rows.slice(0, at).findLastIndex((row) => row.depth < rows[at].depth)
+    if (up < 0) break
+    at = up
+  }
+  const from = rows[at].page
+  const to = end(at)
+  return { from, to, title: rows[at].title, headings: rows.filter((row, n) => n !== at && row.depth > rows[at].depth && row.page >= from && row.page <= to) }
 }
 
 /**
