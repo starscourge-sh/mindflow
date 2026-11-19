@@ -9,7 +9,7 @@ import { useToday } from '@/lib/use-today'
 import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
 import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, Link2, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 import { hrefFor, looksLikeAddress } from '@/extensions/link-tidy'
@@ -968,9 +968,18 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // What goes with the task being written, before it is made: a link pasted (a chip, never its long address), and in
   // its details a description and pictures pasted. Kept as its description once it is made (ask 45, 17 Nov).
   const [extra, setExtra] = useState<Extra>(NO_EXTRA)
-  const detailRef = useRef<HTMLTextAreaElement>(null)
-  // Its field takes the keys as it appears (autoFocus), or at once when it is open already.
-  const openDetails = (): void => void (chime('open'), setExtra((now) => ({ ...now, open: true })), detailRef.current?.focus())
+  // The description is the task's own notes editor, as on its page (one editor per kind of thing): made as it opens.
+  const detail = useRef<Editor | null>(null)
+  // A new editor for each task written: its words never carry over to the next.
+  const [drafts, setDrafts] = useState(0)
+  // It takes the keys as it appears (autofocus), or at once when it is open already.
+  const openDetails = (): void => void (chime('open'), setExtra((now) => ({ ...now, open: true })), detail.current?.commands.focus('end'))
+  /** A picture into the description: into the editor when it is open, else into what it opens with. */
+  const putPicture = (src: string): void => {
+    const editor = detail.current
+    if (editor && !editor.isDestroyed) return void editor.chain().focus('end').setImage({ src }).run()
+    setExtra((now) => ({ ...now, open: true, notes: { type: 'doc', content: [...((now.notes as { content?: unknown[] } | null)?.content ?? []), { type: 'image', attrs: { src } }] } }))
+  }
 
   // How far through the day: what was done today (routines too) against that and what is left.
   // Not read yet (undefined) is not none done (null): "2 of 7 done" waits with the list rather than pushing it down a beat later.
@@ -1302,7 +1311,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             if (picture) {
               event.preventDefault()
               openDetails()
-              return void saveImage(picture).then((src) => src && setExtra((now) => ({ ...now, open: true, pictures: [...now.pictures, src] })))
+              return void saveImage(picture).then((src) => src && putPicture(src))
             }
             // A link alone: a chip with its site's mark and its page's name, not its long address in the words.
             const pasted = event.clipboardData.getData('text/plain').trim()
@@ -1337,10 +1346,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             const withIt = extra
             setDraft('')
             setExtra(NO_EXTRA)
+            detail.current = null
+            setDrafts((n) => n + 1)
             // Taken back, the words are in the line again, ahead of anything typed since, and what went with them.
             void makeTask({ text, today: mode === 'today' }, (made) => landed(made, mode), { onUndo: () => {
               setDraft((now) => (now.trim() ? `${text} ${now}` : text))
-              setExtra(withIt)
+              setExtra({ ...withIt, open: false })
               requestAnimationFrame(() => (addRef.current?.focus(), addRef.current?.setSelectionRange(text.length, text.length)))
             } }).then((made) => {
               const notes = notesOf(withIt)
@@ -1368,38 +1379,29 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           ))}
           <Tip label="Add a description or a picture  ⇧↵">
             <button type="button" data-task-details aria-expanded={extra.open} onClick={() => (extra.open ? (chime('fold'), setExtra((now) => ({ ...now, open: false }))) : openDetails())}
-              className={`grid size-7 shrink-0 cursor-pointer place-items-center rounded-md transition-colors hover:bg-accent ${extra.open || extra.note || extra.pictures.length ? 'text-foreground' : 'text-muted-foreground'}`}>
+              className={`grid size-7 shrink-0 cursor-pointer place-items-center rounded-md transition-colors hover:bg-accent ${extra.open || extra.notes ? 'text-foreground' : 'text-muted-foreground'}`}>
               <AlignLeft className="size-4" />
             </button>
           </Tip>
           <Kbd>↵</Kbd>
         </form>
         {extra.open && (
-          <div data-task-details-box className="list-box mt-1 flex flex-col gap-2 rounded-md border px-3 py-2">
-            <textarea ref={detailRef} autoFocus data-task-description value={extra.note} rows={2} placeholder="A description, or paste a picture. ⌘↵ adds the task"
-              onChange={(event) => setExtra((now) => ({ ...now, note: event.target.value }))}
-              onPaste={(event) => {
-                const picture = [...event.clipboardData.files].find((one) => one.type.startsWith('image/'))
-                if (!picture) return
-                event.preventDefault()
-                void saveImage(picture).then((src) => src && setExtra((now) => ({ ...now, pictures: [...now.pictures, src] })))
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), addRef.current?.closest('form')?.requestSubmit())
-                else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), chime('fold'), setExtra((now) => ({ ...now, open: false })), addRef.current?.focus())
-              }}
-              className="field-sizing-content min-h-10 w-full resize-none bg-transparent text-control text-foreground outline-none placeholder:text-muted-foreground" />
-            {extra.pictures.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {extra.pictures.map((src) => (
-                  <span key={src} className="relative">
-                    <img src={src} alt="" data-task-picture className="h-16 rounded-md border object-cover" />
-                    <button type="button" aria-label="Take this picture off" onClick={() => (chime('off'), setExtra((now) => ({ ...now, pictures: now.pictures.filter((one) => one !== src) })))}
-                      className="absolute -top-1.5 -right-1.5 grid size-5 shrink-0 cursor-pointer place-items-center rounded-full border bg-background text-muted-foreground hover:text-foreground"><X className="size-3" /></button>
-                  </span>
-                ))}
-              </div>
-            )}
+          // ⌘↵ adds the task from here too; Esc folds the description away and goes back to the name.
+          <div data-task-details-box className="list-box mt-1 rounded-md border px-1 py-1"
+            onKeyDownCapture={(event) => {
+              if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation(), addRef.current?.closest('form')?.requestSubmit())
+              else if (event.key === 'Escape' && !document.querySelector('[role="menu"], [role="listbox"]')) (event.preventDefault(), event.stopPropagation(), chime('fold'), setExtra((now) => ({ ...now, open: false })), addRef.current?.focus())
+            }}>
+            <HaligtreeEditor
+              key={drafts}
+              toolbar={{ fixed: false }}
+              lineNumbers={false}
+              autofocus="end"
+              placeholder="Add a description: the details, links, steps and pictures. ⌘↵ adds the task"
+              defaultContent={(extra.notes as JSONContent | null) ?? ''}
+              onReady={(editor) => void (detail.current = editor)}
+              onChange={(notes) => setExtra((now) => ({ ...now, notes }))}
+            />
           </div>
         )}
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
@@ -1672,16 +1674,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
  * control its page has (the Scheduled date, the tags under its name). A change is kept as it is made, said with Undo.
  */
 /** What goes with a task being written before it is made: links pasted, a description, pictures (ask 45). */
-type Extra = { links: { href: string; title: string; icon: string | null }[]; open: boolean; note: string; pictures: string[] }
-const NO_EXTRA: Extra = { links: [], open: false, note: '', pictures: [] }
-/** Them as the task's description: its words, its pictures, then each link by its page's name. Null with none. */
+type Extra = { links: { href: string; title: string; icon: string | null }[]; open: boolean; notes: unknown }
+const NO_EXTRA: Extra = { links: [], open: false, notes: null }
+/** Them as the task's description: what its editor holds (words, pictures), then each link by its page's name. Null with none. */
 const notesOf = (extra: Extra): unknown => {
-  const words = extra.note.split('\n').map((line) => (line.trim() ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' }))
-  const content = [
-    ...(extra.note.trim() ? words : []),
-    ...extra.pictures.map((src) => ({ type: 'image', attrs: { src } })),
-    ...extra.links.map((one) => ({ type: 'paragraph', content: [{ type: 'text', text: one.title, marks: [{ type: 'link', attrs: { href: one.href } }] }] }))
-  ]
+  const written = ((extra.notes as { content?: { type?: string; content?: unknown[] }[] } | null)?.content ?? []).filter((one) => one.type !== 'paragraph' || one.content?.length)
+  const content = [...written, ...extra.links.map((one) => ({ type: 'paragraph', content: [{ type: 'text', text: one.title, marks: [{ type: 'link', attrs: { href: one.href } }] }] }))]
   return content.length ? { type: 'doc', content } : null
 }
 
