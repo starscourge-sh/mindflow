@@ -20,20 +20,21 @@ import { num, plural } from '../../../../main/dates'
 const ROW = '1.875rem'
 
 export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice: the Folders page. */ onFolders: () => void }): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ things: Thing[]; at: DOMRect } | null>(null)
+  // `moving`: a folder's own "Move to…": the same picker, each row a folder it may go into.
+  const [asked, setAsked] = useState<{ things: Thing[]; at: DOMRect; moving?: Folder } | null>(null)
   const things = asked?.things ?? null
   const [typed, setTyped] = useState('')
   const before = useRef<HTMLElement | null>(null)
   const all = useFolders()
   useEffect(() => {
     const ask = (event: Event): void => {
-      const { things: these, at } = (event as CustomEvent<{ things: Thing[]; at?: Element | null }>).detail
-      if (!these.length) return
+      const { things: these, at, moving } = (event as CustomEvent<{ things: Thing[]; at?: Element | null; moving?: Folder }>).detail
+      if (!these.length && !moving) return
       chime('open')
       setTyped('')
       // Given back on closing, so the list (and ⌘Z for the move) has the keys again, as before it opened.
       before.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-      setAsked({ things: these, at: placeFor(at) })
+      setAsked({ things: these, at: placeFor(at), moving })
     }
     // ⇧⌘M in any list the lists of Writing and Gems have not taken (items-view.tsx): the Inbox's, Tasks', a folder's.
     // The rows picked, or the one the cursor is on, each by what its row says it is.
@@ -88,8 +89,19 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
   }, [offers])
   if (!asked || !things) return null
   const close = (): void => (setAsked(null), before.current?.isConnected ? before.current.focus({ preventScroll: true }) : (document.activeElement as HTMLElement | null)?.blur())
-  const shown = all.filter((one) => !one.archived)
+  const moving = asked.moving
+  // Moving a folder: never into itself or a folder inside it, nor where it already is.
+  const inside = (id: string | null): boolean => { for (let at = id; at; at = all.find((one) => one.id === at)?.parent ?? null) if (at === moving?.id) return true; return false }
+  const shown = all.filter((one) => !one.archived && !(moving && (inside(one.id) || one.id === moving.parent)))
   const name = typed.trim()
+  // Into the folder picked, with its notice and Undo; a refusal says why (too deep).
+  const moveInto = async (to: Folder): Promise<void> => {
+    if (!moving) return
+    const done = await folders.nest(moving.id, to.id)
+    if (done !== true) return refuse(done)
+    chime('gather')
+    toast(`Moved ${moving.name} into ${to.name}`, () => void folders.nest(moving.id, moving.parent))
+  }
   const exact = shown.some((one) => one.name.toLowerCase() === name.toLowerCase())
   const what = things.length === 1 ? 'it' : `these ${num(things.length)}`
   // Found by the words of its name and path, as typed, never by its id; the first 100 drawn. Left to the menu's own
@@ -106,7 +118,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
     .filter((one) => one.fit > 0)
     .sort((a, b) => b.fit - a.fit || b.one.used - a.one.used)
   return (
-    <PickerAt at={asked.at} label="Keep in folder" onClose={close}>
+    <PickerAt at={asked.at} label={moving ? 'Move folder' : 'Keep in folder'} onClose={close}>
       <div data-folder-picker="">
         <Command loop shouldFilter={false} onKeyDown={(event) => {
           event.stopPropagation()
@@ -119,7 +131,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
             {found.length > 100 && <p className="px-3 py-1.5 text-xs text-muted-foreground">{num(found.length - 100)} more: type more of the name</p>}
             {found.slice(0, 100).map(({ one, path }) => {
               return (
-                <CommandItem key={one.id} data-folder-pick={one.id} value={one.id} keywords={[one.name, path]} onSelect={() => (close(), void keepIn(things, one))}>
+                <CommandItem key={one.id} data-folder-pick={one.id} value={one.id} keywords={[one.name, path]} onSelect={() => (close(), void (moving ? moveInto(one) : keepIn(things, one)))}>
                   <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />
                   {/* Where it sits, faint, before its own name in full ink; a long way cut from its start, never its end. */}
                   <span className="flex min-w-0 flex-1 items-baseline gap-1">
@@ -131,7 +143,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
             })}
             {/* Always last, whatever the filter: the folder made and filled in one step. */}
             {name && !exact && (
-              <CommandItem forceMount data-folder-new-pick="" value="new-folder" keywords={[name]} onSelect={() => (close(), void keepInNew(things, name))}>
+              <CommandItem forceMount data-folder-new-pick="" value="new-folder" keywords={[name]} onSelect={() => (close(), void (moving ? folders.make(name).then((id) => moveInto({ ...moving, id, name, parent: null })) : keepInNew(things, name)))}>
                 <FolderPlus className="size-3.5" />
                 <span className="min-w-0 flex-1 truncate">New folder “{name}”</span>
               </CommandItem>
@@ -140,7 +152,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
         </Command>
         {/* The sidebar card's foot (peek.tsx `PeekCard`): what it is for, its words bold first, and its key. */}
         <div className="flex items-end gap-2 px-1.5 pt-2 pb-1">
-          <p className="min-w-0 flex-1 text-[13px] leading-snug text-muted-foreground"><strong className="font-semibold text-foreground">Keep {what} in a folder.</strong> Type to find one, or a new name to make it.</p>
+          <p className="min-w-0 flex-1 text-[13px] leading-snug text-muted-foreground"><strong className="font-semibold text-foreground">{moving ? `Move ${moving.name} into a folder.` : `Keep ${what} in a folder.`}</strong> Type to find one, or a new name to make it.</p>
           <span className="flex shrink-0 gap-0.5 pb-px"><Pressed keys="↵" /></span>
         </div>
       </div>

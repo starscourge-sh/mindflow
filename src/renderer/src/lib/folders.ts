@@ -116,6 +116,9 @@ export async function moveFoldersAgain(): Promise<void> {
   toast(`Moved into Folders again: ${plural(done.folders, 'folder')} holding ${plural(done.things, 'thing')}`, () => void putFoldersBack())
 }
 
+/** The folder picker asked to move a folder into another (the folder's "Move to…"), beside what asked. */
+export const askFolderFor = (folder: Folder, at?: Element | null): void => void window.dispatchEvent(new CustomEvent('haligtree:keep-in-folder', { detail: { things: [], moving: folder, at } }))
+
 /** `at`: what it stands beside; left out, what was last pressed (picker-at.tsx `placeFor`). */
 export const askFolder = (things: Thing[], at?: Element | null): void => void window.dispatchEvent(new CustomEvent('haligtree:keep-in-folder', { detail: { things, at } }))
 

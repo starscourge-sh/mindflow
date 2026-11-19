@@ -316,7 +316,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         // A light tap on the trackpad too, as a row coming over a new place in a list gives (lib/haptics.ts).
         else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || (click('tick'), detent())
         queued = queue
-        if (queue?.dataset.keepDrop) setSaid(`Keep in “${queue.dataset.folderName ?? 'this folder'}”`)
+        // "Not in a folder" (and the Folders heading) take it out of the one it is in.
+        if (queue?.dataset.keepDrop) setSaid(queue.dataset.keepDrop === 'none' ? 'Take out of its folder' : `Keep in “${queue.dataset.folderName ?? 'this folder'}”`)
         else if (down?.source.node.dataset.type === 'capture') setSaid(toWritingSaid(queue, down.source.node))
         else setSaid(undefined)
         // Where the card rests while it is over this place, read once as it comes over it.
@@ -475,7 +476,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         const opened = !what.row && what.open ? [what.open.slice(0, what.open.indexOf(':')), what.open.slice(what.open.indexOf(':') + 1)] : null
         const type = opened ? opened[0] : down.source.node?.dataset.type
         const thing = { type: (['article', 'nugget', 'question', 'capture', 'task'].includes(type ?? '') ? type : down.source.node?.closest('[data-task-row]') ? 'task' : 'nugget') as FolderKind, id: opened ? opened[1] : what.row!.id }
-        const folder = { id: queued.dataset.keepDrop, name: queued.dataset.folderName ?? 'the folder' }
+        const folder = queued.dataset.keepDrop === 'none' ? null : { id: queued.dataset.keepDrop, name: queued.dataset.folderName ?? 'the folder' }
         if (window.dispatchEvent(new CustomEvent('haligtree:keep-drop', { cancelable: true, detail: { folder, thing } }))) void keepIn([thing], folder)
       } else if (!side && queued?.dataset.folderNo !== undefined && what.row) {
         dropListDrag()

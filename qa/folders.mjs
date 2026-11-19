@@ -11,6 +11,7 @@ import { loadavg } from 'os'
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
@@ -265,6 +266,48 @@ try {
   if (shots) await c.both(`${shots}/picker-crumb`)
   await h.keyboard.press('Escape')
   await wait(300)
+
+  // The tree's own drag: a page under Thesis carried onto Reading list goes into it; onto "Not in a folder", out of
+  // every folder; ⌘Z puts it back. The app's one carry (split-drop.tsx), as a pin's.
+  const drag = async (from, to) => {
+    const a = await from.boundingBox()
+    const b = await to.boundingBox()
+    await h.mouse.move(a.x + 30, a.y + a.height / 2)
+    await h.mouse.down()
+    for (let i = 1; i <= 14; i++) await (h.mouse.move(a.x + 30 + (b.x + 40 - a.x - 30) * (i / 14), a.y + a.height / 2 + (b.y + b.height / 2 - a.y - a.height / 2) * (i / 14)), wait(30))
+    await wait(250)
+    if (shots) await h.screenshot({ path: `${shots}/tree-drag-${to === unfiledRow ? 'out' : 'across'}.png` })
+    await h.mouse.up()
+    await wait(700)
+  }
+  const unfiledRow = h.locator('[data-side-unfiled]')
+  const folderOfPage = async () => (await c.v('folders:of', 'nuggets'))[page] ?? null
+  await c.v('folders:file', [{ type: 'article', id: page }], thesis.id)
+  await fRow.hover()
+  await h.locator(`[data-folder-fold="${thesis.id}"]`).click()
+  await wait(700)
+  await drag(h.locator(`aside [data-side-thing="${page}"]`), h.locator(`[data-side-folder="${reading.id}"]`))
+  check('a page carried in the tree onto another folder goes into it', await until(async () => (await folderOfPage()) === reading.id), JSON.stringify(await folderOfPage()))
+  await h.locator(`[data-side-folder="${reading.id}"]`).hover()
+  await h.locator(`[data-folder-fold="${reading.id}"]`).click()
+  await wait(700)
+  await drag(h.locator(`aside [data-side-thing="${page}"]`), unfiledRow)
+  check('carried onto "Not in a folder", it leaves every folder', await until(async () => (await folderOfPage()) === null), JSON.stringify(await folderOfPage()))
+  await h.keyboard.press('Meta+z')
+  check('⌘Z puts it back in its folder', await until(async () => (await folderOfPage()) === reading.id), JSON.stringify(await folderOfPage()))
+  // The folder's "Copy link": a link to its page, as a note's Copy link makes one.
+  await menu(h.locator(`[data-side-folder="${thesis.id}"]`), 'Copy link')
+  const link = await copiedText(c.electron)
+  check('"Copy link" copies a link to the folder', (link ?? '').includes(`folder:${thesis.id}`), (link ?? '').slice(0, 80))
+  // "Move to…": the one folder picker, the folder put inside the one picked; ⌘Z takes it back out.
+  await menu(h.locator(`[data-side-folder="${reading.id}"]`), 'Move to…')
+  check('"Move to…" opens the folder picker for the folder', await h.locator('[data-folder-picker]').isVisible() && (await h.locator(`[data-folder-pick="${reading.id}"]`).count()) === 0)
+  await h.keyboard.type('Thesis')
+  await wait(200)
+  await h.keyboard.press('Enter')
+  check('↵ puts it inside the folder picked', await until(async () => (await c.v('folders')).find((one) => one.id === reading.id)?.parent === thesis.id))
+  await h.keyboard.press('Meta+z')
+  check('⌘Z takes it back out', await until(async () => !(await c.v('folders')).find((one) => one.id === reading.id)?.parent))
 
   // Frames of the other surfaces this changed: Gems' bar (no "New folder"), Settings > Backups' line for the move.
   await c.go('nuggets')

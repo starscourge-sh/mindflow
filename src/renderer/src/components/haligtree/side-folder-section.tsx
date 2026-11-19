@@ -6,13 +6,13 @@ import { NameInPlace } from './name-in-place'
 import { GroupIcon, IconChoice } from './kept-groups'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
-import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
 import { SortableList, SortableRow } from './sortable'
 import { age, num } from '../../../../main/dates'
 import { haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { FOLDER_DEPTH, askFolder, folders, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem } from '@/lib/folders'
+import { FOLDER_DEPTH, askFolder, askFolderFor, folders, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem } from '@/lib/folders'
 
 /** Starred folders shown before the rest fold behind "Show all". */
 const SHOWN = 12
@@ -92,7 +92,8 @@ export function FoldersSection({ here, counted, unfiled, onOpen, onOpenItem, lit
       // One light: a note of its own open under it (noteRow) is the lit one, the folder kept beside it is not lit too.
       <FolderRow key={one.id} folder={one} all={live} here={here === one.id && !(noteRow && noteIn === one.id)} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)}
         open={open} onFold={() => foldOne(one.id)} onAdd={() => void addPageIn(one, onOpenItem)} />,
-      ...(kids.length || open ? [<div key={`${one.id}:in`} data-no-twig="">
+      // Its own presses (lib/own-press.ts): a page carried from under it is that page, never the folder above it.
+      ...(kids.length || open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
         <Branches current={kids.length ? lit(kids) : -1} className="ml-5 flex flex-col gap-px">
           {kids.flatMap((kid) => row(kid, depth + 1))}
           {open && <FolderThings key={`${one.id}:things`} folder={one} lit={litItem} onOpen={onOpenItem} onAll={() => onOpen(one.id)} />}
@@ -146,8 +147,9 @@ export function FoldersSection({ here, counted, unfiled, onOpen, onOpenItem, lit
     <div data-side-section="folders" data-side-folders-section="" style={style} className="flex flex-col">
       <RowMenu items={[{ label: 'New folder', keys: '⌃⌘N', run: () => newFolderHere(null) }, { label: 'All folders…', run: () => onOpen(null) }]}>
         <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
-          {/* Folded with the note in front inside it: the heading holds the light, so there is always one. */}
-          <button type="button" data-side-row data-side-section-handle="folders" aria-expanded={open} aria-current={!open && noteRow && noteIn ? 'page' : undefined} onClick={() => fold(!open)}
+          {/* Folded with the note in front inside it: the heading holds the light, so there is always one. A page or note
+              carried onto it leaves its folder (split-drop.tsx `keepDrop` "none"): Folders lists folders only (63dc63cb7). */}
+          <button type="button" data-side-row data-side-section-handle="folders" data-keep-drop="none" aria-expanded={open} aria-current={!open && noteRow && noteIn ? 'page' : undefined} onClick={() => fold(!open)}
             className={`absolute inset-0 flex items-center gap-1 rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground ${here === null ? 'text-foreground' : 'text-muted-foreground'}`}>
             Folders
             <ChevronRight className={`size-3 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
@@ -192,7 +194,10 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
     // As Notion's: first what it is to you (in the sidebar), then its name and place, then opening it, then the foot.
     { label: folder.starred ? 'Remove from the sidebar' : 'Show in the sidebar', hint: folder.starred ? 'Unstar it' : 'Star it', run: () => (chime(folder.starred ? 'off' : 'on'), sayNow(folders.set(folder.id, { starred: !folder.starred }), folder.starred ? `Took ${folder.name} off the sidebar` : `Starred ${folder.name}`, () => void folders.set(folder.id, { starred: !!folder.starred }))) },
     'separator',
+    copyLinkItem(`folder:${folder.id}`, folder.name),
     { label: 'Rename…', run: onRename },
+    // Into another folder, found in the one folder picker (folder-picker.tsx), as things are kept in one.
+    { label: 'Move to…', run: () => askFolderFor(folder) },
     level < FOLDER_DEPTH && { label: 'New folder inside', run: () => newFolderHere(folder.id) },
     folder.parent ? { label: 'Move to the top', run: () => void folders.nest(folder.id, null).then(() => (chime('gather'), toast(`Moved ${folder.name} to the top`, () => void folders.nest(folder.id, folder.parent)))) } : null,
     { label: folder.archived ? 'Unarchive folder' : 'Archive folder', hint: folder.archived ? undefined : 'Kept, out of sight', run: () => (chime('tuck'), sayNow(folders.set(folder.id, { archived: !folder.archived }), folder.archived ? `Unarchived ${folder.name}` : `Archived ${folder.name}: kept, out of sight`, () => void folders.set(folder.id, { archived: !!folder.archived }))) },
