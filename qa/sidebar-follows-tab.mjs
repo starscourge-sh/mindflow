@@ -230,7 +230,7 @@ try {
     if ((await open()) !== 'true') { await h.click(head); await wait(500) }
     await h.click('aside nav button[aria-label="Gems"]'); await wait(900)
     await h.click(head); await wait(700)
-    check('on Gems, Library's heading pressed: it folds', (await open()) === 'false' && !(await gemsShows()), `expanded ${await open()}, Gems row shows ${await gemsShows()}`)
+    check("on Gems, Library's heading pressed: it folds", (await open()) === 'false' && !(await gemsShows()), `expanded ${await open()}, Gems row shows ${await gemsShows()}`)
     await h.click('aside nav button[aria-label="Inbox"]'); await wait(900)
     check('then the Inbox: Library stays folded', (await open()) === 'false' && !(await gemsShows()), `expanded ${await open()}`)
     await send('view', 'nuggets'); await wait(900)

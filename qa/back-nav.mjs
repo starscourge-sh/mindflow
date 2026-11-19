@@ -162,8 +162,7 @@ try {
   // --- Tasks ---------------------------------------------------------------------------------
   await run('Today: a task open, then G Y', async () => { await side('Tasks'); await nth('[class*="@container/page"] button[data-row]', 0) }, () => keys('g', 'y'))
   await run('Upcoming: a task open, another', async () => { await go('upcoming'); await nth('[class*="@container/page"] button[data-row]', 0) }, () => nth('[class*="@container/page"] button[data-row]', 1))
-  // A task of the probe's own for today: the example book's tasks are dated when it was seeded, and may all be past.
-  await run('Week: a task open, then a section', async () => { await h.evaluate(() => window.api.haligtree('task:add', 'Back and Forward check today 5pm')); await go('week'); await click('[data-day] button[data-cursor], [data-day] button', 'Back and Forward check') }, () => side('Inbox'))
+  // No Week line: "week" opens Upcoming now (home.tsx landing), whose line is above.
   await run('Matrix: a task open, then a section', async () => { await go('matrix'); await click('[data-quadrant] button') }, () => side('Inbox'))
 
   // --- Days, weeks, months ------------------------------------------------------------------
@@ -177,11 +176,11 @@ try {
   {
     await side('Inbox'); await row(0)
     const was = await state()
-    // Enter only once the action is listed and first: on a busy machine the
-    // search could still be on the last result, and Enter took that instead.
+    // The action's own row clicked once it is listed: since ⌘K offers Wikipedia under your results (a70c4e941) it is
+    // not always the first row, so Enter could take another.
     await keys('Meta+k'); await h.keyboard.type('month, wrapped', { delay: 40 })
-    await h.waitForFunction(() => /month, wrapped/i.test(document.querySelector('[role="dialog"][aria-label="Search"] [data-search-at]')?.textContent ?? ''), null, { timeout: 8000 })
-    await h.keyboard.press('Enter'); await wait(1500)
+    await h.waitForFunction(() => [...document.querySelectorAll('[role="dialog"][aria-label="Search"] [data-action-label]')].some((one) => /month in notes, wrapped/i.test(one.textContent ?? '')), null, { timeout: 8000 })
+    await h.evaluate(() => [...document.querySelectorAll('[role="dialog"][aria-label="Search"] [data-action-label]')].find((one) => /month in notes, wrapped/i.test(one.textContent ?? '')).closest('button').click()); await wait(1500)
     const story = await h.evaluate(() => !!document.querySelector('[data-wrap-story]'))
     await h.keyboard.press('Escape'); await wait()
     const gone = await h.evaluate(() => !document.querySelector('[data-wrap-story]'))
