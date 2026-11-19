@@ -8,7 +8,7 @@ import { spring } from "@/lib/motion"
 import { BackToTop } from "@/components/haligtree/ui"
 import { glideIntoView } from "@/lib/glide-into-view"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { THUMB, drawInTurn, pagesMoving, whenStill } from "./pdf-draw"
+import { THUMB, drawInTurn, whenStill } from "./pdf-draw"
 import { usePageLabel } from "./pdf-labels"
 
 /** Which list the rail shows: the pages small, or the PDF's own outline. Highlights are in Details. */
@@ -87,7 +87,9 @@ function handOn(list: HTMLElement): () => void {
     hand.held = false
     if (!hand.owed) return
     hand.owed = false
-    glideIntoView(list.querySelector<HTMLElement>(".pdf-thumb.is-here"), { centre: true })
+    // The page you are on, or in the Outline the chapter you are in: whichever the rail shows.
+    const thumb = list.querySelector<HTMLElement>(".pdf-thumb.is-here")
+    glideIntoView(thumb ?? list.querySelector<HTMLElement>("[data-outline-row][aria-current]"), { centre: !!thumb })
   }
   const wheel = (event: WheelEvent): void => {
     const room = list.scrollHeight - list.clientHeight
@@ -140,11 +142,11 @@ function handOn(list: HTMLElement): () => void {
  * The page you are on kept in the rail's middle, except near the book's ends, where the rail's
  * own ends stop it: one glide per page turned, owed while your hand is on the rail.
  */
-function centreHere(row: HTMLElement | null, jump: boolean): void {
+function centreHere(row: HTMLElement | null, jump: boolean, centre = true): void {
   const list = row?.closest(".pdf-rail-list")
   const hand = list ? hands.get(list) : undefined
   if (hand?.held) return void (hand.owed = true)
-  glideIntoView(row, { jump, centre: true })
+  glideIntoView(row, { jump, centre })
 }
 
 /**
@@ -271,8 +273,9 @@ export const PdfThumb = memo(function PdfThumb({ doc, page, here, onGo }: { doc:
   // The rail follows the page you are on with a calm glide, keeping it in the middle; opened on a page, it is simply there.
   const shownOnce = useRef(false)
   useEffect(() => {
-    // While the pages are scrolled fast the rail keeps up at once: a glide behind every page passed only adds work.
-    if (here) centreHere(box.current, !shownOnce.current || pagesMoving())
+    // Always a glide once the rail has shown, the pages flung too: a new page while gliding bends the same glide toward
+    // it (glide-into-view.ts), where a jump per page passed snapped the rail and its ring (the user, 18 Nov: "too abrupt").
+    if (here) centreHere(box.current, !shownOnce.current)
     shownOnce.current = true
   }, [here])
   return (
@@ -346,7 +349,8 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
   const list = useRef<HTMLElement>(null)
   const shownWas = useRef<RailTab | null>(null)
   useEffect(() => {
-    glideIntoView(list.current?.querySelector<HTMLElement>("[data-outline-row][aria-current]"), { jump: shownWas.current !== shown })
+    // Held off while the person's hand is on the rail, as the pages' glide is, and owed till it lets go.
+    centreHere(list.current?.querySelector<HTMLElement>("[data-outline-row][aria-current]") ?? null, shownWas.current !== shown, false)
     shownWas.current = shown
   }, [hereAt, shown])
   return (

@@ -103,8 +103,6 @@ export const keepPage = (key: string, canvas: HTMLCanvasElement): void => {
  */
 const REST = 150
 let moving = 0
-/** Whether the pages are flung now: the rail keeps up at once rather than glide behind every page passed. */
-export const pagesMoving = (): boolean => flinging
 /** Told by the pages on each scroll. */
 export function pagesScrolled(): void {
   window.clearTimeout(moving)

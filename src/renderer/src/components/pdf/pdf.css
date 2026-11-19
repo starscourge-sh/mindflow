@@ -1103,6 +1103,10 @@
 .pdf-thumb.is-here .pdf-thumb-sheet {
   box-shadow: 0 0 0 2px var(--tt-brand-color-500, #c08a2e), 0 2px 6px rgb(0 0 0 / 0.12);
 }
+/* The ring passes from page to page with the rail's glide: eased off one and onto the next, never popped. */
+.pdf-thumb-sheet { transition: box-shadow 180ms var(--mf-ease, ease-out); }
+@media (prefers-reduced-motion: reduce) { .pdf-thumb-sheet { transition: none; } }
+:root[data-motion='off'] .pdf-thumb-sheet { transition: none; }
 
 .pdf-thumb-number {
   color: var(--mf-muted);
