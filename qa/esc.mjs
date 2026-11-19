@@ -25,7 +25,7 @@ const wait = (ms = 900) => h.waitForTimeout(ms)
 const state = () => h.evaluate(() => {
   const page = document.querySelector('[class*="@container/page"]')
   const pane = page?.querySelector('.note-pane')
-  const words = (pane?.querySelector('[data-page-title] [contenteditable], input.font-heading')?.[pane?.querySelector('[data-page-title] [contenteditable]') ? 'textContent' : 'value'] || pane?.querySelector('input')?.value || [...(pane?.querySelectorAll('.ProseMirror') ?? [])].find((one) => !one.closest('[data-plain-field]'))?.firstElementChild?.textContent || '').trim()
+  const words = (pane?.querySelector('[data-page-title] [contenteditable="true"], input.font-heading')?.[pane?.querySelector('[data-page-title] [contenteditable="true"]') ? 'textContent' : 'value'] || pane?.querySelector('input')?.value || [...(pane?.querySelectorAll('.ProseMirror') ?? [])].find((one) => !one.closest('[data-plain-field]'))?.firstElementChild?.textContent || '').trim()
   const tabs = page ? [...page.querySelectorAll('[role="tab"][aria-selected="true"], header [aria-pressed="true"]')].map((one) => (one.textContent ?? '').trim() || one.getAttribute('aria-label')) : []
   const title = [...(page?.querySelectorAll('h1, h2, h3') ?? [])].map((one) => (one.textContent ?? '').trim()).find(Boolean) ?? ''
   return {
@@ -104,15 +104,18 @@ try {
     await side('Inbox'); await row(0)
     await h.evaluate(() => [...document.querySelectorAll('[class*="@container/page"] button')].filter((one) => !one.closest('.ProseMirror') && one.closest('.note-pane, aside, [class*="props"]')).pop()?.focus())
   }, { presses: 2 })
-  await run('Inbox: the title focused', async () => { await side('Inbox'); await row(0); await h.locator('.note-pane [data-page-title] [contenteditable], .note-pane input.font-heading').first().focus().catch(() => {}) }, { presses: 2 })
+  await run('Inbox: the title focused', async () => { await side('Inbox'); await row(0); await h.locator('.note-pane [data-page-title] [contenteditable="true"], .note-pane input.font-heading').first().focus().catch(() => {}) }, { presses: 2 })
   await run('Inbox: find in the note, Escape closes the find bar', async () => { await side('Inbox'); await row(0); await editNote() },
     { open: () => press('Meta+f'), before: () => is(() => !!document.querySelector('.tiptap-find-bar:not([inert])')), check: () => is(() => !document.querySelector('.tiptap-find-bar:not([inert])')) })
   await run('Nuggets: one open', async () => { await go('nuggets'); await row(0); await blur() }, { presses: 2 })
   await run('Nuggets: writing in one', async () => { await go('nuggets'); await row(0); await editNote() }, { presses: 2 })
   await run('Questions: one open', async () => { await go('questions'); await row(0); await blur() }, { presses: 2 })
   await run('Goals: one open', async () => { await go('goals'); await row(0); await blur() }, { presses: 2 })
-  await run('Today: a task open', async () => { await side('Today'); await nth('[class*="@container/page"] button[data-row]', 0); await blur() }, { presses: 2 })
-  await run('Week: a task open', async () => { await go('week'); await click('[data-day] button[data-cursor], [data-day] button'); await blur() }, { presses: 2 })
+  // Tasks' row is the sidebar's one task list (70f7229cb, 8 Nov: "Today" became "Tasks", Today a tab of it), and the week is
+  // Upcoming's (home.tsx: week opens upcoming), its tasks rows as Today's; the month's wrap is "Your month in notes, wrapped".
+  // A task open beside its list is put away by Esc in the list (041e386e3), so there Escape closes it, the page kept.
+  await run('Today: a task open', async () => { await side('Tasks'); await nth('[class*="@container/page"] button[data-row]', 0); await blur() }, { presses: 2, loose: true, check: async () => (await state()).open === "-" })
+  await run('Week: a task open', async () => { await go('week'); await nth('[class*="@container/page"] button[data-row]', 0); await blur() }, { presses: 2, loose: true, check: async () => (await state()).open === "-" })
   await run('Matrix: a task open', async () => { await go('matrix'); await click('[data-quadrant] button'); await blur() }, { presses: 2 })
   await run('Tags: a tag picked', async () => { await go('tags'); await click('[class*="@container/page"] button', 'renaissance'); await blur() }, { presses: 2 })
 
@@ -130,11 +133,12 @@ try {
   await run('?: Escape closes the shortcut sheet', async () => { await side('Inbox'); await blur() },
     { open: () => press('Shift+Slash'), before: () => is(() => !!document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')), check: () => is(() => !document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')) })
   await run('Your month in notes, wrapped: Escape closes it', async () => { await go('stats'); await blur() }, {
-    open: async () => { await press('Meta+k'); await h.keyboard.type('month, wrapped', { delay: 40 }); await wait(900); await h.keyboard.press('Enter'); await wait(1500) },
+    open: async () => { await press('Meta+k'); await h.keyboard.type('month in notes, wrapped', { delay: 40 }); await wait(900); await h.keyboard.press('Enter'); await wait(1500) },
     // The month's wrap is the story of cards now (wrap-story.tsx), "September, wrapped".
     before: () => is(() => !!document.querySelector('[role="dialog"][data-wrap-story]')), check: () => is(() => !document.querySelector('[role="dialog"][data-wrap-story]'))
   })
-  await run('Your year, wrapped: Escape closes it', async () => { await go('stats'); await blur() }, {
+  // Opened from ⌘K it shows Stats' "Your year" tab under it (home.tsx: stats, focus year), so the tab is not the one before.
+  await run('Your year, wrapped: Escape closes it', async () => { await go('stats'); await blur() }, { loose: true,
     open: async () => { await press('Meta+k'); await h.keyboard.type('year, wrapped', { delay: 40 }); await wait(900); await h.keyboard.press('Enter'); await wait(1500) },
     before: () => is(() => !!document.querySelector('[aria-label="Recap"]')), check: () => is(() => !document.querySelector('[aria-label="Recap"]'))
   })
