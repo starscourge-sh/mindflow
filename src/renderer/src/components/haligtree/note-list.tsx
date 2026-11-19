@@ -16,6 +16,7 @@ import { tintFor } from '@/lib/pictures'
 import { openApart } from '@/lib/apart'
 import { useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
+import { FEW_BACK } from '@/lib/room'
 import { LeavingPicture, PictureLeaving, useLeaving } from './picture-leaving'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
@@ -279,7 +280,7 @@ export function useArrivals(ids: string[], scope = ''): (id: string) => boolean 
   }
   const fresh = ids.filter((id) => !seen.current!.has(id))
   // Arriving means joining rows already here; none of them left is another list.
-  const joining = fresh.length <= 3 && fresh.length < ids.length
+  const joining = fresh.length <= FEW_BACK && fresh.length < ids.length
   for (const id of fresh) seen.current.set(id, joining ? now : 0)
   // Asked as each row draws, which can be later than this list drew (a scroll):
   // the moment is over by then, and a row scrolled back into view stays still.

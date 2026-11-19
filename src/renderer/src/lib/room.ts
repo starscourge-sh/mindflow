@@ -43,6 +43,8 @@ const WATCHED = 15000
  * fifth of it: the ball is then a few pixels on its way and picking up speed), so the two go in one breath.
  */
 const UNDER_WAY = 0.2
+/** How many rows may join a list at once and still ease in among the rest; more is the list drawn again (note-list.tsx useArrivals too). */
+export const FEW_BACK = 3
 
 /** A row's room: `close` once its paper lifts off, told how long that flight is (or with no paper, at once); `drop` when the row stays after all. */
 export type Room = { close: (flight?: number) => void; drop: () => void }
@@ -421,7 +423,9 @@ function end(batch: Batch, closed?: Promise<unknown>): void {
  * place once they have.
  */
 export function expectBack(ids: string[]): void {
-  if (still() || !ids.length) return
+  // Many back at once (a whole pick, ⌘A then ⌫) is the list drawn again, in one step: parted row by row, every row
+  // came back stacked at the first one's top, its words out of sight, and slid apart. Only a few part the rows.
+  if (still() || !ids.length || ids.length > FEW_BACK) return
   const due = new Set(ids)
   const watch = new MutationObserver((changes) => {
     const back: HTMLElement[] = []
