@@ -118,6 +118,7 @@ import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
 import { fileIntoGroups, filedSaid, registerNoteImports } from './note-imports'
 import { assetsDir, known, lookAhead, registerPictures, smallCopy } from './pictures'
 import { registerPictureSight } from './picture-sight'
+import { registerContacts } from './contacts'
 import { letWebPictures } from './web-pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
@@ -5591,6 +5592,7 @@ app.whenReady().then(() => {
     typeof name === 'string' && name.trim() && name.length <= 1024 ? bringLinked(name, typeof path === 'string' ? path : undefined) : { found: 'none', vault: false, unread: [] })
   registerPictures()
   registerPictureSight()
+  registerContacts()
   registerPeople()
   registerSources()
   registerCite()

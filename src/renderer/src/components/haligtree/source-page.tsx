@@ -333,9 +333,98 @@ function PersonHead({ page, name, close = false }: { page: SourcePage | null; na
             </>}
           </p>
           )}
+          {!page?.character && !isMe(name) && <ContactLine name={name} />}
         </div>
       </div>
     </header>
+  )
+}
+
+type Contact = { id: string; name: string; org: string; email: string; photo: string }
+type Linked = Omit<Contact, 'photo'>
+/** What the Mac said when asked for Contacts, in plain words: each its own cause, checked. */
+const CONTACT_WHY = {
+  denied: 'Your Mac does not let Haligtree read Contacts. Turn it on in Privacy & Security, Contacts.',
+  restricted: 'This Mac’s owner lets no app read Contacts, so there is none to link.'
+} as const
+
+/**
+ * A person linked to a real contact in the Mac's Contacts (main/contacts.ts): where they work and an email, under
+ * their line, and their photo for their page when they have none. macOS asks only when “Link a contact” is clicked.
+ */
+function ContactLine({ name }: { name: string }): React.JSX.Element {
+  const [linked, setLinked] = useState<Linked | null | undefined>(undefined)
+  const [found, setFound] = useState<Contact[] | null>(null)
+  const [why, setWhy] = useState<string | null>(null)
+  const [denied, setDenied] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const avatar = useAvatar(name)
+  useEffect(() => void call<Linked | null>('contacts:linked', name).then(setLinked), [name])
+  const link = async (one: Contact): Promise<void> => {
+    await call('contacts:link', name, one)
+    // Their photo only where the page has none: a picture you chose stays yours.
+    const photo = !!one.photo && !avatar
+    if (photo) await setAvatar(name, new Blob([Uint8Array.from(atob(one.photo), (char) => char.charCodeAt(0))]))
+    setFound(null)
+    setLinked(one)
+    chime('noted')
+    toast(`Linked to your contact ${quoted(one.name, 60)}${photo ? ', with their photo' : ''}`, () => void call('contacts:unlink', name).then(async () => {
+      if (photo) await setAvatar(name, null)
+      setLinked(null)
+    }))
+  }
+  const find = async (): Promise<void> => {
+    chime('tap')
+    setAsking(true)
+    setWhy(null)
+    const said = await call<{ status: 'on' | 'unasked' | 'denied' | 'restricted'; contacts?: Contact[] }>('contacts:find', name).catch(() => ({ status: 'denied' as const, contacts: [] }))
+    setAsking(false)
+    setDenied(said.status === 'denied')
+    if (said.status === 'denied' || said.status === 'restricted') return setWhy(CONTACT_WHY[said.status])
+    if (said.status !== 'on') return setWhy('Your Mac did not answer whether Haligtree may read Contacts. Try once more.')
+    if (!said.contacts?.length) return setWhy(`No contact is named ${quoted(name, 60)} in your Contacts.`)
+    if (said.contacts.length === 1) return void link(said.contacts[0])
+    setFound(said.contacts)
+  }
+  const unlink = (): void => {
+    const was = linked
+    void call('contacts:unlink', name).then(() => {
+      setLinked(null)
+      chime('off')
+      toast(`No longer linked to ${quoted(was?.name ?? name, 60)}`, () => void call('contacts:link', name, was).then(() => setLinked(was ?? null)))
+    })
+  }
+  if (linked === undefined) return <p className="mt-1 min-h-7" />
+  return (
+    <div data-person-contact={linked ? 'linked' : 'none'} className="mt-1 flex min-h-7 flex-col items-start gap-1">
+      {linked ? (
+        <p className="flex flex-wrap items-center gap-x-1.5 text-control text-muted-foreground">
+          <User className="size-3.5" />
+          <span>In your Contacts as <span className="text-foreground">{linked.name}</span>{linked.org ? `, ${linked.org}` : ''}{linked.email ? ` · ${linked.email}` : ''}</span>
+          <Button variant="ghost" size="sm" data-contact-unlink className="h-6 cursor-pointer px-1.5 text-control" onClick={unlink}>Unlink</Button>
+        </p>
+      ) : asking ? <Orb label="Looking in your Contacts…" /> : (
+        <Button variant="ghost" size="sm" data-contact-link className="-ml-1.5 h-7 cursor-pointer gap-1.5 px-1.5 text-control text-muted-foreground hover:text-foreground" onClick={() => void find()}><User className="size-3.5" />Link a contact</Button>
+      )}
+      {why && (
+        <p data-contact-why className="flex flex-wrap items-center gap-x-2 text-control text-foreground">
+          {why}
+          {denied && <Button variant="outline" size="sm" data-contact-privacy className="h-6 cursor-pointer px-2 text-control" onClick={() => (chime('open'), void call('contacts:privacy'))}>Open Privacy & Security</Button>}
+        </p>
+      )}
+      {found && (
+        <ul data-contact-choices className="flex flex-wrap gap-1.5">
+          {found.map((one) => (
+            <li key={one.id}>
+              <button type="button" data-contact-choice={one.id} onClick={() => void link(one)} className="flex cursor-pointer items-center gap-1.5 rounded-full border bg-background py-0.5 pr-2.5 pl-0.5 text-control text-foreground hover:bg-accent">
+                {one.photo ? <img alt="" src={`data:image/jpeg;base64,${one.photo}`} className="size-5 rounded-full object-cover" /> : <User className="ml-1 size-3.5 text-muted-foreground" />}
+                {one.name}{one.org ? <span className="text-muted-foreground">· {one.org}</span> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
