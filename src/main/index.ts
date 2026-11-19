@@ -79,6 +79,7 @@ import { peopleNow, registerEvents, whenEvents } from './events'
 import { followEvents, forgetAnyway, setSignal, showAnyway, shownAnyway, watchMac, whenMeeting } from './in-meeting'
 import { anywayKept, deskAway } from './meeting-away'
 import { registerReadingQueue } from './reading-queue'
+import { registerReadTime } from './read-time'
 import { registerPractices, whenPracticeOffer, type Offer } from './practices'
 import { registerIssues } from './issues'
 import { brief, clock, dayKey, dayMonth, dayName, howLong, num, useTwelveHour, plural } from './dates'
@@ -5554,6 +5555,7 @@ app.whenReady().then(() => {
   registerMilestones()
   registerEvents((type, id) => sendHome(type, id, undefined, 'notification'))
   registerReadingQueue()
+  registerReadTime()
   registerPractices()
   // A practice's offer is asked in one place at a time: inside the main window when that is in front, else the corner's
   // card with the other asks. It never starts by itself.

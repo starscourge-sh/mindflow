@@ -10,10 +10,11 @@ import { DaysHeatmap } from './days-heatmap'
 import { TONES } from './mono-card'
 import { KeptCard, StudySection } from './study-stats'
 import { WritingSection } from './writing-stats'
+import { ReadingSections } from './reading-stats'
 import { Count, ISLAND, Page, Rolling } from './ui'
 import { Button } from '@/components/ui/button'
 import { useFold } from './islands'
-import { Activity, BookOpen, Brain, CalendarCheck, CalendarDays, CalendarRange, ChevronRight, Clock, FileText, Flag, Hash, Hourglass, LayoutGrid, ListChecks, MessageSquareText, PenLine, Repeat, Search, Shapes, ShieldBan, Split, Sun, Target, Timer, type LucideIcon } from 'lucide-react'
+import { Activity, BookCheck, BookOpen, Brain, CalendarCheck, CalendarDays, CalendarRange, ChevronRight, Clock, FileText, Flag, Hash, Hourglass, LayoutGrid, ListChecks, MessageSquareText, PenLine, Repeat, Search, Shapes, ShieldBan, Split, Sprout, Sun, Target, Timer, type LucideIcon } from 'lucide-react'
 import { Tip } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
@@ -56,7 +57,7 @@ const SECTION_ICONS: [RegExp, LucideIcon][] = [
   [/^Pages you open most$/, FileText], [/^How you find things$/, Search], [/^Today$/, Sun], [/^Focus$/, Timer], [/^How sessions end$/, Flag],
   [/^When you focus$|^When you capture$/, Clock], [/^Sites it kept you off$/, ShieldBan], [/^Where your focus went$/, Hash], [/^How long each task took$/, Hourglass], [/^Kept up$/, Repeat],
   [/^Habits$/, Repeat], [/^Goals$/, Target], [/^The doing, this week$/, ListChecks], [/^Is it working$/, Activity], [/so far$/, CalendarDays],
-  [/^What you capture$/, Shapes], [/^Where captures go$/, Split], [/^By tag$/, Hash], [/in your own words$/, BookOpen]
+  [/^Finished or left part way$/, BookCheck], [/^What reading turned into$/, Sprout], [/^What you capture$/, Shapes], [/^Where captures go$/, Split], [/^By tag$/, Hash], [/in your own words$/, BookOpen]
 ]
 const iconOf = (title: string): LucideIcon | undefined => SECTION_ICONS.find(([test]) => test.test(title))?.[1]
 
@@ -199,6 +200,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <WritingSection example={example} />
         <KeptCard example={example} />
         <StudySection example={example} brief />
+        {/* What reading in the reader really was: finished or left part way, and what it turned into. */}
+        {!example && <ReadingSections />}
 
         <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>

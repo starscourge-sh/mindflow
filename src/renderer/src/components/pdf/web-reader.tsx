@@ -42,6 +42,7 @@ import { Orb } from '@/components/haligtree/orb'
 import { listEnd, stopJob } from '@/components/haligtree/ui'
 import { markRoom } from '@/extensions/block-room'
 import { minutesToRead } from '@/lib/note-size'
+import { useReadTime } from '@/lib/read-time'
 import './pdf.css'
 // Picking words in the article, forgiving as in Apple's apps.
 import './reader-select'
@@ -595,6 +596,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   // Over the title: the site, and the minutes the article takes (its own words, see minutesOf, counted once a reading);
   // the site is said there, not again in the byline.
   const minutes = useMemo(() => (article ? minutesOf(article.html) : 0), [article])
+  // The time it is really read, told to main for Stats and Wrapped (lib/read-time.ts): finished or left part way.
+  useReadTime(href, scroller, useMemo(() => (article ? wordsOf(article.html) : 0), [article]))
   const kicker = article ? `${article.site || URL.parse(href)?.hostname || ''} · ${minutes} min read` : ''
   const meta = [
     article?.byline,
@@ -962,8 +965,8 @@ const tint = (name: string, percent: number, color = 'var(--tt-brand-color-500, 
  * Minutes to read an article: its own words (each run between spaces with a letter or a digit in it, the HTML's tags
  * and marks left out), at the app's one pace (lib/note-size.ts), as a note's size and the Feed say it.
  */
-const minutesOf = (html: string): number =>
-  Math.max(1, minutesToRead(html.replace(/<[^>]*>|&[#\w]+;/g, ' ').split(/\s+/).filter((one) => /[\p{L}\p{N}]/u.test(one)).length))
+const wordsOf = (html: string): number => html.replace(/<[^>]*>|&[#\w]+;/g, ' ').split(/\s+/).filter((one) => /[\p{L}\p{N}]/u.test(one)).length
+const minutesOf = (html: string): number => Math.max(1, minutesToRead(wordsOf(html)))
 
 /** A day as the reader says it: 15 November 2026. */
 const dayOf = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
