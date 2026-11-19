@@ -121,7 +121,11 @@ const inbox = async () => {
   if (older) { console.log('the Inbox\'s last days are short: its older captures, gone through'); await wait(800) }
 }
 /** Through the sidebar, as a person goes there. */
-const side = async (label) => { await h.click(`aside nav button[aria-label="${label}"]`); await wait(900) }
+// Back after a week away the sidebar shows only the Inbox, Journal and Tasks: its "Show everything" first, as a person would.
+const side = async (label) => {
+  if (!(await h.evaluate((one) => !!document.querySelector(`aside nav button[aria-label="${one}"]`), label))) await h.getByRole('button', { name: 'Show everything' }).click().then(() => wait(600)).catch(() => undefined)
+  await h.click(`aside nav button[aria-label="${label}"]`); await wait(900)
+}
 
 try {
   console.log(`build ${process.env.QA_ENTRY.split('/').slice(-3, -2)}; ${CASE}; note ${note?.id} (${load()})`)
