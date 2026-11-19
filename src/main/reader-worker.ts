@@ -69,7 +69,7 @@ port.on('message', (said: ToThread) => {
     waiting.get(said.answer)?.(said.value)
     waiting.delete(said.answer)
   } else if ('gone' in said) {
-    if (inHand.has(said.gone)) left.add(said.gone)
+    if (inHand.has(said.gone) || asked.some((one) => one.id === said.gone)) left.add(said.gone)
   } else if ('forget' in said) {
     known = null
     forgetWords()
@@ -82,8 +82,37 @@ port.on('message', (said: ToThread) => {
     process.exit(0)
   } else if ('crash' in said) {
     setImmediate(() => { throw new Error('asked to stop, by a test') })
-  } else void answer(said)
+  } else {
+    asked.push(said)
+    pump()
+  }
 })
+
+// What a person is typing (⌘K, `@`, a link by name) is answered before the reads a page or a start-up asks for: the
+// asks wait here and the next is picked after each one, so a search typed just after start no longer waits behind
+// every list, file and first-line read queued before it (8.6 s for the first key on a big book). A read already
+// running is never cut short.
+const TYPED = new Set<string>(['find', 'search', 'items', 'named'])
+const asked: Extract<ToThread, { kind: unknown }>[] = []
+let pumping = false
+// Nothing is picked until the emoji table has loaded (answer waits for it too): picked before, every ask would start
+// and then wait in the order it came.
+let warm = false
+const warmed = (): void => ((warm = true), pump())
+void ready.then(warmed, warmed)
+function pump(): void {
+  if (pumping || !asked.length || !warm) return
+  pumping = true
+  // Its own turn of the event loop, so asks that came in while the last one ran are in the queue to be picked from.
+  setImmediate(() => {
+    const at = asked.findIndex((one) => TYPED.has(one.kind))
+    const next = asked.splice(at < 0 ? 0 : at, 1)[0]
+    // Started, not awaited: one waiting on main (the Mac's reading of words) lets the next begin, as before.
+    void answer(next)
+    pumping = false
+    pump()
+  })
+}
 
 async function answer({ id, kind, args }: Extract<ToThread, { kind: unknown }>): Promise<void> {
   inHand.add(id)
