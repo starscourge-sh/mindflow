@@ -1,9 +1,10 @@
-import { useRef } from "react"
+import { useEffect, useImperativeHandle, useRef } from "react"
 import type { Editor, JSONContent } from "@tiptap/core"
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { LinkPopover } from "@/components/tiptap-ui/link-popover"
 import { ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { HaligtreeEditor, type HaligtreeEditorProps } from "@/components/haligtree/haligtree-editor"
+import { vimPluginKey } from "@/extensions/vim-mode"
 
 /**
  * The editor, dressed for a few common jobs.
@@ -101,53 +102,126 @@ const plainDoc = (text: string, line: boolean): JSONContent => {
 }
 
 /**
- * A field of plain words on a page (a month's focus, a week's intentions), written in the one editor, so it keys as
- * a note does: Vim when Vim is on, the same undo, selection and spelling. It hands back plain text, a line each
- * paragraph, when the caret leaves it. `line` holds one line, and Return leaves it.
+ * What a caller holds of a PlainField, shaped as the textarea it replaced was used: put the caret in it, take it out,
+ * read its words, and place the caret (setSelectionRange, counted in characters with a line break as one).
  */
-export function PlainField({ value, placeholder, label, line = false, className = "", onSave }: {
+export type PlainHandle = {
+  focus: () => void
+  blur: () => void
+  readonly value: string
+  setSelectionRange: (from: number, to: number) => void
+}
+
+/** The words of the field, a line a paragraph. */
+const plainOf = (editor: Editor): string => editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n")
+
+/**
+ * A field of plain words (a month's focus, a thought under a note, a goal's log), written in the one editor, so it
+ * keys as a note does: Vim when Vim is on, the same undo, selection and spelling. It hands back plain text, a line each
+ * paragraph: on every change (`onChange`, for a field whose words the caller holds as `value`) and when the caret
+ * leaves it (`onSave`). `line` holds one line, and Return leaves it. `onKey` sees a key before the editor does (Return
+ * to keep, ↑ for what came before, Escape to put it away) and takes it by `preventDefault`; Escape goes to Vim first
+ * while Vim has a use for it (leaving insert mode, cancelling a half-typed command).
+ */
+export function PlainField({ value, placeholder, label, line = false, className = "", autoFocus = false, vimStart = "normal", style, handle, onChange, onSave, onLeave, onKey, ...rest }: {
   value: string
+  /** A field summoned to write in (a thought, a log) starts Vim in insert mode, as quick capture does; a page's field in normal. */
+  vimStart?: "normal" | "insert"
   placeholder: string
   label: string
   line?: boolean
   className?: string
-  onSave: (text: string) => void
-}): React.JSX.Element {
+  style?: React.CSSProperties
+  autoFocus?: boolean
+  handle?: React.Ref<PlainHandle | null>
+  onChange?: (text: string) => void
+  onSave?: (text: string) => void
+  /** The caret gone elsewhere (not into its own menus): a field that closes when left empty. */
+  onLeave?: () => void
+  onKey?: (event: KeyboardEvent) => void
+} & { [data: `data-${string}`]: string | boolean | undefined }): React.JSX.Element {
   const editor = useRef<Editor | null>(null)
   const kept = useRef(value)
   kept.current = value
-  const leave = (): void => {
+  const changed = useRef(onChange)
+  changed.current = onChange
+  const keyed = useRef(onKey)
+  keyed.current = onKey
+  // The caller's words changed by the caller (cleared once kept, a thought put back to reword): laid in. Its own
+  // typing comes back the same, and lays nothing in.
+  useEffect(() => {
     const one = editor.current
-    if (!one || one.isDestroyed) return
-    const text = one.state.doc.textBetween(0, one.state.doc.content.size, "\n").trim()
-    if (text !== kept.current.trim()) onSave(text)
-  }
+    if (!one || one.isDestroyed || plainOf(one) === value) return
+    one.commands.setContent(plainDoc(value, line), { emitUpdate: false })
+    // Still being written in (a thought put back to reword): the caret at the end of the words laid in, the focus left as it is.
+    if (one.isFocused) one.commands.setTextSelection(one.state.doc.content.size - 1)
+  }, [value, line])
+  useImperativeHandle(handle, () => ({
+    focus: () => void editor.current?.commands.focus(),
+    blur: () => void editor.current?.commands.blur(),
+    get value() {
+      return editor.current ? plainOf(editor.current) : kept.current
+    },
+    setSelectionRange: (from: number, to: number) => {
+      const one = editor.current
+      if (!one) return
+      // Characters to places in the document: each paragraph after the first starts two places on (its close and open).
+      const place = (at: number): number => {
+        let left = at
+        let pos = one.state.doc.content.size - 1
+        one.state.doc.forEach((block, offset) => {
+          if (left < 0) return
+          const size = block.textContent.length
+          if (left <= size) (pos = offset + 1 + left), (left = -1)
+          else left -= size + 1
+        })
+        return pos
+      }
+      one.chain().focus().setTextSelection({ from: place(from), to: place(to) }).run()
+    }
+  }), [])
   return (
-    <div data-plain-field={label} aria-label={label} className={`min-w-0 ${className}`}
+    <div {...rest} data-plain-field={label} aria-label={label} className={`min-w-0 ${className}`} style={style}
       onBlur={(event) => {
         // Into its own menu or the selection bar: still being written.
         const into = event.relatedTarget as Element | null
         if (into && (event.currentTarget.contains(into) || into.closest("[role=menu], .tiptap-suggestion-popup"))) return
-        leave()
-      }}
-      onKeyDown={(event) => {
-        if (line && event.key === "Enter" && !event.shiftKey) editor.current?.commands.blur()
+        onLeave?.()
+        const one = editor.current
+        if (!one || one.isDestroyed || !onSave) return
+        const text = plainOf(one).trim()
+        if (text !== kept.current.trim()) onSave(text)
       }}>
       <HaligtreeEditor
         {...BARE}
         vim={undefined}
+        vimStart={vimStart}
+        plain
         shape={line ? "line" : "document"}
         lineNumbers={false}
         math={false}
         marks={[]}
         toolbar={false}
+        autofocus={autoFocus ? "end" : false}
         defaultContent={plainDoc(value, line)}
         placeholder={placeholder}
         // A field, not a page: no word count, no page furniture at its foot.
         foot={() => null}
         smoothScroll={false}
         style={{ "--mf-padding": "0" } as React.CSSProperties}
-        onReady={(one) => void (editor.current = one)}
+        onKeyDown={(event) => {
+          const one = editor.current
+          // Escape is Vim's while it means something to it: out of insert or visual mode, or a half-typed command away.
+          const vim = one ? vimPluginKey.getState(one.state) : null
+          if (event.key === "Escape" && vim?.enabled && (vim.mode !== "normal" || vim.operator || vim.count || vim.pendingFind || vim.pendingG || vim.pendingZ || vim.pendingReplace || vim.pendingTextObject)) return false
+          if (line && event.key === "Enter" && !event.shiftKey && !keyed.current) return (one?.commands.blur(), true)
+          keyed.current?.(event)
+          return event.defaultPrevented
+        }}
+        onReady={(one) => {
+          editor.current = one
+          one.on("update", () => changed.current?.(plainOf(one)))
+        }}
       />
     </div>
   )

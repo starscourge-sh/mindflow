@@ -3693,11 +3693,10 @@ html[data-pill-open='left'] #root { right: 0; }
 .app-container[data-pill] [data-vim-status] { display: none; }
 /* A field on a page (presets.tsx PlainField) keys as a note does, but the page's mode word is the note's, not a field's. */
 [data-plain-field] [data-vim-status] { display: none; }
-/* Its words at the field's own size, as the plain field before it was: a field, not a page. No typewriter room after
-   the last line, and no band on the caret's line (too loud in a field, as on a sticky). Its hint in italic, as before. */
-[data-plain-field] .haligtree-editor-content > .tiptap.ProseMirror.haligtree-editor { font-size: calc(var(--text-body) * var(--mf-text-scale, 1)); line-height: 1.5; padding: 0; }
+/* Its words in the field's own type (a month's field, a thought, a page's title), as the plain field before it was: a field, not a page. No typewriter room after
+   the last line, and no band on the caret's line (too loud in a field, as on a sticky). */
+[data-plain-field] .haligtree-editor-content > .tiptap.ProseMirror.haligtree-editor { font: inherit; letter-spacing: inherit; padding: 0; }
 [data-plain-field] .vim-cursor-line:not(.is-empty[data-placeholder])::before { display: none; }
-[data-plain-field] .tiptap.ProseMirror .is-empty[data-placeholder]::before { font-style: italic; }
 /* Its round controls stand beside its right end at its own height, in the room main keeps there (hint-room.ts).
    Grown into the box, they go in a row above it, level with its right edge, at their usual size (note 57aa1710),
    gliding there from beside the pill (windows/box.tsx). Only they show of the strip.

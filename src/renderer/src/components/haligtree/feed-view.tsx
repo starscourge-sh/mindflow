@@ -1,3 +1,4 @@
+import { PlainField, type PlainHandle } from './presets'
 import { startTransition, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStepped } from '@/lib/nav'
 import { heroAround, heroOpen } from '@/lib/hero'
@@ -1058,7 +1059,7 @@ type Restackable = Pick<FeedPost, 'type' | 'id' | 'kind' | 'title' | 'text' | 'w
 export function Restack({ post, onDone, onOpen, initial = '', mind = false }: { post: Restackable; onDone: () => void; onOpen: (id: string) => void; initial?: string; /** "Changed my mind": the old note is marked as changed once it is kept. */ mind?: boolean }): React.JSX.Element {
   const [words, setWords] = useState(initial)
   useEffect(() => setWords(initial), [initial])
-  const field = useRef<HTMLTextAreaElement>(null)
+  const field = useRef<PlainHandle>(null)
   // The caret after what is already there, so "Now: " is typed straight on.
   useEffect(() => void requestAnimationFrame(() => { const box = field.current; if (box) (box.focus(), box.setSelectionRange(box.value.length, box.value.length)) }), [])
   const keep = async (): Promise<void> => {
@@ -1074,13 +1075,13 @@ export function Restack({ post, onDone, onOpen, initial = '', mind = false }: { 
     <div data-feed-composer className="mt-1 flex flex-col gap-2 rounded-xl border bg-background p-3 focus-within:border-foreground/25" onKeyDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
       <div className="flex gap-2.5">
         <Avatar name="You" size={28} className="shrink-0" />
-        <textarea ref={field} rows={2} value={words} aria-label="In your own words" placeholder="Why it matters to you now"
-          onChange={(event) => setWords(event.target.value)}
-          onKeyDown={(event) => {
+        <PlainField handle={field} autoFocus vimStart="insert" value={words} label="In your own words" placeholder="Why it matters to you now"
+          onChange={setWords}
+          onKey={(event) => {
             if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), void keep())
             if (event.key === 'Escape') (event.preventDefault(), chime('fold'), onDone())
           }}
-          className="min-h-12 min-w-0 flex-1 resize-none bg-transparent pt-1 text-body text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground" />
+          className="min-h-12 min-w-0 flex-1 pt-1 text-body text-foreground" />
       </div>
       <div className="pl-[38px]"><Quoted note={post} /></div>
       <div className="flex items-center justify-end gap-2 text-control text-muted-foreground">

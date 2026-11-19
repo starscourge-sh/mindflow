@@ -441,7 +441,6 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
                     handles={false}
                     slash={false}
                     outline={false}
-                    vim={false}
                     search={false}
                   />
                 )}

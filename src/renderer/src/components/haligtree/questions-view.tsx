@@ -1,3 +1,4 @@
+import { PlainField } from './presets'
 import { TabChips } from './tab-chips'
 import { notePowers } from './note-powers'
 import { QuestionClues } from './offers-about'
@@ -425,21 +426,16 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
         )}
         {/* The question itself, as a page's title: in the words' own column (main.css), so it starts where they start. */}
         <div data-question-head className="note-column mb-2 shrink-0">
-          <textarea
-            rows={1}
+          <PlainField
+            line
             data-page-title
-            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-muted-foreground"
+            label="The question"
+            className="block w-full font-heading text-title font-semibold tracking-[-0.018em] text-balance"
             // Its name without its #tags, which show in Properties; renamed, they stay on what is stored.
-            defaultValue={item.title === 'Untitled' ? '' : shownName(item.title)}
+            value={item.title === 'Untitled' ? '' : shownName(item.title)}
             autoFocus={!item.title || item.title === 'Untitled'}
             placeholder="What do you keep circling?"
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter' || event.shiftKey) return
-              event.preventDefault()
-              event.currentTarget.blur()
-            }}
-            onBlur={(event) => {
-              const typed = event.target.value.replace(/\s*\n\s*/g, ' ').trim()
+            onSave={(typed) => {
               const title = typed && withTagsOf(typed, item.title)
               if (title && title !== item.title) void haligtree.saveItem(item.id, { title }).then(() => chime('noted'))
             }}

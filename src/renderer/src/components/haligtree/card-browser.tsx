@@ -303,7 +303,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
         className="w-full bg-transparent font-heading text-heading font-semibold leading-snug outline-none placeholder:text-muted-foreground" placeholder="The question" />
       <div aria-hidden className="mf-index-rule my-1" />
       <div data-card-edit-answer className="min-h-12 [--mf-padding:0] [&_.haligtree-editor]:!text-[length:calc(0.875rem*var(--mf-text-scale,1))] [&_.tiptap-word-count]:hidden">
-        {body !== undefined && <HaligtreeEditor defaultContent={(body as never) ?? ''} toolbar={{ fixed: false }} handles={false} outline={false} search={false} vim={false} autofocus={false}
+        {body !== undefined && <HaligtreeEditor defaultContent={(body as never) ?? ''} toolbar={{ fixed: false }} handles={false} outline={false} search={false} vimStart="insert" autofocus={false}
           onReady={(one) => {
             doc.current = kept.current.doc = one.state.doc
             one.on('update', () => void (doc.current = one.state.doc))

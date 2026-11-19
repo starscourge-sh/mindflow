@@ -1,3 +1,4 @@
+import { PlainField } from './presets'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { byKeys, spring, still } from '@/lib/motion'
@@ -891,9 +892,9 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
             <Button data-event-join onClick={() => (chime('open'), void events.join(one.video!))}><Video /> Join the video call</Button>
           </div>
         )}
-        <textarea key={`notes:${one.notes}`} data-event-notes aria-label="Notes about the event" defaultValue={one.notes} rows={4} placeholder="Add notes: the agenda, what to bring, what to ask"
-          onBlur={(event) => event.target.value !== one.notes && void save({ notes: event.target.value }, 'Notes kept')}
-          className="page-narrow mx-auto block w-full resize-none bg-transparent px-4 @[40rem]/page:px-12 text-body leading-relaxed text-foreground outline-none placeholder:text-muted-foreground [field-sizing:content]" />
+        <PlainField key={`notes:${one.notes}`} data-event-notes label="Notes about the event" value={one.notes} placeholder="Add notes: the agenda, what to bring, what to ask"
+          onSave={(notes) => void save({ notes }, 'Notes kept')}
+          className="page-narrow mx-auto block min-h-[4lh] w-full px-4 @[40rem]/page:px-12 text-body leading-relaxed text-foreground" />
         {/* Meeting notes: a note of its own for this time, linked both ways. */}
         <div className="page-narrow mx-auto mt-4 flex w-full flex-col gap-1 px-4 @[40rem]/page:px-12">
           <div className="flex items-center gap-2">

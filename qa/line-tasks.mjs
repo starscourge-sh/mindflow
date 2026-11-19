@@ -212,8 +212,8 @@ if (goal) {
   const before = (await v('glosses', goal.id)).length
   await send('goal', goal.id)
   await wait(1500)
-  await h.locator('[data-log-field]').fill('- Ran three miles\n- Stretched after')
-  await h.locator('[data-log-field]').press('Enter')
+  await h.locator('[data-log-field] [contenteditable]').fill('- Ran three miles\n- Stretched after')
+  await h.locator('[data-log-field] [contenteditable]').press('Enter')
   await wait(1200)
   check('a list in a goal’s log is a log a line', (await v('glosses', goal.id)).length === before + 2)
 } else check('a goal to log on', false)

@@ -1,3 +1,4 @@
+import { PlainField, type PlainHandle } from './presets'
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
@@ -43,7 +44,7 @@ async function keepRecap(id: string, text: string, onUndo?: (words: string) => v
  */
 function RecapLine({ id, focus = true, onDone, className, again = '', onUndone }: { id: string; focus?: boolean; onDone: () => void; className?: string; /** Words taken back with Undo, in the line again. */ again?: string; /** What was kept here was undone: the line is wanted back with these words. */ onUndone?: (words: string) => void }): React.JSX.Element {
   const [words, setWords] = useState(again)
-  const field = useRef<HTMLTextAreaElement>(null)
+  const field = useRef<PlainHandle>(null)
   // Only takes the keys when this window already has them: a session ended
   // from the pill must not pull you back into a field you never chose.
   useEffect(() => void (focus && document.hasFocus() && (field.current?.focus(), field.current?.setSelectionRange(again.length, again.length))), [focus]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -60,15 +61,15 @@ function RecapLine({ id, focus = true, onDone, className, again = '', onUndone }
       className={cn('flex items-start gap-2 rounded-lg border bg-accent/30 px-2.5 py-1.5 text-xs focus-within:border-foreground/25', className)}
     >
       <Timer className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-      <textarea
-        ref={field}
-        rows={1}
+      <PlainField
+        handle={field}
+        vimStart="insert"
         value={words}
         placeholder="How did it go?"
-        aria-label="How did it go?"
-        onChange={(event) => setWords(event.target.value)}
-        onBlur={() => !words.trim() && onDone()}
-        onKeyDown={(event) => {
+        label="How did it go?"
+        onChange={setWords}
+        onLeave={() => !field.current?.value.trim() && onDone()}
+        onKey={(event) => {
           event.stopPropagation()
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
@@ -80,7 +81,7 @@ function RecapLine({ id, focus = true, onDone, className, again = '', onUndone }
             onDone()
           }
         }}
-        className="max-h-24 min-w-0 flex-1 resize-none bg-transparent text-control text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground"
+        className="max-h-24 min-w-0 flex-1 overflow-y-auto text-control text-foreground"
       />
       {words.trim() ? <Kbd className="mt-px shrink-0">↵</Kbd> : <Kbd className="mt-px shrink-0">Esc</Kbd>}
     </motion.label>

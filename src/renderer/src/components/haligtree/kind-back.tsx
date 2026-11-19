@@ -1,3 +1,4 @@
+import { PlainField } from './presets'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -91,11 +92,11 @@ export function KindBack({ one, onDone, flush, again, onUndone }: {
     <div data-check-back className="flex flex-col gap-1.5">
       {line('It asks:', one.ask || 'How did it go?')}
       {one.answer && line('Last time:', one.answer)}
-      <textarea
-        rows={1}
+      <PlainField
+        vimStart="insert"
         value={said}
-        onChange={(event) => setSaid(event.target.value)}
-        onKeyDown={(event) => {
+        onChange={setSaid}
+        onKey={(event) => {
           event.stopPropagation()
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
@@ -103,8 +104,8 @@ export function KindBack({ one, onDone, flush, again, onUndone }: {
           }
         }}
         placeholder="Your answer"
-        aria-label="Your answer"
-        className="private-text w-full resize-none rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-control text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground"
+        label="Your answer"
+        className="private-text w-full rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-control text-foreground"
       />
       <div className={`flex items-center gap-1 ${flush ? '-ml-2' : ''}`}>
         <Button variant="ghost" size="sm" className="text-foreground" onClick={() => then(answer(one, said, back))}>Answer</Button>

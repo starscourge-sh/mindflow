@@ -40,7 +40,7 @@ try {
     const leaves = [...document.querySelectorAll('body *')].filter((el) => !el.closest('.ProseMirror') && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().startsWith(start)))
     const where = leaves.map((el) => el.closest('[data-tab]') ? 'tab' : el.closest('aside[aria-label="Recent"], [data-chrome]') ? 'side' : el.closest('[data-row], li, [role="option"], [role="row"], button') ? 'list' : el.tagName.toLowerCase())
     const untitled = [...document.querySelectorAll('body *')].filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim() === 'Untitled')).length
-    return { where, untitled, field: !!document.querySelector('textarea[data-page-title]') }
+    return { where, untitled, field: !!document.querySelector('[data-page-title] [contenteditable]') }
   }, FIRST)
   check('1. no title field on a page named by its first line', !named.field, JSON.stringify(named))
   check('1. its first line names it in the tab', named.where.includes('tab'), JSON.stringify(named.where))
@@ -59,7 +59,7 @@ try {
   const titled = await v('article:new')
   await v('item:save', titled, { title: 'Orbits', body: { type: 'doc', content: [p('Some words first.')] } })
   await c.send('article', titled); await wait(1500)
-  const field = await h.evaluate(() => document.querySelector('textarea[data-page-title]')?.value ?? null)
+  const field = await h.evaluate(() => document.querySelector('[data-page-title] [contenteditable]')?.textContent ?? null)
   check('1. a page with a title of its own shows it in its field', field === 'Orbits', String(field))
 
   // 2. Serif.

@@ -65,7 +65,7 @@ const edges = () => h.evaluate(() => {
   const at = (node) => node ? Math.round(node.getBoundingClientRect().left * 10) / 10 : null
   const pane = document.querySelector('div[data-open]')
   return {
-    title: at(pane?.querySelector('h1 textarea')),
+    title: at(pane?.querySelector('h1 [data-plain-field]')),
     card: at(pane?.querySelector('[data-road-card]')),
     log: at(pane?.querySelector('[data-log-box]') ?? pane?.querySelector('[data-log-field]')?.parentElement),
     why: at(pane?.querySelector('[data-goal-why]')),
@@ -78,7 +78,7 @@ const edges = () => h.evaluate(() => {
       if (!card || !log) return null
       const cb = card.getBoundingClientRect().bottom
       const lt = log.getBoundingClientRect().top
-      return [...pane.querySelectorAll('textarea, p, h3')].filter((one) => { const r = one.getBoundingClientRect(); return r.height > 0 && r.top >= cb - 1 && r.bottom <= lt + 1 }).length
+      return [...pane.querySelectorAll('textarea, [data-plain-field], p, h3')].filter((one) => { const r = one.getBoundingClientRect(); return r.height > 0 && r.top >= cb - 1 && r.bottom <= lt + 1 }).length
     })()
   }
 })

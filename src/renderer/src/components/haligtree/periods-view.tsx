@@ -154,7 +154,7 @@ function Field({ label, hint, value, placeholder, long = false, onSave }: {
       <span className="text-control font-medium text-foreground">{label}</span>
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       <PlainField value={value} placeholder={placeholder} label={label} line={!long} onSave={(text) => text !== value && onSave(text)}
-        className={`mf-ruled text-body text-foreground ${long ? 'mt-1 min-h-[3lh]' : 'mt-0.5'}`} />
+        className={`mf-ruled text-body text-foreground [&_.is-empty]:before:italic ${long ? 'mt-1 min-h-[3lh]' : 'mt-0.5'}`} />
     </div>
   )
 }

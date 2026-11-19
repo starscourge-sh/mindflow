@@ -1,3 +1,4 @@
+import { PlainField, type PlainHandle } from './presets'
 import { Orb } from './orb'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
@@ -512,6 +513,7 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
     return () => clearTimeout(wait)
   }, [asking])
   const [text, setText] = useState(page?.bio ?? '')
+  const bioField = useRef<PlainHandle>(null)
   const [writing, setWriting] = useState(false)
   useEffect(() => setText(page?.bio ?? ''), [page?.bio])
   if (!page) return null
@@ -539,14 +541,14 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
   )
   return (
     <div data-bio className={cn('mt-4 px-5', fresh && page.bio && 'min-h-[calc(3lh+0.5rem)] text-heading leading-relaxed [animation:mf-fade_300ms_ease-out] motion-reduce:[animation:none]')}>
-      <textarea data-bio-text value={text} rows={1} autoFocus={writing} aria-label={field === 'attribution' ? 'About them' : 'About it'}
+      <PlainField data-bio-text handle={bioField} value={text} autoFocus={writing} vimStart="insert" label={field === 'attribution' ? 'About them' : 'About it'}
         placeholder={field === 'attribution' ? 'A line about them' : 'A line about it'}
-        onChange={(event) => setText(event.target.value)} onBlur={save}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey) (event.preventDefault(), event.currentTarget.blur())
-          if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(page.bio), setWriting(false), event.currentTarget.blur())
+        onChange={setText} onLeave={save}
+        onKey={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) (event.preventDefault(), bioField.current?.blur())
+          if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(page.bio), setWriting(false), bioField.current?.blur())
         }}
-        className="-mx-2 block w-[calc(100%+1rem)] resize-none rounded-md bg-transparent px-2 py-1 text-heading leading-relaxed text-pretty outline-none [field-sizing:content] placeholder:text-muted-foreground hover:bg-accent/50 focus:bg-accent/50" />
+        className="-mx-2 block w-[calc(100%+1rem)] rounded-md px-2 py-1 text-heading leading-relaxed text-pretty hover:bg-accent/50 focus-within:bg-accent/50" />
       {page.bioUrl && text === page.bio && (
         <a data-bio-credit href={page.bioUrl} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA"
           className="-mx-1 inline-flex items-center gap-0.5 rounded-sm px-1 py-1 text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">
@@ -594,6 +596,7 @@ const quoteEntry = (field: SourceField, page: SourcePage, item: SourceItem): Ent
 /** What you make of them, inside its island: a field once started; until then one quiet row that starts it. */
 function Thoughts({ field, name, page }: { field: SourceField; name: string; page: SourcePage }): React.JSX.Element {
   const [text, setText] = useState(page.thoughts)
+  const thoughtsField = useRef<PlainHandle>(null)
   const [writing, setWriting] = useState(false)
   useEffect(() => setText(page.thoughts), [page.thoughts])
   const asked = `What you make of ${field === 'attribution' ? 'them' : 'it'}, in your own words`
@@ -604,11 +607,11 @@ function Thoughts({ field, name, page }: { field: SourceField; name: string; pag
     </button>
   )
   return (
-    <textarea data-thoughts value={text} rows={2} autoFocus={writing} placeholder={asked}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={() => (setWriting(false), text !== page.thoughts && void sources.set(field, name, text).then(() => chime('noted')))}
-      onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), setText(page.thoughts), event.currentTarget.blur())}
-      className="block w-full resize-none rounded-md bg-transparent px-2 py-1.5 text-body leading-relaxed outline-none [field-sizing:content] placeholder:text-muted-foreground hover:bg-accent/50 focus:bg-accent/50" />
+    <PlainField data-thoughts handle={thoughtsField} value={text} autoFocus={writing} vimStart="insert" placeholder={asked} label={asked}
+      onChange={setText}
+      onLeave={() => (setWriting(false), thoughtsField.current && thoughtsField.current.value !== page.thoughts && void sources.set(field, name, thoughtsField.current.value).then(() => chime('noted')))}
+      onKey={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), setText(page.thoughts), thoughtsField.current?.blur())}
+      className="block w-full rounded-md px-2 py-1.5 text-body leading-relaxed hover:bg-accent/50 focus-within:bg-accent/50" />
   )
 }
 

@@ -680,6 +680,13 @@ export interface HaligtreeEditorProps {
    */
   readOnly?: boolean
   /**
+   * Plain words only (presets.tsx PlainField): nothing typed or pasted turns into a list, a heading, a quote or a
+   * link, so the words given back are the words typed ("- milk" stays "- milk").
+   *
+   * @default false
+   */
+  plain?: boolean
+  /**
    * Which notes the `@` menu offers. The editor has no idea what a note is, so
    * searching is the app's job; without this, `@` simply finds nothing.
    *
@@ -768,6 +775,7 @@ function Surface({
   onPropertyLine,
   foot,
   readOnly = false,
+  plain = false,
   host,
   shape = "document",
   toolbar,
@@ -1078,6 +1086,8 @@ function Surface({
     // block a change touched on every change (half a second for an Undo that brings back a long note).
     enableCoreExtensions: { delete: false },
     editable: !readOnly,
+    enableInputRules: !plain,
+    enablePasteRules: !plain,
     autofocus,
     editorProps: {
       attributes: {

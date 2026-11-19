@@ -1,3 +1,4 @@
+import { PlainField, type PlainHandle } from './presets'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
@@ -118,7 +119,7 @@ export async function keepGloss(id: string, text: string, onUndo?: (words: strin
  * clue): ahead of anything typed there since, the caret at their end, ready
  * to change and send again.
  */
-export function putBack(field: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>, setWords: (next: (now: string) => string) => void, words: string): void {
+export function putBack(field: React.RefObject<Pick<HTMLTextAreaElement, 'focus' | 'setSelectionRange'> | null>, setWords: (next: (now: string) => string) => void, words: string): void {
   setWords((now) => (now.trim() ? `${words}\n${now}` : words))
   requestAnimationFrame(() => {
     const box = field.current
@@ -162,7 +163,7 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
   const last = latest ? glosses[0] : undefined
   const [writing, setWriting] = useState(open)
   const [words, setWords] = useState('')
-  const field = useRef<HTMLTextAreaElement>(null)
+  const field = useRef<PlainHandle>(null)
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => (setWriting(open), setWords('')), [id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -206,16 +207,16 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
             className="flex items-start gap-2 rounded-lg border bg-accent/30 px-2.5 py-1.5 focus-within:border-foreground/25"
           >
             <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-            <textarea
-              ref={field}
+            <PlainField
+              handle={field}
               autoFocus
-              rows={1}
+              vimStart="insert"
               value={words}
               placeholder={placeholder}
-              aria-label="Add a thought"
-              onChange={(event) => setWords(event.target.value)}
-              onBlur={() => !words.trim() && close()}
-              onKeyDown={(event) => {
+              label="Add a thought"
+              onChange={setWords}
+              onLeave={() => !field.current?.value.trim() && close()}
+              onKey={(event) => {
                 event.stopPropagation()
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault()
@@ -228,7 +229,7 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
                   close()
                 }
               }}
-              className="max-h-24 min-w-0 flex-1 resize-none bg-transparent text-control text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground"
+              className="max-h-24 min-w-0 flex-1 overflow-y-auto text-control text-foreground"
             />
             {words.trim() && <Kbd className="mt-px shrink-0">↵</Kbd>}
           </motion.label>
@@ -350,7 +351,7 @@ export function GlossComposer({ id, keys = ';', className, field: withField = tr
   // The newest few, oldest of them first; earlier ones a press away above them.
   const few = useShowMore(glosses, GLOSS_FEW, id)
   const [words, setWords] = useState('')
-  const field = useRef<HTMLTextAreaElement>(null)
+  const field = useRef<PlainHandle>(null)
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => setWords(''), [id])
   useEffect(() => {
@@ -406,14 +407,14 @@ export function GlossComposer({ id, keys = ';', className, field: withField = tr
         onClick={() => field.current?.focus()}
         className="group/field flex cursor-text items-end gap-2 rounded-xl border bg-card py-2 pr-2 pl-3.5 shadow-sm transition-[border-color,box-shadow] duration-150 hover:border-foreground/20 focus-within:border-foreground/30 focus-within:shadow-md"
       >
-        <textarea
-          ref={field}
-          rows={1}
+        <PlainField
+          handle={field}
+          vimStart="insert"
           value={words}
           placeholder="Add a thought…"
-          aria-label="Add a thought"
-          onChange={(event) => setWords(event.target.value)}
-          onKeyDown={(event) => {
+          label="Add a thought"
+          onChange={setWords}
+          onKey={(event) => {
             event.stopPropagation()
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
@@ -427,7 +428,7 @@ export function GlossComposer({ id, keys = ';', className, field: withField = tr
               field.current?.blur()
             }
           }}
-          className={cn(ready && 'private-text', 'max-h-40 min-h-7 min-w-0 flex-1 resize-none self-center bg-transparent py-1 text-control text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground')}
+          className={cn(ready && 'private-text', 'max-h-40 min-h-7 min-w-0 flex-1 self-center overflow-y-auto py-1 text-control text-foreground')}
         />
         {!ready && <span className="mb-1.5 flex shrink-0 group-focus-within/field:hidden"><Pressed keys={keys} /></span>}
         <Tip label={<span className="flex items-center gap-2">Keep it<Kbd>↵</Kbd></span>}>

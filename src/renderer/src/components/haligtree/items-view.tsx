@@ -1,3 +1,4 @@
+import { PlainField } from './presets'
 import { QuestionTabs, QuestionsSaid, type Asked } from './questions-view'
 import { askFolder, keepIn, useFolderOf, useFolders, type Folder, type FolderKind } from '@/lib/folders'
 import { newFolderHere } from './side-folder-section'
@@ -1212,19 +1213,17 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
           // Over a board, on the board's own left edge (board-view.tsx's lists and its head), not the reading column's.
           <div className={`${boardShown ? 'px-3 @[40rem]/page:px-6' : 'note-column'} mb-2 shrink-0`}>
-          <textarea
+          <PlainField
+            line
             data-page-title
-            rows={1}
-            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-muted-foreground"
-            defaultValue={titled ? item.title : ''}
-            onKeyDown={(event) => (event.key === 'Enter' || event.key === 'Escape') && (event.preventDefault(), event.currentTarget.blur())}
+            label="Title"
+            className="block w-full font-heading text-title font-semibold tracking-[-0.018em] text-balance"
+            value={titled ? item.title : ''}
+            onKey={(event) => event.key === 'Escape' && (event.preventDefault(), (event.target as HTMLElement).blur())}
             autoFocus={titling}
             placeholder={item.line || 'New note'}
-            onBlur={(event) => {
-              const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim()
-              setTitling(false)
-              if (title !== (titled ? item.title : '')) void haligtree.saveItem(item.id, { title })
-            }}
+            onLeave={() => setTitling(false)}
+            onSave={(title) => void (title !== (titled ? item.title : '') && haligtree.saveItem(item.id, { title }))}
           />
           </div>
         )}

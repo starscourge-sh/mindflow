@@ -1,3 +1,4 @@
+import { PlainField, type PlainHandle } from './presets'
 import { TabChips } from './tab-chips'
 import { DOT as SHARED_DOT, GAP as SHARED_GAP } from './time-dots'
 import { dropLines, keepLines } from '@/lib/clue-lines'
@@ -725,6 +726,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
   const left = daysLeft(target, today)
   const logs = [...item.glosses].reverse()
   const [picked, setPicked] = useState<Dot | null>(null)
+  const why = useRef<PlainHandle>(null)
   const ink = onIce(item) ? ICE : item.closedAt ? 'var(--muted-foreground)' : dateless ? goalInk(item) : warmth(Math.max(left, 0))
   const tint = useTint(null, ink)
   const beacon: Beacon = item.beacon ?? settings?.goalBeacon ?? 'sometimes'
@@ -780,40 +782,32 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
             {iced && <button type="button" data-take-off-ice onClick={() => thaw(item)} className={`${PRIMARY} bg-primary text-primary-foreground hover:bg-primary/85`}><Snowflake className="size-4 shrink-0" />Take off ice</button>}
           </> : null}
           title={
-            <textarea
-              rows={1}
-              className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-muted-foreground"
+            <PlainField
+              line
+              label="The goal"
+              className="block w-full pb-[0.12em] text-balance"
               style={iced ? { color: ICE } : undefined}
-              defaultValue={item.title === 'Untitled' ? '' : item.title}
+              data-goal-name
+              value={item.title === 'Untitled' ? '' : item.title}
               placeholder="What are you working toward?"
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' || event.shiftKey) return
-                event.preventDefault()
-                event.currentTarget.blur()
-              }}
-              onBlur={(event) => {
-                const title = event.target.value.trim()
-                if (title && title !== item.title) void haligtree.saveItem(item.id, { title }).then(() => chime('noted'))
-              }}
+              onSave={(title) => void (title && title !== item.title && haligtree.saveItem(item.id, { title }).then(() => chime('noted')))}
             />}
         />
         {/* One column under the name, on its left edge (the header's own gutters): why, the road, then the log field first under it, then the logs. */}
         <div data-goal-body className="page-column flex w-full flex-col gap-4 px-5 pb-16 @[44rem]/note:px-8">
-          <textarea
+          <PlainField
             data-goal-why
-            rows={1}
-            defaultValue={item.why ?? ''}
+            value={item.why ?? ''}
             placeholder="Why it matters…"
-            onKeyDown={(event) => {
+            label="Why it matters"
+            onKey={(event) => {
               if (event.key !== 'Enter' || event.shiftKey) return
               event.preventDefault()
-              event.currentTarget.blur()
+              why.current?.blur()
             }}
-            onBlur={(event) => {
-              const why = event.target.value.trim()
-              if (why !== (item.why ?? '')) void haligtree.saveItem(item.id, { why: why || null }).then(() => chime('noted'))
-            }}
-            className="mf-ruled private-text block w-full resize-none bg-transparent text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-muted-foreground placeholder:not-italic"
+            handle={why}
+            onSave={(text) => void haligtree.saveItem(item.id, { why: text || null }).then(() => chime('noted'))}
+            className="mf-ruled private-text block w-full text-body leading-relaxed text-foreground/85 italic"
           />
           {!dateless && !item.closedAt && left < 0 && (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-accent/25 px-4 py-3">
@@ -1342,6 +1336,7 @@ function Field({ goal, from, target, today, logs }: RoadProps): React.JSX.Elemen
  */
 function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; onClear: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
+  const logField = useRef<PlainHandle>(null)
   const all = [...item.glosses].reverse()
   const logs = picked ? all.filter((log) => dayKey(log.createdAt) >= picked.day && dayKey(log.createdAt) <= picked.last) : all
   // Several logs at once: ⇧- or ⌘-click, x, ⌘A, ⌫ removes them with one Undo, Esc lets go.
@@ -1372,22 +1367,23 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
       {!item.closedAt && (
         <div data-log-box className="flex items-start gap-2 rounded-lg border bg-accent/30 px-3 py-2 focus-within:border-foreground/25">
           <Plus aria-hidden className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
-          <textarea
+          <PlainField
             data-log-field
-            rows={1}
+            handle={logField}
+            vimStart="insert"
             value={words}
-            aria-label={someday(item) ? 'Log a step' : 'Add a log'}
-            onChange={(event) => setWords(event.target.value)}
-            onKeyDown={(event) => {
+            label={someday(item) ? 'Log a step' : 'Add a log'}
+            onChange={setWords}
+            onKey={(event) => {
               event.stopPropagation()
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault()
                 keep()
               }
-              if (event.key === 'Escape') event.currentTarget.blur()
+              if (event.key === 'Escape') (event.preventDefault(), logField.current?.blur())
             }}
             placeholder={someday(item) ? 'A step: what you did toward it, what you found out' : 'A log: what you did, where it stands, what you think'}
-            className="min-w-0 flex-1 resize-none bg-transparent text-control outline-none [field-sizing:content] placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 text-control"
           />
           {words.trim() && <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd></span>}
         </div>

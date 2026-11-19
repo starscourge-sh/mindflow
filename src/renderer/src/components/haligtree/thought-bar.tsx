@@ -7,6 +7,7 @@ import { useLive, haligtree, when, whenInLine, type Gloss } from '@/lib/haligtre
 import { Kbd, Pressed, Rolling, Tip, quietly, toast } from './ui'
 import { ShowMore, useShowMore } from './show-more'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
+import { PlainField, type PlainHandle } from './presets'
 import { ArrowUp, X as Cancel, History } from '@/components/ui/icons'
 import { BlurEdge, useDockRoom } from './blur-edge'
 import { num } from '../../../../main/dates'
@@ -40,7 +41,7 @@ export function ThoughtBar({ id, clue = false, className }: {
   const [words, setWords] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Gloss | null>(null)
-  const field = useRef<HTMLTextAreaElement>(null)
+  const field = useRef<PlainHandle>(null)
   const root = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLOListElement>(null)
   const name = clue ? 'clue' : 'thought'
@@ -61,7 +62,7 @@ export function ThoughtBar({ id, clue = false, className }: {
       if ((event as CustomEvent<string>).detail !== id) return
       const over = [...document.querySelectorAll('[role="dialog"]')].at(-1)
       if (over && !over.contains(root.current)) return
-      if (document.activeElement !== field.current) chime('tap')
+      if (!root.current?.querySelector('[data-plain-field]')?.contains(document.activeElement)) chime('tap')
       field.current?.focus()
     }
     window.addEventListener('haligtree:gloss', onOpen)
@@ -180,16 +181,16 @@ export function ThoughtBar({ id, clue = false, className }: {
               {past.length > 0 && <Rolling text={glosses.length} className="tabular-nums" />}
             </button>
           </Tip>
-          <textarea
-            ref={field}
-            rows={1}
+          <PlainField
+            handle={field}
             value={words}
+            vimStart="insert"
             placeholder={editing ? `Reword your ${name}` : clue ? 'Add a clue…' : 'Add a thought…'}
-            aria-label={clue ? 'Add a clue' : 'Add a thought'}
-            onChange={(event) => setWords(event.target.value)}
-            onKeyDown={(event) => {
+            label={clue ? 'Add a clue' : 'Add a thought'}
+            onChange={setWords}
+            onKey={(event) => {
               event.stopPropagation()
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
                 event.preventDefault()
                 keep()
               }
@@ -207,7 +208,7 @@ export function ThoughtBar({ id, clue = false, className }: {
                 field.current?.blur()
               }
             }}
-            className={cn(ready && 'private-text', 'max-h-40 min-h-7 min-w-0 flex-1 resize-none self-center bg-transparent py-1 pl-1 text-control text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground')}
+            className={cn(ready && 'private-text', 'max-h-40 min-h-7 min-w-0 flex-1 self-center overflow-y-auto py-1 pl-1 text-control text-foreground')}
           />
           {!ready && <span className="mb-1.5 flex shrink-0 group-focus-within/composer:hidden"><Pressed keys=";" /></span>}
           <Tip label={<span className="flex items-center gap-2">{editing ? 'Keep the new words' : clue ? 'Keep the clue' : 'Keep it'}<Kbd>↵</Kbd></span>}>

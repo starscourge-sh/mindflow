@@ -1471,7 +1471,7 @@ function CardEditor({ content, onDone }: { content: JSONContent[]; onDone: (cont
   return (
     <div ref={box} className="min-w-0 flex-1 [--mf-padding:0] [&_.haligtree-editor]:!text-[length:calc(0.875rem*var(--mf-text-scale,1))] [&_.tiptap-word-count]:hidden" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
       <HaligtreeEditor defaultContent={{ type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] }} tokens={TAGS}
-        findNotes={findCaptures} toolbar={{ fixed: false }} handles={false} outline={false} search={false} vim={false} autofocus="end" onReady={(editor) => (ed.current = editor)} />
+        findNotes={findCaptures} toolbar={{ fixed: false }} handles={false} outline={false} search={false} vimStart="insert" autofocus="end" onReady={(editor) => (ed.current = editor)} />
     </div>
   )
 }
@@ -1496,7 +1496,7 @@ function AddCard({ placeholder, onAdd, onClose }: { placeholder: string; onAdd: 
         if (into && (event.currentTarget.contains(into) || into.closest('[role=menu], [role=listbox], .tiptap-suggestion-popup'))) return
         if (empty()) onClose()
       }}>
-      <HaligtreeEditor shape="line" autofocus="end" handles={false} slash={false} outline={false} search={false} vim={false} math={false} smoothScroll={false}
+      <HaligtreeEditor shape="line" autofocus="end" handles={false} slash={false} outline={false} search={false} vimStart="insert" math={false} smoothScroll={false}
         toolbar={false} tokens={TAGS} findNotes={findCaptures} placeholder={placeholder}
         style={{ '--mf-padding': '0' } as React.CSSProperties}
         onReady={(editor) => (ed.current = editor)}

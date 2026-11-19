@@ -1,10 +1,14 @@
+import { PlainField, type PlainHandle } from './presets'
 import { useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { refuse, toast } from './ui'
 import { deckTagOf, deckTitle } from './decks'
 import { haligtree, useLive } from '@/lib/haligtree'
 import { plural } from '../../../../main/dates'
-import { CARD_FIELD, CardForm, CardFormFoot, tagsIn } from './card-form'
+import { CardForm, CardFormFoot, tagsIn } from './card-form'
+
+/** A card form's field: the italic hint the old fields wore, no box of its own. */
+const PLAIN = 'w-full text-foreground [&_.is-empty]:before:italic [&_.is-empty]:before:font-normal'
 
 /**
  * "Make a card" in a deck: one card, the question then its answer, written
@@ -19,7 +23,7 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
   const [made, setMade] = useState(0)
   // Anki's "Basic (and reversed card)": a second card asks the answer first. Kept on for the next card.
   const [both, setBoth] = useState(false)
-  const ask = useRef<HTMLTextAreaElement>(null)
+  const ask = useRef<PlainHandle>(null)
   const tag = deckTagOf(deck)
   const marks = [tag, ...tagsIn(tags)].filter(Boolean)
   // The deck's names for its two sides ("English", "Spanish"), when it has them: the deck itself or the nearest one above it.
@@ -38,7 +42,9 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
       toast(`${ids.length > 1 ? 'Two cards made, one each way,' : 'Card made'}${tag ? ` in the deck ${deckTitle(tag)}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => (chime('undo'), setMade((n) => Math.max(0, n - ids.length)))), 'success', undefined, { type: 'nugget', id: ids[0], title: card.term })
     })
   }
-  const keys = (event: React.KeyboardEvent): void => {
+  const keys = (event: React.KeyboardEvent | KeyboardEvent): void => {
+    // Taken already by a field (PlainField's onKey, below, which also gives Vim its Escape first): not twice.
+    if (event.defaultPrevented) return
     // Typing stays in the form; the app's own chords (⌘K, ⌘F) still reach the app.
     if (!event.metaKey && !event.ctrlKey) event.stopPropagation()
     if (event.key === 'Escape') return void (event.preventDefault(), onClose())
@@ -49,11 +55,11 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
       foot={<CardFormFoot mark="new-save" deck={deck} onDeck={(to) => (setDeck(to), ask.current?.focus())} tags={tags} onTags={setTags} both={both} onBoth={setBoth}
         status={made ? <span data-new-made className="tabular-nums">{plural(made, 'card')} made</span> : undefined}
         cancel={made ? 'Done' : 'Cancel'} onCancel={onClose} go="Make the card" ready={!!question.trim() && !!answer.trim()} onGo={save} />}>
-      <textarea ref={ask} autoFocus rows={1} value={question} onChange={(event) => setQuestion(event.target.value)}
-        placeholder={sides ? sides[0] : 'The question'} aria-label={sides ? sides[0] : 'Question'} data-new-question className={`${CARD_FIELD} font-serif text-2xl leading-snug font-semibold`} />
+      <PlainField handle={ask} autoFocus vimStart="insert" value={question} onChange={setQuestion} onKey={keys}
+        placeholder={sides ? sides[0] : 'The question'} label={sides ? sides[0] : 'Question'} data-new-question className={`${PLAIN} font-serif text-2xl leading-snug font-semibold`} />
       <div aria-hidden className="border-t border-dashed border-foreground/15" />
-      <textarea rows={2} value={answer} onChange={(event) => setAnswer(event.target.value)}
-        placeholder={sides ? sides[1] : 'Its answer'} aria-label={sides ? sides[1] : 'Answer'} data-new-answer className={`${CARD_FIELD} text-body leading-relaxed`} />
+      <PlainField vimStart="insert" value={answer} onChange={setAnswer} onKey={keys}
+        placeholder={sides ? sides[1] : 'Its answer'} label={sides ? sides[1] : 'Answer'} data-new-answer className={`${PLAIN} min-h-[2lh] text-body leading-relaxed`} />
     </CardForm>
   )
 }

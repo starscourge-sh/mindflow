@@ -1,3 +1,4 @@
+import { PlainField, type PlainHandle } from './presets'
 import { TabChips } from './tab-chips'
 import { askFolder } from '@/lib/folders'
 import { LengthMark } from './length-mark'
@@ -508,7 +509,7 @@ function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: Task; a
         {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
         <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => {
           onPick()
-          setTimeout(() => document.querySelector<HTMLTextAreaElement>(`[data-open="${task.id}"] textarea`)?.select(), 300)
+          setTimeout(() => { const name = document.querySelector<HTMLElement>(`[data-open="${task.id}"] [data-task-name] [contenteditable]`); if (name) (name.focus(), getSelection()?.selectAllChildren(name)) }, 300)
         })}>Make it smaller</Button>
         <Tip label="Moves it to the Bin, with Undo"><Button variant="ghost" size="sm" data-ask-drop onClick={() => closeTask(task.id, onClose)}>Drop it</Button></Tip>
       </span>
@@ -1646,7 +1647,7 @@ export function TaskRows({ task }: { task: Task }): React.JSX.Element {
 export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   // Read again on every change, so a toggle shows what it now is.
   const task = useLive(async () => (await haligtree.task(first.id)) ?? first, first, [first.id])
-  const title = useRef<HTMLTextAreaElement>(null)
+  const title = useRef<PlainHandle>(null)
   const tagField = useRef<HTMLInputElement>(null)
   // The name as typed, and its #tags apart: saved back together, so a tag still files and routes the task.
   const named = splitTags(task.title)
@@ -1698,14 +1699,16 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           <TaskAsk task={task} ask={Math.max(2, settings?.carryAsk ?? 5)} onPick={() => undefined} onClose={onClose} />
         </div>
         {/* Wraps as the page's heading does, so a long task is never cut off at the edge; Enter ends it. */}
-        <textarea
-          ref={title}
-          rows={1}
-          className="page-narrow mx-auto mb-2 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
+        <PlainField
+          line
+          handle={title}
+          label="The task"
+          data-task-name
+          className="page-narrow mx-auto mb-2 block w-full shrink-0 px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance"
           key={task.title}
-          defaultValue={named.text}
-          onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
-          onBlur={(event) => void rename(event.target.value.replace(/\s*\n\s*/g, ' '))}
+          value={named.text}
+          placeholder=""
+          onSave={(name) => void rename(name)}
         />
         {/* A #tag typed with the task is kept here, as a tag, never left in its name. */}
         <div data-task-tags className="page-narrow mx-auto w-full px-12">

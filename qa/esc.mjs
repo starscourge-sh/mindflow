@@ -25,7 +25,7 @@ const wait = (ms = 900) => h.waitForTimeout(ms)
 const state = () => h.evaluate(() => {
   const page = document.querySelector('[class*="@container/page"]')
   const pane = page?.querySelector('.note-pane')
-  const words = (pane?.querySelector('textarea.font-heading, input.font-heading')?.value || pane?.querySelector('input')?.value || pane?.querySelector('.ProseMirror')?.firstElementChild?.textContent || '').trim()
+  const words = (pane?.querySelector('[data-page-title] [contenteditable], input.font-heading')?.[pane?.querySelector('[data-page-title] [contenteditable]') ? 'textContent' : 'value'] || pane?.querySelector('input')?.value || [...(pane?.querySelectorAll('.ProseMirror') ?? [])].find((one) => !one.closest('[data-plain-field]'))?.firstElementChild?.textContent || '').trim()
   const tabs = page ? [...page.querySelectorAll('[role="tab"][aria-selected="true"], header [aria-pressed="true"]')].map((one) => (one.textContent ?? '').trim() || one.getAttribute('aria-label')) : []
   const title = [...(page?.querySelectorAll('h1, h2, h3') ?? [])].map((one) => (one.textContent ?? '').trim()).find(Boolean) ?? ''
   return {
@@ -104,7 +104,7 @@ try {
     await side('Inbox'); await row(0)
     await h.evaluate(() => [...document.querySelectorAll('[class*="@container/page"] button')].filter((one) => !one.closest('.ProseMirror') && one.closest('.note-pane, aside, [class*="props"]')).pop()?.focus())
   }, { presses: 2 })
-  await run('Inbox: the title focused', async () => { await side('Inbox'); await row(0); await h.locator('.note-pane textarea.font-heading, .note-pane input.font-heading').first().focus().catch(() => {}) }, { presses: 2 })
+  await run('Inbox: the title focused', async () => { await side('Inbox'); await row(0); await h.locator('.note-pane [data-page-title] [contenteditable], .note-pane input.font-heading').first().focus().catch(() => {}) }, { presses: 2 })
   await run('Inbox: find in the note, Escape closes the find bar', async () => { await side('Inbox'); await row(0); await editNote() },
     { open: () => press('Meta+f'), before: () => is(() => !!document.querySelector('.tiptap-find-bar:not([inert])')), check: () => is(() => !document.querySelector('.tiptap-find-bar:not([inert])')) })
   await run('Nuggets: one open', async () => { await go('nuggets'); await row(0); await blur() }, { presses: 2 })
