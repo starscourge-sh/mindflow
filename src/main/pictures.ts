@@ -3,6 +3,8 @@ import { imageSizeFromFile } from 'image-size/fromFile'
 import { existsSync } from 'fs'
 import { mkdir, readdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import { rgbaToThumbHash } from 'thumbhash'
 
 import { database } from './captures'
@@ -38,12 +40,25 @@ export const assetsDir = (): string => join(app.getPath('userData'), 'assets')
  * seconds on every run (the user, 15 Nov 2026: "this page struggles to display content e.g images quickly despite it
  * being a local app"). Its path, or null when the Mac draws none (an SVG).
  */
+/**
+ * A copy the size of a screen (2048 or more) is made by the Mac's `sips`, in a process of its own: asked for one that
+ * big, the thumbnailer handed back the 1,024px JPEG file icon instead of an 8,167 by 9,851 painting, and the viewer
+ * showed the icon (the user, 19 Nov 2026). Kept under its own name (`-s`), so an icon kept by an earlier build is never
+ * served again.
+ */
+const BY_SIPS = 2048
 /** Where a stored picture's small copy is kept. */
 const copyPath = (name: string, size: number, tall = false): string =>
-  join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-${tall ? 'h' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
+  join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-${tall ? 'h' : size >= BY_SIPS ? 's' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
 export async function smallCopy(name: string, size: number, tall = false): Promise<string | null> {
   const small = copyPath(name, size, tall)
   if (existsSync(small)) return small
+  if (!tall && size >= BY_SIPS && process.platform === 'darwin') {
+    await mkdir(dirname(small), { recursive: true })
+    const format = small.endsWith('.png') ? ['png'] : ['jpeg', '-s', 'formatOptions', '85']
+    const done = await promisify(execFile)('sips', ['-Z', String(size), '-s', 'format', ...format, join(assetsDir(), name), '--out', small], { timeout: 60_000 }).then(() => true, () => false)
+    if (done && existsSync(small)) return small
+  }
   const made = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), tall ? { width: size * 3, height: size } : { width: size, height: size }).catch(() => null)
   if (!made || made.isEmpty()) return null
   await mkdir(dirname(small), { recursive: true })
