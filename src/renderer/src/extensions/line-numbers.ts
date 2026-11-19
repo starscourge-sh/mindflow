@@ -163,8 +163,38 @@ type Line = { size: string; height: string; font: string }
  */
 const bands = new WeakMap<Element, [number, number] | null>()
 
+/**
+ * The column a gutter leaves to the one made in its place, by the note's element. Each plugin added to an open note
+ * (its menus, Proofread) makes every plugin's view again: the column taken off the page then, and set again only
+ * after the browser laid the note out, the note stood a frame without its numbers as it came on show. The column
+ * stays where it stands instead, numbers and room as they were, its blocks still watched (`sizes`), and the new
+ * gutter places it again.
+ */
+type Column = { layer: HTMLDivElement; marks: HTMLElement[]; extra: number; standing: boolean; watched: Set<HTMLElement>; fresh: Set<Element> }
+const columns = new WeakMap<Element, Column>()
+
+/**
+ * One watcher of sizes for every gutter, each element told to the gutter that watches it. Made with the first note
+ * and kept, so the browser asks it before any watcher made since: a gutter made again in the middle of a frame (a
+ * menu added to the note) with a watcher of its own was asked after those, and what they read in that frame had
+ * the numbers where the lines had been.
+ */
+const owners = new WeakMap<Element, (entries: ResizeObserverEntry[]) => void>()
+let watcher: ResizeObserver | null = null
+const sizes = (): ResizeObserver =>
+  (watcher ??= new ResizeObserver((entries) => {
+    const told = new Map<(entries: ResizeObserverEntry[]) => void, ResizeObserverEntry[]>()
+    for (const entry of entries) {
+      const owner = owners.get(entry.target)
+      if (owner) told.set(owner, [...(told.get(owner) ?? []), entry])
+    }
+    for (const [owner, mine] of told) owner(mine)
+  }))
+
 function gutter(view: EditorView): { update: (view: EditorView, previous: EditorState) => void; destroy: () => void } {
-  const layer = document.createElement("div")
+  const kept = columns.get(view.dom)
+  columns.delete(view.dom)
+  const layer = kept?.layer ?? document.createElement("div")
   layer.className = "mf-lines"
   layer.setAttribute("aria-hidden", "true")
   // Lines before each top-level block: [i] is how many come before block i, good up to its length.
@@ -179,7 +209,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   // The numbered elements drawn, and each one's number.
   let rows: HTMLElement[] = []
   let numbers: number[] = []
-  let marks: HTMLElement[] = []
+  let marks: HTMLElement[] = kept?.marks ?? []
   // What the editor draws between blocks that is no block (a widget), watched with the rows.
   let widgets: HTMLElement[] = []
   let caret = 0
@@ -313,7 +343,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   // 81px left of its words: enough for two digits, and a note of a hundred lines or more had its grip cut off at
   // the pane's edge. The note's left room grows by what is missing then, the gutter's own room, and by nothing where
   // there is enough; it goes back when the numbers go.
-  let extra = 0
+  let extra = kept?.extra ?? 0
   const roomy = (): void => {
     const holder = view.dom.closest(".haligtree-editor-wrapper")
     if (!holder || !layer.isConnected) return
@@ -331,7 +361,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   }
 
   // Whether the column stands, as last told (`LINES`): told again only when it comes, goes or changes width.
-  let standing = false
+  let standing = kept?.standing ?? false
   const told = (now: boolean, wider = false): void => {
     if (now === standing && !wider) return
     standing = now
@@ -390,9 +420,9 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   // A block just watched reports its size once at once: it was placed in the same breath, so that report is let
   // pass (it placed every number a second time, each time a long note's drawn blocks moved). The note's own
   // element changing size has its size of words and room read again.
-  const fresh = new Set<Element>()
+  const fresh = kept?.fresh ?? new Set<Element>()
   let width = -1
-  const resized = new ResizeObserver((entries) => {
+  const heard = (entries: ResizeObserverEntry[]): void => {
     let moved = false
     for (const entry of entries) {
       // The note's own element widened or narrowed (first laid out on the page, or the window or pane changed): its
@@ -409,10 +439,16 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     // Placed now, after the browser laid the blocks out and before it paints them: placed a frame later, the numbers
     // stood one frame where the blocks had been (a gem's Properties coming in above its words left "2" 59px high).
     if (moved && rows.length) (cancelAnimationFrame(frame), place())
-  })
-  const watched = new Set<HTMLElement>()
-  // Its outer box only: the room given inside it changes its inner size, which would be told again at once.
-  resized.observe(view.dom, { box: "border-box" })
+  }
+  const resized = {
+    observe: (one: Element, options?: ResizeObserverOptions): void => (owners.set(one, heard), sizes().observe(one, options)),
+    unobserve: (one: Element): void => void (owners.get(one) === heard && (owners.delete(one), sizes().unobserve(one))),
+  }
+  const watched = kept?.watched ?? new Set<HTMLElement>()
+  // Its outer box only: the room given inside it changes its inner size, which would be told again at once. Taken
+  // over from the gutter before it, what that one watched is told here from now on, never watched afresh.
+  if (kept) for (const one of [view.dom, ...watched]) owners.set(one, heard)
+  else resized.observe(view.dom, { box: "border-box" })
   const fonts = (): void => void (kinds.clear(), (em = ""), (sized = false), rows.length && schedule())
   document.fonts.addEventListener("loadingdone", fonts)
   view.dom.addEventListener(DRAWN, drawn)
@@ -435,12 +471,16 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     },
     destroy: () => {
       cancelAnimationFrame(frame)
-      resized.disconnect()
       document.fonts.removeEventListener("loadingdone", fonts)
       view.dom.removeEventListener(DRAWN, drawn)
       views.delete(view)
-      layer.remove()
       before = [0]
+      // Made again in its place (the note still says which editor it is: TipTap takes that away only as the note
+      // itself goes): the column is left standing for the next gutter. The note going: the column goes with it.
+      if ((view.dom as { editor?: unknown }).editor) return void columns.set(view.dom, { layer, marks, extra, standing, watched, fresh })
+      layer.remove()
+      for (const row of watched) resized.unobserve(row)
+      resized.unobserve(view.dom)
     },
   }
 }
