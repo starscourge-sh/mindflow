@@ -812,7 +812,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Text font" note="What notes, lists and menus are written in." more="The Mac's own font to start, Fraunces, a few others or any font on this Mac; OpenDyslexic is easier for some to read." keywords={`note text body font ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.noteFont} />
           </Setting>
-          <Setting title="Heading font" note="A font of its own for headings and page titles." more="Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text, or the same as the text. With the “Brutal” style, titles and note headings are in Archivo Black instead and with “Paper”, in Fraunces." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
+          <Setting title="Heading font" note="A font of its own for headings and page titles." more="Fraunces over the Mac's font to start, the way Dia pairs a characterful serif with plain text; Instrument Serif is nearest Dia's own, or the same as the text. With the “Brutal” style, titles and note headings are in Archivo Black instead and with “Paper”, in Fraunces." below={<Sample />} keywords={`headings titles pairing ${NOTE_FONTS.map((font) => font.label).join(' ')}`}>
             <FontPicker value={settings.headingFont} setting="headingFont" same="Same as text" />
           </Setting>
           <Setting title="Notes only" note="The font above is only for your writing; the app's own words stay in Fraunces.">
@@ -1501,7 +1501,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>',
       {open ? (
         <Setting anchor={`book:${open.id}`} role="now" badge="Open now" wash={markInk(open.color)} mark={<BookMark hue={open.color} className="size-5" />} title={open.name} naming={naming === open.id ? nameField(open) : undefined}
           note="The book open now. Its colour tints the sidebar and takes the accent's place (links, the caret, what is selected), to tell your books apart at a glance."
-          more={`${made(open)} ${open.id === 'default' ? `It is where ${APP_NAME} has always kept your notes.` : 'Switch to another book to delete this one.'} ⌘K’s “Book colour…” and a right-click on the book’s name in the sidebar pick a colour too.`}
+          more={`${made(open)} ${open.id === 'default' ? `It is where ${APP_NAME} has always kept your notes.` : 'Switch to another book to delete this one.'} The book menu at the sidebar’s foot (“Book colour”), ⌘K’s “Book colour…” and a right-click on the book’s name there pick a colour too.`}
           keywords="this book name rename colour color accent tint hue space arc books vault workspace"
           below={<div className="mt-2.5"><HueDots book={open} /></div>}>
           <Button variant="ghost" size="sm" data-book-rename={open.id} onClick={() => setNaming(open.id)}>Rename</Button>

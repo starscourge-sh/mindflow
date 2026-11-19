@@ -2695,6 +2695,21 @@ export function Home(): React.JSX.Element {
               {!!shelfNow?.books.length && <BookShelf books={shelfNow.books} onMenu={openBookMenu}
                 onPick={(book) => (book.current ? setView({ id: 'settings', focus: `book:${book.id}`, nonce: Date.now() }) : void switchBook(book.id))} />}
               {!SANDBOX && <DropdownMenuItem data-peek="new-book" onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
+              {/* The open book's colour, where a person looks for it first: under the books, the nine as in Settings and ⌘K. */}
+              {!SANDBOX && openBook && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger data-book-colour>Book colour</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {colourChoices(openBook).map((one) => (
+                      <DropdownMenuItem key={one.label} aria-current={one.note ? true : undefined} className={one.note ? 'pr-8' : undefined} onSelect={one.run}>
+                        {one.mark}
+                        <span className="min-w-0 flex-1 truncate">{one.label}</span>
+                        {one.note && <span className="pointer-events-none absolute right-2 flex items-center justify-center"><Check aria-label="Worn now" /></span>}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuSeparator />
               {/* Customize leads (the user's ask, 928); Settings closes the menu, its ⌘, still beside it. */}
               <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
