@@ -3578,9 +3578,9 @@ html[data-pill-open] [style*="--tilt"] { --tilt: 0deg !important; }
 html[data-sticky-window] { --mf-pill-dot: var(--mf-paper, var(--popover)); }
 html[data-sticky-window][data-tint] { --mf-pill-dot: oklch(0.7 0.13 var(--mf-tint-hue)); }
 /* A desk pill (desk-pill.tsx) wears its card's material. On paper, the session bubble's solid ground and lift (lib/float.ts
-   SOLID and LIFT), lit with the accent while its card is out beside it. On a glass sticky the Mac's own blur is under it
+   SOLID and LIFT); hidden while its card is out, the card being the pill grown. On a glass sticky the Mac's own blur is under it
    (windows/sticky.tsx tells main its shape) and it is frosted as quick capture is: the page's colour washed over the
-   blur, as much as keeps its words at 4.5:1 with a white or a black desktop coming straight through, lit or not
+   blur, as much as keeps its words at 4.5:1 with a white or a black desktop coming straight through
    (qa/desk-pill-glass.mjs measures it), a lit hairline along its top, and a shadow round its edge (one drawn by a
    filter would show through the wash). Never see-through: with no blur under it (Reduce Transparency, a solid look)
    it is solid. */
@@ -3589,7 +3589,6 @@ html[data-sticky-window][data-tint] { --mf-pill-dot: oklch(0.7 0.13 var(--mf-tin
   background-color: Canvas;
   filter: var(--pill-lift);
 }
-[data-desk-pill='open'] { background-image: linear-gradient(var(--accent), var(--accent)), var(--pill-solid); }
 :root[data-glass] { --mf-pill-glass: 78%; }
 :root[data-glass='dark'] { --mf-pill-glass: 74%; }
 :root[data-glass] [data-desk-pill] {
@@ -3604,9 +3603,6 @@ html[data-sticky-window][data-tint] { --mf-pill-dot: oklch(0.7 0.13 var(--mf-tin
 }
 /* Paper prints everything flat: frosted still, as its glass card is, square and with its hairline only. */
 :root[data-style='paper'][data-glass] [data-desk-pill] { box-shadow: none; }
-:root[data-glass] [data-desk-pill='open'] {
-  background-image: linear-gradient(color-mix(in oklab, var(--accent) 55%, transparent), color-mix(in oklab, var(--accent) 55%, transparent)), linear-gradient(var(--mf-pill-wash), var(--mf-pill-wash));
-}
 /* A glass card grown out of its pill stays solid while it is out beside the stack: the blur is under the pill alone. */
 :root[data-pill-open][data-glass] { --mf-glass-wash: 100%; }
 html[data-pill-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }

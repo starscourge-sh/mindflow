@@ -46,8 +46,9 @@ const firstWords = (words: string, count: number): string => {
 
 /**
  * A card folded at the screen's edge (main's shapeCard and layStack): one line in the desk's stack, read at a glance,
- * the session bubble's own pill (same paper, edge, lift, type and round ends). Rested on, its card grows out of it
- * beside the stack and folds back half a second after the pointer has gone; a click pins the card open. The card
+ * the session bubble's own pill (same paper, edge, lift, type and round ends). Rested on, the pill itself grows into
+ * its card beside the stack (one surface: the pill is hidden while its card is out) and folds back into it half a
+ * second after the pointer has gone; a click pins the card open. The card
  * stays drawn under it, only hidden, so it comes out whole with nothing to load.
  */
 export function DeskPill(): React.JSX.Element | null {
@@ -195,7 +196,11 @@ export function DeskPill(): React.JSX.Element | null {
           ['--pill-solid' as string]: SOLID,
           ['--pill-lift' as string]: wornStyle() === 'paper' ? 'none' : LIFT,
           // At the same point of its window folded or open: the card's window starts level with the pill's, on its side.
-          ...(right ? { right: 6 } : { left: 6 }), top: at ? at.y : 2
+          ...(right ? { right: 6 } : { left: 6 }), top: at ? at.y : 2,
+          // While its card is out the pill is the card: it grew out of the pill's own shape, in its place, so a pill
+          // left standing beside it read as a second thing popping out of the first. Folded back into that shape,
+          // the pill shows again in the same task as main makes the window a pill.
+          visibility: peek.opened ? 'hidden' : 'visible'
         }}
         className="pointer-events-auto absolute flex h-[28px] w-max min-w-[96px] items-center gap-2 rounded-full border px-3 font-sans text-[13px] whitespace-nowrap text-foreground transition-[scale] duration-150 active:scale-[0.97]"
       >

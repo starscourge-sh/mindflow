@@ -2,7 +2,8 @@
 // background?"): a glass card folded into its pill has the Mac's own blur under the pill, told to main as the pill's
 // shape, and its words on the popover's wash over it, never on nothing; the wash keeps the words at 4.5:1 with a white
 // or a black desktop coming straight through (the Mac's own tint left out). Opened out of its pill, the card stays solid
-// while it grows by its clip (no blur under it) and the pill keeps its frost; pinned, the card wears its glass again.
+// while it grows by its clip out of the pill's own shape, the pill hidden meanwhile (one surface, no blur told);
+// pinned, the card wears its glass again.
 // A paper card's pill stays solid. In both looks; with QA_SHOTS, the pill laid over a white page and a dark one.
 //
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=<dir>] node qa/desk-pill-glass.mjs
@@ -41,7 +42,7 @@ const state = (id) => c.electron.evaluate(async ({ BrowserWindow }, id) => {
     const pen = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })
     const rgb = (c) => { pen.clearRect(0, 0, 1, 1); pen.fillStyle = '#000'; pen.fillStyle = c; pen.fillRect(0, 0, 1, 1); return [...pen.getImageData(0, 0, 1, 1).data].slice(0, 3) }
     return {
-      pill: p && { ...box(p), state: p.dataset.deskPill, words: rgb(getComputedStyle(p.querySelector('[data-pill-words]') ?? p).color), number: p.querySelector('[data-pill-number]') ? rgb(getComputedStyle(p.querySelector('[data-pill-number]')).color) : null },
+      pill: p && { ...box(p), state: p.dataset.deskPill, hidden: getComputedStyle(p).visibility === 'hidden', words: rgb(getComputedStyle(p.querySelector('[data-pill-words]') ?? p).color), number: p.querySelector('[data-pill-number]') ? rgb(getComputedStyle(p.querySelector('[data-pill-number]')).color) : null },
       card: box(card), glass: document.documentElement.dataset.glass ?? null, open: document.documentElement.getAttribute('data-pill-open'),
       wash: getComputedStyle(document.documentElement).getPropertyValue('--mf-glass-wash').trim(), zoom: devicePixelRatio
     }
@@ -143,15 +144,10 @@ try {
   check('and the card is solid meanwhile (its paper whole: no wash let through)', seenOpen.filter((one) => one.open).every((one) => one.wash === '100%'), JSON.stringify([...new Set(seenOpen.map((one) => one.wash))]))
   const centre = opened?.card ? await over(opened, [[opened.card.x + opened.card.w / 2, opened.card.y + 40]]) : null
   check('the open card\'s ground is opaque', centre?.alpha[0] === 255, JSON.stringify(centre?.alpha))
-  check('the pill keeps its frost beside it, lit', !!opened?.pill && opened.pill.state === 'open' && opened.told.length === 1 && covers(opened.told[0], opened.pill), JSON.stringify({ told: opened?.told, pill: opened?.pill }))
-  if (opened?.pill) {
-    const p = opened.pill
-    const lit = await over(opened, [[p.x + p.w / 2, p.y + 5]])
-    const litWorst = lit ? Math.min(...[p.words, ...(p.number ? [p.number] : [])].flatMap((ink) => [...lit.white, ...lit.black].map((g) => contrast(ink, g)))) : 0
-    check('lit beside its open card, its words still keep 4.5:1 with a white or a black desktop straight through it', litWorst >= 4.5, `${litWorst.toFixed(2)}:1 (ground over white rgb(${lit?.white[0]}), over black rgb(${lit?.black[0]}), alpha ${lit?.alpha[0]})`)
-  }
-  // A click on the pill pins the card: it wears its glass again, the pill gone.
-  await page.mouse.click(opened.pill.x + opened.pill.w / 2, opened.pill.y + opened.pill.h / 2)
+  // One surface: the pill grew into the card, so it is not left standing beside it, nor its blur.
+  check('the pill is hidden while its card is out, and no blur is told for it', !!opened?.pill && opened.pill.hidden && opened.told.length === 0, JSON.stringify({ told: opened?.told, pill: opened?.pill }))
+  // A press on the card pins it: it wears its glass again, the pill gone.
+  await page.mouse.click(opened.card.x + opened.card.w / 2, opened.card.y + opened.card.h - 12)
   await page.mouse.move(-40, -40)
   check('pinned, the card wears its glass again, the pill gone', await until(async () => { const one = await state(goal.id); return !one?.pill && one?.told.length > 0 && one.told.every((shape) => shape[2] > 200) }, 4000), JSON.stringify((await state(goal.id))?.told))
 
@@ -169,6 +165,17 @@ try {
   const solid = await over(s, [[s.pill.x + s.pill.w / 2, s.pill.y + 5]])
   check('a paper card\'s pill is solid: no blur told, its ground opaque', !s.told.length && solid?.alpha[0] === 255, JSON.stringify({ told: s.told, alpha: solid?.alpha }))
   await frame(s, '#ffffff', 'desk-pill-paper-over-white.png')
+  // Rested on, a paper card grows out of its pill too, the pill hidden, its paper whole everywhere (ask 32's card
+  // showed Settings through it).
+  await paper.mouse.move(s.pill.x + s.pill.w / 2, s.pill.y + s.pill.h / 2)
+  let out = null
+  for (let n = 0; n < 30 && !(out?.open && out.card?.w > 200); n++) (out = await state(goal.id)), await wait(100)
+  await wait(700)
+  out = await state(goal.id)
+  const spots = out?.card ? [[0.1, 0.1], [0.5, 0.15], [0.9, 0.5], [0.5, 0.5], [0.15, 0.85], [0.85, 0.9]].map(([fx, fy]) => [out.card.x + out.card.w * fx, out.card.y + out.card.h * fy]) : []
+  const ground = out?.card ? await over(out, spots) : null
+  check('a paper card grown out of its pill is opaque all over, its pill hidden', !!ground && ground.alpha.every((a) => a === 255) && !!out.pill?.hidden, JSON.stringify({ alpha: ground?.alpha, hidden: out?.pill?.hidden, card: out?.card }))
+  if (out) await frame(out, '#ffffff', 'desk-pill-paper-open-over-white.png')
 } catch (error) {
   check('ran to the end', false, String(error?.message ?? error).split('\n')[0])
 } finally {

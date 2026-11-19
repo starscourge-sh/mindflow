@@ -45,8 +45,8 @@ window.addEventListener('keydown', (event) => {
 
 // Made as glass (the setting): the Mac's blur under the card, and nowhere else in the window (lib/glass.ts). Folded,
 // the blur is under its pill alone, frosted as quick capture is (main.css, [data-desk-pill]). A card grown out of its
-// pill stays solid until it is pinned, the pill keeping its frost beside it: the card grows by a clip, and the Mac's
-// blur follows a shape's whole box, so it would show beyond the clip.
+// pill stays solid until it is pinned, with no blur anywhere (the pill is hidden while its card is out, so it is not
+// told): the card grows by a clip, and the Mac's blur follows a shape's whole box, so it would show beyond the clip.
 if (params.has('glass')) followGlass(() => {
   const pill = document.querySelector('[data-desk-pill]')
   return pill ? [pill] : [...document.querySelectorAll('.mf-card, [data-goal-card], [data-goals-sticky]')]
