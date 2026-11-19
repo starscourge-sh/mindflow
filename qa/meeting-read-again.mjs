@@ -35,7 +35,7 @@ try {
   if (PART === 'voices') {
     check('a notice says at once that the voices were settled', await notice('speakers in this recording, not 8', 15000), JSON.stringify(await h.evaluate(() => window.__said)))
     check('4 speakers, not 8, every line still there', (await voices()).length === 5 && (await meetingOf(id)).lines.length === was.lines.length, JSON.stringify(await voices()))
-    if (process.env.SHOTS) await both(`${process.env.SHOTS}/q1-meeting-voices`)
+    if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/q1-meeting-voices.png` })
     await undo('speakers in this recording')
     await h.waitForTimeout(1200)
     const back = await meetingOf(id)
@@ -49,7 +49,7 @@ try {
     if (read) {
       check('Apple Intelligence\'s notice says what it found', true)
       check('the action items are its own now', !!now.take && now.actions.every((one) => one.by === 'ai' || one.done || one.task))
-      if (process.env.SHOTS) await both(`${process.env.SHOTS}/q1-meeting-ai`)
+      if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/q1-meeting-ai.png` })
       await undo('Apple Intelligence read this recording')
       await h.waitForTimeout(1200)
       const back = await meetingOf(id)
