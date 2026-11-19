@@ -229,6 +229,8 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
   const words = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
   const first = clean.querySelector('h1, h2, h3')
   if (words(title) && first && words(first.textContent ?? '') === words(title)) first.remove()
+  // A wiki's own tagline ("From Wikipedia, the free encyclopedia"), which stood as the article's first words under its big first letter.
+  for (const one of [...clean.querySelectorAll('#siteSub, p, div')].slice(0, 12)) if (/^from (wikipedia|wiktionary), the free (encyclopedia|dictionary)\.?$/i.test(one.textContent?.trim() ?? '')) one.remove()
   codeAsWritten(clean)
   // Of each picture's versions, the one a desktop reader sees, read from its sources and classes before they are stripped:
   // a <picture>'s first source a wide window takes, a srcset's sharpest for the column, and nothing a wide window hides.

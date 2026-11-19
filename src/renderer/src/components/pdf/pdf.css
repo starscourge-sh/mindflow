@@ -765,6 +765,8 @@
    capitals 0.70 x 3.43em = 2.4em tall, one line and a cap height, and its box ends 0.1em above the third line. */
 .web-reader-body > p[data-drop]::first-letter {
   float: left;
+  /* The heading's face, whatever the words are set in: the measures above are Fraunces's own. */
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
   margin: 0.013em 0.08em 0 0;
   color: var(--web-accent);
   font-size: 3.43em;

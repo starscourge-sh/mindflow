@@ -30,7 +30,7 @@ import { isReadable, isWebPdf, openArticle } from './pdf/pdf-reader'
 import { FREE_SITES, prefixed, type FreeHit, type FreeSite } from '@/lib/free-sites'
 import { canSplit } from '@/lib/split'
 import { said as tell } from '@/lib/host'
-import { BookOpenText, ChevronRight, ExternalLink, SearchX, SpellCheck, WifiOff } from 'lucide-react'
+import { BookOpenText, ChevronRight, SearchX, SpellCheck, WifiOff } from 'lucide-react'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './haligtree/display'
@@ -359,7 +359,6 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
       return setOpenSites(open ? openSites.filter((id) => id !== one.site.id) : [...openSites, one.site.id])
     }
     // A site never asked by the app: its own search, where it builds it.
-    if (one.site.opens) return void (chime('tap'), leave(), window.open(one.site.opens(lookWords), '_blank', 'noopener'))
     if (!one.hit) return askSite(one.site)
     leave()
     openArticle(one.hit.href, undefined, how)
@@ -591,7 +590,6 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
           <span data-look-title className="min-w-0 truncate leading-5">{one.hit ? one.hit.title : one.count !== undefined ? `${one.site.word} · ${plural(one.count, 'result')}` : one.said ?? `Search ${one.site.say} for ${quoted(clip(lookWords, 40), 80)}`}</span>
           {one.hit && !one.under && <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">{one.site.word}</span>}
           {one.count !== undefined && <ChevronRight aria-hidden className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-(--mf-ease) ${open ? 'rotate-90' : ''}`} />}
-          {one.site.opens && <span className="ml-auto flex shrink-0 items-center gap-1 pl-2 text-xs text-muted-foreground">In your browser <ExternalLink aria-hidden className="size-3" /></span>}
         </span>
         {one.hit && (one.hit.line || one.hit.picture) && (
           <span data-look-line className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
@@ -887,7 +885,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
         ) : (
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
-          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing || !menus ? 'pick' : action ? 'use' : look?.hit ? 'read' : look?.count !== undefined ? (openSites.includes(look.site.id) ? 'fold' : 'show them') : look?.site.opens ? 'open' : look ? 'ask' : 'open'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing || !menus ? 'pick' : action ? 'use' : look?.hit ? 'read' : look?.count !== undefined ? (openSites.includes(look.site.id) ? 'fold' : 'show them') : look ? 'ask' : 'open'} /></span>
           {!picking && !choosing && rowsShown.length > 0 && current !== rowsShown[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
           {!picking && !choosing && ((onAside && !action && current) || (canSplit() && look?.hit) || action?.aside) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
           {!picking && !choosing && ((onTab && !action && current) || (canSplit() && look?.hit)) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘↵</Kbd> new tab</span>}
@@ -954,16 +952,14 @@ function LookPeek({ one, words, offline, open }: { one: Look; words: string; off
       </div>
     )
   // A site asked as you type: what it found, and that it was asked because Settings says so.
-  if (one.count !== undefined || site.opens)
+  if (one.count !== undefined)
     return (
       <div data-look-peek className="flex flex-col gap-1.5 px-5 pt-5">
-        {site.opens ? <ExternalLink aria-hidden className="size-6 shrink-0 text-muted-foreground" /> : <BookOpen aria-hidden className="size-6 shrink-0" style={{ color: 'var(--tt-color-text-blue)' }} />}
+        <BookOpen aria-hidden className="size-6 shrink-0" style={{ color: 'var(--tt-color-text-blue)' }} />
         <div>
-          <p className="text-lg font-semibold text-pretty text-foreground">{site.opens ? `Search ${site.name} for ${quoted(clip(words, 40), 80)}` : `${named} found ${plural(one.count ?? 0, 'page')} for ${quoted(clip(words, 40), 80)}`}</p>
-          <p className="mt-0.5 text-body text-pretty text-muted-foreground">{site.opens
-            ? `${named}’s own search, opened in your browser. ${APP_NAME} never asks ${named} itself: its terms allow no app to search it.`
-            : `Asked as you typed, with these words only, because “Look things up as I search” is on in Settings.`}</p>
-          {!site.opens && <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd> {open ? 'folds them away.' : 'shows them, each with a line on what it is.'}</p>}
+          <p className="text-lg font-semibold text-pretty text-foreground">{`${named} found ${plural(one.count ?? 0, 'page')} for ${quoted(clip(words, 40), 80)}`}</p>
+          <p className="mt-0.5 text-body text-pretty text-muted-foreground">Asked as you typed, with these words only, because “Look things up as I search” is on in Settings.</p>
+          {<p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd> {open ? 'folds them away.' : 'shows them, each with a line on what it is.'}</p>}
         </div>
       </div>
     )

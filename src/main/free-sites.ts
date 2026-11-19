@@ -39,9 +39,12 @@ async function commons(src: string | null | undefined): Promise<string | null> {
   }
 }
 
+/** How many pages a site's search gives ⌘K: the first four, its best (the user, 19 Nov 2026: "only do first four results"). */
+const HITS = 4
+
 /** Wikipedia's or Wiktionary's own search: each page's name, its one-line description (else the start of its words), its picture. */
 async function mediaWiki(host: string, typed: string): Promise<Hit[]> {
-  const found = (await (await ask(`https://${host}/w/rest.php/v1/search/page?q=${encodeURIComponent(typed)}&limit=8`)).json()) as {
+  const found = (await (await ask(`https://${host}/w/rest.php/v1/search/page?q=${encodeURIComponent(typed)}&limit=${HITS}`)).json()) as {
     pages?: { key: string; title: string; excerpt?: string | null; description?: string | null; thumbnail?: { url?: string } | null }[]
   }
   return Promise.all(
@@ -78,7 +81,7 @@ async function sep(typed: string): Promise<Hit[]> {
       const title = words(one.querySelector('.result_title')?.innerHTML)
       return /^https:\/\/plato\.stanford\.edu\/entries\/[\w-]+\/?$/.test(href) && title ? [{ title, line: words(one.querySelector('.result_author')?.innerHTML), href, picture: null }] : []
     })
-    .slice(0, 8)
+    .slice(0, HITS)
 }
 
 /** A page of Wikipedia or Wiktionary, read the wiki's own way below. */

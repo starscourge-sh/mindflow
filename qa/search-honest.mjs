@@ -4,8 +4,8 @@
 // its preview lighting it; a word a note has lists that note and no close spellings at all. Then “Look things up as I
 // search” (ask 52): off, nothing is asked of any site; turned on in Settings, Wikipedia and Wiktionary are asked as you
 // type and each that found something is one folded row ("Wikipedia · 3 results"), opening to its answers hung under it;
-// a site with nothing found shows nothing; Gutenberg and the Stanford Encyclopedia keep their lines; Fandom's line opens
-// its own search in the browser and Fandom is never asked. The sites are a stand-in (qa/wiki-stand-in.mjs).
+// a site with nothing found shows nothing; Gutenberg and the Stanford Encyclopedia keep their lines.
+// The sites are a stand-in (qa/wiki-stand-in.mjs).
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/search-honest.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -119,7 +119,7 @@ try {
   check('one folded row a site: “Wikipedia · 3 results”', onNow.looks.includes('wikipedia:count:Wikipedia · 3 results'), JSON.stringify(onNow.looks))
   check('…under your own results', onNow.under, JSON.stringify(onNow.looks))
   check('…folded: none of its answers shows yet', !onNow.looks.some((one) => one.startsWith('wikipedia:hit')), JSON.stringify(onNow.looks))
-  check('Gutenberg and the Stanford Encyclopedia keep their lines, Fandom its own', ['gutenberg:line', 'sep:line', 'fandom:line'].every((kind) => onNow.looks.some((one) => one.startsWith(kind))), JSON.stringify(onNow.looks))
+  check('Gutenberg and the Stanford Encyclopedia keep their lines', ['gutenberg:line', 'sep:line'].every((kind) => onNow.looks.some((one) => one.startsWith(kind))), JSON.stringify(onNow.looks))
   void on
 
   // Opened by a click: its three answers, each with its line, hung under it.
@@ -149,12 +149,6 @@ try {
   check('a site that found nothing shows nothing', !noneNow.some((one) => one.startsWith('wikipedia') || one.startsWith('wiktionary')), JSON.stringify(noneNow))
   void none
 
-  // Fandom's line: its own search in the browser.
-  await ask('faustian bargin')
-  await h.click('[data-look="fandom"]')
-  await wait(400)
-  const opened = await electron.evaluate(() => globalThis.__opened)
-  check('“Search Fandom for” opens Fandom’s own search in the browser', opened.includes('https://www.fandom.com/?s=faustian%20bargin'), JSON.stringify(opened))
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()
