@@ -91,7 +91,7 @@ export function registerWrite(): void {
     if (!list.length) return { error: 'No notes to answer from' }
     return write(`You answer a question in one sentence, from the NOTES alone. If they do not answer it, say plainly that your notes do not say. ${PLAIN}`,
       `Question: ${String(question ?? '')}\n${list.map((one, at) => `NOTE ${at + 1}: ${one}`).join('\n')}`,
-      `Your notes say: ${list[0].split(/\s+/).slice(0, 8).join(' ')}. (A stand-in's answer.)`)
+      `Your notes say: ${list[0].split(/\s+/).slice(0, 8).join(' ').replace(/[\s.?!]+$/, '')}. (A stand-in's answer.)`)
   })
   // Writing help on picked words: the words alone (and, for "Ask me about this", the note they sit in), or the
   // person's own writing beside them for "In my words". Every refusal says what it found, never a catch-all.

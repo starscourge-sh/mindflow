@@ -94,7 +94,7 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
     return () => void (live = false)
   }, [has, question, asked.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!has) return null
-  const from = notes.slice(0, 3).map((one) => `“${one.title}”`)
+  const from = [...new Set(notes.map((one) => one.title))].slice(0, 3).map((title) => `“${title}”`)
   const named = from.length > 1 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from[0]
   const words = said && 'text' in said ? `${said.text} From ${named}, written on this Mac.` : said ? `Not answered: ${said.error}.` : null
   return (
