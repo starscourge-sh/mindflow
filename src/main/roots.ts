@@ -226,7 +226,18 @@ export function tagsNear(index: RootIndex, text: string, lemmas: Lemmas | undefi
   const nearest = tieBreak(index.rank(index.vector(text, lemmas), leave).slice(0, near.of), meaning && ((one) => meaning(one.key))).filter((one) => one.score >= near.score)
   const votes = new Map<string, number>()
   for (const one of nearest) for (const tag of new Set(tagsOf(one.key))) votes.set(tag, (votes.get(tag) ?? 0) + 1)
-  return [...votes].filter(([tag, n]) => n >= Math.max(2, near.carry) && n / nearest.length >= near.share && !has.has(tag))
+  // Its own words must say so too (17 Nov: "youtube hooks:", a list of video hooks, was offered #bug-report because 3
+  // of its 5 nearest notes carry it, alike only by everyday words): the tag's own name is among its words, or two of
+  // its roots that are not everyday in the book (in one note in ten at most) run through most of the near notes that carry it.
+  const own = new Set(index.folded(text, lemmas))
+  const rare = Math.max(3, index.notes.length * 0.1)
+  const supported = (tag: string): boolean => {
+    if (index.folded(tag.replace(/[-_/]+/g, ' '), undefined).some((root) => own.has(root))) return true
+    const carriers = nearest.filter((one) => tagsOf(one.key).includes(tag)).map((one) => index.vectorOf(one.key))
+    const most = Math.ceil(carriers.length / 2)
+    return [...own].filter((root) => index.notesWith(root) <= rare && carriers.filter((one) => one?.has(root)).length >= most).length >= 2
+  }
+  return [...votes].filter(([tag, n]) => n >= Math.max(2, near.carry) && n / nearest.length >= near.share && !has.has(tag) && supported(tag))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([tag, notes]) => ({ tag, notes, of: nearest.length }))
 }
