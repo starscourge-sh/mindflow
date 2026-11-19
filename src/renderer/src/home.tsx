@@ -1361,7 +1361,10 @@ export function Home(): React.JSX.Element {
   const countsOn = settings?.sidebarCounts !== false
   const countOf = (id: string): number => (countsOn && !(settings?.sidebarCountsOff ?? []).includes(id) && counts[id]) || 0
   // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
-  const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags) || unloaded(recents))
+  // How many pages and gems are in no folder, the Folders section's last count: read here so the sidebar waits for it
+  // too, or its "0" was drawn and became the real number a beat later.
+  const unfiled = useLive(folders.unfiled, null as number | null, [], undefined, 'folders:unfiled')
+  const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags) || unloaded(recents) || unfiled === null)
   // Come into from the welcome's "Open my book": the sidebar comes up with Home's parts, a little apart, never simply there.
   const [opened, setOpened] = useState(false)
   useEffect(() => {
@@ -2606,7 +2609,7 @@ export function Home(): React.JSX.Element {
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
-            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} here={view.id === 'folders' ? (!view.focus || view.focus === 'all' ? null : view.focus) : undefined} onOpen={(place) => setView({ id: 'folders', focus: place ?? 'all' })} />
+            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} unfiled={unfiled ?? 0} here={view.id === 'folders' ? (!view.focus || view.focus === 'all' ? null : view.focus) : undefined} onOpen={(place) => setView({ id: 'folders', focus: place ?? 'all' })} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList

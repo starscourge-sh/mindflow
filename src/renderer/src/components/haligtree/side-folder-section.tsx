@@ -9,7 +9,6 @@ import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
 import { SortableList, SortableRow } from './sortable'
 import { num } from '../../../../main/dates'
 import { chime } from '@/lib/sound'
-import { useLive } from '@/lib/haligtree'
 import { FOLDER_DEPTH, folders, heldIn, pathOf, useFolders, type Folder } from '@/lib/folders'
 
 /** Starred folders shown before the rest fold behind "Show all". */
@@ -31,9 +30,8 @@ export const deepCount = (all: Folder[], id: string): number =>
  * line per import, not every source's whole tree. Then "Not in a folder N", the pages and gems with no folder, and
  * "All folders…", the page with every folder. A row takes anything dropped on it (split-drop.tsx `keepDrop`).
  */
-export function FoldersSection({ here, counted, onOpen, style }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void; style?: React.CSSProperties }): React.JSX.Element {
+export function FoldersSection({ here, counted, unfiled, onOpen, style }: { here: FolderPlace | undefined; counted: boolean; /** How many pages and gems are in no folder: read by the sidebar, which waits for it. */ unfiled: number; onOpen: (place: FolderPlace) => void; style?: React.CSSProperties }): React.JSX.Element {
   const all = useFolders()
-  const unfiled = useLive(folders.unfiled, 0, [], undefined, 'folders:unfiled')
   const [open, setOpen] = useState(() => localStorage.getItem('sidebar:folders') !== 'shut')
   const fold = (next: boolean): void => (chime(next ? 'slide' : 'fold'), setOpen(next), localStorage.setItem('sidebar:folders', next ? 'open' : 'shut'))
   const [naming, setNaming] = useState<string | null>(null)
