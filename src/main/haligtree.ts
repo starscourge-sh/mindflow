@@ -2024,7 +2024,18 @@ export function registerHaligtree(): void {
   // when it may come back to you: a fortnight after it last did (question:back), or any day if it never has.
   const answerOf = (body: string | null, title: string): string =>
     plain(JSON.parse(body ?? 'null')).split('\n').map((line) => line.replace(/^(?:>|#+|[-*])\s*/, '').replace(/\*\*/g, '').replace(/^\d{1,2} \w+( \d{4})? · /, '').trim()).filter((line) => line && line !== title.trim() && line !== 'Clues').join(' ').slice(0, 240)
+  // One kind's list, kept until anything at all is written (a page asks for goals, questions and pages three or four
+  // times as it draws; each ask read the whole table past every note's words: 60 to 116 ms of main on a big book).
+  const itemsKept = new Map<string, { changes: number; rows: unknown }>()
   handle('items', (tier: string) => {
+    const changes = (db.prepare('select total_changes() as n').get() as { n: number }).n
+    const kept = itemsKept.get(tier)
+    if (kept?.changes === changes) return kept.rows
+    const rows = listItems(tier)
+    itemsKept.set(tier, { changes, rows })
+    return rows
+  })
+  const listItems = (tier: string): unknown => {
     const rows = db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier) as { id: string; title: string; closedHow: string | null }[]
     if (tier !== 'question') return rows
     const answers = new Map((db.prepare("select origins, title, body from nuggets where tier = 'article' and binned_at is null and origins like '[\"%\"]'").all() as { origins: string; title: string; body: string | null }[])
@@ -2034,7 +2045,7 @@ export function registerHaligtree(): void {
       const page = row.closedHow === 'answered' ? answers.get(row.id) : undefined
       return { ...row, answer: page ? answerOf(page.body, row.title) || page.title : null, backAt: back.get(row.id) ?? null }
     })
-  })
+  }
 
   // --- the weekly digest: the seven days to now, caught, kept, reviewed and finished. Nothing leaves the Mac.
   const digest = (from = ago(7)): { caught: number; kept: number; reviewed: number; finished: number; from: string } => {
@@ -2984,7 +2995,8 @@ export function registerHaligtree(): void {
     }
   }
   // Every card that asks, with its exam: read again only once the book is written to (3,000 cards' rows and words).
-  let testedKept: { at: number; tested: { row: Record<string, unknown>; exam: Exam | null }[] } | null = null
+  // Kept for the day too: an exam's dates are read against today.
+  let testedKept: { at: number; day: string; tested: { row: Record<string, unknown>; exam: Exam | null }[] } | null = null
   // Today's cards in Review's order, without the four grades' days each one shows (worked out only for Review's own
   // queue): Home, the menu bar's count and the Feed want which cards and how many, and working the days out for
   // every card due took most of 150 to 300 ms of main a time on a big book.
@@ -3000,7 +3012,7 @@ export function registerHaligtree(): void {
     const tagRule = tagRules()
     // Everything tested, so a card with an exam ahead can be called in for the
     // last look even when its own schedule would wait past the date.
-    const tested = testedKept?.at === bookStamp() ? testedKept.tested : (testedKept = { at: bookStamp(), tested: (db
+    const tested = testedKept?.at === bookStamp() && testedKept.day === dayKey() ? testedKept.tested : (testedKept = { at: bookStamp(), day: dayKey(), tested: (db
       .prepare(`select ${ITEM}, body, state, source as origin, (select body from glosses where item_id = nuggets.id and author = 'user' order by created_at desc limit 1) as gloss
         from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null`)
       .all() as Record<string, unknown>[])
@@ -3348,7 +3360,14 @@ export function registerHaligtree(): void {
     return days
   })
   // --- study stats: reviews a day, how often you remembered, what falls due, and a year of review days
-  handle('study:stats', () => {
+  // Review's and Stats' numbers over every review ever made, and the card browser's every card: read again only once
+  // the book is written to, or a new day comes (each was asked twice as Review opened: 30,000 reviews and 3,000
+  // cards held main 244 to 323 ms and 110 to 178 ms a time).
+  const keptTill = <T>(make: () => T): (() => T) => {
+    let kept: { at: number; day: string; value: T } | null = null
+    return () => (kept?.at === bookStamp() && kept.day === dayKey() ? kept : (kept = { at: bookStamp(), day: dayKey(), value: make() })).value
+  }
+  handle('study:stats', keptTill(() => {
     const day = (offset: number): string => new Date(startOfDay(offset)).toISOString()
     const local = (iso: string): string => { const at = new Date(iso); return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}` }
     const perDay = new Map<string, number>()
@@ -3404,10 +3423,10 @@ export function registerHaligtree(): void {
     // Reviews on an average day studied, as Anki's heatmap counts it (days off are in the share of days studied).
     const average = reviewedDays ? Math.round([...perDay].filter(([key]) => key >= local(day(1 - span))).reduce((sum, [, n]) => sum + n, 0) / reviewedDays) : 0
     return { streak: { current, longest, banked }, average, month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span }, minutes, stages, sources, growth, kept: keptIn }
-  })
+  }))
 
   // --- the card browser: every card, with what it is filtered and sorted by
-  handle('cards:all', () => {
+  handle('cards:all', keptTill(() => {
     // Known (remembered across 15 days or more) and the seconds a card takes, each review counted as 60 at most.
     const known = new Set((db.prepare(`select distinct item_id as id from (select item_id, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15`).all() as { id: string }[]).map((row) => row.id))
     const pace = new Map((db.prepare('select item_id as id, avg(min(ms, 60000)) ms, count(ms) n from review_log where ms is not null group by item_id').all() as { id: string; ms: number; n: number }[]).filter((row) => row.n >= 2).map((row) => [row.id, Math.round(row.ms / 1000)]))
@@ -3439,7 +3458,7 @@ export function registerHaligtree(): void {
           occlusion: occlusionOf((row as { fields?: string | null }).fields ?? null)
         }
       })
-  })
+  }))
   // A tag put on, or taken off, several cards at once: in the answer's words, where a card's tags live.
   // What each answer was is handed back, for one Undo.
   handle('cards:retag', (ids: string[], tag: string, on: boolean) => {
