@@ -105,13 +105,8 @@ export function BlockMenu({
   targetRef: { current: BlockTarget | null }
   open: boolean
   onOpenChange: (open: boolean) => void
-  /**
-   * Where a right-click happened: the menu opens there, not at the grip. With
-   * a size, it is a whole block drawn by its own view (a recording, a
-   * picture): the menu opens under it, or above it when the window is short,
-   * and never over its title and controls.
-   */
-  at?: { x: number; y: number; width?: number; height?: number } | null
+  /** Where a right-click happened: the menu opens there, at the pointer, not at the grip (a whole block's too). */
+  at?: { x: number; y: number } | null
   /** A right-click on a misspelt word: its suggestions come first. */
   spelling?: Misspelling | null
   /** A right-click on a link, a PDF or picked words: its own lines come first, the block's under them. */
@@ -550,8 +545,6 @@ export function BlockMenu({
             const box = (node.offsetParent ?? document.body).getBoundingClientRect()
             node.style.left = `${point.x - box.left}px`
             node.style.top = `${point.y - box.top}px`
-            node.style.width = point.width ? `${point.width}px` : ""
-            node.style.height = point.height ? `${point.height}px` : ""
           }}
         />
       </DropdownMenuTrigger>
@@ -560,7 +553,7 @@ export function BlockMenu({
         align="start"
         // From the grip it opens beside it in the margin (gripSide), never over the line it acts on;
         // a right-click opens at the pointer, as on the Mac.
-        side={point ? (point.height ? "bottom" : "right") : grip}
+        side={point ? "right" : grip}
         sideOffset={!point && grip === "bottom" ? underLine() : 6}
         // From the grip, the note's own pane is its edge, never the list of notes beside it; at the pointer, the window.
         collisionBoundary={open && !point ? scrollerOf(editor.view.dom) : undefined}

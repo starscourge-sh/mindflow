@@ -47,6 +47,11 @@ try {
       folded: !!root.querySelector('[data-block-sub]')
     }
   }, MENU)
+  // At the pointer, inside the picture (19 Nov: "why not just open the right click context menu next to the cursor but
+  // within the image"): it opened above the picture, far from the pointer.
+  const near = await h.evaluate(([menu, x, y]) => { const b = document.querySelector(menu).getBoundingClientRect(); return { left: Math.round(b.left), top: Math.round(b.top), dx: Math.round(b.left - x), dy: Math.round(b.top - y) } }, [MENU, box.x + box.width / 2, box.y + box.height / 2])
+  check('its menu opens at the pointer, inside the picture', Math.abs(near.dx) < 24 && Math.abs(near.dy) < 24 && near.top >= box.y && near.top <= box.y + box.height, JSON.stringify(near))
+  if (process.env.QA_SHOTS) await c.both(`${process.env.QA_SHOTS}/picture-menu-at`)
   const has = (title) => menu.titles.includes(title)
   check('one list, nothing folded under "Picture ›"', !menu.folded, JSON.stringify(menu.groups))
   check('the picture\'s own lines and where its file lives, together', ['Look', 'Caption', 'Save a copy', 'Copy image', 'Open in the default app'].every(has) && !has('Show in Finder'), JSON.stringify(menu.titles))

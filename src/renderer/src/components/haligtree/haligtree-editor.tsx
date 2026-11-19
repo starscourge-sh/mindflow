@@ -992,11 +992,7 @@ function Surface({
   const blockDoc = useRef<ProseMirrorNode | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
-  /** The room a block's right-click menu needs to open under or over the block: about seven rows since its actions
-   * came first (9 Nov), and a longer list (a picture's) scrolls inside it. 560 was the old, taller menu's: in a
-   * smaller window it opened at the pointer instead, over the block's own title (10 Nov). */
-  const MENU_ROOM = 320
-  const [menuAt, setMenuAt] = useState<{ x: number; y: number; width?: number; height?: number } | null>(null)
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   // A right-click on a misspelt word, whose suggestions head that menu.
   const [spelling, setSpelling] = useState<Misspelling | null>(null)
   /** What a right-click landed on (a link, a PDF, picked words): its lines lead the menu. */
@@ -1935,13 +1931,10 @@ function Surface({
       if (!node) return
       event.preventDefault()
       blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
-      // A whole block (a recording, a picture): the menu under or over it, clear of its own controls, when there
-      // is a menu's room there. A tall picture leaves none on either side: then it opens at the pointer, as any
-      // right-click menu does, rather than squeezed into the strip above.
-      const drawn = atom === null ? null : editor.view.nodeDOM(atom)
-      const edge = drawn instanceof HTMLElement ? drawn.getBoundingClientRect() : null
-      const room = edge ? Math.max(window.innerHeight - edge.bottom, edge.top) >= MENU_ROOM : false
-      setMenuAt(edge && room ? { x: edge.left, y: edge.top, width: edge.width, height: edge.height } : { x: event.clientX, y: event.clientY })
+      // At the pointer, as every right-click menu opens, a whole block too (a picture, a recording): over the block
+      // where it fits, kept inside the window. Under or over the block it opened far from the pointer (17 Nov: "this
+      // is clumsy, why not just open the right click context menu next to the cursor but within the image").
+      setMenuAt({ x: event.clientX, y: event.clientY })
       setClicked(clickedAt(editor, event))
       // Its spelling rows head the menu: the word under the pointer is asked about (a few milliseconds, never a
       // held window; nothing to ask off a word), and the menu opens whole with the answer, once this right-click
