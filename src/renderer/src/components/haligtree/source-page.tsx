@@ -417,7 +417,7 @@ function ContactLine({ name }: { name: string }): React.JSX.Element {
           {found.map((one) => (
             <li key={one.id}>
               <button type="button" data-contact-choice={one.id} onClick={() => void link(one)} className="flex cursor-pointer items-center gap-1.5 rounded-full border bg-background py-0.5 pr-2.5 pl-0.5 text-control text-foreground hover:bg-accent">
-                {one.photo ? <img alt="" src={`data:image/jpeg;base64,${one.photo}`} className="size-5 rounded-full object-cover" /> : <User className="ml-1 size-3.5 text-muted-foreground" />}
+                {one.photo ? <img alt="" src={`data:image/jpeg;base64,${one.photo}`} className="size-5 shrink-0 rounded-full object-cover" /> : <User className="ml-1 size-3.5 shrink-0 text-muted-foreground" />}
                 {one.name}{one.org ? <span className="text-muted-foreground">· {one.org}</span> : null}
               </button>
             </li>
