@@ -283,7 +283,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
 /** A capture as any list draws it: its kind, its words, when and where from, and its menu. */
 export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void): Entry => {
   const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
-  const { text, tags } = splitTags(capture.label)
+  const { text, tags } = splitTags(capture.label, capture.tagLine)
   return {
     id: capture.id,
     type: 'capture',
