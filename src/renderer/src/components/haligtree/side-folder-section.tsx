@@ -248,7 +248,7 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
           onClick={() => (chime('page'), onOpen())}
           className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
           <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
-          <Weighted on={here} className="flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{folder.name}</Weighted>
+          <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
           {n !== null && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
         </button>
         <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
