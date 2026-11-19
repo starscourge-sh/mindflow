@@ -1,0 +1,5 @@
+The drawing behind a person's initials when they have no photo (components/haligtree/box-extras.css, .mf-avatar).
+
+  torsos.webp   Giacomo Franco, a sheet of six torsos, engraving, about 1600, signed "franco forma Cum privilegio".
+                Public domain (the artist died in 1620). Sent by the user on 17 Nov 2026 (asks item 10). The mount
+                edge trimmed 40px on each side, resized to 640px wide and saved as webp; the original was not changed.

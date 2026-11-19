@@ -730,7 +730,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <Setting title="Your photo" note="Your face in the Feed, on your replies and wherever you are shown, and on the person in People who is you; without one, you wear your shape." more="Choose who you are here, or with “This is me” on their page." keywords="profile photo picture avatar face me you owner portrait upload this is me shown as person myself"
             below={<YourProfile bio={settings.bio ?? ''} setBio={(bio) => set({ bio })} />} />
-          <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until it has a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
+          <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until it has a picture." more="“Initials” sets them on a darkened corner of an engraving by Giacomo Franco (about 1600). “Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
             below={<Choices label="Avatars" options={(['shapes', 'initials'] as const).map((look) => ({ id: look, label: look === 'shapes' ? 'Shapes' : 'Initials', show: <AvatarSample look={look} /> }))}
               on={(id) => id === (settings.avatars ?? 'initials')} pick={(avatars) => set({ avatars: avatars as Settings['avatars'] })} />} />
         </Group>

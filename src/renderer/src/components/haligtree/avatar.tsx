@@ -59,7 +59,7 @@ function ensureDuotone(): void {
  * so the same name always wears the same one. The shape is filled with two of
  * the theme's tag tints, soft enough that the letters read in every theme.
  * With “Avatars” set to “Initials” (the root's data-avatars), the initials sit
- * in a soft round tint instead.
+ * in a round, on a darkened corner of an engraved sheet (box-extras.css).
  */
 export function Avatar({ name, size = 16, className = '', look, letters }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials'; /** Its letters, where names shown together would otherwise share them (distinctInitials). */ letters?: string }): React.JSX.Element | null {
   // A small copy (main makes it once), never the original decoded whole for a face: one 640px long for a face drawn
@@ -78,7 +78,8 @@ export function Avatar({ name, size = 16, className = '', look, letters }: { nam
   const shape = hash % SHAPES.length
   const from = (hash >>> 4) % TINTS.length
   const to = (from + 1 + ((hash >>> 9) % (TINTS.length - 1))) % TINTS.length
-  const style = { '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
+  // Which part of the engraved sheet behind the initials (box-extras.css): the same for a name every time.
+  const style = { '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-avatar-at': `${(hash >>> 13) % 101}% ${(hash >>> 20) % 101}%`, '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
   const id = `mf-shape-${hash.toString(36)}`
   return (
     <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={avatar ? undefined : shape} data-look={look ?? (small ? 'initials' : undefined)} data-small={small ? '' : undefined} className={`mf-avatar ${className}`} style={style}>
