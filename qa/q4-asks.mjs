@@ -39,9 +39,23 @@ try {
       await wait(2500)
       const drawn = await h.evaluate(() => { const one = document.querySelector('[data-excalidraw], .tiptap-excalidraw'); return one ? { svg: !!one.querySelector('svg'), h: Math.round(one.getBoundingClientRect().height) } : null })
       check('the drawing shows on the page as a picture', drawn?.svg && drawn.h > 100, JSON.stringify(drawn))
-      await shot('euclid')
-      await h.mouse.wheel(0, 700); await wait(900)
-      await shot('euclid-diagram')
+      if (SHOTS) await h.screenshot({ path: `${SHOTS}/q4-euclid-light.png` })
+      await h.evaluate(() => document.querySelector('.mf-diagram-block')?.scrollIntoView({ block: 'center' }))
+      await wait(1200)
+      const diagram = await h.evaluate(() => !!document.querySelector('.mf-diagram-block svg'))
+      check('the diagram is drawn, not left as code', diagram)
+      if (SHOTS) await h.screenshot({ path: `${SHOTS}/q4-euclid-diagram-light.png` })
+      // Dark, as a person who works in it opens the page.
+      if (SHOTS) {
+        await c.theme('dark')
+        await send('article', euclid.id); await wait(2500)
+        await h.evaluate(() => document.querySelector('[data-excalidraw], .tiptap-excalidraw')?.scrollIntoView({ block: 'center' }))
+        await wait(1500)
+        await h.screenshot({ path: `${SHOTS}/q4-euclid-dark.png` })
+        await h.evaluate(() => document.querySelector('.mf-diagram-block')?.scrollIntoView({ block: 'center' }))
+        await wait(1200)
+        await h.screenshot({ path: `${SHOTS}/q4-euclid-diagram-dark.png` })
+      }
     }
   }
   if (PART === 'gems') {
@@ -73,7 +87,7 @@ try {
     await v('settings:set', { noteFont: 'Geneva' })
     await go('settings')
     await wait(1200)
-    await h.locator('[data-sections] button, [data-sections] [role="tab"]', { hasText: /^Appearance$/ }).first().click()
+    await h.locator('[data-sections] [data-section="Appearance"]').first().click()
     await wait(900)
     const button = h.locator('[data-setting-title="Text font"] button', { hasText: 'Geneva' }).first()
     await button.scrollIntoViewIfNeeded()
@@ -101,7 +115,13 @@ try {
     const lit = await h.evaluate(() => document.activeElement?.closest('[role="menuitemradio"]')?.textContent ?? document.activeElement?.tagName)
     check('opened by the keys, the picked font is the lit row', String(lit).includes('Geneva'), String(lit))
     await h.keyboard.press('Escape')
-    await v('settings:set', { noteFont: 'system' })
+    await v('settings:set', { noteFont: 'system', headingFont: 'instrument' })
+    await wait(900)
+    const sample = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-setting-title="Heading font"] *')].find((n) => n.textContent === 'How the system holds up'); return one ? getComputedStyle(one).fontFamily : null })
+    const drawn = await h.evaluate(() => document.fonts.check('32px "Instrument Serif"'))
+    check('Instrument Serif is a heading font, drawn from the app\'s own files', /Instrument Serif/.test(String(sample)) && drawn, `${sample} / loaded ${drawn}`)
+    if (SHOTS) await h.locator('[data-setting-title="Heading font"]').first().screenshot({ path: `${SHOTS}/q4-instrument.png` }).catch(() => {})
+    await v('settings:set', { headingFont: 'default' })
   }
   if (PART === 'offer') {
     const pages = await v('items', 'article')
