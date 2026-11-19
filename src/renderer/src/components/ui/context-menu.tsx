@@ -24,6 +24,8 @@ const MENU_ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
  * scroll-lock style on the body, and a change to the body's style restyles every element in the window, on opening and
  * again on closing. Over a long page in the reader (a Fandom article, 30,000 elements) each took over two seconds.
  */
+// Under its own menu always (the menus are z-[51]): at the same z-50, a menu still mounted when it opened again (the
+// PDF reader's, opened twice in a row) was drawn under the new shield, which then took every hover and press meant for it.
 export function MenuShield({ open }: { open: boolean }): React.JSX.Element | null {
   return open ? createPortal(<div data-menu-shield aria-hidden className="pointer-events-auto fixed inset-0 z-50" onContextMenu={(event) => event.preventDefault()} />, document.body) : null
 }
@@ -87,7 +89,7 @@ function ContextMenuContent({
         // taller than the room it has: only a menu that cannot fit scrolls.
         collisionPadding={MENU_ROOM}
         sticky="always"
-        className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
+        className={cn("z-[51] flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
         {...props}
         onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
       >
@@ -273,7 +275,7 @@ function ContextMenuSubContent({
       collisionPadding={MENU_ROOM}
       sticky="always"
       data-slot="context-menu-sub-content"
-      className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
+      className={cn("z-[51] flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
       {...props}
     >
       <MenuScroll>{children}</MenuScroll>
