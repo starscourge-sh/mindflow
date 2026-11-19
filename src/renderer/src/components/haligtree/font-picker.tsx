@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Type } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,8 @@ import { ChevronDown } from '@/components/ui/icons'
 
 /**
  * The font notes are written in: ours first, then every family on this Mac,
- * each shown in itself. The Mac's list is asked for the first time the menu
- * opens, since reading every font is not free.
+ * each shown in itself. The Mac's list is asked for the first time the button
+ * is reached, since reading every font is not free.
  */
 export function FontPicker({ value, setting = 'noteFont', same }: {
   value: string
@@ -30,11 +30,14 @@ export function FontPicker({ value, setting = 'noteFont', same }: {
   same?: string
 }): React.JSX.Element {
   const [mac, setMac] = useState<string[] | null>(null)
+  // Asked for as the pointer or the keys reach the button, so the list is whole when it opens, the picked one in it.
+  const asked = useRef(false)
+  const ask = (): void => void (asked.current || ((asked.current = true), systemFonts().then(setMac)))
   const name = same && (!value || value === 'same') ? same : (NOTE_FONTS.find((one) => one.id === value)?.label ?? value)
   return (
-    <DropdownMenu modal={false} onOpenChange={(open) => void (open && mac === null && systemFonts().then(setMac))}>
+    <DropdownMenu modal={false} onOpenChange={(open) => open && ask()}>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="max-w-48" style={{ fontFamily: same && (!value || value === 'same') ? undefined : familyOf(value) }}>
+        <Button variant="outline" size="sm" className="max-w-48" onPointerEnter={ask} onFocus={ask} style={{ fontFamily: same && (!value || value === 'same') ? undefined : familyOf(value) }}>
           <span className="truncate"><Rolling text={name} /></span> <ChevronDown className="size-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>

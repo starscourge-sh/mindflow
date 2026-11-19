@@ -108,6 +108,9 @@ function ContextMenuContent({
  * rows, over a divider or the padding, the nearest row stays lit and a click
  * there picks it: what is lit is what a click lands on.
  */
+/** The row a menu has picked: a ticked choice, or the one that is open now (a book, a place). */
+export const PICKED_ROW = '[role="menuitemradio"][data-state="checked"], [role="menuitem"][aria-current]:not([aria-current="false"])'
+
 export function MenuScroll({ children }: { children: React.ReactNode }): React.JSX.Element {
   const box = React.useRef<HTMLDivElement>(null)
   // The light is moved by the menu's own events (glide.tsx makeLight): no row crossed draws the menu again.
@@ -161,6 +164,39 @@ export function MenuScroll({ children }: { children: React.ReactNode }): React.J
       el.removeEventListener("click", clicked)
     }
   }, [light])
+  // It opens with what is picked in view, in the middle, as a Mac's pop-up menu does: a long list (the Mac's fonts)
+  // opened at its top with the picked one far below. Again as rows arrive (a list read once the menu is open) or the
+  // panel takes its height, until the person scrolls it.
+  const placed = React.useRef(false)
+  const toPicked = React.useCallback((): void => {
+    const el = box.current
+    const picked = el?.querySelector<HTMLElement>(PICKED_ROW)
+    if (!el || !picked || placed.current) return
+    const spot = spotOf(picked, el)
+    if (el.scrollHeight <= el.clientHeight) return
+    el.scrollTop = spot.top - (el.clientHeight - spot.height) / 2
+  }, [])
+  React.useLayoutEffect(toPicked)
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const sized = new ResizeObserver(toPicked)
+    sized.observe(el)
+    const mine = (): void => void (placed.current = true)
+    // Opened by the keys, it starts on the picked one, lit, as a Mac's pop-up menu does, and the arrows go on from
+    // there: the menu's own first focus (its first row) is moved there once. By the pointer nothing is lit.
+    let first = true
+    const entered = (event: FocusEvent): void => {
+      if (!first) return
+      first = false
+      const picked = el.querySelector<HTMLElement>(PICKED_ROW)
+      if (picked && byKeys() && event.target !== picked && (event.target as Element | null)?.closest?.('[role^="menuitem"]')) picked.focus({ preventScroll: true })
+    }
+    el.addEventListener("focusin", entered)
+    el.addEventListener("wheel", mine, { passive: true })
+    el.addEventListener("keydown", mine)
+    return () => (sized.disconnect(), el.removeEventListener("focusin", entered), el.removeEventListener("wheel", mine), el.removeEventListener("keydown", mine))
+  }, [toPicked])
   return (
     <div ref={box} data-menu-scroll className="mf-more relative isolate min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain p-1">
       <Highlight light={light} className="bg-accent data-[danger]:bg-destructive/10 dark:data-[danger]:bg-destructive/20" />
