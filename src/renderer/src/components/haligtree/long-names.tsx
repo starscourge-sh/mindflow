@@ -9,7 +9,7 @@ import { Orb } from './orb'
 import { namedByApp, toast } from './ui'
 import { num, plural } from '../../../../main/dates'
 
-type Long = { kind: 'capture' | 'task'; id: string; name: string }
+type Long = { kind: 'capture' | 'task'; id: string; name: string; /** A recording named after its event, not by what was said. */ fromEvent?: boolean }
 type Row = Long & { to: string; on: boolean }
 
 /** A long name and, on, the short one Apple Intelligence gives it, the long one kept under it. */
@@ -33,7 +33,7 @@ function RenamePreview({ offer, list, ask, done, what, after }: {
   list: () => Promise<Long[]>
   ask: (one: Long) => Promise<string | null>
   /** The notice once renamed. */
-  done: (count: number) => string
+  done: (count: number, picked: Row[]) => string
   /** What a row is now, under its new name. */
   what: (one: Long) => string
   /** Run once names were given, and again once Undo put them back. */
@@ -65,7 +65,7 @@ function RenamePreview({ offer, list, ask, done, what, after }: {
     chime('noted')
     setRows(null)
     after?.()
-    toast(done(was.length), () => {
+    toast(done(was.length, picked), () => {
       for (const one of picked) namedByApp(one.id, one.name)
       void call('names:undo', was).then(() => (chime('undo'), after?.()))
     })
@@ -133,7 +133,7 @@ export function LongNamesSetting({ on, set }: { on: boolean; set: (on: boolean) 
 
 /**
  * Under Settings' "Apple Intelligence": the recordings kept before it named them ("Recording, 8 Nov at 15:28"),
- * offered while there are any, each named by what was said in its first minutes after a look over the list.
+ * offered while there are any, each named after its event or by what was said in its first minutes, after a look over the list.
  * Nothing at all where it is off or this Mac lacks it (main/long-names.ts gives none).
  */
 export function RecordingNames({ on }: { on: boolean }): React.JSX.Element | null {
@@ -148,8 +148,8 @@ export function RecordingNames({ on }: { on: boolean }): React.JSX.Element | nul
   if (!on || !count) return null
   return (
     <div data-recording-names>
-      <RenamePreview offer={`Name ${plural(count, 'recording')} by what was said…`} list={() => call<Long[]>('names:recordings')} ask={(one) => call<string | null>('names:recording', one.id)}
-        done={(n) => `Named ${plural(n, 'recording')} by what was said, their old names kept`} what={(one) => `Recording, now “${one.name}”`} after={() => setSeen((at) => at + 1)} />
+      <RenamePreview offer={`Name ${plural(count, 'recording')}…`} list={() => call<Long[]>('names:recordings')} ask={(one) => call<string | null>('names:recording', one.id)}
+        done={(n, picked) => `Named ${plural(n, 'recording')} ${picked.every((one) => one.fromEvent) ? 'after their events' : picked.some((one) => one.fromEvent) ? 'after their events or by what was said' : 'by what was said'}, their old names kept`} what={(one) => `Recording, now “${one.name}”`} after={() => setSeen((at) => at + 1)} />
     </div>
   )
 }

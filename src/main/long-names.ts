@@ -26,7 +26,7 @@ export const isLong = (name: string): boolean => {
   return words.split(' ').length > 7 || words.length > 56
 }
 
-export type Long = { kind: 'capture' | 'task'; id: string; name: string }
+export type Long = { kind: 'capture' | 'task'; id: string; name: string; /** A recording named after its event, not by what was said. */ fromEvent?: boolean }
 export type Renamed = Long & { to: string }
 /** As it was, for Undo; `heading`: the name its heading was given (a note named for itself), put back alone. */
 type Was = { kind: 'capture' | 'task'; id: string; title: string; body: string | null; aliases: string | null; named: number; heading?: string }
@@ -164,7 +164,7 @@ async function topicOf(one: Recorded): Promise<string | null> {
 }
 
 /** A rename the app made, told to the main window: its name rolls in, and (unless quiet) a notice offers Undo. */
-const told = (renamed: { id: string; from: string; to: string; was: Was[]; quiet?: boolean }): void => {
+const told = (renamed: { id: string; from: string; to: string; was: Was[]; quiet?: boolean; fromEvent?: boolean }): void => {
   const win = home()
   if (win && !win.isDestroyed()) win.webContents.send('names:renamed', renamed)
 }
@@ -189,7 +189,7 @@ export async function nameRecording(id: string): Promise<void> {
   const was = rename({ kind: 'capture', id, name: one.name, to })
   if (!was) return
   // Told first, so its name rolls in as the lists read it again.
-  told({ id, from: one.name, to, was: [was] })
+  told({ id, from: one.name, to, was: [was], fromEvent: !!one.event })
   changed()
 }
 
@@ -200,7 +200,7 @@ function recordingsToName(): Long[] {
   const ids = database().prepare(`select id from captures where source = 'Meeting' and status != 'discarded' and private = 0 and (${LABEL} like 'Recording, %' or body like '%"event":{%') order by captured_at desc limit 2000`).all() as { id: string }[]
   return ids.flatMap(({ id }) => {
     const one = recorded(id)
-    return one && (one.said.trim() || one.event) ? [{ kind: 'capture' as const, id, name: one.name }] : []
+    return one && (one.said.trim() || one.event) ? [{ kind: 'capture' as const, id, name: one.name, fromEvent: !!one.event }] : []
   })
 }
 

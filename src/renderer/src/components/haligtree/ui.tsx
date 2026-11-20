@@ -1535,10 +1535,10 @@ export function Toaster(): React.JSX.Element | null {
   }), [])
   // A name the app gave in the background (a recording named by what was said, a long name made short): it rolls in
   // where it is shown, and a recording's is said in a quiet notice whose Undo puts the old name back (long-names.ts).
-  useEffect(() => window.api.onRenamed(({ id, from, to, was, quiet }) => {
+  useEffect(() => window.api.onRenamed(({ id, from, to, was, quiet, fromEvent }) => {
     namedByApp(id, to)
     if (quiet) return
-    news(`Named ${quoted(to, 60)} by what was said`, () => (namedByApp(id, from), void call('names:undo', was).then(() => chime('undo'))))
+    news(`Named ${quoted(to, 60)} ${fromEvent ? 'after its event' : 'by what was said'}`, () => (namedByApp(id, from), void call('names:undo', was).then(() => chime('undo'))))
   }), [])
   // A sticky taken down from its own X or ⌘W, said in the window in sight, with the way back.
   useEffect(() => window.api.onStickyTaken((title) => {
