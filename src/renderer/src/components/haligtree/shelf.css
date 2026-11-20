@@ -7,7 +7,8 @@
   display: flex;
   align-items: flex-end;
   gap: 4px;
-  height: 124px;
+  /* The tallest book (130), the ledge's room under it, and a little over it for the one pulled out. */
+  height: 152px;
   margin: 2px 0 0;
   padding: 14px 8px 0;
   overflow-x: auto;
@@ -35,7 +36,14 @@
 .mf-shelf .mf-spine * { cursor: pointer; }
 /* The menu inks a lit row's words in its own colour: a book keeps its own, the cover's name in its ink, the spine's in gold foil. */
 .mf-shelf .mf-spine .mf-spine-face * { color: inherit; }
+.mf-shelf .mf-spine .mf-card-cover * { color: inherit; }
 .mf-shelf .mf-spine [data-reader-spine-face] span { color: transparent; }
+/* The open book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx ShelfCover). */
+.mf-card-cover { overflow: hidden; }
+/* Its picture at the card's own size, and its words wrapping as on the card: a menu row draws every svg in it at 14px
+   unless told, and keeps its words on one line (dropdown-menu.tsx). */
+.mf-shelf [data-reader-shape] > svg:not(.size-0) { width: 168px; height: 168px; }
+.mf-shelf [data-shelf-card] { white-space: normal; }
 /* Its cover: cream washed with the book's colour, a tooled frame in its ink, the name set in from the hinge. */
 .mf-spine-face {
   display: flex;
