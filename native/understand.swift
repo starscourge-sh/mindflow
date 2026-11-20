@@ -266,19 +266,24 @@ func study(_ op: String, _ request: [String: Any]) async throws -> [String: Any]
     let count = min(10, max(1, request["count"] as? Int ?? 5))
     let title = String((request["title"] as? String ?? "").prefix(200))
     let text = String((request["text"] as? String ?? "").prefix(9000))
-    let reply = try await ask(
-      "You write study flashcards from part of a book, in the book's own language. Make exactly \(count) cards on the most important ideas, preferring the reader's highlights and the headings. Each card is one line: Q: a clear question || A: its answer in under twenty words || P: the page number it comes from, from the [p. N] marks. Use only what the text says. No other lines.",
-      "From: \(title)\n\n\(text)")
+    // Guided generation: the model fills a deck's own fields (a schema built here, as this helper is built without
+    // Xcode's @Generable macros), so a card is never lost to how it laid out its words: in free text it put Q, A and
+    // the page on three lines and every card was dropped (20 Nov).
+    let card = DynamicGenerationSchema(name: "Card", properties: [
+      .init(name: "question", description: "A clear question about one important idea in the text", schema: DynamicGenerationSchema(type: String.self)),
+      .init(name: "answer", description: "Its answer, in under twenty words, from the text alone", schema: DynamicGenerationSchema(type: String.self)),
+      .init(name: "page", description: "The page it comes from, read from the [p. N] mark before it", schema: DynamicGenerationSchema(type: Int.self))
+    ])
+    let deck = DynamicGenerationSchema(name: "Deck", properties: [
+      .init(name: "cards", description: "The flashcards, one per important idea", schema: DynamicGenerationSchema(arrayOf: card, minimumElements: 1, maximumElements: count))
+    ])
+    let session = LanguageModelSession(instructions: "You write study flashcards from part of a book, in the book's own language. Make \(count) cards on the most important ideas, preferring the reader's highlights and the headings. Use only what the text says.")
+    let said = try await session.respond(to: "From: \(title)\n\n\(text)", schema: try GenerationSchema(root: deck, dependencies: []), options: GenerationOptions(temperature: 0.3)).content
     var cards: [[String: Any]] = []
-    for line in reply.split(whereSeparator: \.isNewline) {
-      let parts = line.components(separatedBy: "||").map { $0.trimmingCharacters(in: .whitespaces) }
-      guard parts.count >= 2 else { continue }
-      let field = { (part: String, key: String) -> String in part.hasPrefix(key) ? String(part.dropFirst(key.count)).trimmingCharacters(in: .whitespaces) : part }
-      let q = field(parts[0], "Q:")
-      let a = field(parts[1], "A:")
-      let p = parts.count > 2 ? Int(field(parts[2], "P:").filter(\.isNumber)) : nil
-      if !q.isEmpty && !a.isEmpty { cards.append(["question": q, "answer": a, "page": p ?? 0]) }
-      if cards.count == count { break }
+    for one in try said.value([GeneratedContent].self, forProperty: "cards").prefix(count) {
+      let q = (try one.value(String.self, forProperty: "question")).trimmingCharacters(in: .whitespacesAndNewlines)
+      let a = (try one.value(String.self, forProperty: "answer")).trimmingCharacters(in: .whitespacesAndNewlines)
+      if !q.isEmpty && !a.isEmpty { cards.append(["question": q, "answer": a, "page": (try? one.value(Int.self, forProperty: "page")) ?? 0]) }
     }
     return ["cards": cards]
   }

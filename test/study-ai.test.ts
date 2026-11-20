@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { cardsSaid, chapterRange, chapterText, pageWords, cutWords, hintedTimes, meaningGrade } from '../src/main/study-ai.ts'
+import { chapterRange, chapterText, pageWords, cutWords, hintedTimes, meaningGrade } from '../src/main/study-ai.ts'
 
 test('a hint brings each grade back sooner, Again as it is, the four kept four and in order', () => {
   const now = Date.parse('2026-11-06T10:00:00Z')
@@ -94,17 +94,3 @@ test('a page’s heading ends with a full stop, never run into its first sentenc
 
 // Apple Intelligence's real answer on Fluent Python's "Private and “Protected” Attributes" (20 Nov): read one line at a
 // time, all five were dropped and the reader said it "wrote no card" on two dense pages.
-test('cards are read in whatever shape the model writes them, and a reply with none says what it did write', () => {
-  const real = '**Q:** What prevents accidental overwriting of a "private" attribute in a subclass?  \n**A:** Name mangling with two leading underscores and zero or one trailing underscore.  \n[p. 412]\n\n**Q:** How does name mangling work in Python?  \n**A:** It prefixes the name with the class name and a leading underscore in the instance __dict__.  \n[p. 412]\n\n**Q:** What is the meaning of a single underscore prefix for attributes?  \n**A:** It’s a convention for "protected" attributes, not true privacy.  \n[p. 413]'
-  const got = cardsSaid(real, 5)
-  assert.ok('cards' in got, JSON.stringify(got))
-  assert.deepEqual(got.cards.map((one) => one.page), [412, 412, 413])
-  assert.equal(got.cards[1].answer, 'It prefixes the name with the class name and a leading underscore in the instance __dict__.')
-  assert.equal(got.cards[0].question, 'What prevents accidental overwriting of a "private" attribute in a subclass?')
-  // The shape it was asked for, numbered, and a count kept to.
-  const asked = cardsSaid('1. Q: Where is energy made? || A: The mitochondrion || P: 3\n2. Q: What builds proteins? || A: Ribosomes [p. 4]\n3. Q: Extra? || A: Cut', 2)
-  assert.deepEqual(asked, { cards: [{ question: 'Where is energy made?', answer: 'The mitochondrion', page: 3 }, { question: 'What builds proteins?', answer: 'Ribosomes', page: 4 }] })
-  // A refusal is quoted, never "it wrote none".
-  const none = cardsSaid('I am sorry, but I cannot help with that request.', 5)
-  assert.ok('error' in none && none.error.includes('I am sorry, but I cannot help'), JSON.stringify(none))
-})

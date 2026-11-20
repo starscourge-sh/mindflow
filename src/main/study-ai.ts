@@ -107,60 +107,6 @@ export function pageWords(text: string): string {
   return lines.map((line, n) => (line.length < 60 && !/[.!?:;,]$/.test(line) && /^[\p{Lu}\p{N}"“]/u.test(lines[n + 1] ?? 'A') ? `${line}.` : line)).join(' ')
 }
 
-/** What Apple Intelligence is asked for cards: one line each, though it often answers in its own shape (cardsSaid). */
-export const cardsAsked = (count: number): string =>
-  `You write study flashcards from part of a book, in the book's own language. Make exactly ${count} cards on the most important ideas, preferring the reader's highlights and the headings. Each card is one line: Q: a clear question || A: its answer in under twenty words || P: the page number it comes from, from the [p. N] marks. Use only what the text says. No other lines.`
-
-/**
- * The cards in what the model wrote, in whichever shape it chose. Asked for "Q: … || A: … || P: …" on one line, it
- * mostly answers "**Q:** …" and "**A:** …" on lines of their own with "[p. 412]" under them (20 Nov, on two dense
- * pages of Fluent Python): read one line at a time, those five cards were all dropped and the panel said it wrote
- * none. Each Q starts a card, its A ends the question, a page mark or "P:" gives its page; a line with no mark of
- * its own carries on the part before it. With none at all, the error says what the model did answer.
- */
-export function cardsSaid(reply: string, count: number): { cards: { question: string; answer: string; page: number }[] } | { error: string } {
-  type Card = { question: string; answer: string; page: number }
-  const cards: Card[] = []
-  // Set inside done() too: typed by assertion, so the checker never narrows them to null for good.
-  let card = null as Card | null
-  let part = null as 'question' | 'answer' | null
-  const done = (): void => {
-    if (card && card.question && card.answer && cards.length < count) cards.push({ ...card, question: card.question.trim(), answer: card.answer.trim() })
-    card = null
-    part = null
-  }
-  for (const line of reply.split(/\r?\n/)) {
-    if (!line.trim()) { part = null; continue }
-    for (const piece of line.split('||')) {
-      // Markdown's bold and a list's number or dash, which the model adds unasked; never the underscores of `__dict__`.
-      const bare = piece.replace(/\*\*/g, '').replace(/^\s*(?:\d+[.)]|[-*•])\s+/, '').trim()
-      if (!bare) continue
-      const mark = /^(?:Card\s*\d+\s*[:.-]\s*)?(Q|Question|A|Answer|P|Page)\s*[:：]\s*(.*)$/i.exec(bare)
-      const page = /^\[?\(?p(?:age|\.)?\s*(\d+)\]?\)?\.?$/i.exec(bare)
-      if (page || mark?.[1].toLowerCase().startsWith('p')) {
-        const n = Number((page?.[1] ?? mark![2]).replace(/\D/g, ''))
-        if (card && n) card.page = n
-        part = null
-        continue
-      }
-      const which = mark ? (mark[1].toLowerCase().startsWith('q') ? 'question' : 'answer') : part
-      if (mark && which === 'question') (done(), (card = { question: '', answer: '', page: 0 }))
-      if (!card || !which) continue
-      // A page said at the end of the words ("… not sabotage. [p. 413]") is the card's page, not part of them.
-      const words = mark ? mark[2] : bare
-      const tail = /\s*[[(]p(?:age|\.)?\s*(\d+)[\])]\.?\s*$/i.exec(words)
-      if (tail) card.page = Number(tail[1])
-      card[which] = `${mark ? '' : card[which]} ${tail ? words.slice(0, tail.index) : words}`.trim()
-      part = which
-    }
-  }
-  done()
-  if (cards.length) return { cards }
-  const said = reply.replace(/\s+/g, ' ').trim()
-  if (!said) return { error: 'Apple Intelligence sent back an empty answer for these pages. Try again: each try is worded afresh.' }
-  return { error: `Apple Intelligence answered without a question and its answer in it: “${cutWords(said, 140).replace(/[.!]$/, '')}”. Try again: each try is worded afresh.` }
-}
-
 export function chapterText(parts: { pages: { page: number; text: string }[]; highlights: { page: number; text: string }[]; headings: { page: number; title: string }[] }, budget = 9000): string {
   const lines: string[] = []
   let left = budget

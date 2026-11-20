@@ -65,7 +65,7 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
       if (!text.trim()) return setError(span === 1 ? "This page has no words to read: a scanned book needs its text read first, in Details." : "These pages have no words to read: a scanned book needs its text read first, in Details.")
       const got = await cardsFrom(range.title ? `${title}: ${range.title}` : title, text, 5)
       if (asked.current !== ask) return
-      // The real reason, from main (study-ai.ts cardsSaid): what the model answered when it held no card, never a guess.
+      // The real reason, from main (understand.ts): what the model answered when it held no card, never a guess.
       if ("error" in got) return setError(got.error)
       chime("open")
       setCards(got.cards.map((one) => ({ ...one, page: one.page >= range.from && one.page <= range.to ? one.page : range.from, state: "open" })))
