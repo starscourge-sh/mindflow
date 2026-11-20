@@ -238,6 +238,15 @@ const api = {
   /** How many parts of this page listen on each channel from main now (a count that climbs as notes open and close is a leak). */
   listening: (): Record<string, number> => heard.counts(),
   roomDrawn: (): void => ipcRenderer.send('window:room-drawn'),
+  /** When the box's draft turns into a leftover (null for no draft), told as the box goes away. */
+  leftoverAt: (at: number | null): void => ipcRenderer.send('box:leftover-at', at),
+  /** Main asks, before the box shows, for an old draft set aside; the page says once it has drawn the fresh box. */
+  onSetAside: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    heard.on('window:set-aside', relay)
+    return () => heard.off('window:set-aside', relay)
+  },
+  asideDrawn: (): void => ipcRenderer.send('window:set-aside-drawn'),
   /**
    * This window picked up by the hand (quick capture's grabber, a sticky's card), at a point on the screen; carried to
    * each point the pointer moves to; put down. Screen points (an event's screenX and screenY): see lib/carry.ts.

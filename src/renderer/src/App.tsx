@@ -718,12 +718,12 @@ export default function App(): React.JSX.Element {
   const fromSaid = (one: BoxFrom): { app: string; title: string; url: string; page: string } => ({ app: one.app, title: one.title, url: one.url, page: one.page })
   // Each time the window comes up, the box has the caret, ready to type, not
   // whichever button the focus was last left on.
-  useEffect(() => window.api.onShown(() => {
-    openedAt.current = Date.now()
+  useEffect(() => {
     // A draft left an hour or more: set aside as a leftover, and the box is fresh.
-    const at = Number(localStorage.getItem('capture-draft-at')) || 0
-    const draft = readDraft()
-    if (!latestEditing.current && draft && Date.now() - at > LEFTOVER_AFTER) {
+    const setAside = (): void => {
+      const at = Number(localStorage.getItem('capture-draft-at')) || 0
+      const draft = readDraft()
+      if (latestEditing.current || !draft || Date.now() - at <= LEFTOVER_AFTER) return
       const before = readLeftover()
       // Two leftovers: the older one first, then the newer, as one note to keep.
       localStorage.setItem('capture-leftover', JSON.stringify(before ? { type: 'doc', content: [...(before.content ?? []), ...(draft.content ?? [])] } : draft))
@@ -732,15 +732,33 @@ export default function App(): React.JSX.Element {
       localStorage.removeItem('capture-leftover-shown')
       fresh()
     }
-    // Shown on this open: one more time it may be passed by (readLeftover lets it go after the third).
-    const offered = readLeftover()
-    if (offered) localStorage.setItem('capture-leftover-shown', String((Number(localStorage.getItem('capture-leftover-shown')) || 0) + 1))
-    setLeftover(offered)
-    requestAnimationFrame(() => {
-      const active = document.activeElement
-      if (!active || active === document.body || active.closest('header, [data-window-controls], button')) editorRef.current?.commands.focus('end')
+    // Loaded or put away with a draft: main is told when it turns into a leftover, and asks for it set aside before
+    // the box next shows (main's asideFirst), so the box comes up fresh at its new size, never the old words for a frame.
+    const tell = (): void => {
+      const at = Number(localStorage.getItem('capture-draft-at')) || 0
+      if (!SMALL) window.api.leftoverAt(localStorage.getItem('capture-draft') && at ? at + LEFTOVER_AFTER : null)
+    }
+    tell()
+    const offHiding = window.api.onHiding(tell)
+    // Drawn fresh, then answered: the new size has reached main (fit-box asks in the frame after the change).
+    const offAside = window.api.onSetAside(() => {
+      flushSync(setAside)
+      requestAnimationFrame(() => requestAnimationFrame(() => window.api.asideDrawn()))
     })
-  }), [])
+    const offShown = window.api.onShown(() => {
+      openedAt.current = Date.now()
+      setAside()
+      // Shown on this open: one more time it may be passed by (readLeftover lets it go after the third).
+      const offered = readLeftover()
+      if (offered) localStorage.setItem('capture-leftover-shown', String((Number(localStorage.getItem('capture-leftover-shown')) || 0) + 1))
+      setLeftover(offered)
+      requestAnimationFrame(() => {
+        const active = document.activeElement
+        if (!active || active === document.body || active.closest('header, [data-window-controls], button')) editorRef.current?.commands.focus('end')
+      })
+    })
+    return () => (offHiding(), offAside(), offShown())
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
   const [leftover, setLeftover] = useState<JSONContent | null>(readLeftover)

@@ -370,6 +370,8 @@ let cameFrom: BrowserWindow | null = null
 function hideWindow(win: BrowserWindow): void {
   // A glide under way lands first, so the window is put away at its new size.
   if (pending?.win === win) (arriving?.(), settle())
+  // A throw under way lands too: put away where it was going, never left gliding while away.
+  if (win === prompt) throwLand?.()
   // Where the welcome put it is the welcome's, not where you left it.
   if (!(win === prompt && welcomeBoxSpot())) {
     lastBounds = boundsOf(win)
@@ -583,6 +585,8 @@ function toggleWindow(): void {
   // Which Haligtree window had the keys, if any, before the box takes them.
   const before = BrowserWindow.getFocusedWindow()
   if (before !== win) cameFrom = before
+  // Summoned while thrown aside and still on its way (kept open, it steps aside as you click away): there first.
+  throwLand?.()
   // Before showing it, or you watch it arrive in one place and move to another.
   // Checked against the screen as it is now: a display can have been unplugged
   // while the window was away.
@@ -604,7 +608,9 @@ function toggleWindow(): void {
   // Filed by AeroSpace under a workspace (boxFiled), the box is moved to the one in view first: left where it was
   // filed, it took you there.
   const here = boxToWorkspaceHere(win)
-  if (roomed || here) return void Promise.all([roomed, here]).then(() => win.isDestroyed() || showPrompt(win))
+  // An old draft set aside, the box drawn fresh at its new size, before it shows.
+  const aside = win.isVisible() ? null : asideFirst(win)
+  if (roomed || here || aside) return void Promise.all([roomed, here, aside]).then(() => win.isDestroyed() || showPrompt(win))
   showPrompt(win)
 }
 
@@ -745,14 +751,33 @@ function roomForHint(win: BrowserWindow, place: Electron.Rectangle): Promise<voi
   hintBelow = room.bottom
   setRoom(win, room)
   roomInEnv()
+  return drawnAway(win, 'window:room-hint', 'window:room-drawn', { ...room, side })
+}
+/** Asked of the box's page while it is away; resolves once the page says it has drawn what was asked. */
+function drawnAway(win: BrowserWindow, ask: string, answer: string, payload?: unknown): Promise<void> {
   return new Promise((resolve) => {
-    const done = (): void => (clearTimeout(late), ipcMain.removeListener('window:room-drawn', heard), resolve())
+    const done = (): void => (clearTimeout(late), ipcMain.removeListener(answer, heard), resolve())
     const heard = (event: Electron.IpcMainEvent): void => void (event.sender === win.webContents && done())
     // A page that never answers (it crashed) still shows.
     const late = setTimeout(done, 250)
-    ipcMain.on('window:room-drawn', heard)
-    win.webContents.send('window:room-hint', { ...room, side })
+    ipcMain.on(answer, heard)
+    win.webContents.send(ask, payload)
   })
+}
+/**
+ * When the box's draft turns into a leftover (an hour untouched, App.tsx LEFTOVER_AFTER), as its page said when it was
+ * last put away. Opened after that, the page sets the draft aside and draws the box fresh before it shows: set aside
+ * as it came on screen, the box showed the old words at their old height for a frame, then shrank to the empty pill.
+ */
+let leftoverAt: number | null = null
+ipcMain.on('box:leftover-at', (event, at: unknown) => {
+  if (prompt && event.sender === prompt.webContents) leftoverAt = typeof at === 'number' && Number.isFinite(at) ? at : null
+})
+/** The draft set aside before the box shows, when it is due; null when it is not. */
+function asideFirst(win: BrowserWindow): Promise<void> | null {
+  if (leftoverAt === null || Date.now() < leftoverAt) return null
+  leftoverAt = null
+  return drawnAway(win, 'window:set-aside', 'window:set-aside-drawn')
 }
 /** Where the last open put a hint's room. */
 let hintSide: HintSide | undefined
@@ -3929,13 +3954,21 @@ function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
   throwing?.()
   const land = (): void => {
     throwing = null
+    throwLand = null
     lastBounds = { ...from, x: to.x, y: to.y }
     anchor = { y: to.y, became: to.y }
     keepSpot(display.id, to)
     if (!app.isPackaged) console.log(`[haligtree] box thrown to ${to.x},${to.y} on screen ${display.id}`)
   }
-  throwing = glideTo(win, to, land, speed)
+  const stop = glideTo(win, to, land, speed)
+  throwing = stop
+  throwLand = stop && ((): void => (stop(), win.isDestroyed() || win.setPosition(to.x, to.y), land()))
 }
+/**
+ * The throw under way landed at once where it was going. Put away or summoned mid-throw, the box was shown where it
+ * was placed and the throw's glide went on from there, carrying it off a frame later (qa/box-reopen-still.mjs).
+ */
+let throwLand: (() => void) | null = null
 /**
  * One window gliding, whole, to a place: the one clock for everything of Haligtree's that moves out of the way
  * (quick capture thrown or stepping aside, the session bubble and the corner's cards stepping aside). One curve from
@@ -3997,7 +4030,9 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
   // top where it was left, not where the screen's bottom last pushed it.
   const { height } = boundsOf(win)
   const width = boxWidth()
-  const kept = lastBounds ?? boundsOf(win)
+  // Still up (kept open, behind another app's window): where it is now, carried since or not. Where it was last put
+  // away pulled it back there as it came forward.
+  const kept = (win.isVisible() ? null : lastBounds) ?? boundsOf(win)
   const left = { ...kept, y: anchor && anchor.became === kept.y ? anchor.y : kept.y, width, height }
   const { place, screen: which } = boxPlacement()
   const was = screen.getDisplayMatching(left).workArea
