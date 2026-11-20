@@ -397,8 +397,9 @@ export function ThingRow({ thing: one, lit: here, onOpen, from }: { thing: { typ
 export function MoreRow({ onClick, children, ...data }: { onClick: () => void; children: React.ReactNode } & Record<`data-${string}`, string>): React.JSX.Element {
   return (
     <button type="button" data-side-row {...data} onClick={() => (chime('page'), onClick())}
-      className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
-      <span className="w-4 shrink-0" />
+      className="group/more flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
+      {/* Its own sign where the rows above have theirs, so it never reads as a row with its icon missing. */}
+      <span className="flex w-4 shrink-0 items-center justify-center"><ArrowRight aria-hidden className="size-3.5 text-muted-foreground transition-transform duration-150 group-hover/more:translate-x-0.5" /></span>
       <span className="flex-1 text-left">{children}</span>
     </button>
   )
