@@ -264,8 +264,15 @@ export function Lead({
   )
 }
 
-/** A line of the list as drawn: a row, or a row of tiles, with its group's name over the first. */
-type Line = { key: string; head?: [string, number]; start: number; entries: Entry[] }
+/** A line of the list as drawn: a row, or a row of tiles, with its group's name over the first. In columns (`columns`)
+ *  its rows are `step` apart in reading order: the first of each column, then the second. */
+type Line = { key: string; head?: [string, number]; start: number; step?: number; entries: Entry[] }
+/** Where the cursor is on a line: its place along it, or -1. */
+const placeOn = (one: Line, cursor: number): number => {
+  const off = cursor - one.start
+  const step = one.step ?? 1
+  return off >= 0 && off % step === 0 && off / step < one.entries.length ? off / step : -1
+}
 
 const TILE = { small: 92, grid: 184 }
 /** A word card is read, not glanced at: wide enough for a long word at 15 px and two lines of its meaning. */
@@ -324,7 +331,8 @@ export function NoteList({
   islands,
   className = '',
   dayHeads = false,
-  twoUp = false
+  twoUp = false,
+  columns = false
 }: {
   groups: [string, Entry[]][]
   density: Density
@@ -355,6 +363,9 @@ export function NoteList({
   /** Rows two side by side where the list is wide enough (a page of short links, as Notion lays them out), one under
    *  another on a phone. Read across: Tab, and ← → ↑ ↓ on a row, go A, B on the first line, then C, D. Rows only. */
   twoUp?: boolean
+  /** Rows in newspaper columns, as many as fit at 18rem: read down the first, then on to the next, as Notion lays out a
+   *  page of links. ↑ ↓ walk that order, ← → step to the next column. Headings span them all. Rows only. */
+  columns?: boolean
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
@@ -372,7 +383,7 @@ export function NoteList({
   })
   // One light over the rows, gliding to the nearest, so the gap between two never goes dark (glide.tsx). Tiles keep their ring.
   // About half the open row's light, so the one open never looks like a second row pointed at.
-  const hover = useFluidHover(box, { items: '[data-row]', axis: twoUp ? 'xy' : 'y' })
+  const hover = useFluidHover(box, { items: '[data-row]', axis: twoUp || columns ? 'xy' : 'y' })
   const glide = grid ? {} : { ...hover.handlers, className: 'relative isolate' }
   const light = grid ? null : <Highlight light={hover.light} className="bg-accent/25" />
   const [width, setWidth] = useState(0)
@@ -382,7 +393,7 @@ export function NoteList({
     const fit = (): void => setWidth(element.clientWidth)
     // Only tiles need the width before the first frame (how many across); a
     // list has the observer's first report, without laying the page out now.
-    if (grid || twoUp) fit()
+    if (grid || twoUp || columns) fit()
     const watch = new ResizeObserver(fit)
     watch.observe(element)
     return () => watch.disconnect()
@@ -393,9 +404,15 @@ export function NoteList({
   const tile = (worded ? WORD_TILE : TILE)[density as 'small' | 'grid']
   const across = grid
     ? Math.max(1, Math.floor((width + gap) / (tile + gap)))
-    : twoUp && !folds && !islands && width >= TWO_UP
-      ? 2
-      : 1
+    : folds || islands
+      ? 1
+      : columns
+        ? Math.max(1, Math.floor((width + COLUMN_GAP) / (COLUMN + COLUMN_GAP)))
+        : twoUp && width >= TWO_UP
+          ? 2
+          : 1
+  // Columns read down: each line holds the first of each column, then the second, and so on.
+  const down = columns && !grid && across > 1
   // A tile's first words, asked for only while tiles are drawn.
   const glance = useLive(
     () => (grid ? notes.glance(table) : Promise.resolve({} as Record<string, string>)),
@@ -438,23 +455,28 @@ export function NoteList({
     let start = 0
     for (const [name, list] of groups) {
       const here = [...list].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
-      for (let at = 0; at < here.length; at += across) {
-        const entries = here.slice(at, at + across)
-        lines.push({
-          key: entries[0].id,
-          head: at === 0 && name ? [name, here.length] : undefined,
-          start: start + at,
-          entries
-        })
-      }
+      const rows = down ? Math.ceil(here.length / across) : 0
+      if (down)
+        for (let at = 0; at < rows; at++) {
+          const entries = Array.from({ length: across }, (_, column) => here[column * rows + at]).filter(Boolean)
+          lines.push({ key: entries[0].id, head: at === 0 && name ? [name, here.length] : undefined, start: start + at, step: rows, entries })
+        }
+      else
+        for (let at = 0; at < here.length; at += across) {
+          const entries = here.slice(at, at + across)
+          lines.push({
+            key: entries[0].id,
+            head: at === 0 && name ? [name, here.length] : undefined,
+            start: start + at,
+            entries
+          })
+        }
       start += here.length
     }
-    const line = lines.findIndex(
-      (one) => cursor >= one.start && cursor < one.start + one.entries.length
-    )
+    const line = lines.findIndex((one) => placeOn(one, cursor) >= 0)
     return (
       <>
-        <GridKeys on={grid} lines={lines} cursor={cursor} onCursor={onCursor} />
+        <GridKeys on={grid || down} lines={lines} cursor={cursor} onCursor={onCursor} />
         <VirtualList
           items={lines}
           keyOf={(one) => one.key}
@@ -488,11 +510,11 @@ export function NoteList({
                   ))}
                 </div>
               ) : (
-                <div data-row-line className={across > 1 ? 'grid grid-cols-2 gap-x-2' : undefined}>
+                <div data-row-line className={across > 1 ? 'grid' : undefined} style={across > 1 ? { gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, columnGap: columns ? COLUMN_GAP : 8 } : undefined}>
                   {one.entries.map((entry, at) => (
                     <SortableRow key={entry.id} id={entry.id}>
                       <div className={`group/item relative min-w-0 ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
-                        {face(entry, one.start + at)}
+                        {face(entry, one.start + at * (one.step ?? 1))}
                         {after?.(entry)}
                       </div>
                     </SortableRow>
@@ -581,7 +603,7 @@ export function NoteList({
       </div>
     )
   // Two side by side: the arrows move the focus through the rows as they read, across then down.
-  const step = twoUp && !grid ? (event: React.KeyboardEvent): void => {
+  const step = twoUp && !grid && !columns ? (event: React.KeyboardEvent): void => {
     const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: across, ArrowUp: -across }[event.key]
     const from = (event.target as HTMLElement).closest('[data-row]')
     if (!move || !from || event.metaKey || event.ctrlKey || event.altKey) return
@@ -609,6 +631,10 @@ export function NoteList({
 const PICKED = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--tt-brand-color-400)_65%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_24%,transparent)]!'
 /** How wide a list must be to take two rows side by side (`twoUp`): each row keeps room for its icon, a name and its count. */
 const TWO_UP = 560
+/** The narrowest a column of rows gets (`columns`): 18rem, room for the icon, a question's words and its count. */
+const COLUMN = 288
+/** Between two columns: wide enough that one row's count never reads as part of the next column's row. */
+const COLUMN_GAP = 24
 const rowClass = (
   at: boolean,
   open: boolean,
@@ -746,7 +772,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
 /** A word's meaning, a quiet line in reading size; still asked, that is said in its place. */
 const Meaning = ({ head, className = '' }: { head: NonNullable<Entry['head']>; className?: string }): React.JSX.Element | null =>
   head.meaning ? (
-    <span data-head-meaning className={`private-text text-control text-pretty text-muted-foreground ${className}`}>{head.meaning}</span>
+    <span data-head-meaning className={`private-text text-control text-muted-foreground ${className}`}>{head.meaning}</span>
   ) : head.asked ? (
     <span data-head-meaning="asked" className={`text-control text-muted-foreground italic ${className}`}>{head.word.trim().endsWith('?') ? 'No answer yet' : 'No meaning yet'}</span>
   ) : null
@@ -771,7 +797,7 @@ function WordCard({ entry, head, large }: { entry: Entry; head: NonNullable<Entr
           <span data-head-word className={`private-text min-w-0 flex-1 font-heading font-semibold text-balance hyphens-auto [overflow-wrap:break-word] ${long ? 'line-clamp-3 text-heading' : 'line-clamp-2 text-lead'}`}>{head.word}</span>
           {entry.marks && <span className="flex shrink-0 items-center gap-1 pt-1">{entry.marks}</span>}
         </span>
-        <Meaning head={head} className={large ? 'line-clamp-3' : 'line-clamp-2'} />
+        <Meaning head={head} className={`text-pretty ${large ? 'line-clamp-3' : 'line-clamp-2'}`} />
         {large && (head.where || entry.age) && (
           <span className="mt-auto flex min-w-0 items-center gap-1.5 pt-1.5 text-meta text-muted-foreground">
             {head.where && <span className="min-w-0 truncate">{head.where}</span>}
@@ -909,12 +935,20 @@ function GridKeys({
       const up = event.key === 'ArrowUp' || event.key === 'k'
       const side = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
       if (!down && !up && !side) return
+      // In columns, ↑ ↓ walk the reading order, down a column and on to the next: the list's own keys.
+      const columns = lines.some((one) => one.step)
+      if (columns && !side) return
       event.preventDefault()
       if (cursor < 0) return onCursor(0)
+      const row = lines.findIndex((one) => placeOn(one, cursor) >= 0)
+      // ← → to the row level with it in the next column, where there is one.
+      if (columns) {
+        if (row < 0) return
+        const at = placeOn(lines[row], cursor) + side
+        if (lines[row].entries[at]) onCursor(lines[row].start + at * (lines[row].step ?? 1))
+        return
+      }
       if (side) return onCursor(Math.max(0, Math.min(count - 1, cursor + side)))
-      const row = lines.findIndex(
-        (one) => cursor >= one.start && cursor < one.start + one.entries.length
-      )
       const next = lines[row + (down ? 1 : -1)]
       if (next) onCursor(next.start + Math.min(cursor - lines[row].start, next.entries.length - 1))
     }

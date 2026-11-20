@@ -327,7 +327,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
  * Captures at any of Display's sizes, grouped as Display asks. `cursor` is
  * where the keyboard is, drawn apart from the one that is open.
  */
-export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, picking, onMove, after, menu, entryOf, islands, className }: {
+export function CaptureList({ groups, density = 'list', selected, cursor, onCursor, chosen = [], onPick, onOpen, picking, onMove, after, menu, entryOf, islands, columns, className }: {
   groups: [string, CaptureMeta[]][]
   /** Each kind its own island (islands.tsx). */
   islands?: Record<string, IslandState>
@@ -348,6 +348,8 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
   menu?: (capture: CaptureMeta, usual: RowItem[]) => RowItem[]
   /** A row drawn its own way, where the list holds more than captures (a task in Everything). */
   entryOf?: (capture: CaptureMeta) => Entry | undefined
+  /** Newspaper columns of one-line rows (note-list's `columns`). */
+  columns?: boolean
   className?: string
 }): React.JSX.Element {
   return (
@@ -368,6 +370,7 @@ export function CaptureList({ groups, density = 'list', selected, cursor, onCurs
       onMove={onMove}
       after={after}
       islands={islands}
+      columns={columns}
       className={className}
     />
   )

@@ -37,7 +37,7 @@ import { Island, Prop, Props, Rolling, Tip, Typed, ask, refuse, showTopTitle, to
 import { Term } from './term'
 import { openGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
-import { ago, dayMonth, dayName, heldFor, num, plural } from '../../../../main/dates'
+import { age, ago, dayMonth, dayName, heldFor, num, plural } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { MenuButton } from './collection-header'
 import { call } from '@/lib/haligtree'
@@ -318,7 +318,7 @@ export const comesBack = (item: Item, on = true): string | null => {
  * A question as any list draws it: the question in its own words, its answer (or that it has none yet) on a line of
  * its own under it, then how long it has been held, its clues and when it may come back.
  */
-export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], backOn = true): Entry => ({
+export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], backOn = true, oneLine = false): Entry => ({
   id: item.id,
   type: 'question',
   // The question in its own words, its tags left out (a card said "#work" in its question).
@@ -340,6 +340,8 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], bac
       {item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null}
     </>
   ),
+  // On one line (Questions' columns), its clues and its age, quietly at the right: the line under it is not drawn there.
+  ...(oneLine ? { age: [item.clues ? plural(item.clues, 'clue') : '', age(item.closedAt ?? item.createdAt)].filter(Boolean).join(' · ') } : {}),
   dim: !!item.closedAt,
   private: !!item.private,
   // As a card: the question large and first, its answer under it (note-list's WordCard). Its row keeps its own two lines (`wrap`).
