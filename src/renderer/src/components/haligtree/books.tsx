@@ -1,5 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSideEnds } from '@/lib/side-ends'
+import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
+import { still } from '@/lib/motion'
+import { BookBox, inked } from './book-box'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -255,14 +258,68 @@ export function BookName(): React.JSX.Element {
 
 /**
  * Your books on a shelf, at the head of the sidebar foot's menu (the user, 17 Nov, of Stripe Press's catalogue: "the
- * books look like they are on a shelf and hover shows a little more"). Each book stands as a spine in its colour, its
- * name down it; the one pointed at, or reached by the keys, is pulled out and turned to its face: its whole name, and
- * whether it is open now or when you were last in it. The open book stands turned when nothing is pointed at, so the
- * shelf keeps one width and the spines never move out from under the pointer: the one turned widens towards the one
- * turned before. A press opens the book (the open one: its name and colour in Settings); a right-click, its menu.
+ * books look like they are on a shelf and hover shows a little more"; 20 Nov: "why not actual 3d like the other book?
+ * the one on the last page of the welcome"). Each book is the welcome's own book (book-box.tsx), smaller, standing
+ * with its spine to you in its colour, its name down it in gold; the one pointed at, or reached by the keys, is pulled
+ * out and turns on its spine to face you, its name on the cover and, under the shelf, its name and whether it is open
+ * now or when you were last in it, as a video shelf names the tape it has out. The open book stands turned when
+ * nothing is pointed at, so the shelf keeps one width and the spines never move out from under the pointer: the books
+ * either side part for the one turning by just what the one turning back gives up, on one spring. A press opens the
+ * book (the open one: its name and colour in Settings); a right-click, its menu.
  */
 /** Books on a shelf stand a little taller or shorter than each other: one of these by its id, the same every time. */
 const TALL = [92, 98, 88, 100, 95]
+/** A shelf book: as thick as a spine with a name down it, its cover a little narrower than it is tall, its boards thin. */
+const SHELF_BOOK = { wide: 84, thick: 26, board: 1.5, overhang: 1.5 }
+/** The room a turned book takes on the shelf: its cover turned, a little of its spine, and a gap either side. */
+const TURNED_ROOM = 100
+/** Turned out, it stays turned a little, its spine and depth showing at its edge, as a book held up to you. */
+const TURNED = 18
+/** Pulled out and turned, and back: one spring for all, so the one turning out takes just what the one turning back gives up. */
+const PULL = { stiffness: 260, damping: 26 }
+/** A book's three inks from its colour (light to deep), as the welcome's book takes the card's: no colour, the theme's own, kept quiet. */
+const inksOf = (hue: Hue | null): React.CSSProperties => {
+  const ink = (light: number, strength: number): string => (hue && hue !== 'gray' ? inked(hue, light, strength) : `oklch(from ${markInk(hue)} ${light} min(c, ${hue ? 0.02 : strength}) h)`)
+  return { '--mf-card-a': ink(0.82, 0.13), '--mf-card-b': ink(0.66, 0.19), '--mf-card-c': ink(0.44, 0.15) } as React.CSSProperties
+}
+
+function ShelfBook({ book, said, up, keyed, lit, onPick, onMenu }: { book: Book; said: string; up: boolean; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void }): React.JSX.Element {
+  // 0 a spine, 1 pulled out and turned: the book's turn, its room on the shelf, its lift and what stands in front, all from it.
+  // A plain value moved by animate() (as the reader card's spin is), so a book caught mid-turn goes on from where it is.
+  const out = useMotionValue(up ? 1 : 0)
+  const flat = still()
+  const turn = useTransform(out, (at) => 90 - (90 - (flat ? 0 : TURNED)) * at)
+  const width = useTransform(out, (at) => SHELF_BOOK.thick + (TURNED_ROOM - SHELF_BOOK.thick) * at)
+  const y = useTransform(out, (at) => -5 * at)
+  const zIndex = useTransform(out, (at) => (at > 0.01 ? 1 : 0))
+  // Reduce Motion or Motion off, or reached by the keys: there at once. Otherwise it swings round on the spring.
+  // A passive effect, after the transforms above have listened again for this render: set in a layout effect, a book
+  // reached by the keys changed while they were between listeners and stood still as a spine.
+  useEffect(() => {
+    if (!(flat || keyed())) {
+      const swing = animate(out, up ? 1 : 0, { type: 'spring', ...PULL, restDelta: 0.001 })
+      return () => swing.stop()
+    }
+    out.stop()
+    out.set(up ? 1 : 0)
+    return undefined
+  }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pitch = useMotionValue(0)
+  const high = TALL[[...book.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % TALL.length]
+  return (
+    <DropdownMenuItem asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
+      onContextMenu={onMenu} onSelect={onPick}>
+      <motion.div className="mf-spine" style={{ width, height: high, y, zIndex, ...inksOf(book.color) }}>
+        <BookBox size={{ ...SHELF_BOOK, high }} pitch={pitch} turn={turn} lit={lit} perspective={700} name={book.name} edges={false}
+          className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -SHELF_BOOK.wide / 2 }} cover={{ className: 'mf-spine-face' }}>
+          <span className="mf-spine-name">{book.name}</span>
+        </BookBox>
+        {book.current && <span data-book-open className="sr-only">Open now</span>}
+      </motion.div>
+    </DropdownMenuItem>
+  )
+}
+
 export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (book: Book) => void; onMenu: (event: React.MouseEvent, book: Book) => void }): React.JSX.Element {
   // More books than the menu is wide (30, say): the shelf scrolls sideways under the wheel or the trackpad, the side
   // with more fading out, opened on the open book; the keys bring the book they reach into view, as focus does.
@@ -272,27 +329,31 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   useLayoutEffect(() => {
     row.current?.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'center' })
   }, [])
+  // The book the pointer or the keys are on (the menu lights a row by focusing it), else none and the open one stands turned.
+  const [pointed, setPointed] = useState<string | null>(null)
+  const keyed = useRef(false)
+  const lit = useMotionValue(1)
+  const saidOf = (book: Book, at: number): string => (book.current ? 'Open now' : at === 1 && book.openedAt ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
+  const shown = Math.max(0, books.findIndex((one) => (pointed ? one.id === pointed : one.current)))
   return (
-    // Reached by the keys, a book turns at once; by the pointer, it slides out.
-    <div ref={row} role="group" aria-label="Your books" data-book-shelf className="mf-shelf" style={style}
-      onWheel={(event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) event.currentTarget.scrollLeft += event.deltaY }}
-      onKeyDownCapture={(event) => event.currentTarget.setAttribute('data-keyed', '')} onPointerMove={(event) => event.currentTarget.removeAttribute('data-keyed')}>
-      {books.map((book, at) => {
-        const said = book.current ? 'Open now' : at === 1 && book.openedAt ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet'
-        return (
-          <DropdownMenuItem key={book.id} asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
-            onContextMenu={(event) => onMenu(event, book)} onSelect={() => onPick(book)}>
-            <div className="mf-spine" style={{ '--spine': markInk(book.color), '--tall': `${TALL[[...book.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % TALL.length]}px` } as React.CSSProperties}>
-              <span aria-hidden className="mf-spine-side">{book.name}</span>
-              <span aria-hidden className="mf-spine-face">
-                <span className="mf-spine-name">{book.name}</span>
-                <span className="mf-spine-said">{said}</span>
-              </span>
-              {book.current && <span data-book-open className="sr-only">Open now</span>}
-            </div>
-          </DropdownMenuItem>
-        )
-      })}
-    </div>
+    <>
+      <div ref={row} role="group" aria-label="Your books" data-book-shelf data-unlit className="mf-shelf" style={style}
+        onWheel={(event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) event.currentTarget.scrollLeft += event.deltaY }}
+        onKeyDownCapture={() => void (keyed.current = true)} onPointerMove={() => void (keyed.current = false)}
+        onFocus={(event) => setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
+        onBlur={(event) => !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}>
+        {books.map((book, at) => (
+          <ShelfBook key={book.id} book={book} said={saidOf(book, at)} up={at === shown} keyed={() => keyed.current} lit={lit}
+            onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} />
+        ))}
+      </div>
+      {/* The turned book named under the shelf, as a video shelf names the tape it has out. */}
+      {books[shown] && (
+        <div aria-hidden data-book-caption className="mf-shelf-caption">
+          <span className="mf-spine-said-name">{books[shown].name}</span>
+          <span className="mf-spine-said">{saidOf(books[shown], shown)}</span>
+        </div>
+      )}
+    </>
   )
 }

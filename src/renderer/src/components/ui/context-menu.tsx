@@ -126,6 +126,8 @@ export function MenuScroll({ children }: { children: React.ReactNode }): React.J
     const held = (): boolean => !!el.querySelector('[role^="menuitem"][data-state="open"]')
     const show = (row: HTMLElement, snap: boolean): void => {
       litRow.current = row
+      // A row that shows it is lit by itself (a book on the shelf turns out to you) has no light drawn behind it.
+      if (row.closest("[data-unlit]")) return light.to(null, true)
       light.to(spotOf(row, el), snap, row.dataset.variant === "destructive")
     }
     const focused = (event: FocusEvent): void => {
