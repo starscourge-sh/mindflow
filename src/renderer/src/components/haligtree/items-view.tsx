@@ -53,7 +53,7 @@ import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
 import { Term } from './term'
-import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
+import { AGES, Chips, Display, FilterChips, arrange, inAge, period, useView, type Density, type Facet, type View } from './display'
 import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
@@ -1828,7 +1828,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   }
   const facets: Facet<Item>[] = [
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
-    { key: 'when', label: 'Saved', options: AGES, test: (one, when) => period(one.createdAt) === when },
+    { key: 'when', label: 'Saved', options: AGES, test: (one, when) => inAge(one.createdAt, when) },
     { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') },
     // The view before 19 Nov, for anyone who wants it: only what has no folder yet.

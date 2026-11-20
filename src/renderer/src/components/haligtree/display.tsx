@@ -72,6 +72,8 @@ export function useView(name: string, initial: { sort: string; group: string; fi
       if (kept.sort === 'oldest') kept.sort = 'untouched'
       // The list or cards toggle that Display's View as replaced.
       if (!kept.density && localStorage.getItem(`layout:${name}`) === 'cards') kept.density = 'grid'
+      // The date filter's old words, kept from before its spans were renamed, read as the spans they became.
+      if (kept.filter?.when) kept.filter = { ...kept.filter, when: kept.filter.when.map((age: string) => OLD_AGES[age] ?? age) }
       return kept
     } catch {
       return start
@@ -151,6 +153,7 @@ function periodOf(iso: string): string {
   return days <= 7 ? 'Previous 7 days' : days <= 30 ? 'Previous 30 days' : String(dayjs(iso).year())
 }
 const RECENT_AGES = ['Today', 'Previous 7 days', 'Previous 30 days']
+const OLD_AGES: Record<string, string> = { 'This week': 'Previous 7 days', 'This month': 'Previous 30 days', 'This year': 'Older' }
 /** Date's filter: the three recent spans, and "Older" for every year before them. */
 export const AGES: Choice[] = [...RECENT_AGES, 'Older'].map((id) => ({ id, label: id }))
 /** Whether a date falls in one of AGES. */
