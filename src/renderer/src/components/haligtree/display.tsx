@@ -1,7 +1,7 @@
 import { byLetter } from '@/lib/headword'
 import { byKind } from '@/components/capture-kinds/capture-kind-picker'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { AlignJustify, Grid3x3, X } from 'lucide-react'
+import { AlignJustify, Columns2, Grid3x3, X } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -35,6 +35,8 @@ export type Choice = {
   tip?: string
   /** How many it holds, beside its name in quieter ink: a tab's count ("Someday 3"). */
   count?: number
+  /** What it does, on a quiet line under its name in a menu: for a name that does not say it alone ("Islands"). */
+  hint?: string
 }
 export type Facet<T> = { key: string; label: string; options: Choice[]; test: (item: T, option: string) => boolean }
 /** How a list is drawn, from the most rows on screen to the most picture. */
@@ -45,6 +47,13 @@ const DENSITIES: { id: Density; label: string; icon: React.ComponentType<{ class
   { id: 'small', label: 'Small grid', icon: Grid3x3 },
   { id: 'grid', label: 'Grid', icon: LayoutGrid }
 ]
+/**
+ * Questions' lists (Questions, Answered, Looked up, Words) are drawn two ways only: one-line rows in newspaper
+ * columns, or the List, each row's picture in a box at its left (the user, 20 Nov: the list they liked, back beside the
+ * columns). Columns unless List was chosen; a grid chosen before reads as columns.
+ */
+export const COLUMNS_OR_LIST = { densities: ['compact', 'list'] as Density[], names: { compact: 'Columns' }, icons: { compact: Columns2 } }
+export const columnsOrList = (view: View): Density => (view.density === 'list' ? 'list' : 'compact')
 /** The list beside the open note, the whole page, or a thin rail of pictures. */
 export type Pane = 'list' | 'wide' | 'rail'
 export type View = {
@@ -313,9 +322,9 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
               chime('tap')
               onPick(one.id)
             }} className="gap-2 text-control">
-              <Check className={`size-3.5 ${chosen.includes(one.id) ? '' : 'invisible'}`} />
+              <Check className={`size-3.5 self-start mt-0.5 ${chosen.includes(one.id) ? '' : 'invisible'} ${one.hint ? '' : 'self-center mt-0'}`} />
               {icon}
-              {one.label}
+              {one.hint ? <span className="flex min-w-0 flex-col"><span>{one.label}</span><span data-choice-hint className="text-meta text-(--mf-muted-strong)">{one.hint}</span></span> : one.label}
             </DropdownMenuItem>
           )
         })}
@@ -469,10 +478,12 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
  * back. F opens it from anywhere on the list; 1 to 4 pick a view while open.
  */
 const DISPLAY_ASKED = 'haligtree:display'
+/** A grouping as one of its sections is said ("Each date in a box of its own"). */
+const GROUP_WORD: Record<string, string> = { date: 'date', kind: 'kind', letter: 'letter', book: 'book', source: 'source', folder: 'folder', tag: 'tag' }
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, folders = false, count, hidden = false, sortNote, items, onOpen, room }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, icons = {}, folders = false, count, hidden = false, sortNote, items, onOpen, room }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
   /** Told as it opens and shuts: the one-line pill grows into the box to hold the sheet. */
@@ -506,10 +517,12 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   densities?: Density[]
   /** A view's own name on this list: All cards calls its grid "Cards". */
   names?: Partial<Record<Density, string>>
+  /** A view's own picture on this list, beside its own name: Questions' "Columns". */
+  icons?: Partial<Record<Density, React.ComponentType<{ className?: string }>>>
   /** Rows that say their folder: offered "Show folder", kept in the view (`View.folders`). */
   folders?: boolean
 }): React.JSX.Element | null {
-  const views = DENSITIES.filter((one) => densities.includes(one.id)).map((one) => ({ ...one, label: names[one.id] ?? one.label }))
+  const views = DENSITIES.filter((one) => densities.includes(one.id)).map((one) => ({ ...one, label: names[one.id] ?? one.label, icon: icons[one.id] ?? one.icon }))
   const few = count !== undefined && count < 2
   const sorts = few ? [] : given
   const groups = few ? [] : offered
@@ -579,7 +592,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   const shownFacets = (items ? facets.map((facet) => ({ ...facet, options: facet.options.filter((option) => picked(facet).includes(option.id) || items.some((one) => facet.test(one, option.id))) })) : facets)
     .filter((facet) => facet.options.length > 1 || picked(facet).length > 0 || (!!items && facet.options.length === 1 && !items.every((one) => facet.test(one, facet.options[0].id))))
   const sortName = (sorts.find((one) => one.id === view.sort) ?? sorts[0])?.label ?? ''
-  const Shown = DENSITIES.find((one) => one.id === density)?.icon
+  const Shown = views.find((one) => one.id === density)?.icon ?? DENSITIES.find((one) => one.id === density)?.icon
   const pickDensity = (next: Density): void => {
     if (next === density) return
     chime('tap')
@@ -629,7 +642,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
         {/* Grouped, each group can be its own island: a few rows each, folding, so a long list reads as a few short ones. */}
         {groups.length > 1 && view.group !== 'none' && (
           <Row label="Sections as" changed={false}>
-            <Pick options={[{ id: 'islands', label: 'Islands' }, { id: 'plain', label: 'One list' }]} chosen={[islandsOn(view) ? 'islands' : 'plain']} many={false}
+            <Pick options={[{ id: 'islands', label: 'Islands', hint: `Each ${GROUP_WORD[view.group] ?? 'group'} in a box of its own` }, { id: 'plain', label: 'One list', hint: 'Every row in one run, under its heading' }]} chosen={[islandsOn(view) ? 'islands' : 'plain']} many={false}
               onPick={(as) => (chime('tap'), onChange({ ...view, islands: as === 'islands' }))} />
           </Row>
         )}
@@ -722,7 +735,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
         // Closed, the keys go back to the list, not to this button: Enter then opens a note, not the menu again.
         onCloseAutoFocus={(event) => event.preventDefault()}
         onKeyDown={onKeyDown}
-        className="w-72 gap-0 p-2 text-control"
+        className="w-72 gap-0 p-2 text-control [&_.mf-island]:rounded-sm"
         ref={fit}
         onInteractOutside={inside}
       >

@@ -365,7 +365,7 @@ export function NoteList({
   /** Rows two side by side where the list is wide enough (a page of short links, as Notion lays them out), one under
    *  another on a phone. Read across: Tab, and ← → ↑ ↓ on a row, go A, B on the first line, then C, D. Rows only. */
   twoUp?: boolean
-  /** Rows in newspaper columns, as many as fit at 18rem: read down the first, then on to the next, as Notion lays out a
+  /** Rows in newspaper columns, two where both fit at 18rem: read down the first, then on to the next, as Notion lays out a
    *  page of links. ↑ ↓ walk that order, ← → step to the next column. Headings span them all. Rows only. */
   columns?: boolean
   className?: string
@@ -409,7 +409,8 @@ export function NoteList({
     : folds || islands
       ? 1
       : columns
-        ? Math.max(1, Math.floor((width + COLUMN_GAP) / (COLUMN + COLUMN_GAP)))
+        // Two at most, each half the page's column (the user, 20 Nov: three narrow ones read as a table); one where two would not fit.
+        ? Math.min(2, Math.max(1, Math.floor((width + COLUMN_GAP) / (COLUMN + COLUMN_GAP))))
         : twoUp && width >= TWO_UP
           ? 2
           : 1

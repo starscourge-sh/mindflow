@@ -1,5 +1,6 @@
-// Questions is one-line rows in newspaper columns, as Notion lays out a page of links: as many columns as fit at
-// 18rem, read down the first and on to the next, the date headings across them all. No grid, no way to pick one.
+// Questions is one-line rows in newspaper columns, as Notion lays out a page of links: two columns where both fit at
+// 18rem, each half the page, read down the first and on to the next, the date headings across them both. No grid:
+// Display's "View as" offers Columns and List (each row's picture in a box at its left), nothing else.
 // ↓ walks down a column then on to the top of the next, → steps across, ↵ opens. The same on Answered, Looked up and Words.
 //   cp -cR <c-tip> <dir>; QA_ARGS=--sandbox QA_DATA=<dir> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=dir] node qa/questions-columns.mjs
 process.env.QA_ARGS ??= '--sandbox'
@@ -32,17 +33,26 @@ try {
     await c.size(width, 900); await go('questions'); await wait(700)
     const seen = await read()
     const columns = columnsOf(seen.rows)
-    check(`${width}: Questions shows its rows in columns (${columns.length}), no tiles`, columns.length >= (width === 1440 ? 2 : 1) && seen.tiles === 0, JSON.stringify({ columns, tiles: seen.tiles }))
+    check(`${width}: Questions shows its rows in columns (${columns.length}, two at most), no tiles`, columns.length >= (width === 1440 ? 2 : 1) && columns.length <= 2 && seen.tiles === 0, JSON.stringify({ columns, tiles: seen.tiles }))
+    if (columns.length === 2) check(`${width}: each column about half the list`, seen.rows.every((one) => Math.abs(one.w * 2 - seen.line) < 60), JSON.stringify({ w: seen.rows[0]?.w, line: seen.line }))
     check(`${width}: every row one line (under 40px) and each column at least 18rem`, seen.rows.every((one) => one.h < 40 && one.w >= 280), JSON.stringify(seen.rows.slice(0, 2)))
     check(`${width}: the date heading spans every column`, seen.head >= seen.line - 2, JSON.stringify({ head: seen.head, line: seen.line }))
     if (shots) await c.both(`${shots}/questions-${width}`)
   }
   await c.size(1440, 900); await go('questions'); await wait(700)
-  // No grid, and no way to choose one: Display has no "View as".
+  // No grid: Display's "View as" offers Columns and List, and List draws each row with its picture boxed at its left.
   await h.locator('[data-display]').first().click(); await wait(500)
-  const panel = await h.evaluate(() => document.querySelector('[data-slot="popover-content"]')?.innerText ?? '')
-  check('Display offers no "View as", no grid', !/View as|Small grid|\bGrid\b/.test(panel), panel.replace(/\s+/g, ' ').slice(0, 160))
-  await h.keyboard.press('Escape'); await wait(300)
+  const views = await h.evaluate(() => [...document.querySelectorAll('[data-slot="popover-content"] button[aria-pressed]')].map((one) => `${one.innerText.trim()}${one.getAttribute('aria-pressed') === 'true' ? '*' : ''}`))
+  check('Display offers View as: Columns (chosen) and List, no grid', JSON.stringify(views) === '["Columns*","List"]', JSON.stringify(views))
+  await h.locator('[data-slot="popover-content"] button[aria-pressed]', { hasText: 'List' }).click(); await wait(500)
+  await h.keyboard.press('Escape'); await wait(400)
+  const listed = await read()
+  const boxed = await h.evaluate(() => [...document.querySelectorAll('[role="main"] [data-row]')].slice(0, 3).map((row) => { const box = row.querySelector('[data-row-icon], .size-9, .size-10, .size-8'); return box ? Math.round(box.getBoundingClientRect().width) : 0 }))
+  check(`List: one column of rows, each with its picture boxed at the left (${columnsOf(listed.rows).length} column)`, columnsOf(listed.rows).length === 1 && boxed.every((one) => one >= 28), JSON.stringify({ columns: columnsOf(listed.rows), boxed }))
+  if (shots) await c.both(`${shots}/questions-list-1440`)
+  await h.locator('[data-display]').first().click(); await wait(500)
+  await h.locator('[data-slot="popover-content"] button[aria-pressed]', { hasText: 'Columns' }).click(); await wait(500)
+  await h.keyboard.press('Escape'); await wait(400)
   // ↓ walks down the first column, then on to the top of the next.
   const columns = columnsOf((await read()).rows)
   await h.keyboard.press('ArrowDown'); await wait(150)
@@ -70,7 +80,7 @@ try {
     await h.locator('[data-display]').first().click(); await wait(400)
     const said = await h.evaluate(() => document.querySelector('[data-slot="popover-content"]')?.innerText ?? '')
     await h.keyboard.press('Escape'); await wait(200)
-    check(`${name}: no tiles and no "View as" (${seen.rows.length} rows in ${columnsOf(seen.rows).length} columns)`, seen.tiles === 0 && !/View as/.test(said) && seen.rows.every((one) => one.h < 40), JSON.stringify({ tiles: seen.tiles, heights: [...new Set(seen.rows.map((one) => one.h))], said: /View as/.test(said) }))
+    check(`${name}: no tiles, two columns at most, "View as" Columns or List (${seen.rows.length} rows in ${columnsOf(seen.rows).length} columns)`, seen.tiles === 0 && columnsOf(seen.rows).length <= 2 && /Columns/.test(said) && !/Small grid|\bGrid\b/.test(said) && seen.rows.every((one) => one.h < 40), JSON.stringify({ tiles: seen.tiles, heights: [...new Set(seen.rows.map((one) => one.h))], said: said.replace(/\s+/g, ' ').slice(0, 120) }))
     if (shots) await c.both(`${shots}/${name.toLowerCase().replace(' ', '-')}-1440`)
   }
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
