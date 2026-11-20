@@ -80,12 +80,12 @@ export function SoundPacks({ chosen }: { chosen: PackName }): React.JSX.Element 
         <div>
           <p className="mb-1 text-xs text-muted-foreground">Scroll</p>
           <div
-            className="h-24 overflow-y-auto rounded-md border px-3 py-2 text-muted-foreground"
+            className="h-24 overflow-y-auto overscroll-contain rounded-md border px-3 py-2 text-muted-foreground"
+            // A detent every 60px from the top, as the app's own scrolling has (lib/sound.ts).
             onScroll={(event) => {
               const box = event.currentTarget
-              const at = Number(box.dataset.at ?? box.scrollTop)
-              if (Math.abs(box.scrollTop - at) < 24) return
-              box.dataset.at = String(box.scrollTop)
+              if (Math.abs(box.scrollTop - Number(box.dataset.at ?? 0)) < 60) return
+              box.dataset.at = String(Math.floor(box.scrollTop / 60) * 60)
               hover('tock')
             }}
           >
