@@ -51,17 +51,20 @@ const heard = (event: PointerEvent): void => {
   at = { x: event.clientX, y: event.clientY }
   held = event.target instanceof Element ? event.target : null
 }
-const onMove = (event: PointerEvent): void => (heard(event), mark())
+const onMove = (event: PointerEvent): void => (heard(event), look ? mark() : undefined)
 
 if (typeof document !== 'undefined' && !(window as { __carryCursor?: boolean }).__carryCursor) {
   ;(window as { __carryCursor?: boolean }).__carryCursor = true
-  // Where the pointer is when a carry starts (it starts on a press or the move after one).
+  // Where the pointer is, always: a carry starts on the move past its few pixels, and that move's own handler sets the
+  // mark. Heard only from the press, the look went to what was under the press, not under the pointer, which kept its
+  // own (the arrow) until the next move (a tab carried showed the arrow on its first step). Registered as this module
+  // loads, before any carry's own capture listener, so the spot is the move's own when the mark comes. Two numbers kept
+  // per move; nothing is restyled unless a mark is up.
   window.addEventListener('pointerdown', heard, { capture: true, passive: true })
+  window.addEventListener('pointermove', onMove, { capture: true, passive: true })
   new MutationObserver(() => {
     const next = wanted()
     if (next === look) return
-    if (!look) window.addEventListener('pointermove', onMove, { capture: true, passive: true })
-    if (!next) window.removeEventListener('pointermove', onMove, { capture: true })
     look = next
     mark()
   }).observe(document.documentElement, { attributes: true, attributeFilter: [...MARKS] })
