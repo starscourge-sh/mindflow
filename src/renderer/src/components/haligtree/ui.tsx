@@ -2118,6 +2118,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
   )
 }
 
+const NONE_KNOWN: SourceSummary[] = []
+const noneKnown = (): Promise<SourceSummary[]> => Promise.resolve(NONE_KNOWN)
 /** What you have typed before in a field, most used first, for its autocomplete. */
 export function Remembered({ field, value, onChange, placeholder, className: given = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', complete = true, onKeyDown, onBlur, onPaste, ...rest }: {
   field: 'attribution' | 'medium'
@@ -2132,7 +2134,9 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
   // suggestion list under the field while a name is typed, best first, ↑↓ to move, Tab or ↵ to take the whole
   // name; the rest of the first written in faint after what you typed, which → takes too. A name that is one you
   // know but for its capitals or a slip of a key ("Pink floyd", "Pnik Floyd") becomes that one as you leave the field.
-  const all = useLive(() => (complete ? sources.list() : Promise.resolve([] as SourceSummary[])), [] as SourceSummary[], [complete])
+  // The one read every field (and every page listing who and where) shares, asked again only as captures or gems change:
+  // an arrow of its own here read the whole book once per field on every save.
+  const all = useLive(complete ? sources.list : noneKnown, NONE_KNOWN, [complete], ['capture', 'item'])
   const values = all.filter((one) => one.field === field).map((one) => one.name)
   const typed = complete ? value.trim().toLowerCase() : ''
   const [focused, setFocused] = useState<'up' | 'down' | false>(false)
