@@ -3,6 +3,7 @@ import { app, ipcMain, shell } from 'electron'
 import helper from '../../resources/understand?asset&asarUnpack'
 import { meets, standIn, type Caps } from './needs'
 import { answerInNote, flat, givesAway, type QuestionDraft } from './note-questions'
+import { cardsAsked, cardsSaid } from './study-ai'
 
 /**
  * What this Mac can do, and the small helper (native/understand.swift) that
@@ -196,8 +197,20 @@ export function registerStudyAi(on: () => boolean): void {
     ask('judge', { question: String(question ?? ''), answer: String(answer ?? ''), said: String(said ?? '') }))
   ipcMain.handle('haligtree:ai:hint', (_event, question: unknown, answer: unknown, level: unknown) =>
     ask('hint', { question: String(question ?? ''), answer: String(answer ?? ''), level: Number(level) >= 2 ? 2 : 1 }))
-  ipcMain.handle('haligtree:ai:cards', (_event, title: unknown, text: unknown, count: unknown) =>
-    ask('cards', { title: String(title ?? ''), text: String(text ?? ''), count: Math.min(10, Math.max(1, Number(count) || 5)) }))
+  // Cards: the model's own words, read here (study-ai.ts cardsSaid), so a card in any shape it writes is kept and a
+  // reply with none says what it did write. The helper's own reading kept only one-line cards and dropped every card
+  // the model wrote over three lines. A test run's stand-in (HALIGTREE_QA_CAPS=ai) still answers "cards" itself.
+  ipcMain.handle('haligtree:ai:cards', async (_event, title: unknown, text: unknown, count: unknown) => {
+    const many = Math.min(10, Math.max(1, Number(count) || 5))
+    const from = { title: String(title ?? '').slice(0, 200), text: String(text ?? '').slice(0, 9000) }
+    const said = process.env.HALIGTREE_QA_CAPS === 'ai'
+      ? await ask('cards', { ...from, count: many })
+      : await ask('write', { instructions: cardsAsked(many), prompt: `From: ${from.title}\n\n${from.text}` })
+    if (typeof said.error === 'string') return { error: said.error }
+    const { cards, text: reply } = said as Answer
+    if (Array.isArray(cards)) return cards.length ? { cards } : { error: 'Apple Intelligence wrote no card from these pages.' }
+    return cardsSaid(typeof reply === 'string' ? reply : '', many)
+  })
   ipcMain.handle('haligtree:ai:phrase', (_event, drafts: unknown) => phraseDrafts(Array.isArray(drafts) ? drafts.slice(0, 5) : [], on))
   // A new group's first name, offered in its name field. Never an error: no answer simply leaves the name it has.
   ipcMain.handle('haligtree:ai:group-name', async (_event, titles: unknown): Promise<string | null> => {

@@ -15,7 +15,7 @@ import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { dayjs, daysSince, num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
-import { Check, ChevronDown, LayoutGrid, List as LayoutList } from '@/components/ui/icons'
+import { ArrowDown, ArrowUp, Check, ChevronDown, LayoutGrid, List as LayoutList } from '@/components/ui/icons'
 import { DROP_LIT } from './sortable'
 
 /**
@@ -35,9 +35,16 @@ export type Choice = {
   tip?: string
   /** How many it holds, beside its name in quieter ink: a tab's count ("Someday 3"). */
   count?: number
-  /** What it does, on a quiet line under its name in a menu: for a name that does not say it alone ("Islands"). */
+  /** What it does, on a quiet line under its name in a menu: for a name that does not say it alone ("Islands"). In Sort by, said under the chosen order only. */
   hint?: string
+  /**
+   * An order's other direction (Newest's Oldest): one row in Sort by, its arrow on the chosen row turning it round,
+   * never a second row beside it. Its own id is what the view keeps and its own label what the button says.
+   */
+  reverse?: { id: string; label: string }
 }
+/** Every order, each direction its own: for a menu that lists them one a line (a list's right-click "Sort"). */
+export const everySort = (sorts: Choice[]): Choice[] => sorts.flatMap((one) => (one.reverse ? [one, { id: one.reverse.id, label: one.reverse.label }] : [one]))
 export type Facet<T> = { key: string; label: string; options: Choice[]; test: (item: T, option: string) => boolean }
 /** How a list is drawn, from the most rows on screen to the most picture. */
 export type Density = 'compact' | 'list' | 'small' | 'grid'
@@ -336,20 +343,77 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
 
 /** Defined once, out here: made inside Display, every change rebuilt them and closed the open menu. */
 // Each section an island, the way Settings groups its rows.
-const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
-  <Island compact name={title} title={<span className="flex items-center gap-1.5">{title}{count > 0 && <Count n={count} className="rounded bg-accent px-1 font-normal text-(--mf-muted-strong)" />}</span>}>
+// No count beside a heading and no dot beside a row (20 Nov: "Sort by 1" and "Grouping •" read as a first draft): what
+// is chosen is said in each row itself, and "Reset all" under them is there only while something differs from the start.
+const Section = ({ title, children }: { title: string; children: ReactNode }): React.JSX.Element => (
+  <Island compact name={title} title={title}>
     {children}
   </Island>
 )
-const Row = ({ label, changed, children }: { label: string; changed: boolean; children: ReactNode }): React.JSX.Element => (
-  <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1">
-    <div className="flex items-center gap-1.5 text-muted-foreground">
-      {label}
-      {changed && <Tip label="Changed from how it starts"><span className="size-1.5 rounded-full shrink-0 bg-[var(--tt-brand-color-400)]" /></Tip>}
-    </div>
+const Row = ({ label, children }: { label: string; children: ReactNode }): React.JSX.Element => (
+  <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1.5">
+    <div className="text-muted-foreground">{label}</div>
     {children}
   </div>
 )
+
+/**
+ * Sort by as a Mac's menu lists it: every row the menu's own height, corners and gliding light (context-menu.tsx
+ * MenuScroll's), the tick in a column of its own at the left, the chosen order's name in the chosen weight. An order
+ * with two directions is one row: on the chosen one, an arrow at its right end turns it round (Newest to Oldest),
+ * and the name says which way it now runs. What the chosen order does that its name does not say (Custom order
+ * keeps folders on top) is its quiet second line, never a sentence loose among the rows.
+ */
+function SortList({ sorts, sort, note, onSort }: { sorts: Choice[]; sort: string; note?: string; onSort: (id: string) => void }): React.JSX.Element {
+  const box = useRef<HTMLDivElement | null>(null)
+  const ROW = ':scope > [data-sort-row] > [role="menuitemradio"]'
+  const hover = useFluidHover(box, { items: ROW, axis: 'y' })
+  return (
+    <div ref={box} role="menu" aria-label="Sort by" data-hover-quiet {...hover.handlers} className="relative isolate flex flex-col p-1">
+      <Highlight light={hover.light} className="rounded-sm bg-accent" />
+      {sorts.map((one) => {
+        const on = one.id === sort || one.reverse?.id === sort
+        const turned = !!one.reverse && one.reverse.id === sort
+        const hint = on ? (note ?? one.hint) : undefined
+        return (
+          <div key={one.id} data-sort-row={one.id} className="relative">
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={on}
+              data-state={on ? 'checked' : 'unchecked'}
+              onClick={() => {
+                if (on) return
+                chime('tap')
+                onSort(one.id)
+              }}
+              className={`flex min-h-7 w-full cursor-pointer items-center gap-2 rounded-sm py-1 pr-2 pl-1.5 text-left text-control text-foreground ${one.reverse && on ? 'pr-8' : ''}`}
+            >
+              <span className="grid size-4 shrink-0 place-items-center self-start pt-0.5">{on && <Check className="size-3.5" />}</span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <Weighted on={on}>{turned ? one.reverse!.label : one.label}</Weighted>
+                {hint && <span data-sort-note className="text-meta leading-snug whitespace-normal text-(--mf-muted-strong)">{hint}</span>}
+              </span>
+            </button>
+            {one.reverse && on && (
+              <Tip label={turned ? one.label : one.reverse.label}>
+                <button
+                  type="button"
+                  data-sort-turn
+                  aria-label={`Sort ${turned ? one.label : one.reverse.label}`}
+                  onClick={() => (chime('tap'), onSort(turned ? one.id : one.reverse!.id))}
+                  className="absolute top-1 right-1 grid size-5 cursor-pointer place-items-center rounded-sm text-muted-foreground transition-colors duration-80 hover:text-foreground"
+                >
+                  {turned ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+                </button>
+              </Tip>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 /** A chip's shape, and its look at rest: shared with a chip that is not a filter (a note's place, note-extras.tsx), so every chip is one part. */
 export const CHIP = 'flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 transition-[background-color,border-color,color] duration-80'
@@ -593,7 +657,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   const picked = (facet: Facet<T>): string[] => view.filter[facet.key] ?? []
   const shownFacets = (items ? facets.map((facet) => ({ ...facet, options: facet.options.filter((option) => picked(facet).includes(option.id) || items.some((one) => facet.test(one, option.id))) })) : facets)
     .filter((facet) => facet.options.length > 1 || picked(facet).length > 0 || (!!items && facet.options.length === 1 && !items.every((one) => facet.test(one, facet.options[0].id))))
-  const sortName = (sorts.find((one) => one.id === view.sort) ?? sorts[0])?.label ?? ''
+  const sortName = everySort(sorts).find((one) => one.id === view.sort)?.label ?? sorts[0]?.label ?? ''
   const Shown = views.find((one) => one.id === density)?.icon ?? DENSITIES.find((one) => one.id === density)?.icon
   const pickDensity = (next: Density): void => {
     if (next === density) return
@@ -613,37 +677,16 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   const panel = (
     <>
     {(groups.length > 1 || sorts.length > 1) && (
-      <Section title="Sort by" count={sorted}>
-        {sorts.length > 1 && (
-          <div role="menu" className="flex flex-col p-1">
-            {sorts.map((one) => (
-              <button
-                key={one.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={one.id === view.sort}
-                onClick={() => {
-                  if (one.id === view.sort) return
-                  chime('tap')
-                  onChange({ ...view, sort: one.id })
-                }}
-                className={`flex h-6.5 items-center gap-2 rounded-md px-1.5 text-left hover:bg-accent/60 ${one.id === view.sort ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <span className="flex-1 truncate">{one.label}</span>
-                {one.id === view.sort && <Check className="size-3.5 text-[var(--tt-brand-color-400)]" />}
-              </button>
-            ))}
-            {sortNote && <p data-sort-note className="px-1.5 pt-1 pb-0.5 text-control leading-snug text-(--mf-muted-strong)">{sortNote}</p>}
-          </div>
-        )}
+      <Section title="Sort by">
+        {sorts.length > 1 && <SortList sorts={sorts} sort={view.sort} note={sortNote} onSort={(sort) => onChange({ ...view, sort })} />}
         {groups.length > 1 && (
-          <Row label="Grouping" changed={regrouped}>
+          <Row label="Grouping">
             <Pick options={groups} chosen={[view.group]} many={false} onPick={(group) => onChange({ ...view, group })} />
           </Row>
         )}
         {/* Grouped, each group can be its own island: a few rows each, folding, so a long list reads as a few short ones. */}
         {groups.length > 1 && view.group !== 'none' && (
-          <Row label="Sections as" changed={false}>
+          <Row label="Sections as">
             <Pick options={[{ id: 'islands', label: 'Islands', hint: `Each ${GROUP_WORD[view.group] ?? 'group'} in a box of its own` }, { id: 'plain', label: 'One list', hint: 'Every row in one run, under its heading' }]} chosen={[islandsOn(view) ? 'islands' : 'plain']} many={false}
               onPick={(as) => (chime('tap'), onChange({ ...view, islands: as === 'islands' }))} />
           </Row>
@@ -651,7 +694,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       </Section>
     )}
     {onDensity && (
-      <Section title="View as" count={0}>
+      <Section title="View as">
         <div className="grid gap-1 p-1" style={{ gridTemplateColumns: `repeat(${views.length}, minmax(0, 1fr))` }}>
           {views.map((one, at) => (
             <Tip key={one.id} label={`${one.label}  ${at + 1}`}>
@@ -669,16 +712,16 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
           ))}
         </div>
         {folders && (
-          <Row label="Show folder" changed={view.folders === false}>
+          <Row label="Show folder">
             <Switch data-show-folder aria-label="Show folder" className="justify-self-end" checked={view.folders !== false} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), onChange({ ...view, folders: on }))} />
           </Row>
         )}
       </Section>
     )}
     {shownFacets.length > 0 && (
-      <Section title="Filter" count={filtered}>
+      <Section title="Filter">
         {shownFacets.map((facet) => (
-          <Row key={facet.key} label={facet.label} changed={!same(facet.key)}>
+          <Row key={facet.key} label={facet.label}>
             <Pick options={facet.options} chosen={view.filter[facet.key] ?? []} many onPick={(id) => toggle(facet.key, id)} />
           </Row>
         ))}

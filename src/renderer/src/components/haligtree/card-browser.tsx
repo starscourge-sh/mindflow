@@ -95,14 +95,13 @@ const deckOf = (card: BrowsedCard): string => (card.made === 'deck' ? card.sourc
 
 const SORTS: Choice[] = [
   { id: 'due', label: 'Due soonest' },
-  { id: 'newest', label: 'Newest' },
-  // Not 'oldest': useView reads a kept 'oldest' as Oldest untouched, another list's order.
-  { id: 'first', label: 'Oldest' },
+  // Turned round, Oldest: 'first', not 'oldest', which useView reads as Oldest untouched, another list's order.
+  { id: 'newest', label: 'Newest', reverse: { id: 'first', label: 'Oldest' } },
   { id: 'hard', label: 'Hardest' },
   { id: 'slow', label: 'Slowest' },
   { id: 'forgot', label: 'Most forgotten' },
   { id: 'az', label: 'A to Z' },
-  { id: 'page', label: 'Page order', tip: 'By source, then page or time in it' }
+  { id: 'page', label: 'Page order', hint: 'By source, then page or time in it' }
 ]
 /** Dates and the like, compared as they are written: localeCompare skips punctuation, so it misorders times. */
 const plain = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)

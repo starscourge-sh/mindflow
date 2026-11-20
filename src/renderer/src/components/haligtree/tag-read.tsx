@@ -428,7 +428,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
         <span className="ml-auto flex min-w-0 items-center gap-1 [&>label]:w-44 [&>label]:min-w-24 [&>label]:shrink">
           {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={[...tag].length > FILTER_ROOM ? 'Filter this tag' : `Filter #${tag}`} />}
           <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={view === 'list' ? [{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }] : []}
-            sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
+            sorts={[{ id: 'newest', label: 'Newest', reverse: { id: 'oldest', label: 'Oldest' } }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
           <ViewSwitch<View> value={view} onChange={(to) => {
             setView(to)
             try {

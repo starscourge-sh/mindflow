@@ -68,7 +68,7 @@ export function ImportProgress(): React.JSX.Element {
           animate={{ opacity: 1, transform: shift('translateY(0px)') }}
           exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={spring.slow}
-          className="mf-orb-pill pointer-events-auto relative h-8 overflow-hidden rounded-full bg-popover! pl-1.5 pr-3 shadow-(--mf-panel-shadow)"
+          className="mf-orb-pill pointer-events-auto relative h-8 overflow-hidden rounded-full whitespace-nowrap bg-popover! pl-1.5 pr-3 shadow-(--mf-panel-shadow)"
         >
           <Orb state="working" />
           <span className="font-medium text-foreground">{WORDS[at.what]}</span>

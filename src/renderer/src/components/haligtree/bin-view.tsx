@@ -223,7 +223,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
           shown.length > 0 && <HoldButton className="h-7 px-3" hint={`The ${num(shown.length)} on show, deleted for good`} done="Deleting…" onHold={() => forget(shown.map(keyOf))}>{shown.length === 1 ? 'Hold to delete' : `Hold to delete ${num(shown.length)}`}</HoldButton>
         ) : <HoldButton className="h-7 px-3" hint="Everything in the Bin, deleted for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton>}
         <Display view={live} onChange={setView} facets={facets} count={binned.length}
-          sorts={[{ id: 'newest', label: 'Newest binned' }, { id: 'oldest-binned', label: 'Oldest binned' }, { id: 'name', label: 'A to Z' }]} />
+          sorts={[{ id: 'newest', label: 'Newest binned', reverse: { id: 'oldest-binned', label: 'Oldest binned' } }, { id: 'name', label: 'A to Z' }]} />
       </span> : null
     }>
       <div data-bin className="w-full pt-8 pb-16">

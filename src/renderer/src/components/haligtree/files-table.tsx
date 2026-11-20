@@ -30,16 +30,13 @@ export const touchedAt = (one: Media, facts: FileFacts): string => ((opened) => 
 
 /** The orders Files' Display offers in Table, the first its own. */
 export const FILE_SORTS: Choice[] = [
-  { id: 'newest', label: 'Newest' },
-  { id: 'oldest', label: 'Oldest' },
-  { id: 'opened', label: 'Recent', tip: 'Last opened or added first' },
-  { id: 'az', label: 'A to Z' },
-  { id: 'za', label: 'Z to A' },
+  // Each pair is one row in Sort by, turned round by its arrow (display.tsx SortList).
+  { id: 'newest', label: 'Newest', reverse: { id: 'oldest', label: 'Oldest' } },
+  { id: 'opened', label: 'Recent', hint: 'Last opened or added first' },
+  { id: 'az', label: 'A to Z', reverse: { id: 'za', label: 'Z to A' } },
   { id: 'kind', label: 'Kind' },
-  { id: 'largest', label: 'Largest' },
-  { id: 'smallest', label: 'Smallest' },
-  { id: 'longest', label: 'Longest', tip: 'Books by pages, recordings by time' },
-  { id: 'shortest', label: 'Shortest', tip: 'Books by pages, recordings by time' },
+  { id: 'largest', label: 'Largest', reverse: { id: 'smallest', label: 'Smallest' } },
+  { id: 'longest', label: 'Longest', hint: 'Books by pages, recordings by time', reverse: { id: 'shortest', label: 'Shortest' } },
   { id: 'notes', label: 'In most notes' }
 ]
 
