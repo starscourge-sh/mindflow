@@ -80,6 +80,15 @@ export function useView(name: string, initial: { sort: string; group: string; fi
   const [view, setView] = useState(read)
   // Another list under the same component keeps its own.
   useEffect(() => setView(read()), [name]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The same list read elsewhere (Writing's pages in the sidebar, side-writing.tsx) follows a sort chosen here.
+  useEffect(() => {
+    const heard = (event: Event): void => {
+      const { detail } = event as CustomEvent<{ key: string; view: View }>
+      if (detail.key === key) setView(detail.view)
+    }
+    window.addEventListener('haligtree:view', heard)
+    return () => window.removeEventListener('haligtree:view', heard)
+  }, [key])
   return [
     view,
     (next) => {
@@ -89,6 +98,7 @@ export function useView(name: string, initial: { sort: string; group: string; fi
       } catch {
         // Not kept, but still applied.
       }
+      window.dispatchEvent(new CustomEvent('haligtree:view', { detail: { key, view: next } }))
     }
   ]
 }
