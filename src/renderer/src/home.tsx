@@ -57,6 +57,7 @@ import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { RailFolders, SideFolders } from './components/haligtree/side-folders'
 import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
+import { WritingPages } from './components/haligtree/side-writing'
 import { askFolder, folders, useFolderOf, useFolders, type FolderKind } from '@/lib/folders'
 import { FolderOpen } from 'lucide-react'
 import { FoldersView, tabOfKind } from './components/haligtree/folder-view'
@@ -1758,6 +1759,8 @@ export function Home(): React.JSX.Element {
     // at a time: with no key of its own, the light stayed on the last folder when "All folders…" was opened).
     if (view.id === 'folders') return `folders:${view.folder ?? 'all'}`
     if (noteList && homeFolder && foldersOn(noteList)) return `note:${noteNow!.id}`
+    // A page, with Writing unfolded: its row under Writing, lit (side-writing.tsx), unless it was opened from a pin or Recent.
+    if (noteList === 'article' && articleKept && foldersOn('article') && !quiet && from !== 'pin' && from !== 'recent') return `wpage:${noteNow!.id}`
     // A note kept in one of Folders' folders: its row under that folder (the section lights its heading when folded).
     if (keptFolder && !narrow && !quiet) return `kept:${noteNow!.id}`
     if (noteNow && noteNow.type !== 'task' && pinsOn && pins.some((one) => one.id === noteNow.id) && (from === 'pin' || !placeShown)) return `pin:${noteNow.id}`
@@ -2286,8 +2289,11 @@ export function Home(): React.JSX.Element {
               const scales = section.id === 'day' && !narrow ? JOURNAL_SCALES.filter((one) => !shown.includes(one.id)) : []
               const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
               const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : list === 'nugget' ? [nuggetFolders, setNuggetFolders] : [journalOpen, setJournalOpen]
-              // What the chevron over the icon folds: Writing's and Gems' folders, or Journal's scales.
-              const folds = !!(folders && list) || scales.length > 0
+              // Writing's pages, under its row as a folder's are under it (side-writing.tsx), archived ones aside.
+              const pages = list === 'article' && folders ? folders.filter((one) => !one.archivedAt) : []
+              // What the chevron over the icon folds: Writing's pages and folders, Gems' folders, or Journal's scales;
+              // only with something to fold (a Writing with no pages and no folders has none).
+              const folds = (!!(folders && list) && (list !== 'article' || pages.length > 0 || writingFolders.some(isFolder))) || scales.length > 0
               // The folder to light the way down to: where the open note lives, or the one on show.
               const inFolder = list && noteList === list ? homeFolder ?? undefined : view.id === section.id && !noteNow ? view.folder : undefined
               const inScale = light === `scale:${view.id}` && scales.some((one) => one.id === view.id)
@@ -2354,7 +2360,7 @@ export function Home(): React.JSX.Element {
               )}
               {/* Writing's and Gems' fold: quiet, over the icon, until pointed at (Notion's way). */}
               {folds && (
-                <button type="button" data-folders-fold={list ?? 'journal'} aria-label={list ? (unfolded ? `Fold ${section.label}'s folders away` : `Show ${section.label}'s folders`) : unfolded ? `Fold ${section.label}'s pages away` : `Show ${section.label}'s pages`} aria-expanded={unfolded}
+                <button type="button" data-folders-fold={list ?? 'journal'} aria-label={list ? (unfolded ? `Fold ${section.label}'s ${list === 'article' ? 'pages' : 'folders'} away` : `Show ${section.label}'s ${list === 'article' ? 'pages' : 'folders'}`) : unfolded ? `Fold ${section.label}'s pages away` : `Show ${section.label}'s pages`} aria-expanded={unfolded}
                   onClick={() => (chime(unfolded ? 'fold' : 'slide'), setUnfolded(!unfolded))}
                   className="absolute top-1/2 left-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
                   <ChevronRight className={`size-3.5 transition-transform duration-80 ${unfolded ? 'rotate-90' : ''}`} />
@@ -2389,6 +2395,14 @@ export function Home(): React.JSX.Element {
                 <div data-own-press="">
                   <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} noteRow={light.startsWith('note:') && noteList === list ? noteRow : undefined} shown={shownIn(list, folders)}
                     onOpen={(id) => setView({ id: section.id, folder: id })} onUnfold={() => setUnfolded(true)} onNewPage={list === 'article' ? addPage : undefined} />
+                  {/* Its pages on the same tree lines as a folder's things (FoldersSection): the first four, the one open among them, "See all". */}
+                  {pages.length > 0 && (
+                    <Unfold open={unfolded}>
+                      <Branches className="ml-5 flex flex-col gap-px">
+                        <WritingPages pages={pages} lit={light === `wpage:${noteNow?.id}` ? noteNow?.id : undefined} onOpen={(type, id) => open(type, id)} onAll={() => open('view', 'articles')} />
+                      </Branches>
+                    </Unfold>
+                  )}
                 </div>
               )}
               </SortableRow>
@@ -2605,8 +2619,8 @@ export function Home(): React.JSX.Element {
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
                           onClick={() => (open(one.type, one.id), (openedFrom.current = { id: one.id, where: 'recent' }))}
                           // Past, so quieter than the places above: the muted ink (never see-through), the row's full ink when pointed at or open.
-                          className="group/recent flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors duration-80 hover:text-foreground aria-[current=page]:text-foreground">
-                          <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground group-hover/recent:text-(--mf-muted-strong)" /></span>
+                          className="group/recent flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-[color-mix(in_oklab,var(--muted-foreground)_70%,var(--background))] transition-colors duration-80 hover:text-foreground aria-[current=page]:text-foreground">
+                          <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 opacity-60 group-hover/recent:opacity-100" /></span>
                           <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'New note'}</span>
                         </button>
                       )
@@ -2627,7 +2641,7 @@ export function Home(): React.JSX.Element {
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
-            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder ? noteRow : undefined} here={view.id === 'folders' ? (!view.folder || view.folder === 'all' ? null : view.folder) : undefined} onOpen={(place) => setView({ id: 'folders', folder: place ?? 'all' })} onOpenItem={(type, id, folder) => open(type, id, undefined, folder)} lit={noteNow?.id} />
+            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder && light.startsWith('kept:') ? noteRow : undefined} here={view.id === 'folders' ? (!view.folder || view.folder === 'all' ? null : view.folder) : undefined} onOpen={(place) => setView({ id: 'folders', folder: place ?? 'all' })} onOpenItem={(type, id, folder) => open(type, id, undefined, folder)} lit={light.startsWith('kept:') ? noteNow?.id : undefined} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList

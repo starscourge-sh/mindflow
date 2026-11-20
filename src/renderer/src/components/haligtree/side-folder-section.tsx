@@ -13,7 +13,7 @@ import { SortableList, SortableRow } from './sortable'
 import { age, num } from '../../../../main/dates'
 import { haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { FOLDER_DEPTH, askFolder, askFolderFor, folders, writeFrom, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem } from '@/lib/folders'
+import { FOLDER_DEPTH, askFolder, askFolderFor, folders, writeFrom, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { calendarInk, calendarsNow, events, type Calendar } from '@/lib/events'
 
 /** Starred folders shown before the rest fold behind "Show all". */
@@ -354,34 +354,45 @@ function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: st
   if (!shown.length) return <p data-folder-empty-row="" className="py-1 pr-2 pl-8 text-control text-muted-foreground">Nothing in it yet</p>
   return (
     <>
-      {shown.slice(0, THINGS_SHOWN).map((one) => {
-        const Icon = KIND_ICON[one.type] ?? FileText
-        const here = lit === one.id
-        return (
-          <RowMenu key={one.id} items={() => [
-            { label: 'Open', run: () => onOpen(one.type, one.id) },
-            ...openItems(one.type, one.id),
-            'separator',
-            { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) },
-            { label: `Take out of ${folder.name}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : one.type === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
-          ]}>
-            {/* Carried as a pin is (split-drop.tsx `data-drag-open`): onto another folder, into the page beside, the one card. */}
-            <button type="button" data-side-row data-side-thing={one.id} data-type={one.type} data-drag-open={`${one.type}:${one.id}`} data-drag-kind={one.type} aria-current={here ? 'page' : undefined} title={one.title}
-              onClick={() => (chime('page'), onOpen(one.type, one.id))}
-              className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
-              <span className="flex w-4 shrink-0 items-center justify-center"><Icon className="size-3.5 text-muted-foreground" /></span>
-              <span className="private-text min-w-0 flex-1 truncate text-left">{one.title.trim() || (one.type === 'article' ? 'Untitled' : 'New note')}</span>
-            </button>
-          </RowMenu>
-        )
-      })}
-      {shown.length > THINGS_SHOWN && (
-        <button type="button" data-side-row data-folder-show-more={folder.id} onClick={() => (chime('page'), onAll())}
-          className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
-          <span className="w-4 shrink-0" />
-          <span className="flex-1 text-left">Show {num(shown.length - THINGS_SHOWN)} more</span>
-        </button>
-      )}
+      {shown.slice(0, THINGS_SHOWN).map((one) => <ThingRow key={one.id} thing={one} lit={lit === one.id} onOpen={onOpen} from={folder.name} />)}
+      {shown.length > THINGS_SHOWN && <MoreRow data-folder-show-more={folder.id} onClick={onAll}>Show {num(shown.length - THINGS_SHOWN)} more</MoreRow>}
     </>
+  )
+}
+
+/**
+ * One thing under a fold in the sidebar, with its own sign: a folder's page, note, gem or task, or one of Writing's
+ * pages (side-writing.tsx). Lit while it is the one open; its right click opens it, keeps it in a folder, or (`from`,
+ * the folder it is in) takes it out.
+ */
+export function ThingRow({ thing: one, lit: here, onOpen, from }: { thing: { type: FolderKind; id: string; title: string }; lit: boolean; onOpen: (type: string, id: string) => void; from?: string }): React.JSX.Element {
+  const Icon = KIND_ICON[one.type] ?? FileText
+  return (
+    <RowMenu items={() => [
+      { label: 'Open', run: () => onOpen(one.type, one.id) },
+      ...openItems(one.type, one.id),
+      'separator',
+      { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) },
+      !!from && { label: `Take out of ${from}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : one.type === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
+    ]}>
+      {/* Carried as a pin is (split-drop.tsx `data-drag-open`): onto another folder, into the page beside, the one card. */}
+      <button type="button" data-side-row data-side-thing={one.id} data-type={one.type} data-drag-open={`${one.type}:${one.id}`} data-drag-kind={one.type} aria-current={here ? 'page' : undefined} title={one.title}
+        onClick={() => (chime('page'), onOpen(one.type, one.id))}
+        className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
+        <span className="flex w-4 shrink-0 items-center justify-center"><Icon className="size-3.5 text-muted-foreground" /></span>
+        <span className="private-text min-w-0 flex-1 truncate text-left">{one.title.trim() || (one.type === 'article' ? 'Untitled' : 'New note')}</span>
+      </button>
+    </RowMenu>
+  )
+}
+
+/** The last row under a fold, after the first few: the rest, on their own page. */
+export function MoreRow({ onClick, children, ...data }: { onClick: () => void; children: React.ReactNode } & Record<`data-${string}`, string>): React.JSX.Element {
+  return (
+    <button type="button" data-side-row {...data} onClick={() => (chime('page'), onClick())}
+      className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
+      <span className="w-4 shrink-0" />
+      <span className="flex-1 text-left">{children}</span>
+    </button>
   )
 }

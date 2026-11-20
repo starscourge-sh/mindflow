@@ -16,8 +16,13 @@ import { assetsDir } from './pictures'
 /** An article kept from the web: its words and pictures, read offline in the reader. */
 export type Article = { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }
 
-/** The cleaning an article was kept by, first in its HTML: one kept by an earlier reader is read again when next opened. */
-const CLEANING = '<!-- reader 3 -->'
+/**
+ * The cleaning an article was kept by, first in its HTML: one kept by an earlier reader is read again when next opened.
+ * 4: a wiki's tagline gone at the source, a space held in a span of its own kept ("Followed by"), an infobox marked.
+ */
+const CLEANING = '<!-- reader 4 -->'
+/** A wiki's tagline as an earlier reader kept it, its first paragraph: taken off a kept copy shown as it was (offline). */
+const TAGLINE = /<p>\s*From (Wikipedia|Wiktionary), the free (encyclopedia|dictionary)\.?\s*<\/p>/i
 
 /** How long the page has to answer, and each of its pictures (index.ts keepWhy) has 8 seconds. */
 const PAGE_WAIT = 15
@@ -166,8 +171,10 @@ export function registerWebArticles(keep: (src: string, stop: AbortSignal) => Pr
     }
   }
 
-  const kept = (href: string): Article | null =>
-    (db.prepare('select id, href, title, byline, site, published, html, saved_at as savedAt from web_articles where href = ?').get(href) as Article | undefined) ?? null
+  const kept = (href: string): Article | null => {
+    const one = db.prepare('select id, href, title, byline, site, published, html, saved_at as savedAt from web_articles where href = ?').get(href) as Article | undefined
+    return one ? { ...one, html: one.html.replace(TAGLINE, '') } : null
+  }
   // A site's own icon, for an article's card in Home's "Continue reading": asked once a run per site, from here so a
   // site with none (most answer 404) is simply none, and the card keeps its grain cover.
   const icons = new Map<string, Promise<string | null>>()

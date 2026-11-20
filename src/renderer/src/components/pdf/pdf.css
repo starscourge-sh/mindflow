@@ -871,6 +871,32 @@
   overflow-x: auto;
 }
 
+/* A wiki's box of facts (an infobox, main/free-sites.ts wikiChrome; a Fandom one, article-clean.ts beforeReading) is
+   set as the reader's own figure: the column's full width, on its own above the words, with room round it as a
+   picture has, so it never sits squeezed beside the opening's big letter. Its labels a column of their own. */
+.web-reader-body.tiptap.ProseMirror.haligtree-editor table[data-infobox] {
+  display: table;
+  width: 100%;
+  margin: 1.75em 0;
+  table-layout: auto;
+}
+
+.web-reader-body.tiptap.ProseMirror.haligtree-editor table[data-infobox] caption {
+  padding-bottom: 0.6em;
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
+  font-size: 1.15em;
+  font-weight: 600;
+  text-align: left;
+}
+
+.web-reader-body.tiptap.ProseMirror.haligtree-editor table[data-infobox] th {
+  width: 34%;
+}
+
+.web-reader-body.tiptap.ProseMirror.haligtree-editor table[data-infobox] td[colspan] img {
+  margin: 0.5em auto;
+}
+
 /* Code keeps its lines whole and scrolls sideways inside the column, as a note's code block does (its node view's
    rule in haligtree-editor.scss is not here to do it): a long line never runs on past the words, or the page's edge. */
 .web-reader-body.ProseMirror pre {

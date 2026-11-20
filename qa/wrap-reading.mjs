@@ -17,7 +17,7 @@ try {
     ['https://example.org/b', 'The long history of marginalia', 4000, 300_000, null],
     ['https://example.org/c', 'Why we underline', 900, 20_000, now]
   ]) {
-    await sql('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)', `qa-${title}`, href, title, '', 'example.org', '', '<!-- reader 3 --><p>words</p>', now)
+    await sql('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)', `qa-${title}`, href, title, '', 'example.org', '', '<!-- reader 4 --><p>words</p>', now)
     await sql('insert or replace into article_reads (href, words, active_ms, end_at, first_at, last_at) values (?, ?, ?, ?, ?, ?)', href, words, ms, end, now, now)
   }
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: `month:${new Date().toISOString().slice(0, 7)}` })))

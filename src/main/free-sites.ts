@@ -91,10 +91,15 @@ export const isWiki = (at: URL): boolean => /\.(wikipedia|wiktionary)\.org$/.tes
  * A wiki's page before Readability reads it: its "[edit]" marks, skip links
  * and navigation boxes gone. Each heading stood in a box beside its edit
  * link, which Readability took for a box of links and dropped: a page of eight
- * sections kept two, and every one left an "[edit]" line in the column.
+ * sections kept two, and every one left an "[edit]" line in the column. The
+ * wiki's tagline over the words ("From Wikipedia, the free encyclopedia", in
+ * #siteSub) and the marks beside the title go too: Readability kept the
+ * tagline as the article's first paragraph, under its big first letter. An
+ * infobox is marked, so the reader sets it as a box of its own (pdf.css).
  */
 export function wikiChrome(page: ReturnType<typeof parseHTML>['document']): void {
-  for (const one of [...page.querySelectorAll('.mw-editsection, .mw-jump-link, .navbox')]) one.remove()
+  for (const one of [...page.querySelectorAll('.mw-editsection, .mw-jump-link, .navbox, #siteSub, #contentSub, #contentSub2, .mw-indicators, .vector-body-before-content')]) one.remove()
+  for (const one of page.querySelectorAll('table.infobox')) one.setAttribute('data-infobox', '')
 }
 
 /** The file a Commons picture's address names: `…/commons/thumb/0/00/Name.png/250px-Name.png` is Name.png. */
