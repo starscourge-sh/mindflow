@@ -111,7 +111,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
   const spent = useWritingQuiet(writer, day)
   // The writing room: these words over the whole window (⇧⌘↵, Esc leaves).
   const room = useWritingRoom(writer)
-  useWritingSound(writer, day === today || room.on)
+  useWritingSound(writer, day === today || room.on, room.on)
   // Written elsewhere while open (the Feed's "Use this", a Blurt, the other
   // window): with nothing of yours waiting to save, the page shows it at once.
   // `known` is the stored words this editor last matched, `sent` its own words then.
@@ -226,7 +226,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
       actions={
         <span data-period-actions className="flex items-center gap-1">
           <Tip label="Only the words, over the whole window  ⇧⌘↵">
-            <Button data-room-open variant="ghost" size="sm" disabled={!writer} onClick={room.toggle}><Maximize2 className="size-3.5" /> Writing room</Button>
+            <Button data-room-open data-day-keep variant="ghost" size="sm" disabled={!writer} onClick={room.toggle}><Maximize2 className="size-3.5" /> Writing room</Button>
           </Tip>
           <Tip label="Paste it into any note to link to this day">
             <Button data-copy-day-link variant="ghost" size="sm" onClick={() => copyLink(`day:${day}`, named(day))}><Link2 className="size-3.5" /> Copy link</Button>
