@@ -36,7 +36,11 @@ export const seeded = (seed: string): (() => number) => {
     h = Math.imul(h ^ seed.charCodeAt(at), 3432918353)
     h = (h << 13) | (h >>> 19)
   }
-  let a = h >>> 0
+  // The hash's last mix (xmur3's): without it, seeds a letter apart ("…:3:" and "…:4:") gave nearly the same first
+  // draw, and 100 picks went 56% to the newest lane, not 40%.
+  h = Math.imul(h ^ (h >>> 16), 2246822507)
+  h = Math.imul(h ^ (h >>> 13), 3266489909)
+  let a = (h ^ (h >>> 16)) >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0
     let t = a
