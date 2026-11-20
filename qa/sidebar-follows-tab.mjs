@@ -101,6 +101,9 @@ try {
   await h.locator(`aside [data-side-recent-row="${loose.id}"]`).click(); await wait(1000)
   await one('opened from Recent: its row in Recent', { kind: 'recent', text: loose.title.slice(0, 10) })
   await h.screenshot({ path: `${shots}/recent-row-light.png` })
+  // Then the same page opened again from Writing (no other page between): Writing takes the light back from Recent.
+  await send('article', loose.id); await wait(1000)
+  await one('then opened again in Writing: Writing, not Recent', { kind: 'place', text: 'Writing' })
   // Pinned while open in Writing: still Writing; opened from its pin: the pin.
   await go('calendar')
   await send('article', loose.id); await wait(1200)

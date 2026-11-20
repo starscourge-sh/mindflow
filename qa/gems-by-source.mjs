@@ -131,6 +131,15 @@ try {
   await h.waitForTimeout(800)
   check('Writing has no source sections', !(await h.evaluate(() => !!document.querySelector('[data-source-head]'))))
 
+  // Filtered by Saved: Older, under date headings: the gems from before the last 30 days, each under its year; a filter
+  // kept with an old word ("This year", before the spans were renamed) reads as Older too.
+  for (const when of ['Older', 'This year']) {
+    await open({ group: 'date', density: 'list', filter: { when: [when] } })
+    const years = await allHeads()
+    check(`Saved: ${when} shows the gems from past years, each under its year`, years.length > 0 && years.every((one) => /^\d{4}$/.test(one)), JSON.stringify(years))
+  }
+  await open({ filter: {} })
+
   // At scale: 500 then 5,000 gems, a hundred books and many one-off sites among them.
   for (const total of [500, 5000]) {
     const have = await v('items', 'nugget').then((all) => all.length)
