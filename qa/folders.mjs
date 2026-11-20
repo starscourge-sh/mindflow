@@ -314,8 +314,8 @@ try {
   await wait(200)
   await h.keyboard.press('Enter')
   check('↵ puts it inside the folder picked', await until(async () => (await c.v('folders')).find((one) => one.id === reading.id)?.parent === thesis.id))
-  // Its notice is up a moment after the move is saved: ⌘Z is pressed once it is, as a person would.
-  check('said with its notice', await until(async () => /Moved Reading list into Thesis/.test(await said())), await said())
+  // Its notice is up a moment after the move is saved: ⌘Z is pressed once it is, as a person would. The folder is "To read" by now (renamed above).
+  check('said with its notice', await until(async () => /Moved To read into Thesis/.test(await said())), await said())
   await h.keyboard.press('Meta+z')
   check('⌘Z takes it back out', await until(async () => !(await c.v('folders')).find((one) => one.id === reading.id)?.parent))
 
