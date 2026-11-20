@@ -3,7 +3,7 @@
 // Mac's model stood in (HALIGTREE_QA_CAPS=ai), pages show the stand-in's rephrasings over their own sentences, no lead-in
 // holds a digit, the stand-in's rephrasing with numbers in it is dropped and that page shows its plain statement (never a
 // blank), the pages' own sentences and their numbers are untouched, and the second open shows the same lead-ins.
-// Without it (HALIGTREE_QA_CAPS=macos26), no page has a lead-in.
+// Without it (HALIGTREE_QA_CAPS=macos26, the default), only pages comparing with last time have one, the plain statement.
 //   QA_ARGS=--sandbox QA_DATA=<copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_CAPS=ai node qa/wrap-lines.mjs
 //   (and again with HALIGTREE_QA_CAPS=macos26 on a fresh copy)
 import { readFileSync } from 'node:fs'
@@ -11,6 +11,8 @@ import { join } from 'node:path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
+// Unset, the app reads this Mac itself, which may have Apple Intelligence: the run without it then tested nothing it says.
+process.env.HALIGTREE_QA_CAPS ||= 'macos26'
 const ai = process.env.HALIGTREE_QA_CAPS === 'ai'
 const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 800 })
@@ -58,7 +60,12 @@ try {
     const again = Object.entries(second).filter(([card, one]) => one.lead && kept.leads.pulp?.[card])
     check('opened again, each page shows the lead-in kept for its voice at once', again.length >= 2 && again.every(([card, one]) => one.lead === kept.leads.pulp[card]), JSON.stringify(again).slice(0, 400))
   } else {
-    check('without Apple Intelligence no page has a lead-in, each shows its own sentence', Object.keys(first).length >= 3 && !leads.length && !JSON.stringify(first).includes('stand-in'), JSON.stringify(first).slice(0, 600))
+    // The plain statements are the app's own, so every Mac has them, but only where they compare with last time:
+    // the opening and focus ("more than last month") and a tag new or up; never the tag, busiest day, hour or closing
+    // page's lead-in, which would say again what the page's own sentence says.
+    const against = /^(You (caught|focused) (more than|less than|as much as) last (week|month)\.|#\S+ (was new this (week|month)|came up more than last (week|month))\.)$/
+    check('without Apple Intelligence a page has a lead-in only to compare with last time, never the stand-in\'s', Object.keys(first).length >= 3 && leads.every(([card, one]) => ['intro', 'tags', 'focus'].includes(card) && against.test(one.lead)) && !JSON.stringify(first).includes('stand-in'), JSON.stringify(leads).slice(0, 600))
+    check('without it, the opening still says how it went against last time', !first.intro || against.test(first.intro.lead ?? ''), JSON.stringify(first.intro ?? {}).slice(0, 300))
   }
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } catch (error) {

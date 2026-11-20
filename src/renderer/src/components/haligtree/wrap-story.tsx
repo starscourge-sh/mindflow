@@ -220,7 +220,9 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   // only; new ones come while the cards turn. A page shows the plain statement until its own is in, and keeps whatever it
   // showed first, so nothing changes under the reader.
   const ai = useHas('ai') && !worst
-  const asked = useMemo(() => (facts && ai ? wrapSays(facts) : null), [facts, ai])
+  // The plain statements are the app's own, made by rules: every Mac has them. Apple Intelligence only says them again.
+  const says = useMemo(() => (facts ? wrapSays(facts) : null), [facts])
+  const asked = ai ? says : null
   const voice = VOICE[look.world]
   const [written, setWritten] = useState<{ leads: Record<string, string> | null; done: boolean }>({ leads: null, done: false })
   useEffect(() => {
@@ -236,7 +238,10 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   }, [asked, voice]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownLeads = useRef(new Map<Kind, string | undefined>())
   const leadFor = (one: Kind): string | undefined => {
-    if (!shownLeads.current.has(one)) shownLeads.current.set(one, written.leads?.[one] ?? asked?.find((page) => page.page === one)?.says)
+    // Without Apple Intelligence a page shows its statement only where it says what the page's own sentence doesn't,
+    // how it went against last time; never a repeat of the sentence under it.
+    const page = says?.find((each) => each.page === one)
+    if (!shownLeads.current.has(one)) shownLeads.current.set(one, written.leads?.[one] ?? (page && (ai || againstLast(page)) ? page.says : undefined))
     return shownLeads.current.get(one)
   }
   const ready = !!facts && (!asked || written.done)
@@ -495,6 +500,9 @@ const VOICE: Record<World, Voice> = { files: 'pulp', night: 'pulp' }
  * (main/wrap-lines.ts), keeping its lean and the things it names. Every page a story could show, whichever this open
  * picks, so the lead-ins are kept per story and not per open. Only pages with a change to state or a thing to name.
  */
+/** A statement that compares with last time ("more than last month", "new this month"), which no page's own sentence says. */
+const againstLast = (page: WrapPage): boolean => page.lean !== null || page.names.includes('new')
+
 function wrapSays(f: Facts): WrapPage[] {
   const last = `last ${f.period}`
   const lean = (now: number, before: number): Lean => (!before ? (now ? 'up' : 'same') : now > before * 1.3 ? 'up' : now < before * 0.77 ? 'down' : 'same')
