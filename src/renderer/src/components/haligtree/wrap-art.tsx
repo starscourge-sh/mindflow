@@ -105,7 +105,7 @@ export function Folder({ titles, color, paper, ink }: { titles: string[]; color:
 
 const SILK = `
 precision mediump float;
-uniform float t; uniform vec2 r; uniform vec3 c0; uniform vec3 c1; uniform vec3 c2; uniform float h; uniform float s;
+uniform float t; uniform vec2 r; uniform vec3 c0; uniform vec3 c1; uniform vec3 c2; uniform float h; uniform float s; uniform float o;
 // A colour turned round the colour wheel by a (YIQ), so a card's turn moves the light's hue and keeps its brightness.
 vec3 turned(vec3 c, float a) {
   vec3 y = mat3(0.299, 0.596, 0.211, 0.587, -0.274, -0.523, 0.114, -0.322, 0.312) * c;
@@ -121,12 +121,21 @@ void main() {
   float w2 = sin(x * 2.3 - k * 0.8 + w1 * 1.1 + p.y * 1.4);
   float b1 = exp(-pow((p.y - 0.68 - 0.13 * w1) * 3.0, 2.0)) * (0.62 + 0.38 * sin(x * 2.6 + k * 1.3));
   float b2 = exp(-pow((p.y - 0.30 - 0.11 * w2) * 3.4, 2.0)) * (0.58 + 0.42 * sin(x * 1.9 - k * 1.1 + 1.7));
-  vec3 col = mix(c0, turned(c1, h), clamp(b1 * s, 0.0, 1.0));
-  col = mix(col, turned(c2, h * 0.7), clamp(b2 * s * 0.85, 0.0, 1.0));
-  // Faded back to the paper at the edges, so the light sits behind the middle of the stage.
-  col = mix(col, c0, smoothstep(0.42, 0.95, length((p - 0.5) * vec2(1.1, 1.4))) * 0.7);
   float g = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-  gl_FragColor = vec4(col + (g - 0.5) * 0.035, 1.0);
+  // Faded out toward the edges, so the light sits behind the middle.
+  float edge = 1.0 - smoothstep(0.42, 0.95, length((p - 0.5) * vec2(1.1, 1.4))) * 0.7;
+  float l1 = clamp(b1 * s * edge, 0.0, 1.0);
+  float l2 = clamp(b2 * s * 0.85 * edge, 0.0, 1.0);
+  if (o > 0.5) {
+    // On its own paper (c0): the light mixed into it.
+    vec3 col = mix(mix(c0, turned(c1, h), l1), turned(c2, h * 0.7), l2);
+    gl_FragColor = vec4(col + (g - 0.5) * 0.035, 1.0);
+  } else {
+    // Light alone, over whatever is under the canvas: as much of it shows as there is light (premultiplied).
+    float a = clamp(l1 + l2 * (1.0 - l1), 0.0, 1.0);
+    vec3 col = (turned(c1, h) * l1 + turned(c2, h * 0.7) * l2 * (1.0 - l1)) + (g - 0.5) * 0.03 * a;
+    gl_FragColor = vec4(col, a);
+  }
 }`
 const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number]
 
@@ -135,9 +144,10 @@ const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((i) => pars
  * colours over its paper. `hue` turns the light round the colour wheel and `strength` sets how much of it shows; a
  * change to either, or to the colours, glides across in about a second. Drawn at `scale` of the page's pixels (the
  * light is soft, so a quarter of the pixels look the same and cost a quarter as much), stopped while the window is
- * hidden, and one still frame with Motion off or Reduce motion, redrawn in place when it changes.
+ * hidden, and one still frame with Motion off or Reduce motion, redrawn in place when it changes. `clear`: the light alone,
+ * on a see-through canvas, over whatever is under it (the dimmed app behind a wrap's card).
  */
-export function Silk({ base, a, b, hue = 0, strength = 0.85, scale = 0.5 }: { base: string; a: string; b: string; hue?: number; strength?: number; scale?: number }): React.JSX.Element {
+export function Silk({ base, a, b, hue = 0, strength = 0.85, scale = 0.5, clear = false, className = 'absolute inset-0 size-full' }: { base: string; a: string; b: string; hue?: number; strength?: number; scale?: number; clear?: boolean; className?: string }): React.JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
   // Where the light is going: read by the running loop every frame, so a change never starts the drawing again.
   const target = useRef({ c0: rgb(base), c1: rgb(a), c2: rgb(b), h: hue, s: strength })
@@ -148,7 +158,7 @@ export function Silk({ base, a, b, hue = 0, strength = 0.85, scale = 0.5 }: { ba
   }, [base, a, b, hue, strength])
   useEffect(() => {
     const el = canvas.current
-    const gl = el?.getContext('webgl', { preserveDrawingBuffer: true, antialias: false })
+    const gl = el?.getContext('webgl', { preserveDrawingBuffer: true, antialias: false, premultipliedAlpha: true, alpha: clear })
     if (!el || !gl) return
     const shader = (type: number, src: string): WebGLShader => {
       const one = gl.createShader(type)!
@@ -167,7 +177,7 @@ export function Silk({ base, a, b, hue = 0, strength = 0.85, scale = 0.5 }: { ba
     gl.enableVertexAttribArray(at)
     gl.vertexAttribPointer(at, 2, gl.FLOAT, false, 0, 0)
     const u = (name: string): WebGLUniformLocation | null => gl.getUniformLocation(program, name)
-    const [uT, uR, u0, u1, u2, uH, uS] = ['t', 'r', 'c0', 'c1', 'c2', 'h', 's'].map(u)
+    const [uT, uR, u0, u1, u2, uH, uS, uO] = ['t', 'r', 'c0', 'c1', 'c2', 'h', 's', 'o'].map(u)
     // What is drawn now, eased toward the target each frame.
     const now = { ...target.current, c0: [...target.current.c0], c1: [...target.current.c1], c2: [...target.current.c2] }
     const ease = (k: number): void => {
@@ -190,6 +200,7 @@ export function Silk({ base, a, b, hue = 0, strength = 0.85, scale = 0.5 }: { ba
       gl.uniform3fv(u2, now.c2)
       gl.uniform1f(uH, now.h)
       gl.uniform1f(uS, now.s)
+      gl.uniform1f(uO, clear ? 0 : 1)
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
     }
     size()
@@ -228,6 +239,6 @@ export function Silk({ base, a, b, hue = 0, strength = 0.85, scale = 0.5 }: { ba
       document.removeEventListener('visibilitychange', run)
       sized.disconnect()
     }
-  }, [scale])
-  return <canvas ref={canvas} className="absolute inset-0 size-full" aria-hidden />
+  }, [scale, clear])
+  return <canvas ref={canvas} className={className} aria-hidden />
 }

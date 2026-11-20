@@ -28,11 +28,11 @@ export const PALETTES: Record<World, Palette[]> = {
   ]
 }
 
-/** The papers in the folder of notes, the same in every world. */
-export const STAGE = { paper: '#fbfaf6', paperInk: '#1d1d1b' }
+/** The dimmed window behind the card, its shadow and vignette, and the folder's papers: the same in every world. */
+export const STAGE = { dim: 'rgba(0, 0, 0, 0.72)', shadow: '0 40px 120px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06)', paper: '#fbfaf6', paperInk: '#1d1d1b', vignette: 'radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.65) 100%)' }
 
 /**
- * How far the stage's light turns round the colour wheel on each card (radians, Silk's `hue`): never the same two in
+ * How far the light behind and inside the card turns round the colour wheel on each card (radians, Silk's `hue`): never the same two in
  * a row, and never far from the look's own colours, so lime leans yellow, then teal, then back.
  */
 export const HUES = [0, 0.55, -0.45, 0.9, -0.2, 0.35, -0.7, 0.15, 0.7, -0.35, 0.45, -0.6]

@@ -354,7 +354,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       className="fixed inset-0 z-50 grid place-items-center overflow-hidden [-webkit-app-region:no-drag]" style={{ background: STAGE.dim }}
       // Closed by a click that began and ended on the dim, never by a drag let go over it.
       onPointerDown={(event) => void (downOnDim.current = event.target === event.currentTarget)} onClick={(event) => event.target === event.currentTarget && downOnDim.current && onClose()}>
-      <Backdrop glow={p.glow} />
+      <Backdrop p={p} hue={HUES[at % HUES.length]} />
       {/* A wide card over the dimmed app; on a small window, the whole window, as on a phone. The app's own pieces inside
           (the flowing row of pictures, the week's paragraph) read the card's ink and paper through the theme's names. */}
       <motion.div ref={shown} data-wrap-card={kind ?? 'loading'}
@@ -362,6 +362,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         className="wrap-card @container relative flex flex-col overflow-hidden"
         style={{ background: p.bg, color: p.ink, boxShadow: STAGE.shadow, '--wrap-quiet': quiet, '--wrap-bg': p.bg, '--foreground': p.ink, '--muted-foreground': quiet, '--mf-muted-strong': quiet, '--background': p.bg } as React.CSSProperties}>
+        {/* The card's own paper, the same light moving in it faintly: stronger in Night, whose look is the light. */}
+        <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={world === 'night' ? 0.5 : light(p.bg) ? 0.14 : 0.2} scale={0.35} />
         <div className="relative min-h-0 flex-1" onPointerDown={(event) => void (pressedAt.current = event.clientX)} onClick={(event) => {
           // A drag (the row of pictures) let go is not a turn.
           if (Math.abs(event.clientX - pressedAt.current) > 6 || (event.target as HTMLElement).closest('button, a, [data-wrap-flow]')) return
@@ -410,14 +412,18 @@ const WORLD_CUES: Record<World, { turn: Cue; last: Cue }> = {
   night: { turn: 'riffle', last: 'reveal' }
 }
 
-/** Behind the card: the app dimmed, a slow glow in the card's colours, grain and a vignette. */
-function Backdrop({ glow }: { glow: [string, string] }): React.JSX.Element {
-  const drift = (dx: number, dy: number): { x?: number[]; y?: number[]; scale?: number[] } => (still() ? {} : { x: [0, dx, 0], y: [0, dy, 0], scale: [1, 1.15, 1] })
+/** A paper is light when its red is over half: the light inside it is kept fainter there, so the ink stays sharp. */
+const light = (hex: string): boolean => parseInt(hex.slice(1, 3), 16) > 128
+
+/**
+ * Behind the card: the app dimmed, and over it a slow aurora in the look's colours (Silk, see-through), its hue turning
+ * a little on each card; a vignette at the edges. The light alone moves, on the GPU, at a quarter of the pixels; it
+ * stops while the window is hidden and is one still frame with Motion off or Reduce motion.
+ */
+function Backdrop({ p, hue }: { p: Palette; hue: number }): React.JSX.Element {
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden>
-      <motion.div className="absolute top-[10%] left-[15%] size-[55vmax] rounded-full opacity-45 blur-[90px]" style={{ background: glow[0] }} animate={drift(80, 40)} transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute right-[5%] bottom-0 size-[45vmax] rounded-full opacity-35 blur-[90px]" style={{ background: glow[1] }} animate={drift(-60, -50)} transition={{ duration: 23, repeat: Infinity, ease: 'easeInOut' }} />
-      <svg className="absolute inset-0 size-full opacity-[0.14] mix-blend-overlay"><filter id="wrap-grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" /></filter><rect width="100%" height="100%" filter="url(#wrap-grain)" /></svg>
+      <Silk clear base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={hue} strength={0.62} className="absolute inset-0 size-full opacity-80" />
       <div className="absolute inset-0" style={{ background: STAGE.vignette }} />
     </div>
   )
@@ -439,6 +445,12 @@ const HUGE = 'text-[clamp(52px,14cqi,120px)] leading-[0.9] font-black tracking-t
 const fit = (text: string): string => (text.length <= 16 ? BIG : text.length <= 30 ? 'text-[clamp(24px,4.6cqi,38px)] leading-[1.05] font-black tracking-tight break-words' : 'text-[clamp(20px,3.4cqi,28px)] leading-[1.1] font-black tracking-tight break-words')
 /** A line under a heading or number, saying what it counts: never a label above one. */
 const CAPTION = 'mt-3 text-[15px] leading-snug font-semibold text-(--wrap-quiet) text-pretty'
+/** A card with one thing to say says it alone, centred and large: never a big word beside a half-empty column. */
+const SOLO_CAPTION = 'mx-auto mt-4 max-w-[44ch] text-[17px] leading-snug font-semibold text-(--wrap-quiet) text-balance'
+/** A lone heading (one tag, one site) as large as its length lets it be, still in two or three lines at most. */
+const solo = (text: string): string => `${text.length <= 12 ? 'text-[clamp(44px,11cqi,92px)] leading-[0.95]' : text.length <= 24 ? 'text-[clamp(34px,7.4cqi,64px)] leading-[1]' : 'text-[clamp(26px,5.2cqi,44px)] leading-[1.05]'} font-black tracking-tight break-words text-balance`
+/** A list is drawn only with this many in it; fewer are said in the card's sentence instead. */
+const LIST = 3
 
 /** Two halves on a wide card, one above the other on a narrow one; a seeded variant flips them. */
 function Split({ a, b, flip }: { a: ReactNode; b: ReactNode; flip: boolean }): React.JSX.Element {
@@ -497,16 +509,18 @@ function Calendar({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   const first = dayjs(f.from).startOf('week')
   const cells: (string | null)[] = []
   for (let day = first; dayKey(day) <= f.to || cells.length % 7; day = day.add(1, 'day')) cells.push(dayKey(day) >= f.from && dayKey(day) <= f.to ? dayKey(day) : null)
-  const size = 'size-[clamp(15px,3.1cqi,22px)]'
+  // A week is one row, large enough to read at a glance; a month's four or five rows smaller, to fit beside its number.
+  const week = cells.length <= 7
+  const size = week ? 'size-[clamp(30px,6cqi,48px)] text-[14px]' : 'size-[clamp(18px,3.6cqi,28px)] text-[11px]'
   return (
     <div data-wrap-calendar className="grid h-full place-items-center">
       <div className="grid grid-cols-7 gap-[clamp(3px,0.6cqi,5px)]">
-        {Array.from({ length: 7 }, (_, i) => <span key={`d${i}`} className={`${size} grid place-items-center text-[11px] font-bold text-(--wrap-quiet)`}>{first.add(i, 'day').format('dd')[0]}</span>)}
+        {Array.from({ length: 7 }, (_, i) => <span key={`d${i}`} className={`${size} grid place-items-center font-bold text-(--wrap-quiet)`}>{first.add(i, 'day').format('dd')[0]}</span>)}
         {cells.map((day, i) => {
           if (!day) return <span key={i} className={size} />
           const inRun = day >= f.runFrom && day <= f.runTo
           return (
-            <motion.span key={day} data-day={day} data-run={inRun || undefined} className={`${size} grid place-items-center rounded-[3px] text-[10px] leading-none font-bold tabular-nums`}
+            <motion.span key={day} data-day={day} data-run={inRun || undefined} className={`${size} grid place-items-center rounded-[4px] leading-none font-bold tabular-nums`}
               style={inRun ? { background: p.accent, color: p.bg } : busy.has(day) ? { background: `color-mix(in srgb, ${p.ink} 30%, ${p.bg})`, color: p.ink } : { boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${p.ink} 22%, ${p.bg})`, color: 'var(--wrap-quiet)' }}
               initial={still() ? false : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + i * 0.012, type: 'spring', stiffness: 400, damping: 24 }}>
               {dayjs(day).date()}
@@ -568,33 +582,51 @@ function wrapSays(f: Facts): WrapPage[] {
   return pages
 }
 
-/** Each day of the span as a bar of its captures, the busiest in the loud colour with its count over it; the first and last dates under. */
+/** The busiest days: every day with the most captures, so a tie is lit and said as one, never one of two equal bars. */
+const busiestDays = (f: Facts): string[] => {
+  const most = Math.max(0, ...Object.entries(f.days).filter(([day]) => day >= f.from && day <= f.to).map(([, n]) => n))
+  return most ? Object.keys(f.days).filter((day) => day >= f.from && day <= f.to && f.days[day] === most).sort() : f.busiest ? [f.busiest.day] : []
+}
+
+/**
+ * Each day of the span as a bar of its captures, on one height scale, the busiest lit and the rest muted. A week's
+ * seven bars each carry their count over them and their day under them; a month's thirty are too many to label, so
+ * only the busiest says its count and the first and last dates sit under the row.
+ */
 function DayBars({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   const days: string[] = []
   for (let day = dayjs(f.from); dayKey(day) <= f.to; day = day.add(1, 'day')) days.push(dayKey(day))
-  return <Bars p={p} mark="days" values={days.map((day) => f.days[day] ?? 0)} peak={days.indexOf(f.busiest?.day ?? '')} under={[dayjs(f.from).format('D MMM'), dayjs(f.to).format('D MMM')]} />
+  const lit = new Set(busiestDays(f).map((day) => days.indexOf(day)))
+  const each = days.length <= 7
+  return <Bars p={p} mark="days" values={days.map((day) => f.days[day] ?? 0)} lit={lit} ticks={each ? days.map((day) => dayjs(day).format('ddd')) : undefined} under={each ? [] : [dayjs(f.from).format('D MMM'), dayjs(f.to).format('D MMM')]} />
 }
 /** The day's 24 hours as bars of the span's captures, the thinking hour lit the same way. */
-const HourBars = ({ f, p }: { f: Facts; p: Palette }): React.JSX.Element => <Bars p={p} mark="hours" values={f.hours} peak={f.hour ?? -1} under={['midnight', 'noon', '23:00']} />
+const HourBars = ({ f, p }: { f: Facts; p: Palette }): React.JSX.Element => <Bars p={p} mark="hours" values={f.hours} lit={new Set(f.hour === null ? [] : [f.hour])} under={['midnight', 'noon', '23:00']} />
 
-/** A row of bars, `peak` in the loud colour with its count over it, the words `under` spread beneath. */
-function Bars({ p, mark, values, peak, under }: { p: Palette; mark: string; values: number[]; peak: number; under: string[] }): React.JSX.Element {
+/**
+ * A row of bars on one scale: `lit` in the loud colour, the rest muted. With `ticks` (a few bars) every bar has its
+ * count over it and its tick under it; without, only the lit ones say their count, and the words `under` spread beneath.
+ */
+function Bars({ p, mark, values, lit, ticks, under }: { p: Palette; mark: string; values: number[]; lit: Set<number>; ticks?: string[]; under: string[] }): React.JSX.Element {
   const most = Math.max(1, ...values)
+  const few = !!ticks
   return (
     <div {...{ [`data-wrap-${mark}`]: '' }} className="grid h-full content-center">
-      <div className="flex h-[clamp(72px,20cqi,150px)] items-end gap-[3px] pt-6">
+      <div className={`flex h-[clamp(96px,24cqi,180px)] items-end pt-7 ${few ? 'gap-2.5' : 'gap-[3px]'}`}>
         {values.map((n, i) => {
-          const top = i === peak
+          const top = lit.has(i)
           return (
             <div key={i} className="relative flex h-full flex-1 items-end justify-center">
-              {top && <span data-wrap-peak className="absolute left-1/2 -translate-x-1/2 text-[13px] font-black whitespace-nowrap tabular-nums" style={{ bottom: `calc(${(n / most) * 100}% + 4px)`, color: p.accent }}>{num(n)}</span>}
-              <motion.div className="w-full max-w-2 origin-bottom rounded-none" style={{ height: n ? `max(4px, ${(n / most) * 100}%)` : '2px', background: top ? p.accent : n ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : `color-mix(in srgb, ${p.ink} 18%, ${p.bg})` }}
-                initial={still() ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.3 + i * 0.012, duration: 0.3, ease: EASE }} />
+              {(top || few) && <span data-wrap-peak={top || undefined} className="absolute left-1/2 -translate-x-1/2 text-[13px] font-black whitespace-nowrap tabular-nums" style={{ bottom: `calc(${(n / most) * 100}% + 5px)`, color: top ? p.accent : 'var(--wrap-quiet)' }}>{num(n)}</span>}
+              <motion.div className={`w-full origin-bottom rounded-[2px] ${few ? 'max-w-[40px]' : 'max-w-2'}`} style={{ height: n ? `max(4px, ${(n / most) * 100}%)` : '2px', background: top ? p.accent : n ? `color-mix(in srgb, ${p.ink} 34%, ${p.bg})` : `color-mix(in srgb, ${p.ink} 16%, ${p.bg})` }}
+                initial={still() ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.3 + i * (few ? 0.04 : 0.012), duration: 0.36, ease: EASE }} />
             </div>
           )
         })}
       </div>
-      <div className="mt-2 flex justify-between text-[12px] font-semibold text-(--wrap-quiet)">{under.map((word) => <span key={word}>{word}</span>)}</div>
+      {few
+        ? <div className="mt-2 flex gap-2.5 text-[12px] font-semibold text-(--wrap-quiet)">{ticks.map((tick, i) => <span key={i} className="flex-1 text-center" style={lit.has(i) ? { color: p.accent } : undefined}>{tick}</span>)}</div>
+        : <div className="mt-2 flex justify-between text-[12px] font-semibold text-(--wrap-quiet)">{under.map((word) => <span key={word}>{word}</span>)}</div>}
     </div>
   )
 }
@@ -611,17 +643,29 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
   const kicker = lead ? <In at={0.05} from={e}><p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p></In> : null
   const split = (a: ReactNode, b: ReactNode): ReactElement => <Split a={<>{kicker}{a}</>} b={b} flip={flip} />
   const caption = (own: ReactNode): ReactElement => <p className={CAPTION}>{own}</p>
+  /** One thing to say, alone in the middle of the card: the lead-in, the heading, then its sentence under it. */
+  const alone = (head: ReactNode, said: ReactNode, more?: ReactNode): ReactElement => (
+    <Centre>{kicker}<In at={0.12} from={e}>{head}</In><In at={0.45}><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.6} className="w-full">{more}</In>}</Centre>
+  )
 
-  // Night's silk of light, under its words; Files is paper and ink, its art the op-art round your own pictures.
-  const art = night ? <><Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} /><div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${p.bg} 10%, color-mix(in srgb, ${p.bg} 55%, transparent))` }} /></> : null
-
-  /** A picture of the span's own, framed by the op-art (Spotify's 2025 cover), the scribble over the art only. */
-  const cover = (picture = f.pictures[0]): ReactElement => (
-    <In at={0.1} from="scale" className="absolute inset-0 overflow-hidden rounded-[6px]">
-      <OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" />
-      {picture && <img src={picture.src} alt={picture.title} className="absolute inset-[16%] size-[68%] rounded-[4px] object-cover" style={{ boxShadow: `0 0 0 6px ${p.bg}` }} />}
-      <Scribble seed={seed} color={p.accent} width={3} className="pointer-events-none absolute top-[10%] left-0 w-full" delay={0.35} />
-    </In>
+  /**
+   * One of your own pictures (heroesOf: a photo or art, never a page of words), framed by the op-art (Spotify's 2025
+   * cover), as large a square as its half of the card holds and never cut by it; with none, the op-art round a disc in
+   * the loud colour. The scribble draws over the art.
+   */
+  const cover = (picture: Picture | undefined): ReactElement => (
+    <div data-wrap-cover className="absolute inset-0 grid place-items-center [container-type:size]">
+      <In at={0.1} from="scale" className="relative size-[min(100cqw,100cqh)] overflow-hidden rounded-[6px]">
+        <OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" />
+        {picture
+          ? <div className="absolute inset-[15%] overflow-hidden rounded-[4px]" style={{ boxShadow: `0 0 0 6px ${p.bg}`, background: `url("${picture.src}") center / cover` }}>
+              {/* The kept picture itself over its small copy, placed on its face or subject (lib/picture-focus.ts). */}
+              <img data-wrap-hero src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" />
+            </div>
+          : <div data-wrap-motif className="absolute inset-[27%] rounded-full" style={{ background: p.accent, boxShadow: `0 0 0 8px ${p.bg}` }} />}
+        <Scribble seed={seed} color={p.accent} width={3} className="pointer-events-none absolute top-[10%] left-0 w-full" delay={0.35} />
+      </In>
+    </div>
   )
 
   const body = ((): ReactElement => {
@@ -631,40 +675,52 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
         return split(<>
           <In at={0.12} from={e}><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
           <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium"><Typed story text={opening(f, look.intro)} /></p></In>
-        </>, cover())
+        </>, cover(f.heroes[0]))
       case 'tags': {
-        if (!top.length) return split(<><In at={0.15}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div></In><In at={0.45}>{caption(<>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)}</In></>, night ? <div /> : cover())
+        if (!top.length) return alone(<div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div>, <>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)
         const lead = `#${top[0].name}`
-        return split(<><In at={0.12}><h2 className={fit(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2></In>
-          <In at={0.45}>{caption(<>came up most: {plural(top[0].n, 'capture')} of the {num(f.captures)} {f.captures === 1 ? 'thing' : 'things'} you caught</>)}</In></>,
-          <Ranked rows={top} accent={p.accent} />)
+        const most = <>came up most: {plural(top[0].n, 'capture')} of the {num(f.captures)} {f.captures === 1 ? 'thing' : 'things'} you caught</>
+        if (top.length < LIST) return alone(<h2 className={solo(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2>, <>{most}{top[1] ? <>, then <span dir="auto">#{top[1].name}</span> with {plural(top[1].n, 'capture')}</> : null}.</>)
+        return split(<><In at={0.12}><h2 className={fit(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2></In><In at={0.45}>{caption(most)}</In></>, <Ranked rows={top} accent={p.accent} />)
       }
       case 'focus': {
-        const said = f.minutes >= 120 ? `${num(Math.round(f.minutes / 60))}` : num(f.minutes)
-        const most = f.focusTasks[0]
-        return split(<><In at={0.12}><div className={HUGE} style={{ color: p.accent }}>{said}</div></In>
-          <In at={0.45}>{caption(<>{f.minutes >= 120 ? 'hours' : f.minutes === 1 ? 'minute' : 'minutes'} of focus, over {plural(f.sessions, 'session')}{most ? `. Most of it on ${quoted(most.name, 60)}.` : '.'}</>)}</In></>,
-          f.focusTasks.length ? <Rows p={p} wide={wide} rows={f.focusTasks.map((one) => ({ key: one.name, name: one.name, said: howLong(one.minutes), n: one.minutes }))} /> : night ? <div /> : cover())
+        // Past two hours it is said in hours; a part hour is never rounded away in silence: the sentence says the whole.
+        const hours = f.minutes >= 120
+        const big = hours ? Math.round(f.minutes / 60) : f.minutes
+        const unit = hours ? (f.minutes % 60 ? `hours of focus (${howLong(f.minutes)} in all)` : 'hours of focus') : f.minutes === 1 ? 'minute of focus' : 'minutes of focus'
+        const number = <div className={HUGE} style={{ color: p.accent }}><Roll n={big} /></div>
+        const [one, two] = f.focusTasks
+        if (f.focusTasks.length < LIST)
+          return alone(number, <>{unit}, over {plural(f.sessions, 'session')}{one ? <>. {howLong(one.minutes)} of it on {quoted(one.name, 60)}{two ? <>, {howLong(two.minutes)} on {quoted(two.name, 60)}</> : null}</> : null}.</>)
+        // Each task's bar is its share of all the focus, so the bars and the big number agree.
+        return split(<><In at={0.12}>{number}</In><In at={0.45}>{caption(<>{unit}, over {plural(f.sessions, 'session')}. Where most of it went:</>)}</In></>,
+          <Rows p={p} wide={wide} rows={f.focusTasks.map((task) => ({ key: task.name, name: task.name, said: howLong(task.minutes), n: task.minutes, of: Math.max(1, f.minutes) }))} />)
       }
       case 'sites': {
         const [first, ...rest] = f.sites
         const total = f.sites.reduce((n, one) => n + one.count, 0)
-        return split(<><In at={0.12}><h2 className={fit(first.site)}>Kept you off <span style={{ color: p.accent }}>{siteWords(first.site)}</span> {timesSaid(first.count)} this {f.period}</h2></In>
-          <In at={0.45}>{caption(<>{rest.length ? `and ${and(rest.slice(0, 2).map((one) => `${one.site} ${timesSaid(one.count)}`))}${rest.length > 2 ? `, and ${plural(rest.length - 2, 'more site')}` : ''}: sent away ${plural(total, 'time')} while you focused.` : 'The one site it had to send away while you focused.'}</>)}</In></>,
+        const head = <>Kept you off <span style={{ color: p.accent }}>{siteWords(first.site)}</span> {timesSaid(first.count)} this {f.period}</>
+        if (f.sites.length < LIST) return alone(<h2 className={fit(first.site)}>{head}</h2>, rest.length ? `and ${rest[0].site} ${timesSaid(rest[0].count)}: sent away ${plural(total, 'time')} while you focused.` : 'The one site it had to send away while you focused.')
+        return split(<><In at={0.12}><h2 className={fit(first.site)}>{head}</h2></In>
+          <In at={0.45}>{caption(<>{`and ${and(rest.slice(0, 2).map((one) => `${one.site} ${timesSaid(one.count)}`))}${rest.length > 2 ? `, and ${plural(rest.length - 2, 'more site')}` : ''}: sent away ${plural(total, 'time')} while you focused.`}</>)}</In></>,
           <Rows p={p} wide={wide} rows={f.sites.slice(0, 5).map((one) => ({ key: one.site, name: one.site, said: timesSaid(one.count), n: one.count }))} />)
       }
       case 'reading': {
         // Finished means its end reached with half its reading time spent on it: said under the number, so it is never a guess.
         const { total, finished, left } = f.reads
-        return split(<><In at={0.12}><h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2></In>
-          <In at={0.45}>{caption(`Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up.` : ''}`)}</In></>,
-          left.length ? <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} /> : cover())
+        const head = <h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2>
+        const said = `Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up${left.length < LIST ? `: ${and(left.map((one) => quoted(one.title, 50)))}` : ''}.` : ''}`
+        if (left.length < LIST) return alone(head, said)
+        return split(<><In at={0.12}>{head}</In><In at={0.45}>{caption(said)}</In></>,
+          <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} />)
       }
       case 'plan': {
         const rows = [...f.planRows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, wide ? 4 : 2)
         const most = Math.max(1, ...rows.flatMap((row) => [row.planned, row.did]))
-        return split(<><In at={0.12}><h2 className={BIG}>You planned {held(f.planned)}{f.did ? ` and did ${held(f.did)}` : ''}.</h2></In><In at={0.45}>{caption(<>on {plural(f.planRows.length, 'task')} with a time planned and a date this {f.period}</>)}</In></>,
-          <div className="grid h-full grid-cols-1 [align-content:safe_center] gap-4">{rows.map((row, i) => (
+        const head = <h2 className={BIG}>You planned {held(f.planned)}{f.did ? ` and did ${held(f.did)}` : ''}.</h2>
+        const said = <>on {plural(f.planRows.length, 'task')} with a time planned and a date this {f.period}</>
+        const bars = (
+          <div className="grid h-full w-full grid-cols-1 [align-content:safe_center] gap-4 text-left">{rows.map((row, i) => (
             <In key={row.name + i} at={0.3 + i * 0.07} from="left" className="min-w-0">
               <p className="truncate text-[15px] font-semibold" dir="auto">{row.name}</p>
               {/* The time planned as the track, what was done filling it: the words say both. */}
@@ -673,47 +729,63 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
               </div>
               <p className="mt-1 text-[13px] font-semibold text-(--wrap-quiet)">{row.did ? `did ${howLong(row.did)} of ${howLong(row.planned)} planned` : `${howLong(row.planned)} planned, none done yet`}</p>
             </In>
-          ))}</div>)
+          ))}</div>
+        )
+        // One or two tasks: the sentence in the middle and their bars under it, a column as wide as a line of words.
+        if (rows.length < LIST) return alone(head, said, <div className="mx-auto mt-2 w-full max-w-[420px]">{bars}</div>)
+        return split(<><In at={0.12}>{head}</In><In at={0.45}>{caption(said)}</In></>, bars)
       }
       case 'pictures':
         return (
+          // The row sits inside the card's margins: no picture is ever cut by the card's edge.
           <div data-wrap-flow className="relative grid h-full grid-rows-[auto_1fr] [align-content:safe_center] gap-5 px-7 pt-12 pb-14 @2xl:px-12">
             <In at={0.12}>{lead && <p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p>}<h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
-            <In at={0.3} className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 300 : 170} label="Pictures and gems" onOpen={(index) => f.pictures[index] && open(f.pictures[index].type, f.pictures[index].id)} className="-mx-7 @2xl:-mx-12" /></In>
+            <In at={0.3} className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 280 : 170} label="Pictures and gems" onOpen={(index) => f.pictures[index] && open(f.pictures[index].type, f.pictures[index].id)} /></In>
           </div>
         )
       case 'notes':
         if (!night && wide) return split(<In><h2 className={BIG}>{look.folder}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
+        if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{look.folder}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
         return split(<><In at={0.12}><h2 className={BIG}>{look.folder}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
       case 'well':
+        // One or two lines in your words are the card: set large in the middle, each in its own quote.
+        if (f.well.length < LIST) return <Centre>{kicker}<In at={0.12}><p className={CAPTION}>What went well, from your weekly notes</p></In>{f.well.map((line, i) => <In key={line} at={0.3 + i * 0.15}><p className="max-w-[30ch] text-[clamp(22px,4cqi,32px)] leading-snug font-bold text-balance" dir="auto">{quoted(line, 120)}</p></In>)}</Centre>
         return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well, from your weekly notes</p></In></>, <ul className="grid h-full [align-content:safe_center] gap-3">{f.well.slice(0, wide ? 4 : 3).map((line, i) => <In key={line} at={0.3 + i * 0.1}><li className="text-[17px] leading-snug font-medium text-pretty" dir="auto">{quoted(line, 90)}</li></In>)}</ul>)
-      case 'run':
-        return split(<><In at={0.12}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.run} /></div></In>
-          <In at={0.5}>{caption(<>days in a row with something caught or focused on, {dayjs(f.runFrom).format('D MMMM')} to {dayjs(f.runTo).format('D MMMM')}. Not a streak to keep: just how it went.</>)}</In></>, <Calendar f={f} p={p} />)
+      case 'run': {
+        const said = <>days in a row with something caught or focused on, {dayjs(f.runFrom).format('D MMMM')} to {dayjs(f.runTo).format('D MMMM')}. Not a streak to keep: just how it went.</>
+        const number = <div className={HUGE} style={{ color: p.accent }}><Roll n={f.run} /></div>
+        // A week's one row of days goes under the number, wide enough to read; a month's grid beside it.
+        if (f.period === 'week') return alone(number, said, <div className="mt-2"><Calendar f={f} p={p} /></div>)
+        return split(<><In at={0.12}>{number}</In><In at={0.5}>{caption(said)}</In></>, <Calendar f={f} p={p} />)
+      }
       case 'busiest': {
         const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
         const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
-        return split(<><In at={0.12}><h2 className={BIG}>Your busiest day was <span style={{ color: p.accent }}>{f.busiest?.label}</span></h2></In>
-          <In at={0.4}>{caption(<>{plural(f.busiest?.n ?? 0, 'capture')} in one day{usual && usual < (f.busiest?.n ?? 0) ? `, where a usual day held ${num(usual)}` : ''}.</>)}</In></>, <DayBars f={f} p={p} />)
+        const tops = busiestDays(f)
+        const n = f.days[tops[0]] ?? f.busiest?.n ?? 0
+        const named = and(tops.map((day) => dayName(noon(day), 'never')))
+        return split(<><In at={0.12}><h2 className={BIG}>{tops.length > 1 ? 'Your busiest days were ' : 'Your busiest day was '}<span style={{ color: p.accent }}>{named}</span></h2></In>
+          <In at={0.4}>{caption(<>{plural(n, 'capture')} in one day{tops.length > 1 ? ', each' : ''}{usual && usual < n ? `, where a usual day held ${num(usual)}` : ''}.</>)}</In></>, <DayBars f={f} p={p} />)
       }
       case 'hours':
         return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
           <In at={0.4}>{caption(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In></>, <HourBars f={f} p={p} />)
       case 'outro':
         if (night) return <Centre>{kicker}<In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
-        return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.pictures.at(-1)))
+        // The second of your pictures, so the story never ends on the one it opened with; with one or none, the motif.
+        return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.heroes[1]))
       case 'report':
         return <Report f={f} look={look} />
     }
   })()
-  return <div className="absolute inset-0 overflow-hidden">{art}{body}</div>
+  return <div className="absolute inset-0 overflow-hidden">{body}</div>
 }
 
 /** The card to keep: the month on its side, a framed picture, two ranked lists, a big number and a word. */
 function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
   const { p, world } = look
   const frame = world === 'files' ? <OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" /> : <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} />
-  const picture = f.pictures[0]
+  const picture = f.heroes[0]
   const month = f.period === 'month' ? f.name.split(' ')[0] : 'Week'
   const list = (title: string, rows: string[]): ReactElement => (
     <div className="min-w-0"><p className="text-[11px] font-semibold text-(--wrap-quiet)">{title}</p>
@@ -724,7 +796,7 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
       <In from="scale" className="relative min-h-[64px] overflow-hidden rounded-[6px]">
         <div className="absolute inset-0">{frame}</div>
         <div className="absolute inset-[8%] left-[22%] overflow-hidden rounded-[4px]" style={{ background: p.soft }}>
-          {picture ? <img src={picture.src} alt={picture.title} className="size-full object-cover" /> : <div className="grid size-full place-items-center p-4 text-center text-[20px] font-black break-words">{f.tags[0] ? `#${f.tags[0].name}` : f.name}</div>}
+          {picture ? <img src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" /> : <div className="grid size-full place-items-center p-4 text-center text-[20px] font-black break-words">{f.tags[0] ? `#${f.tags[0].name}` : f.name}</div>}
         </div>
         {/* The month set on its side as large as its strip lets it, never cut: by the strip's height for its letters, and its width. */}
         <div className="absolute inset-y-0 left-0 grid w-[22%] place-items-center overflow-hidden [container-type:size]" style={{ background: p.bg }}>
