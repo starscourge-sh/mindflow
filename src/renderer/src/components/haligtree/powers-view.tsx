@@ -16,7 +16,7 @@ import { useOnboarding } from '@/lib/onboarding'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { DEMOS, DemoLive } from './power-demos'
 import { PlaceIcon, SECTIONS, type Place } from './places'
-import { BackToTop, Pressed, toast, useSmooth } from './ui'
+import { BackToTop, MoreBelow, Pressed, toast, useSmooth } from './ui'
 import { ProgressBar } from './progress-bar'
 import { LearnOffer } from './study'
 import './powers.css'
@@ -168,6 +168,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           </div>
         </div>
         <BackToTop target={scroller} />
+        <MoreBelow target={scroller} />
       </div>
     </section>
   )

@@ -25,7 +25,7 @@ import { SimilarNotes } from './similar-notes'
 import { chime, pageShown, pageTurn } from '@/lib/sound'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, ArrowLeft, ArrowUpRight, Calendar, Check, ChevronRight, Library, Plus, SquareDashed } from 'lucide-react'
+import { Archive, ArrowLeft, ArrowUpRight, Calendar, Check, ChevronRight, FilePlus, FolderInput, Group, Inbox, Library, ListChecks, ListPlus, ListStart, ListTodo, Plus, Shuffle, SquareDashed, Trash2 } from 'lucide-react'
 
 import { Unfold } from './glide'
 
@@ -65,7 +65,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { backIn } from '@/lib/back-in'
 import { Textarea } from '@/components/ui/textarea'
-import { Tip } from '@/components/haligtree/ui'
+import { Act, FoldItem, MenuRows, Tip } from '@/components/haligtree/ui'
 import { Does, GHOST } from './ghost'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
@@ -572,6 +572,16 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // A Set, read once a row: with thousands picked, a list's includes on every row froze the window for minutes.
   const chosenSet = new Set(chosen)
   const allPicked = pickable.length > 0 && pickable.every((one) => chosenSet.has(one.id))
+  // The picked ones into a folder, asked by the button that was pressed (or in the middle, from the folded menu).
+  const keepInFolder = (at: Element | null): void => askFolder(chosen.map((id) => ({ type: items.find((one) => one.id === id)?.tier === 'question' ? 'question' as const : tier === 'article' ? 'article' as const : 'nugget' as const, id })), at)
+  const startPage = (): void => void haligtree.article(chosen).then((id) => {
+    // The same words and the same landing as the prompt's: the article opens.
+    chime('promote')
+    toast(chosen.length > 1 ? `A page, from ${num(chosen.length)} gems` : 'A page, from this gem')
+    setChosen([])
+    // Opened in Writing, where pages live: opened here, beside the gems, it read as nothing having happened, and a second press made a second page.
+    onOpen ? onOpen('article', id) : pick(id)
+  })
   // A study task for each one picked, linked to it, as "Study this" makes one.
   const makeEach = (): void => {
     const notes = chosen.flatMap((id) => {
@@ -661,6 +671,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     chime('promote')
     pick(id)
   })
+  const newWriting = (): void => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : newPage())
   // The list's own menu, on its empty space (a row's own menu answers on a row): a page or a folder made here, and the
   // list's order, the same orders as its "Sort".
   const listMenu: RowItem[] = [
@@ -796,77 +807,54 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
-              <Tip label="A study task for each, linked to its note">
-                <Button variant="ghost" size="default" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
-              </Tip>
+              <Act icon={ListTodo} label={chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`} tip="A study task for each, linked to its note" onSelect={makeEach}>
+                {chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}
+              </Act>
+              {/* The bar's ⌥-click reads them next; the folded menu says both. */}
               <Tip label="At the end of your reading queue; ⌥-click to read them next">
                 <Button variant="ghost" size="default" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
               </Tip>
-              <Tip label="Group them here  ⌘G">
-                <Button variant="ghost" size="default" onClick={() => folding.groupNew(chosen)}>Group</Button>
-              </Tip>
+              <MenuRows><FoldItem icon={ListPlus} label="Add to the queue" onSelect={() => void enqueue(chosen, false)} /><FoldItem icon={ListStart} label="Read them next" onSelect={() => void enqueue(chosen, true)} /></MenuRows>
+              <Act icon={Group} label="Group" tip="Group them here" keys="⌘G" onSelect={() => folding.groupNew(chosen)}>Group</Act>
               <Tip label="Keep them in a folder you pick or make  ⇧⌘M">
-                <Button variant="ghost" size="default" onClick={(event) => (askFolder(chosen.map((id) => ({ type: items.find((one) => one.id === id)?.tier === 'question' ? 'question' as const : tier === 'article' ? 'article' as const : 'nugget' as const, id })), event.currentTarget))}>Keep in folder…</Button>
+                <Button variant="ghost" size="default" onClick={(event) => keepInFolder(event.currentTarget)}>Keep in folder…</Button>
               </Tip>
-              {tier === 'nugget' && <Button variant="secondary" size="default"
- 
- onClick={() => void haligtree.article(chosen).then((id) => {
- // The same words and the same landing as the prompt's: the article opens.
- chime('promote')
- toast(chosen.length > 1 ? `A page, from ${num(chosen.length)} gems` : 'A page, from this gem')
- setChosen([])
- // Opened in Writing, where pages live: opened here, beside the gems, it read as nothing having happened, and a second press made a second page.
- onOpen ? onOpen('article', id) : pick(id)
- })}
->
-                Start a page
-              </Button>}
-              <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
-                <Button variant="ghost" size="default" onClick={() => toBin(chosen)}>Move to the Bin</Button>
-              </Tip>
-              {!allPicked && (
-                <Tip label="Every note on show  ⌘A">
-                  <Button variant="ghost" size="default" onClick={selectAll}>Select all</Button>
-                </Tip>
-              )}
-              <Tip label="Clear the selection  Esc">
-              <Button variant="ghost" size="icon" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}>
-                <X className="size-3.5" />
-              </Button>
-              </Tip>
+              <MenuRows><FoldItem icon={FolderInput} label="Keep in folder…" keys="⇧⌘M" onSelect={() => keepInFolder(null)} /></MenuRows>
+              {tier === 'nugget' && <Act variant="secondary" icon={FilePlus} label="Start a page" onSelect={startPage}>Start a page</Act>}
+              <Act icon={Trash2} label="Move to the Bin" tip={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back`} keys="⌫" onSelect={() => toBin(chosen)}>Move to the Bin</Act>
+              {!allPicked && <Act group="select" icon={ListChecks} label="Select all" tip="Every note on show" keys="⌘A" onSelect={selectAll}>Select all</Act>}
+              <Act group="select" icon={X} words={false} label="Clear the selection" keys="Esc" onSelect={() => (chime('off'), setChosen([]))} />
             </span>
           ) : (
             <span className="flex items-center gap-2 text-xs">
               {tier === 'nugget' && items.length > 1 && !spread && !open && (
                 <>
                   <span className="hidden whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>
-                  <Button variant="ghost" size="default" onClick={() => void haligtree.random().then(setPair)}>
-                    Two at random
-                  </Button>
+                  <Act icon={Shuffle} label="Two at random" onSelect={() => void haligtree.random().then(setPair)}>Two at random</Act>
                 </>
               )}
               {/* Imported notes left to sort, every group's: the pass through all of them. */}
               {tier === 'article' && unsorted.length > 0 && !open && (
-                <Tip label="Go through every imported note not yet sorted: keep, tag, move or bin each">
-                  <Button variant="outline" size="default" data-sort-all={unsorted.length} onClick={() => setSorting(unsorted)}>
-                    <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-[var(--tt-color-text-orange)]" /><span><Rolling text={unsorted.length} /> to sort</span>
-                  </Button>
-                </Tip>
+                <Act variant="outline" icon={Inbox} label={`${num(unsorted.length)} to sort`} tip="Go through every imported note not yet sorted: keep, tag, move or bin each" data-sort-all={unsorted.length} onSelect={() => setSorting(unsorted)}>
+                  <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-[var(--tt-color-text-orange)]" /><span><Rolling text={unsorted.length} /> to sort</span>
+                </Act>
               )}
               {/* One button, as wide for either word, so nothing beside it moves when the chip changes. */}
               {writing && (
-                <Button variant="ghost" size="default" data-new-writing={questionsOnly ? 'question' : 'article'}
-                  onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : newPage())}>
+                <>
+                <MenuRows><FoldItem icon={Plus} label={questionsOnly ? 'New question' : 'New page'} onSelect={newWriting} /></MenuRows>
+                <Button variant="ghost" size="default" data-new-writing={questionsOnly ? 'question' : 'article'} onClick={newWriting}>
                   <Plus className="size-3.5" />
                   <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
                     <span className={questionsOnly ? 'invisible' : undefined}>New page</span>
                     <span className={questionsOnly ? undefined : 'invisible'} aria-hidden={!questionsOnly}>New question</span>
                   </span>
                 </Button>
+                </>
               )}
-              <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                <Button variant="ghost" size={open ? 'icon' : 'default'} aria-label="Read through" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
-              </Tip>
+              <Act group="go" icon={BookOpen} label="Read through" tip="One note at a time, full screen, from the highlighted one" keys="⇧⌘R" words={!open} onSelect={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}>
+                <AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}
+              </Act>
               {display}
               <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />
             </span>

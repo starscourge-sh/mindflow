@@ -85,7 +85,7 @@ import { useReadsIn } from './lib/reads-in'
 import { call, unloaded, unread, useAppearance, useLive, haligtree, type Item, type Pin, type Settings, type Task } from './lib/haligtree'
 import { Button } from '@/components/ui/button'
 import { allRecorded, recordAll } from './lib/recordings'
-import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/haligtree/ui'
+import { MoreBelow, Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/haligtree/ui'
 import { recordAsCapture } from '@/components/haligtree/voice-note'
 import { MEETING_WORDS, recordMeeting } from '@/lib/meeting'
 import { recordingsWithoutWords, transcribePage } from '@/lib/transcribe'
@@ -2210,6 +2210,8 @@ export function Home(): React.JSX.Element {
             )
           })()}
         </div>
+        {/* More places and folders under the fold: a ↓ pill says so, as Arc's sidebar does. */}
+        <MoreBelow target={sideList} />
         <div ref={sideList} {...sideHover.handlers}
           className={`mf-fade-end ${narrow ? 'mf-fade-tall snap-y snap-mandatory scroll-pt-1 [&_[data-side-row]]:snap-start' : ''} relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3`}>
         {/* Rows' previews: once one is up, the next swaps in at once, even after a short pause between rows. */}

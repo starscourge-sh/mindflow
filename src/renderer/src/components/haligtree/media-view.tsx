@@ -26,7 +26,7 @@ import { GRACE, scrubbedPage } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
-import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
+import { Empty, FoldItem, MenuRows, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
 import { heroOpen } from '@/lib/hero'
 import { DENSE, AudioDays, BOOK, BOOK_GAP, FileFace, kindWord, letGoWhen, useFileFace, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, VIDEO_GAP, VIDEO_TILE, VideoFront, VideoTile, type Shelf, type TileWays } from './files-shelves'
@@ -475,6 +475,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
             </span>
           )}
           <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-media-add aria-pressed={adding} onClick={() => (chime(adding ? 'fold' : 'open'), setAdding(!adding))}><Plus className="size-3.5" />Add</Button>
+          <MenuRows group="new"><FoldItem icon={Plus} label="Add files" on={adding} onSelect={() => (chime(adding ? 'fold' : 'open'), setAdding(!adding))} /></MenuRows>
         </span>
       }>
       {library ? (

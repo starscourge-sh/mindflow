@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { FolderInput, ListChecks, Trash2, X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking, type Picking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
-import { Tip, typing } from './ui'
+import { FoldItem, MenuRows, Tip, typing } from './ui'
 import type { MenuItem } from './row-menu'
 import { menuOpen } from '@/lib/menu-keys'
 
@@ -65,6 +65,14 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
       </Tip>
       {!allPicked && <Tip label={`Every ${noun[0]} on show  ⌘A`}><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
+      <MenuRows>
+        {put && <FoldItem icon={FolderInput} label={put.label} onSelect={move} />}
+        <FoldItem icon={Trash2} label="Move to the Bin" keys="⌫" onSelect={() => toBin(live)} />
+      </MenuRows>
+      <MenuRows group="select">
+        {!allPicked && <FoldItem icon={ListChecks} label="Select all" keys="⌘A" onSelect={selectAll} />}
+        <FoldItem icon={X} label="Clear the selection" keys="Esc" onSelect={clear} />
+      </MenuRows>
     </span>
   ) : null
   const menu = (id: string): MenuItem[] | null => live.includes(id) && live.length > 1 ? [

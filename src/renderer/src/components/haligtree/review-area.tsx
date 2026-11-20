@@ -2,13 +2,14 @@ import { ReviewToolbar, ToolbarCompact, ToolbarSlot } from './review-toolbar'
 import { useEffect, useRef, useState } from 'react'
 import { TabChips } from './tab-chips'
 import { chime } from '@/lib/sound'
+import { GraduationCap } from 'lucide-react'
 import { useStepped } from '@/lib/nav'
 import { ReviewView } from './review-view'
 import { CardBrowser, cardFront } from './card-browser'
 import { StudySection } from './study-stats'
 import { DeckShelf, NO_PLACE, placeOf, placeWords, type DeckPlace } from './deck-shelf'
 import { PictureCards } from './picture-cards'
-import { Page } from './ui'
+import { FoldItem, MenuRows, Page } from './ui'
 import { deckTitle } from './decks'
 import { plural } from '../../../../main/dates'
 
@@ -125,8 +126,11 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   )
   // Today's cards, in place of the old Today tab: pressed while you study.
   const studyNow = (
+    <>
+    <MenuRows><FoldItem icon={GraduationCap} label="Study now" on={tab === 'today'} onSelect={() => go('today')} /></MenuRows>
     <button type="button" data-review-tab="today" data-study-now aria-pressed={tab === 'today'} onClick={() => go('today')}
       className={`h-8 cursor-pointer rounded-md border px-3 text-control font-medium transition-colors ${tab === 'today' ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'}`}>Study now</button>
+    </>
   )
   // Just these cards in All cards, as a step of its own: Back returns to where "Show" was pressed.
   const show = (ids: string[]): void => {

@@ -5,7 +5,7 @@ import { saveImage } from '@/extensions/image-drop'
 import { quietly, sayNow } from './ui'
 import { ChevronRight, FileStack, FolderPlus, ImagePlus, PenLine, Text } from 'lucide-react'
 import { FolderGems } from './folder-gems'
-import { Island, Page } from './ui'
+import { FoldItem, MenuRows, Island, Page } from './ui'
 import { ItemsView } from './items-view'
 import { CapturesView } from './captures-view'
 import { TasksView } from './tasks-view'
@@ -250,7 +250,7 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
     <Page title="Folders" count={live.length} unit={['folder', 'folders']}
       // The lists' own search field (note-list.tsx `ListSearch`); ↵ opens the first folder found.
       search={<span data-find-folder="" className="contents"><ListSearch value={typed} onChange={setTyped} onDone={() => found[0] && onPlace(found[0].id)} placeholder="Find a folder" /></span>}
-      actions={<Button variant="ghost" data-folders-new-page="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button>}>
+      actions={<><Button variant="ghost" data-folders-new-page="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button><MenuRows><FoldItem icon={FolderPlus} label="New folder" keys="⌃⌘N" onSelect={() => newFolderHere(null)} /></MenuRows></>}>
       <p className="mt-1 mb-4 px-1 text-[1.0625rem] leading-snug text-foreground">
         {all.length ? 'Where things live. A folder holds any kind: pages, notes, gems and tasks.' : 'Folders hold anything you keep. ⌃⌘N makes one.'}
       </p>

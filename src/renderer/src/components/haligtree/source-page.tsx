@@ -16,7 +16,7 @@ import { Avatar } from './avatar'
 import { ListSearch, NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
-import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, sayNow, toast, typing } from './ui'
+import { Count, Empty, FoldItem, MenuRows, Page, Tip, ask, askSure, openTag, quietly, sayNow, toast, typing } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { IslandBox, useIslands } from './islands'
 import { withoutTags } from '../../../../main/tag-words'
@@ -999,6 +999,11 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
       <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="attribution" onClick={() => void make('attribution')}><Plus className="size-3.5" />New person</Button>
       <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="medium" onClick={() => void make('medium')}><Plus className="size-3.5" />New source</Button>
       <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-add-work aria-busy={looking || undefined} onClick={() => void addWork(setLooking)}><span className="-ml-1 grid size-5 place-items-center">{looking ? <Orb /> : <BookMarked className="size-3.5" />}</span>Add from DOI or ISBN</Button>
+      <MenuRows group="new">
+        <FoldItem icon={Plus} label="New person" onSelect={() => void make('attribution')} />
+        <FoldItem icon={Plus} label="New source" onSelect={() => void make('medium')} />
+        <FoldItem icon={BookMarked} label="Add from DOI or ISBN" disabled={looking} onSelect={() => void addWork(setLooking)} />
+      </MenuRows>
     </>}>
       <div className="page-column pb-16">
         {/* A quote with no source is the one thing here to put right: said first, in full size. */}

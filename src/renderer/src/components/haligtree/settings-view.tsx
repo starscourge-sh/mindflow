@@ -44,7 +44,7 @@ import { SoundPacks } from './sound-packs'
 import { FontPicker } from './font-picker'
 import { TEXT_SIZES } from '@/lib/editor-setup'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
-import { BackToTop, Kbd, Rolling, Tip, ask, listEnd, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
+import { BackToTop, Kbd, MoreBelow, Rolling, Tip, ask, listEnd, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
 import { working } from './beam'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
@@ -1410,6 +1410,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       </Query.Provider>
       </div>
       <BackToTop target={scroller} />
+      <MoreBelow target={scroller} />
       </div>
     </section>
   )

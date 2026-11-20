@@ -13,7 +13,7 @@ import { haligtree, whenInLine, type Task, type TaskFull } from '@/lib/haligtree
 import { clock, dayjs, dayKey, plural } from '../../../../main/dates'
 import { TaskInput, keptIn, useKept } from './task-input'
 import { TaskDetail } from './tasks-view'
-import { Kbd, Tip, refuse, toast, untoast } from './ui'
+import { Kbd, MoreBelow, Tip, refuse, toast, untoast } from './ui'
 import { EventDetail } from './calendar-events'
 import { undoLastEvent } from '@/lib/events'
 import { FLOAT } from '@/lib/float'
@@ -71,6 +71,8 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
 }): React.JSX.Element {
   // An event whose change made it another one (one time of a repeating event, cut loose): the panel follows it.
   const [madeEvent, setMadeEvent] = useState<string | null>(null)
+  // The task's or the event's details, scrolling under the close button: their "more below" pill watches it.
+  const [detailBox, setDetailBox] = useState<HTMLDivElement | null>(null)
   useEffect(() => setMadeEvent(null), [ask])
   const eventKey = madeEvent ?? (ask && 'event' in ask ? ask.event : null)
   const task = eventKey ? null : ask && 'task' in ask ? ask.task : null
@@ -142,7 +144,7 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
           className={`${inline ? 'absolute top-3 right-3 bottom-3 z-30 max-w-[calc(100%-1.5rem)]' : 'fixed top-12 right-3 bottom-3 z-40 w-[30rem] max-w-[calc(100vw-1.5rem)]'} flex flex-col rounded-xl outline-none ${FLOAT} transition-[box-shadow] duration-150 has-[[data-cal-grip]:hover]:ring-foreground/25 has-[[data-cal-grip]:focus-visible]:ring-foreground/40 has-[[data-cal-grip]:active]:ring-foreground/40`}>
           {grip}
           {/* The words clipped to the corners; the grip, on the edge, is not. */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
             <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
               <span className="flex-1" />
               <Tip label="Close (Esc)">
@@ -150,8 +152,9 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
               </Tip>
             </div>
             {eventKey
-              ? <div className="@container/page mf-more flex min-h-0 flex-1 flex-col overflow-y-auto"><EventDetail key={eventKey} eventKey={eventKey} onKey={setMadeEvent} onClose={onClose} onOpen={onOpen} /></div>
-              : <div className="@container/page mf-more flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>}
+              ? <div key="event" ref={setDetailBox} className="@container/page mf-more flex min-h-0 flex-1 flex-col overflow-y-auto"><EventDetail key={eventKey} eventKey={eventKey} onKey={setMadeEvent} onClose={onClose} onOpen={onOpen} /></div>
+              : <div key="task" ref={setDetailBox} className="@container/page mf-more flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>}
+            <MoreBelow target={detailBox} />
           </div>
         </motion.div>
       )}

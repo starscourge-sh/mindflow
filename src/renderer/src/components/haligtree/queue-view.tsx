@@ -3,7 +3,7 @@ import { ListSearch } from './note-list'
 import { useReading } from '@/lib/reads-in'
 import { X as Clear } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { BookOpen, Check, CircleCheck, GripVertical, ListEnd, ListStart, RotateCcw, Trash2 } from 'lucide-react'
+import { BookOpen, Check, CircleCheck, GripVertical, ListChecks, ListEnd, ListStart, RotateCcw, Trash2 } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
@@ -19,7 +19,7 @@ import { RowMenu, copy, type MenuItem } from './row-menu'
 import { openApart } from '@/lib/apart'
 import { isReadable, openArticle } from '@/components/pdf/pdf-reader'
 import { SortableList, SortableRow } from './sortable'
-import { Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
+import { FoldItem, MenuRows, Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
 import { IslandBox, useFold } from './islands'
 import { taskName } from '@/lib/tasks'
 import { PICKED_MARK } from './pick-mixed'
@@ -285,10 +285,19 @@ export function QueueView(): React.JSX.Element {
           </Tip>
           {!allPicked && <Tip label="Every one in the queue  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
           <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><Clear className="size-3.5" /></Button></Tip>
+          <MenuRows>
+            <FoldItem icon={CircleCheck} label="Mark as read" onSelect={() => markRead(live)} />
+            <FoldItem icon={ListEnd} label="Take out of queue" keys="⌫" onSelect={() => takeOut(live)} />
+          </MenuRows>
+          <MenuRows group="select">
+            {!allPicked && <FoldItem icon={ListChecks} label="Select all" keys="⌘A" onSelect={selectAll} />}
+            <FoldItem icon={Clear} label="Clear the selection" keys="Esc" onSelect={clear} />
+          </MenuRows>
         </span>
       ) : queue.length > 0 && (
         <span className="flex items-center gap-1">
           <Button size="sm" onClick={() => readQueue(0)}><BookOpen className="size-3.5" /> Start reading</Button>
+          <MenuRows><FoldItem icon={BookOpen} label="Start reading" onSelect={() => readQueue(0)} /></MenuRows>
         </span>
       )}>
       {/* Empty, the example sits in the page's column as on every list; with rows, they keep the page's margin. */}

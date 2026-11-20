@@ -20,7 +20,7 @@ import { CALM, land as landOn, type Landing } from '@/lib/snap'
 import { call, unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, plural, type Dayjs } from '../../../../main/dates'
-import { Rolling, Tip, stage, typing } from './ui'
+import { MoreBelow, Rolling, Tip, stage, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu, type RowItem } from './row-menu'
@@ -153,6 +153,8 @@ const sameWeek = (a: string, b: string): boolean => dayjs(a).startOf('week').isS
  */
 export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const unheld = useLive(haligtree.tasks, [] as Task[])
+  // The left column (month, layers, Unscheduled): its "more below" pill watches it.
+  const [sideBox, setSideBox] = useState<HTMLDivElement | null>(null)
   // A fresh start's tasks keep their days here, as they keep their places in Tasks: on hold is never out of sight.
   const held = useLive(() => call<Task[]>('tasks:held'), [] as Task[], [], undefined, 'tasks-held')
   const tasks = useMemo(() => (held.length && !unloaded(unheld) ? [...unheld, ...held] : unheld), [unheld, held])
@@ -841,7 +843,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <aside data-cal-side className="relative flex shrink-0 flex-col border-r" style={{ width: `${leftRem}rem` }}>
             {leftGrip}
             {/* Faded at the edge it goes on past, as every long side list is. */}
-            <div className="mf-more flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+            <MoreBelow target={sideBox} />
+            <div ref={setSideBox} className="mf-more flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
             <MiniMonth anchor={anchor} days={mode === 'month' ? (pickedDay ? [dayjs(pickedDay)] : []) : days} onPick={(day) => (chime('tap'), setOpened(null), setAnchor(day), setPickedDay(dayKey(day)))} />
             <CalendarLayers layers={layers} />
             {/* The Inbox's island: what it holds, how many, and a fold. Drag one onto a day or an hour to give it a time. */}

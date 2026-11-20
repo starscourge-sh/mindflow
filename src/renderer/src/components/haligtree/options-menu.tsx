@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
-import { Tip } from './ui'
+import { MenuRows, Tip } from './ui'
 import { cn } from '@/lib/cn'
 import { Swatch } from '../theme/theme-picker'
 import { keyFor } from '@/lib/keys'
@@ -175,6 +175,9 @@ export function OptionsMenu({ sections, options = [], actions = [], app = false,
 }): React.JSX.Element {
   const parts = sections ?? [{ items: [...options, ...(app ? (['sounds', 'theme'] as const) : [])] }, { items: actions }]
   return (
+    <>
+    {/* On a page's line that folds behind ⋯: its rows join that menu, never a menu behind a menu. */}
+    <MenuRows group={label}><MenuSections sections={parts} /></MenuRows>
     <DropdownMenu modal={false}>
       <Tip label={tip ? label : ''}>
         <DropdownMenuTrigger asChild>
@@ -195,6 +198,7 @@ export function OptionsMenu({ sections, options = [], actions = [], app = false,
         <MenuSections sections={parts} />
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   )
 }
 

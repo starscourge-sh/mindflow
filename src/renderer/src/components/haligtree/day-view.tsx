@@ -17,7 +17,7 @@ import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
 import { showIn } from '@/lib/same-words'
-import { Island, Page, Rolling, Tags, Tip, typing, quietly } from './ui'
+import { FoldItem, MenuRows, Island, Page, Rolling, Tags, Tip, typing, quietly } from './ui'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { itemName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
@@ -244,6 +244,12 @@ export function DayView({ onOpen, start, onScale, onView }: {
             </span>
           </Button>
           </Tip>
+          <MenuRows>
+            <FoldItem icon={Maximize2} label="Writing room" keys="⇧⌘↵" disabled={!writer} onSelect={room.toggle} />
+            <FoldItem icon={Link2} label="Copy link" onSelect={() => copyLink(`day:${day}`, named(day))} />
+            <FoldItem icon={FlagTriangleRight} label="Name" onSelect={() => void markDay(day)} />
+          </MenuRows>
+          <MenuRows group="done"><FoldItem icon={CheckCircle2} label="Looked back" on={!!data?.reviewed} disabled={ahead} onSelect={tick} /></MenuRows>
         </span>
       }
     >

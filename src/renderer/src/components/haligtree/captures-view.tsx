@@ -11,7 +11,7 @@ import { useGroups } from '@/lib/groups'
 import { SECTIONS } from './places'
 import { spring, still } from '@/lib/motion'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, Tag } from 'lucide-react'
+import { Archive, CalendarDays, CheckCheck, CircleCheck, Copy, ListChecks, ListPlus, ListStart, ListTodo, Scale, Tag } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { motion } from 'motion/react'
 
@@ -46,7 +46,7 @@ import { readAgain, useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, pageShown, pageTurn } from '@/lib/sound'
 import { quoted } from '../../../../main/clip'
-import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
+import { Act, MenuRows, Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
 import { Term } from './term'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -61,7 +61,7 @@ import { showDetails } from '@/lib/reading'
 import { MergeInto, MergePicker } from './merge-picker'
 import { decideDay, openPass } from './pass'
 import { InboxLines } from './inbox-lines'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { keyFor } from '@/lib/keys'
 import { Tip } from '@/components/haligtree/ui'
 import { Button } from '@/components/ui/button'
@@ -478,6 +478,20 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     const ids = notes
     void tagCaptures(ids)
   }
+  // The picked notes' date, set together with one Undo: from the bar's picker, or a day from the folded menu (noon, as the picker sets a day).
+  const dateEach = (at: string | null): void => void (at && bulkUndoable(notes, { capturedAt: at }, `Dated ${num(notes.length)}`, 'noted'))
+  const dayAgo = (days: number): string => dayjs().subtract(days, 'day').startOf('day').hour(12).toISOString()
+  // The picked notes' less used actions: under “More…” on the bar, and rows of the line's ⋯ when it folds.
+  const pickedMore = (
+    <>
+      {notes.length > 1 && <DropdownMenuItem onSelect={makeOne}><ListTodo />Make one task</DropdownMenuItem>}
+      <DropdownMenuItem onSelect={() => void archive('captures', notes, !archived).then(() => setChosen([]))}><Archive />{archived ? 'Unarchive' : 'Archive'}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={tagEach}><Tag />Add a tag…</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => void enqueue(notes, false)}><ListPlus />Add to the queue</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => void enqueue(notes, true)}><ListStart />Read them next</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => askBook('copy', { refs: notes.map((id) => ({ table: 'captures' as const, id })) })}><Copy />Copy to book…</DropdownMenuItem>
+    </>
+  )
   // Every picked capture still in the Inbox takes a way out together (a key, the selection's menu, ⌘K): one function.
   const exitPicked = (status: string): void => {
     if (!inbox.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
@@ -609,44 +623,44 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               {/* What is done most stays in the line; the rest wait under “More”, so the line fits beside an open note. */}
               {/* Tasks picked: done together, with one Undo. */}
               {picks.some((one) => one.status === 'open') && (
-                <Tip label="Every picked task, done  E">
-                  <Button variant="secondary" size="default" onClick={doneEach}>{picks.length === 1 ? 'Mark it done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} done`}</Button>
-                </Tip>
+                <Act variant="secondary" icon={CircleCheck} words label={picks.length === 1 ? 'Mark it done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} done`} tip="Every picked task, done" keys="E" onSelect={doneEach}>
+                  {picks.length === 1 ? 'Mark it done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} done`}
+                </Act>
               )}
               {notes.length > 0 && (
-                <Tip label="A task for each, linked to its note">
-                  <Button variant={picks.length ? 'ghost' : 'secondary'} size="default" onClick={makeEach}>{notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`}</Button>
-                </Tip>
+                <Act variant={picks.length ? 'ghost' : 'secondary'} icon={ListTodo} label={notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`} tip="A task for each, linked to its note" onSelect={makeEach}>
+                  {notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`}
+                </Act>
               )}
-              {notes.length > 0 && <Tip label="Done with them, and out of the Inbox  R"><Button variant="ghost" size="default" onClick={() => exitPicked('resolved')}>Resolve</Button></Tip>}
-              <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
-                <Button variant="ghost" size="default" onClick={() => toBin(chosen)}><Trash2 className="size-3.5" /> Move to the Bin</Button>
-              </Tip>
+              {notes.length > 0 && <Act icon={CheckCheck} label="Resolve" tip="Done with them, and out of the Inbox" keys="R" onSelect={() => exitPicked('resolved')}>Resolve</Act>}
+              <Act icon={Trash2} label="Move to the Bin" tip={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back`} keys="⌫" onSelect={() => toBin(chosen)} />
               {/* A note's actions take the notes picked; the tasks among them are left as they are. */}
               {notes.length > 0 && (
+              <>
+              <MenuRows group="more">{pickedMore}</MenuRows>
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="default">More…</Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60">
-                  {notes.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task</DropdownMenuItem>}
-                  <DropdownMenuItem onSelect={() => void archive('captures', notes, !archived).then(() => setChosen([]))}>{archived ? 'Unarchive' : 'Archive'}</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={tagEach}>Add a tag…</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void enqueue(notes, false)}>Add to the queue</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void enqueue(notes, true)}>Read them next</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => askBook('copy', { refs: notes.map((id) => ({ table: 'captures' as const, id })) })}>Copy to book…</DropdownMenuItem>
-                </DropdownMenuContent>
+                <DropdownMenuContent align="end" className="w-60">{pickedMore}</DropdownMenuContent>
               </DropdownMenu>
+              </>
               )}
-              {notes.length > 0 && <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void bulkUndoable(notes, { capturedAt: at }, `Dated ${num(notes.length)}`, 'noted')} />}
-              {!allPicked && (
-                <Tip label={everything ? 'Everything on show  ⌘A' : 'Every note on show  ⌘A'}>
-                  <Button variant="ghost" size="default" onClick={selectAll}>Select all</Button>
-                </Tip>
+              {notes.length > 0 && <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={dateEach} />}
+              {/* The date's own picker sits by its button: folded, the days it is most often set to. */}
+              {notes.length > 0 && (
+                <MenuRows group="more">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger><CalendarDays />Date</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-44">
+                      <DropdownMenuItem onSelect={() => dateEach(dayAgo(0))}>Today</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => dateEach(dayAgo(1))}>Yesterday</DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </MenuRows>
               )}
-              <Tip label="Clear the selection  Esc">
-              <Button variant="ghost" size="icon" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button>
-              </Tip>
+              {!allPicked && <Act group="select" icon={ListChecks} label="Select all" tip={everything ? 'Everything on show' : 'Every note on show'} keys="⌘A" onSelect={selectAll}>Select all</Act>}
+              <Act group="select" icon={X} words={false} label="Clear the selection" keys="Esc" onSelect={() => (chime('off'), setChosen([]))} />
             </span>
           ) : (
             <span className="flex items-center gap-2">
@@ -654,9 +668,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               {title === 'Inbox' ? (
                 <GoThrough compact={!!open} canRead={shown.length > 0} onRead={() => setReadFrom(readStart())} />
               ) : (
-                <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                  <Button variant="ghost" size={open || task ? 'icon' : 'default'} aria-label="Read through" onClick={() => setReadFrom(readStart())} disabled={!readable.length}><AliveIcon icon={BookIcon} size={14} />{!open && !task && ' Read through'}</Button>
-                </Tip>
+                <Act label="Read through" tip="One note at a time, full screen, from the highlighted one" keys="⇧⌘R" icon={BookOpen} group="go" words={!open && !task} onSelect={() => setReadFrom(readStart())} disabled={!readable.length}>
+                  <AliveIcon icon={BookIcon} size={14} />{!open && !task && ' Read through'}
+                </Act>
               )}
               {display}
               <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={(!!open && !boardShown) || !!task} />
@@ -972,7 +986,17 @@ export function GoThrough({ compact, canRead, onRead, className = '' }: { compac
   const waiting = useLive(haligtree.passWaiting, { tidy: 0, decide: 0 })
   const settings = useLive(haligtree.settings, null as Settings | null)
   const today = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
+  const ways = (
+    <>
+      {waiting.tidy > 0 && <DropdownMenuItem onSelect={() => openPass('tidy')}><Tag />Tidy recent captures</DropdownMenuItem>}
+      {waiting.decide > 0 && <DropdownMenuItem onSelect={() => openPass('decide')}><Scale />{today ? 'Decide what to keep: today is deciding day' : `Decide what to keep (its day is ${decideDay(settings)})`}</DropdownMenuItem>}
+      <DropdownMenuItem disabled={!canRead} onSelect={onRead}><BookOpen />Read through<DropdownMenuShortcut>{keyFor('⇧⌘R')}</DropdownMenuShortcut></DropdownMenuItem>
+    </>
+  )
   return (
+    <>
+    {/* Folded behind the line's ⋯: the same ways, one row each (only Read through when there is nothing to tidy or decide). */}
+    <MenuRows group="go">{waiting.tidy > 0 || waiting.decide > 0 ? <DropdownMenuSub><DropdownMenuSubTrigger><BookOpen />Go through</DropdownMenuSubTrigger><DropdownMenuSubContent className="w-64">{ways}</DropdownMenuSubContent></DropdownMenuSub> : ways}</MenuRows>
     <DropdownMenu modal={false}>
       <Tip label={today && waiting.decide ? 'Today is deciding day' : 'Go through them: tag them so they are easy to find (Tidy), choose what to keep (Decide), or read them one at a time'}>
         <DropdownMenuTrigger asChild>
@@ -981,12 +1005,9 @@ export function GoThrough({ compact, canRead, onRead, className = '' }: { compac
           </Button>
         </DropdownMenuTrigger>
       </Tip>
-      <DropdownMenuContent align="end" className="w-64">
-        {waiting.tidy > 0 && <DropdownMenuItem onSelect={() => openPass('tidy')}>Tidy recent captures</DropdownMenuItem>}
-        {waiting.decide > 0 && <DropdownMenuItem onSelect={() => openPass('decide')}>{today ? 'Decide what to keep: today is deciding day' : `Decide what to keep (its day is ${decideDay(settings)})`}</DropdownMenuItem>}
-        <DropdownMenuItem disabled={!canRead} onSelect={onRead}>Read through<DropdownMenuShortcut>{keyFor('⇧⌘R')}</DropdownMenuShortcut></DropdownMenuItem>
-      </DropdownMenuContent>
+      <DropdownMenuContent align="end" className="w-64">{ways}</DropdownMenuContent>
     </DropdownMenu>
+    </>
   )
 }
 
