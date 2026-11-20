@@ -9,7 +9,7 @@ import { Orb } from './orb'
 import { namedByApp, toast } from './ui'
 import { num, plural } from '../../../../main/dates'
 
-type Long = { kind: 'capture' | 'task'; id: string; name: string }
+type Long = { kind: 'capture' | 'task'; id: string; name: string; /** A recording named after its event, not by what was said. */ fromEvent?: boolean }
 type Row = Long & { to: string; on: boolean }
 
 /** A long name and, on, the short one Apple Intelligence gives it, the long one kept under it. */
@@ -27,15 +27,17 @@ type Was = { id: string; title: string }
  * changeable or left out, then one notice with Undo. "Rename the long ones I have…" and "Name 12 recordings by what
  * was said" are both this.
  */
-function RenamePreview({ offer, list, ask, done, what }: {
+function RenamePreview({ offer, list, ask, done, what, after }: {
   /** The button that starts it. */
   offer: string
   list: () => Promise<Long[]>
   ask: (one: Long) => Promise<string | null>
   /** The notice once renamed. */
-  done: (count: number) => string
+  done: (count: number, picked: Row[]) => string
   /** What a row is now, under its new name. */
   what: (one: Long) => string
+  /** Run once names were given, and again once Undo put them back. */
+  after?: () => void
 }): React.JSX.Element {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [asking, setAsking] = useState<{ done: number; of: number } | null>(null)
@@ -62,9 +64,10 @@ function RenamePreview({ offer, list, ask, done, what }: {
     const was = await call<Was[]>('names:apply', picked)
     chime('noted')
     setRows(null)
-    toast(done(was.length), () => {
+    after?.()
+    toast(done(was.length, picked), () => {
       for (const one of picked) namedByApp(one.id, one.name)
-      void call('names:undo', was).then(() => chime('undo'))
+      void call('names:undo', was).then(() => (chime('undo'), after?.()))
     })
   }
   const picked = rows?.filter((one) => one.on).length ?? 0
@@ -128,25 +131,29 @@ export function LongNamesSetting({ on, set }: { on: boolean; set: (on: boolean) 
   )
 }
 
+/** How recordings were (or would be) named: after their events, by what was said, or some each way. */
+const namedHow = (list: Long[]): string => (list.every((one) => one.fromEvent) ? 'after their events' : list.some((one) => one.fromEvent) ? 'after their events or by what was said' : 'by what was said')
+
 /**
  * Under Settings' "Apple Intelligence": the recordings kept before it named them ("Recording, 8 Nov at 15:28"),
- * offered while there are any, each named by what was said in its first minutes after a look over the list.
+ * offered while there are any, each named after its event or by what was said in its first minutes, after a look over the list.
  * Nothing at all where it is off or this Mac lacks it (main/long-names.ts gives none).
  */
 export function RecordingNames({ on }: { on: boolean }): React.JSX.Element | null {
-  const [count, setCount] = useState(0)
+  const [offered, setOffered] = useState<Long[]>([])
+  const count = offered.length
   const [seen, setSeen] = useState(0)
   useEffect(() => {
-    if (!on) return setCount(0)
+    if (!on) return setOffered([])
     let live = true
-    void call<Long[]>('names:recordings').then((list) => live && setCount(list.length))
+    void call<Long[]>('names:recordings').then((list) => live && setOffered(list))
     return () => void (live = false)
   }, [on, seen])
   if (!on || !count) return null
   return (
     <div data-recording-names>
-      <RenamePreview offer={`Name ${plural(count, 'recording')} by what was said…`} list={() => call<Long[]>('names:recordings')} ask={(one) => call<string | null>('names:recording', one.id)}
-        done={(n) => (setSeen((at) => at + 1), `Named ${plural(n, 'recording')} by what was said, their old names kept`)} what={(one) => `Recording, now “${one.name}”`} />
+      <RenamePreview offer={`Name ${plural(count, 'recording')} ${namedHow(offered).replace('their events', count === 1 ? 'its event' : 'their events')}…`} list={() => call<Long[]>('names:recordings')} ask={(one) => call<string | null>('names:recording', one.id)}
+        done={(n, picked) => `Named ${plural(n, 'recording')} ${namedHow(picked)}, their old names kept`} what={(one) => `Recording, now “${one.name}”`} after={() => setSeen((at) => at + 1)} />
     </div>
   )
 }

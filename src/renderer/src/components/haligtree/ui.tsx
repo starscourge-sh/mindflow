@@ -1535,12 +1535,10 @@ export function Toaster(): React.JSX.Element | null {
   }), [])
   // A name the app gave in the background (a recording named by what was said, a long name made short): it rolls in
   // where it is shown, and a recording's is said in a quiet notice whose Undo puts the old name back (long-names.ts).
-  // A window whose preload predates this (a dev run not restarted) has no onRenamed: nothing to listen to, and no cleanup
-  // that is not a function ("destroy is not a function" took the whole window down, 20 Nov).
-  useEffect(() => typeof window.api.onRenamed !== 'function' ? undefined : window.api.onRenamed(({ id, from, to, was, quiet }) => {
+  useEffect(() => window.api.onRenamed(({ id, from, to, was, quiet, fromEvent }) => {
     namedByApp(id, to)
     if (quiet) return
-    news(`Named ${quoted(to, 60)} by what was said`, () => (namedByApp(id, from), void call('names:undo', was).then(() => chime('undo'))))
+    news(`Named ${quoted(to, 60)} ${fromEvent ? 'after its event' : 'by what was said'}`, () => (namedByApp(id, from), void call('names:undo', was).then(() => chime('undo'))))
   }), [])
   // A sticky taken down from its own X or ⌘W, said in the window in sight, with the way back.
   useEffect(() => window.api.onStickyTaken((title) => {
@@ -2118,6 +2116,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
   )
 }
 
+const NONE_KNOWN: SourceSummary[] = []
+const noneKnown = (): Promise<SourceSummary[]> => Promise.resolve(NONE_KNOWN)
 /** What you have typed before in a field, most used first, for its autocomplete. */
 export function Remembered({ field, value, onChange, placeholder, className: given = 'field-sizing-content min-w-16 max-w-48 px-1.5 py-0.5', complete = true, onKeyDown, onBlur, onPaste, ...rest }: {
   field: 'attribution' | 'medium'
@@ -2132,7 +2132,9 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
   // suggestion list under the field while a name is typed, best first, ↑↓ to move, Tab or ↵ to take the whole
   // name; the rest of the first written in faint after what you typed, which → takes too. A name that is one you
   // know but for its capitals or a slip of a key ("Pink floyd", "Pnik Floyd") becomes that one as you leave the field.
-  const all = useLive(() => (complete ? sources.list() : Promise.resolve([] as SourceSummary[])), [] as SourceSummary[], [complete])
+  // The one read every field (and every page listing who and where) shares, asked again only as captures or gems change:
+  // an arrow of its own here read the whole book once per field on every save.
+  const all = useLive(complete ? sources.list : noneKnown, NONE_KNOWN, [complete], ['capture', 'item'])
   const values = all.filter((one) => one.field === field).map((one) => one.name)
   const typed = complete ? value.trim().toLowerCase() : ''
   const [focused, setFocused] = useState<'up' | 'down' | false>(false)

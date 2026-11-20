@@ -392,8 +392,8 @@ const api = {
     return () => heard.off('stickies:tidied', relay)
   },
   /** A note renamed by the app in the background (a recording named by what was said, long-names.ts): for its notice with Undo. */
-  onRenamed: (listen: (renamed: { id: string; from: string; to: string; was: unknown[]; quiet?: boolean }) => void): (() => void) => {
-    const relay = (_event: unknown, renamed: { id: string; from: string; to: string; was: unknown[]; quiet?: boolean }): void => listen(renamed)
+  onRenamed: (listen: (renamed: { id: string; from: string; to: string; was: unknown[]; quiet?: boolean; fromEvent?: boolean }) => void): (() => void) => {
+    const relay = (_event: unknown, renamed: { id: string; from: string; to: string; was: unknown[]; quiet?: boolean; fromEvent?: boolean }): void => listen(renamed)
     heard.on('names:renamed', relay)
     return () => heard.off('names:renamed', relay)
   },

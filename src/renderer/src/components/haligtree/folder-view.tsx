@@ -44,6 +44,8 @@ const KIND_TABS: { id: KindTab; label: string; types: FolderKind[] }[] = [
   { id: 'questions', label: 'Questions', types: ['question'] },
   { id: 'tasks', label: 'Tasks', types: ['task'] }
 ]
+/** The tab of a folder's page that holds a kind of thing ('article' is under Pages): for opening one there. */
+export const tabOfKind = (type: string): KindTab | undefined => KIND_TABS.find((kind) => kind.types.includes(type as FolderKind))?.id
 
 /**
  * One folder's page (or "Not in a folder"): Writing's own list, Gems', the Inbox's or Tasks', each the same component
@@ -69,7 +71,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   const islands = counted.filter((one) => one.n)
   const tabs = islands.length ? islands : counted.filter((one) => one.id === 'pages')
   // The note open beside it says which kind is on show, when no tab was asked for: a gem opened here is among the gems.
-  const noteKind = KIND_TABS.find((kind) => kind.types.includes(shown.find((one) => one.id === note)?.type as FolderKind))?.id
+  const noteKind = tabOfKind(shown.find((one) => one.id === note)?.type ?? '')
   const on = (tabs.find((one) => one.id === tab) ?? tabs.find((one) => one.id === noteKind) ?? tabs[0]).id
   // The one fact, on its own line: what it holds, every kind counted, the total said only when it adds kinds up.
   const kindsSaid = islands.map((one) => plural(one.n, one.label.toLowerCase().replace(/s$/, ''), one.label.toLowerCase())).join(', ')

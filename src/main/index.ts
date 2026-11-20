@@ -3936,6 +3936,11 @@ const fingersWay = (dx: number, dy: number): [number, number] => (process.platfo
  * Reduce motion.
  */
 let throwing: (() => void) | null = null
+/** The throw under way stops where it is, and forgets where it was going, so a later hide never lands it there. */
+function stopThrow(): void {
+  throwing?.()
+  throwing = throwLand = null
+}
 function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
   if (win.isDestroyed() || (!dx && !dy)) return
   if (speed > 0) [dx, dy] = fingersWay(dx, dy)
@@ -3951,7 +3956,7 @@ function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
     if (stop) asides.set(win, stop)
     return
   }
-  throwing?.()
+  stopThrow()
   const land = (): void => {
     throwing = null
     throwLand = null
@@ -5827,7 +5832,7 @@ app.whenReady().then(() => {
   ipcMain.on('box:nudge', (event, dx: unknown, dy: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win.isDestroyed() || (win !== prompt && !isSmall(win))) return
-    if (win === prompt) throwing?.()
+    if (win === prompt) stopThrow()
     else stopAside(win)
     if (pending?.win === win) (arriving?.(), settle())
     const from = win.getBounds()

@@ -91,6 +91,31 @@ try {
   await wait(700)
   check('kept in Thesis again', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id))
 
+  // The label sits at the row's right edge, centred on the row, one line; Display › "Show folder" off hides it, and
+  // nothing else on the row moves.
+  const label = () => h.evaluate((id) => {
+    const row = document.querySelector(`[data-page="articles"] button[data-row][data-id="${id}"]`)
+    const end = row?.querySelector('[data-row-end]')
+    const title = row?.querySelector('.private-text')
+    if (!row) return null
+    const r = row.getBoundingClientRect(), e = end?.getBoundingClientRect(), t = title?.getBoundingClientRect()
+    return { shown: !!end, right: e ? Math.round(r.right - e.right) : null, centre: e ? Math.round(Math.abs((e.top + e.bottom) / 2 - (r.top + r.bottom) / 2)) : null, lines: e ? Math.round(e.height) : null, title: t ? [Math.round(t.left), Math.round(t.top)] : null }
+  }, page)
+  const at = await label()
+  check('its folder label sits at the row\'s right edge, centred, on one line', at?.shown && at.right <= 24 && at.centre <= 2 && at.lines <= 20, JSON.stringify(at))
+  if (shots) for (const look of ['light', 'dark']) { await c.look(look); await wait(300); await h.screenshot({ path: `${shots}/folders-row-end-${look}.png` }) }
+  await c.look('light')
+  await h.keyboard.press('f'); await wait(500)
+  await h.locator('[data-show-folder]').click(); await wait(400)
+  await h.keyboard.press('Escape'); await wait(300)
+  const off = await label()
+  check('Display › "Show folder" off hides it, the title where it was', off && !off.shown && JSON.stringify(off.title) === JSON.stringify(at?.title), JSON.stringify(off))
+  if (shots) await h.screenshot({ path: `${shots}/folders-row-end-off.png` })
+  await h.keyboard.press('f'); await wait(500)
+  await h.locator('[data-show-folder]').click(); await wait(400)
+  await h.keyboard.press('Escape'); await wait(300)
+  check('and on again shows it', (await label())?.shown === true)
+
   // A gem, into a new folder made from the picker's last row.
   await c.go('nuggets')
   const gemRow = h.locator('[data-page="nuggets"] button[data-row]').first()
@@ -118,7 +143,7 @@ try {
   check('no list of its own is left behind', (await h.locator('[data-folder-item]').count()) === 0)
   check('its name is the title over the list', ((await h.locator('[data-folder-title]').textContent()) ?? '').trim() === 'Thesis', await h.locator('[data-folder-title]').textContent())
   check('one row lit in the sidebar', (await h.evaluate(() => document.querySelectorAll('aside [data-side-row][aria-current="page"]').length)) === 1)
-  check('its fact says what it holds', /Thesis holds 2: 2 pages/.test((await h.locator('[data-folder-fact]').textContent()) ?? ''), await h.locator('[data-folder-fact]').textContent())
+  check('its fact says what it holds', /Thesis holds 2 pages\./.test((await h.locator('[data-folder-fact]').textContent()) ?? ''), await h.locator('[data-folder-fact]').textContent())
   check('its sidebar row is marked as the page you are on', (await h.locator(`[data-side-folder="${thesis.id}"]`).getAttribute('aria-current')) === 'page')
   await shot('folder-page')
   // Its row's own menu takes a page out of the folder, as in Writing; Undo puts it back.

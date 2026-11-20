@@ -73,7 +73,12 @@ export function saidBySuggestion({ editor, allow, render }: { editor: Editor; /*
     },
     items: async ({ query }) => {
       all ??= sources.list().catch(() => [])
-      return sourceRows(await all, field, query)
+      const known = await all
+      // A name typed out whole is kept as typed, as the Who field keeps it (ui.tsx Remembered): no list for ↵ to swap it
+      // for a longer one ("Sam" when "Samantha" is in the book too).
+      const said = query.trim().toLowerCase()
+      if (known.some((one) => one.field === field && one.name.toLowerCase() === said)) return []
+      return sourceRows(known, field, query)
     },
     command: ({ editor, range, props }) => {
       const typed = editor.state.doc.textBetween(range.from, range.to, ' ').replace(/^\s*[-–—]\s*/, '').split(',').at(-1)!.replace(/^\s+/, '').length

@@ -196,6 +196,20 @@ try {
     check('carried while up, then summoned: it stays where it was carried', now[0] && now[1].x === was.x && now[1].y === was.y, `carried to ${box4(was)}, after ${box4(now[1])}`)
     await hide()
   }
+  // Thrown, then held with ⌘ and two fingers mid-throw (it stops and goes with them), then put away: it is put away
+  // where the fingers left it, never jumped to where the throw was going.
+  if (!only.length || only.includes('nudged mid-throw')) {
+    await open()
+    await page.evaluate(() => window.api.throwBox(1, 1))
+    await wait(40)
+    await page.evaluate(() => window.api.moveBox(-30, -20))
+    await wait(100)
+    const held = await electron.evaluate(() => globalThis.__box.getBounds())
+    await hide()
+    await wait(200)
+    const left = await electron.evaluate(() => globalThis.__box.getBounds())
+    check('nudged mid-throw, then put away: it stays where the fingers left it', left.x === held.x && left.y === held.y, `held at ${box4(held)}, put away at ${box4(left)}`)
+  }
 } catch (error) {
   check('ran', false, error.stack)
 } finally {

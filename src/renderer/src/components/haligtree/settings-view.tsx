@@ -2551,7 +2551,7 @@ function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }
   return (
     <div data-mac-needs="ai" data-mac-lacking={has ? undefined : ''}>
       <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, and a name for a group or a recording."
-        more={has ? 'Five cards from a chapter, in the reader. A recording is named by what was said in its first minutes, its day and time kept after a dot. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a name is yours to type over, with Undo on its notice.' : undefined}
+        more={has ? 'Five cards from a chapter, in the reader. A recording is named after its event, or by what was said in its first minutes, its day and time kept after a dot. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a name is yours to type over, with Undo on its notice.' : undefined}
         keywords="apple intelligence ai meaning hint cards chapter typed answer check group name recording meeting name foundation model"
         off={has ? undefined : lacks(caps, 'ai', true)}
         below={has && on && <RecordingNames on />}>

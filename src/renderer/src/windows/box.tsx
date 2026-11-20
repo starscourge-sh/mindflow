@@ -75,8 +75,10 @@ if (window.api.room.left) {
   window.addEventListener('keydown', (event) => {
     const out = picked >= 0
     if (event.key === 'Tab' && !event.metaKey && !event.altKey) {
-      // A list of names open under the words or a field (a quote's "- who", lib/source-rows.tsx): Tab takes the one picked there.
-      if (!out && !event.ctrlKey && menuShowing('.tiptap-suggestion-popup')) return
+      // Heard before the editor (capture). A list open that takes Tab itself (a quote's "- who", lib/source-rows.tsx;
+      // "Embed a note" stepping in) has it; one that does not (# tags, @ notes) leaves it to the box as ever, so focus
+      // never jumps out of the writing.
+      if (!out && !event.ctrlKey && menuShowing('.tiptap-suggestion-popup [data-takes-tab]')) return
       const toControls = asPill() ? !event.ctrlKey : event.ctrlKey
       if (!toControls) {
         if (asPill() || out) return

@@ -5,6 +5,7 @@ import { AlignJustify, Grid3x3, X } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Count, Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
@@ -56,6 +57,8 @@ export type View = {
   pane?: Pane
   /** Groups drawn as islands that fold, a few rows each: on by default when grouped by kind (islands.tsx). */
   islands?: boolean
+  /** Each row's folder at its right edge (Writing, Gems, Questions): on unless turned off. */
+  folders?: boolean
 }
 
 /** Whether a list's groups are drawn as islands: asked for, or grouped by kind and not turned off. */
@@ -72,6 +75,8 @@ export function useView(name: string, initial: { sort: string; group: string; fi
       if (kept.sort === 'oldest') kept.sort = 'untouched'
       // The list or cards toggle that Display's View as replaced.
       if (!kept.density && localStorage.getItem(`layout:${name}`) === 'cards') kept.density = 'grid'
+      // The date filter's old words, kept from before its spans were renamed, read as the spans they became.
+      if (kept.filter?.when) kept.filter = { ...kept.filter, when: kept.filter.when.map((age: string) => OLD_AGES[age] ?? age) }
       return kept
     } catch {
       return start
@@ -161,6 +166,7 @@ function periodOf(iso: string): string {
   return days <= 7 ? 'Previous 7 days' : days <= 30 ? 'Previous 30 days' : String(dayjs(iso).year())
 }
 const RECENT_AGES = ['Today', 'Previous 7 days', 'Previous 30 days']
+const OLD_AGES: Record<string, string> = { 'This week': 'Previous 7 days', 'This month': 'Previous 30 days', 'This year': 'Older' }
 /** Date's filter: the three recent spans, and "Older" for every year before them. */
 export const AGES: Choice[] = [...RECENT_AGES, 'Older'].map((id) => ({ id, label: id }))
 /** Whether a date falls in one of AGES. */
@@ -466,7 +472,7 @@ const DISPLAY_ASKED = 'haligtree:display'
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, count, hidden = false, sortNote, items, onOpen, room }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, folders = false, count, hidden = false, sortNote, items, onOpen, room }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
   /** Told as it opens and shuts: the one-line pill grows into the box to hold the sheet. */
@@ -500,6 +506,8 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   densities?: Density[]
   /** A view's own name on this list: All cards calls its grid "Cards". */
   names?: Partial<Record<Density, string>>
+  /** Rows that say their folder: offered "Show folder", kept in the view (`View.folders`). */
+  folders?: boolean
 }): React.JSX.Element | null {
   const views = DENSITIES.filter((one) => densities.includes(one.id)).map((one) => ({ ...one, label: names[one.id] ?? one.label }))
   const few = count !== undefined && count < 2
@@ -645,6 +653,11 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
             </Tip>
           ))}
         </div>
+        {folders && (
+          <Row label="Show folder" changed={view.folders === false}>
+            <Switch data-show-folder aria-label="Show folder" className="justify-self-end" checked={view.folders !== false} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), onChange({ ...view, folders: on }))} />
+          </Row>
+        )}
       </Section>
     )}
     {shownFacets.length > 0 && (

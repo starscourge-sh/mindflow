@@ -34,6 +34,9 @@ try {
   const portrait = Object.values(await v('people'))[0]?.avatar
   check('0. a portrait to give him', !!portrait && (await v('people:set', 'Jonathan Harker', portrait)))
   await v('source:set', 'medium', 'Dracula', '')
+  // A name that is one already, beside a longer one that starts the same: Sam and Samantha.
+  await v('source:set', 'attribution', 'Samantha Vane', '')
+  await v('source:set', 'attribution', 'Sam', '')
 
   await page.evaluate(() => window.api.showPrompt())
   await wait(1200)
@@ -109,6 +112,25 @@ try {
   await page.keyboard.press('Tab')
   await wait(300)
   check('15. Tab there takes the whole name', (await who()) === 'Jonathan Harker', await who())
+  // A who typed out whole stays as typed on ↵: no list offers a longer name over it.
+  await page.click(EDITOR)
+  await page.keyboard.press('Meta+a')
+  await page.keyboard.type('“Hold on.” - Sam', { delay: 15 })
+  await wait(500)
+  check('17. "- Sam" with Sam in the book offers no longer name', (await rows()).length === 0, JSON.stringify(await rows()))
+  await page.keyboard.press('Enter')
+  await wait(400)
+  check('18. ↵ keeps "Sam" as typed', !(await line()).includes('Samantha') && (await line()).includes('- Sam'), await line())
+  // A # list open in the grown box: it does not take Tab, so the writing keeps the key and the focus.
+  const tag = (await v('tags')).map((one) => one.tag).find((one) => /^[a-z]{3}/i.test(one))
+  await page.keyboard.press('Meta+a')
+  await page.keyboard.type(`Read later #${tag.slice(0, 3)}`, { delay: 15 })
+  await wait(900)
+  const open = (await rows()).length > 0
+  await page.keyboard.press('Tab')
+  await wait(300)
+  const there = await page.evaluate(() => !!document.activeElement?.closest('.ProseMirror'))
+  check(`19. #${tag.slice(0, 3)} with its list open, then Tab: focus stays in the writing`, open && there, `list open ${open}, words ${await line()}, focus ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80))}`)
   check('16. no page errors', !c.errors.length && !boxErrors.length, [...c.errors, ...boxErrors].join(' | '))
 } catch (error) {
   check('ran to the end', false, error.message)

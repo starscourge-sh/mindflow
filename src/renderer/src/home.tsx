@@ -60,7 +60,7 @@ import { FoldersSection, newFolderHere } from './components/haligtree/side-folde
 import { WritingPages } from './components/haligtree/side-writing'
 import { askFolder, folders, useFolderOf, useFolders, type FolderKind } from '@/lib/folders'
 import { FolderOpen } from 'lucide-react'
-import { FoldersView } from './components/haligtree/folder-view'
+import { FoldersView, tabOfKind } from './components/haligtree/folder-view'
 import { FolderPicker } from './components/haligtree/folder-picker'
 import { hoverNote } from './components/haligtree/note-preview'
 import { groups, isFolder, useGroups } from '@/lib/groups'
@@ -282,8 +282,6 @@ const stepOf = (type: string, id: string): View =>
   // A work found in ⌘K: its page among the sources.
   : type === 'work' ? { id: 'source', focus: `medium:${id}` }
   : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
-/** A folder page's tab for each kind it holds (folder-view.tsx `KIND_TABS`). */
-const FOLDER_TAB: Record<string, string> = { article: 'pages', capture: 'notes', nugget: 'gems', question: 'questions', task: 'tasks' }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
 const atNow = (view: View): boolean => {
@@ -1538,13 +1536,15 @@ export function Home(): React.JSX.Element {
     return () => (window.removeEventListener('haligtree:pdf-title', read), off())
   }, [view.focus])
   const open = (type: string, id: string, key = frontRef.current, folder?: string): void => {
+    // Opened from anywhere but its Pinned or Recent row (those mark it after this), its list's row keeps the light.
+    openedFrom.current = null
     // Which way it goes is read from the click itself, before any wait.
     const how = takeClick()
     // A task opens in the list that holds it (Today, Routines, Later), so its row is there beside it; Upcoming when it is not known yet.
     // Opened from under its folder in the sidebar: in that folder's page, so ↓↑ step through what it holds, as a press
     // on its row there does (a gem went to Gems and stepped through all 122).
     const step = (): View => {
-      if (folder) return { id: 'folders', folder, focus: id, tab: FOLDER_TAB[type] }
+      if (folder) return { id: 'folders', folder, focus: id, tab: tabOfKind(type) }
       const task = type === 'task' ? peekRead<Task>('task', id) : undefined
       const list = !task || task.status !== 'open' ? null : onToday(task) ? 'today' : task.recurrence ? 'routines' : bucket(task) && !task.deadline ? 'later' : null
       return list ? { id: list, focus: id } : stepOf(type, id)
@@ -1768,7 +1768,7 @@ export function Home(): React.JSX.Element {
     if (narrow) return `place:${litRow(view.id, shown)}`
     if ((view.id === 'articles' || view.id === 'nuggets') && view.folder && !noteNow && foldersOn(view.id === 'articles' ? 'article' : 'nugget')) return `folder:${view.folder}`
     if (!shown.includes(view.id) && JOURNAL_SCALES.some((one) => one.id === view.id)) return `scale:${view.id}`
-    if (view.id === 'tags' && shown.includes('tags') && tags.length > 0) return view.focus && sideTags.some(({ tag }) => tag === view.focus) ? `tag:${view.focus}` : 'tags'
+    if (view.id === 'tags' && shown.includes('tags')) return view.focus && sideTags.some(({ tag }) => tag === view.focus) ? `tag:${view.focus}` : 'tags'
     return `place:${litRow(view.id, shown)}`
   })()
   // Folded by hand, it stays folded until focus next comes to something in it; meanwhile the section holding it takes the light.
@@ -2584,7 +2584,7 @@ export function Home(): React.JSX.Element {
                         // The one open now says so, in full ink, as the page you are on does above.
                         data-open={light === `pin:${pin.id}` || undefined}
                         aria-current={light === `pin:${pin.id}` ? 'page' : undefined}
-                        onClick={() => ((openedFrom.current = { id: pin.id, where: 'pin' }), open(pin.type, pin.id))}
+                        onClick={() => (open(pin.type, pin.id), (openedFrom.current = { id: pin.id, where: 'pin' }))}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
                         className={`flex min-w-0 items-start gap-2.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? `${NARROW_ICON} items-center` : 'flex-1 rounded-md px-2 py-1.5'}`}
@@ -2617,7 +2617,7 @@ export function Home(): React.JSX.Element {
                     <Unfold open={recentOpen}><Branches className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
-                          onClick={() => ((openedFrom.current = { id: one.id, where: 'recent' }), open(one.type, one.id))}
+                          onClick={() => (open(one.type, one.id), (openedFrom.current = { id: one.id, where: 'recent' }))}
                           // Past, so quieter than the places above: the muted ink (never see-through), the row's full ink when pointed at or open.
                           className="group/recent flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-[color-mix(in_oklab,var(--muted-foreground)_70%,var(--background))] transition-colors duration-80 hover:text-foreground aria-[current=page]:text-foreground">
                           <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 opacity-60 group-hover/recent:opacity-100" /></span>

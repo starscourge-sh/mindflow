@@ -187,7 +187,8 @@ export function relaunch(into: 'sandbox' | 'real' | { book: string }, reset = fa
   release()
   // Handed over by the dev runner: tell it which book is next. When that runner has gone (its channel closed, as when
   // the dev command was stopped), say so and start the next book here instead of throwing ERR_IPC_CHANNEL_CLOSED.
-  if (HANDED && process.connected) return void process.send?.({ next: to }, (error: Error | null) => error && console.warn(`[haligtree] the dev runner could not be told: ${error.message}`))
+  // Gone between the check and the send, it is the same: the next book starts here.
+  if (HANDED && process.connected) return void process.send?.({ next: to }, (error: Error | null) => error && (console.warn(`[haligtree] the dev runner could not be told, so the next book starts from here: ${error.message}`), start(to)))
   if (HANDED) console.warn('[haligtree] the dev runner has gone, so the next book starts from here')
   if (DEV) return start(to)
   const marker = arrival()
@@ -205,7 +206,8 @@ export function restartNow(): void {
     app.relaunch()
     shutDatabase()
     app.exit(0)
-  } else if (HANDED) app.exit(CODES.real)
+  } else if (HANDED && process.connected) app.exit(CODES.real)
+  // The dev runner gone (the dev command stopped), exiting would leave nothing to start the book again: it starts here.
   else {
     for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy()
     release()

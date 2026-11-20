@@ -164,7 +164,7 @@ async function topicOf(one: Recorded): Promise<string | null> {
 }
 
 /** A rename the app made, told to the main window: its name rolls in, and (unless quiet) a notice offers Undo. */
-const told = (renamed: { id: string; from: string; to: string; was: Was[]; quiet?: boolean }): void => {
+const told = (renamed: { id: string; from: string; to: string; was: Was[]; quiet?: boolean; fromEvent?: boolean }): void => {
   const win = home()
   if (win && !win.isDestroyed()) win.webContents.send('names:renamed', renamed)
 }
@@ -189,16 +189,19 @@ export async function nameRecording(id: string): Promise<void> {
   const was = rename({ kind: 'capture', id, name: one.name, to })
   if (!was) return
   // Told first, so its name rolls in as the lists read it again.
-  told({ id, from: one.name, to, was: [was] })
+  told({ id, from: one.name, to, was: [was], fromEvent: !!one.event })
   changed()
 }
 
 /** The meeting notes still under the name they were kept with, newest first, for the backfill. */
-function recordingsToName(): Long[] {
-  const ids = database().prepare("select id from captures where source = 'Meeting' and status != 'discarded' and private = 0 order by captured_at desc limit 2000").all() as { id: string }[]
+/** Each with whether its name comes from its event (`fromEvent`), not from what was said. */
+function recordingsToName(): (Long & { fromEvent: boolean })[] {
+  // Only the ones that can still wear the name they were kept with: "Recording, …", or an event's (its title). The
+  // rest (renamed by hand, or by this) are never opened and read.
+  const ids = database().prepare(`select id from captures where source = 'Meeting' and status != 'discarded' and private = 0 and (${LABEL} like 'Recording, %' or body like '%"event":{%') order by captured_at desc limit 2000`).all() as { id: string }[]
   return ids.flatMap(({ id }) => {
     const one = recorded(id)
-    return one && (one.said.trim() || one.event) ? [{ kind: 'capture' as const, id, name: one.name }] : []
+    return one && (one.said.trim() || one.event) ? [{ kind: 'capture' as const, id, name: one.name, fromEvent: !!one.event }] : []
   })
 }
 

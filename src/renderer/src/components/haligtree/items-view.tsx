@@ -53,7 +53,7 @@ import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
 import { Term } from './term'
-import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
+import { AGES, Chips, Display, FilterChips, arrange, inAge, period, useView, type Density, type Facet, type View } from './display'
 import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
@@ -135,8 +135,8 @@ const NO_GROUPS: NoteGroup[] = []
  */
 function FolderCue({ home }: { home: Folder }): React.JSX.Element {
   return (
-    <span data-row-folder={home.id} className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground">
-      <GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}
+    <span data-row-folder={home.id} className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
+      <GroupIcon icon={home.icon} color={home.color} className="size-3 shrink-0" /><span className="truncate">{home.name}</span>
     </span>
   )
 }
@@ -745,11 +745,12 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   }, [chosen])
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
   // Writing, Gems and Questions list every one of their kind, filed or not (the user, 19 Nov: Gems is "a kind of
-  // premium list of things already in my folders"): one in a folder says which, quietly, after its date.
+  // premium list of things already in my folders"): one in a folder says which, quietly, at the row's right edge,
+  // unless Display's "Show folder" is off for this list.
   const placed = (entry: Entry, one: Item): Entry => {
     // On the folder's own page every row is in it: saying so on each row only repeats the page's name.
-    const home = inFolder ? undefined : folderById.get(folderOfItem[one.id] ?? '')
-    return home ? { ...entry, sub: <>{entry.sub}{entry.sub ? <span className="whitespace-nowrap"> · <FolderCue home={home} /></span> : <FolderCue home={home} />}</> } : entry
+    const home = inFolder || view.folders === false ? undefined : folderById.get(folderOfItem[one.id] ?? '')
+    return home ? { ...entry, end: <FolderCue home={home} /> } : entry
   }
   const sourced = (entry: Entry, one: Item): Entry => {
     const from = sourceSaid(one)
@@ -1831,7 +1832,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   }
   const facets: Facet<Item>[] = [
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
-    { key: 'when', label: 'Saved', options: AGES, test: (one, when) => period(one.createdAt) === when },
+    { key: 'when', label: 'Saved', options: AGES, test: (one, when) => inAge(one.createdAt, when) },
     { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') },
     // The view before 19 Nov, for anyone who wants it: only what has no folder yet.
@@ -1943,6 +1944,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sourced ? [{ id: 'source', label: 'Source' }] : []), ...(all.length && all.every((one) => one.kind === 'word') ? [{ id: 'letter', label: 'First letter' }] : [])]}
       density={columned ? undefined : density}
       onDensity={columned ? undefined : (next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
+      folders
     />
   )
   const chips = <FilterChips view={view} onChange={setView} facets={facets} />
