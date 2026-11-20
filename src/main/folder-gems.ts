@@ -2,8 +2,7 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 
 import { changed, database } from './captures'
-import { caps } from './understand'
-import { write } from './write'
+import { caps, shaped } from './understand'
 import { kindOf, saidBy } from './import'
 import { cut } from './clip'
 import { LIST } from './folders'
@@ -12,7 +11,7 @@ import { LIST } from './folders'
  * What a folder offers out of its own notes, as the plan's 19 Nov sections ask (plan-folders-kinds-groups.md):
  *
  * - Gem suggestions: lines in its pages and notes worth keeping as gems. Read by the Mac's own model (Apple
- *   Intelligence, main/write.ts) where it is on, else by the capture box's own word rules (`kindOf`: someone's words)
+ *   Intelligence, `shaped` in main/understand.ts) where it is on, else by the capture box's own word rules (`kindOf`: someone's words)
  *   and what the person highlighted; said which. Each line, once kept or let go, is never offered again, and the
  *   folder's quiet line is shown once (note_groups.gems_offered). Nothing is sent off the Mac.
  * - "Write from this folder": a new page in Writing, made beside the folder (it stays a folder), whose margin holds
@@ -116,14 +115,15 @@ export function registerFolderGems(): void {
     const have = process.env.HALIGTREE_QA_CAPS === 'ai' ? 'available' : (await caps()).ai
     if (have !== 'available' || !all.length) return { by: 'rules', lines: ruled, offered }
     const asked = all.slice(0, 80)
-    const said = await write(
-      'You pick the lines in someone\'s notes most worth keeping as gems: a striking sentence, someone\'s words, an idea said well, a fact worth remembering. Answer with the numbers of the lines you pick, separated by commas, and nothing else. Pick none when none are worth it: answer 0.',
+    const said = await shaped<{ lines: number[] }>(
+      'You pick the lines in someone\'s notes most worth keeping as gems: a striking sentence, someone\'s words, an idea said well, a fact worth remembering. Pick none when none are worth it.',
       asked.map((idea, at) => `${at + 1}. ${idea.line}`).join('\n'),
+      { type: 'object', properties: [{ name: 'lines', type: 'array', max: asked.length, description: 'The numbers of the lines picked; none when none are worth keeping', items: { type: 'int', min: 1, max: asked.length } }] },
       // The stand-in picks what the rules pick, so a test sees the same lines either way.
-      asked.flatMap((idea, at) => (ruled.includes(idea) ? [String(at + 1)] : [])).join(', ') || '0'
+      () => ({ lines: asked.flatMap((idea, at) => (ruled.includes(idea) ? [at + 1] : [])) })
     )
-    if ('error' in said) return { by: 'rules', lines: ruled, offered }
-    const picked = new Set([...said.text.matchAll(/\d+/g)].map((one) => Number(one[0]) - 1))
+    if ('error' in said || !Array.isArray(said.lines)) return { by: 'rules', lines: ruled, offered }
+    const picked = new Set(said.lines.map((one) => Number(one) - 1))
     return { by: 'ai', lines: asked.filter((_, at) => picked.has(at)), offered }
   })
   // The folder's line answered: never shown again for it.
