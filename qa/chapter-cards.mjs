@@ -37,6 +37,8 @@ const book = async () => {
   return Array.from(await pdf.save())
 }
 
+// The stand-in takes its time, as the real model does, so the wait line can be read.
+process.env.HALIGTREE_QA_AI_DELAY ??= '1500'
 for (const level of ['every', 'ai']) {
   process.env.HALIGTREE_QA_CAPS = level
   const c = await sandbox({ width: 1300, height: 900 })
@@ -73,6 +75,10 @@ for (const level of ['every', 'ai']) {
     await wait(800)
     const made = (await v('cards:all')).length
     await h.click(ask)
+    // The wait says how much it reads, not the section's long name again, and stays inside the panel (20 Nov: it ran off its edge cut mid-word).
+    await waitFor(() => h.evaluate(() => !!document.querySelector('[data-chapter-cards] .chapter-cards-wait .mf-orb-pill')), 3000)
+    const waitLine = await h.evaluate(() => { const pill = document.querySelector('[data-chapter-cards] .chapter-cards-wait .mf-orb-pill'); const body = pill?.closest('.chapter-cards-body'); return pill && { words: pill.textContent, right: Math.round(pill.getBoundingClientRect().right), edge: Math.round(body.getBoundingClientRect().right) } })
+    check('ai: the wait reads “Reading these 6 pages…” inside the panel', /^Reading these 6 pages…/.test(waitLine?.words ?? '') && waitLine.right <= waitLine.edge, JSON.stringify(waitLine))
     const frames = []
     for (let i = 0; i < 10; i++) { frames.push(await h.evaluate(() => document.querySelector('[data-chapter-cards]')?.getAttribute('data-chapter-cards') ?? null)); if (shots && i < 6) await h.screenshot({ path: join(shots, `chapter-frame-${i}.png`) }); await wait(50) }
     await waitFor(() => h.evaluate(() => /\d/.test(document.querySelector('[data-chapter-cards]')?.getAttribute('data-chapter-cards') ?? '')))

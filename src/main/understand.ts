@@ -207,8 +207,9 @@ export function registerStudyAi(on: () => boolean): void {
       ? await ask('cards', { ...from, count: many })
       : await ask('write', { instructions: cardsAsked(many), prompt: `From: ${from.title}\n\n${from.text}` })
     if (typeof said.error === 'string') return { error: said.error }
-    if (Array.isArray(said.cards)) return said.cards.length ? { cards: said.cards } : { error: 'Apple Intelligence wrote no card from these pages.' }
-    return cardsSaid(typeof said.text === 'string' ? said.text : '', many)
+    const { cards, text: reply } = said as Answer
+    if (Array.isArray(cards)) return cards.length ? { cards } : { error: 'Apple Intelligence wrote no card from these pages.' }
+    return cardsSaid(typeof reply === 'string' ? reply : '', many)
   })
   ipcMain.handle('haligtree:ai:phrase', (_event, drafts: unknown) => phraseDrafts(Array.isArray(drafts) ? drafts.slice(0, 5) : [], on))
   // A new group's first name, offered in its name field. Never an error: no answer simply leaves the name it has.

@@ -29,6 +29,23 @@ try {
   check('the grouping by book reads "Book looked up in"', groups.includes('Book looked up in') && !groups.includes('Where looked up'))
   check('the grouping by where it came in reads "Came from", as its filter does', groups.includes('Came from') && !/\nWhere from\n/.test(groups))
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/q1-grouping`)
+  // Sort by as a finished list (20 Nov: "looks like a first draft"): one row an order, a direction turned by its
+  // arrow, the tick in its own column, no count by the heading, no loose sentence among the rows.
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(300)
+  const rows = () => h.evaluate(() => [...document.querySelectorAll('[role=menu][aria-label="Sort by"] [role=menuitemradio]')].map((one) => ({ name: one.textContent.trim(), on: one.getAttribute('aria-checked') === 'true', height: Math.round(one.getBoundingClientRect().height), hand: getComputedStyle(one).cursor, tick: one.querySelector('svg') ? Math.round(one.querySelector('svg').getBoundingClientRect().left - one.getBoundingClientRect().left) : null })))
+  const listed = await rows()
+  check('Sort by: one "Recently changed" row, no "Longest unchanged" row of its own', listed.some((one) => one.name === 'Recently changed') && !listed.some((one) => one.name === 'Longest unchanged'), JSON.stringify(listed.map((one) => one.name)))
+  check('Sort by: every row one height, the hand on each', listed.length > 2 && listed.every((one) => one.height === listed[0].height && one.hand === 'pointer'), JSON.stringify(listed))
+  check('Sort by: no count beside its heading, no loose sentence under the rows', await h.evaluate(() => { const box = document.querySelector('[role=menu][aria-label="Sort by"]').closest('section'); return box.querySelector('h2').textContent.trim() === 'Sort by' && !box.querySelector('p') }))
+  await h.locator('[role=menuitemradio]', { hasText: 'Recently changed' }).click()
+  await h.waitForTimeout(300)
+  await h.locator('[data-sort-turn]').click()
+  await h.waitForTimeout(300)
+  const turned = await rows()
+  const said = await h.evaluate(() => document.querySelector('[data-display]')?.textContent.replace(/\s+/g, ' ').trim())
+  check('its arrow turns it round: the row and the button say "Longest unchanged"', turned.find((one) => one.on)?.name === 'Longest unchanged' && /Sort: Longest unchanged/.test(said ?? ''), `${JSON.stringify(turned.find((one) => one.on))} ${said}`)
+  if (process.env.SHOTS) await both(`${process.env.SHOTS}/q1-sort-by`)
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()

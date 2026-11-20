@@ -53,7 +53,7 @@ import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
 import { Term } from './term'
-import { AGES, COLUMNS_OR_LIST, Chips, Display, columnsOrList, FilterChips, arrange, inAge, period, useView, type Density, type Facet, type View } from './display'
+import { AGES, COLUMNS_OR_LIST, Chips, Display, columnsOrList, everySort, FilterChips, arrange, inAge, period, useView, type Choice, type Density, type Facet, type View } from './display'
 import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
@@ -665,7 +665,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // list's order, the same orders as its "Sort".
   const listMenu: RowItem[] = [
     writing && !questionsOnly && { label: 'New page', run: newPage },
-    sorts.length > 1 && { label: 'Sort', items: sorts.map((one) => ({ label: one.label, trail: view.sort === one.id ? <Check className="size-3.5" /> : undefined, run: () => (chime('tap'), setView({ ...view, sort: one.id })) })) },
+    sorts.length > 1 && { label: 'Sort', items: everySort(sorts).map((one) => ({ label: one.label, trail: view.sort === one.id ? <Check className="size-3.5" /> : undefined, run: () => (chime('tap'), setView({ ...view, sort: one.id })) })) },
   ]
   const manyMenu: RowItem[] | null = chosen.length > 1 ? [
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
@@ -1769,10 +1769,6 @@ const propOf = (one: Item): { status?: string; rating?: number } => {
  * Filter, sort and group for nuggets or articles, with the Display menu that
  * sets them: the same in the main window and the prompt's Kept tab.
  */
-/** What an order does with groups, said in the sort menu under its choices. */
-const groupsSaid = (sort: string): string =>
-  sort === 'manual' ? 'Folders on top, in your order; then the loose pages, where you put them.'
-    : 'Folders on top, in your order; the pages in them and after them sorted.'
 
 /** Questions › Words' Display, kept apart from Open's and Answered's. */
 const WORDS = 'question:words'
@@ -1781,7 +1777,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   groups: [string, Item[]][]
   display: React.JSX.Element
   /** The orders the list can take, as Display's "Sort" offers them: the list's own right-click offers the same. */
-  sorts: { id: string; label: string }[]
+  sorts: Choice[]
   /** The filters set, as chips over the list, and the kinds a click away. */
   chips: React.JSX.Element
   density: Density
@@ -1929,7 +1925,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   const density = columned ? columnsOrList(view) : (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
   // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
   // Named once: Display's "Sort" and the list's own right-click "Sort" offer the same orders.
-  const sorts = [{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]
+  // Recently changed turns round to Longest unchanged on its own row's arrow; Custom order says, while chosen, where folders go.
+  const sorts: Choice[] = [{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed', reverse: { id: 'untouched', label: 'Longest unchanged' } }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order', hint: withGroups ? 'Folders on top, in your order; then the loose pages, where you put them' : undefined }]
   const display = (
     <Display
       view={view}
@@ -1939,8 +1936,6 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       items={every}
       count={all.length}
       sorts={sorts}
-      // What the chosen order does with groups, said under the choices.
-      sortNote={withGroups ? groupsSaid(view.sort) : undefined}
       // Grouping cuts the loose notes into sections (by kind or date) under the folders: a group is never a folder (qa/list-grouping.mjs).
       groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sourced ? [{ id: 'source', label: 'Source' }] : []), ...(all.length && all.every((one) => one.kind === 'word') ? [{ id: 'letter', label: 'First letter' }] : [])]}
       density={density}
