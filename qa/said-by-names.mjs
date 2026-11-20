@@ -124,13 +124,13 @@ try {
   // A # list open in the grown box: it does not take Tab, so the writing keeps the key and the focus.
   const tag = (await v('tags')).map((one) => one.tag).find((one) => /^[a-z]{3}/i.test(one))
   await page.keyboard.press('Meta+a')
-  await page.keyboard.type(`#${tag.slice(0, 3)}`, { delay: 15 })
-  await wait(500)
+  await page.keyboard.type(`Read later #${tag.slice(0, 3)}`, { delay: 15 })
+  await wait(900)
   const open = (await rows()).length > 0
   await page.keyboard.press('Tab')
   await wait(300)
   const there = await page.evaluate(() => !!document.activeElement?.closest('.ProseMirror'))
-  check(`19. #${tag.slice(0, 3)} with its list open, then Tab: focus stays in the writing`, open && there, `list open ${open}, focus ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80))}`)
+  check(`19. #${tag.slice(0, 3)} with its list open, then Tab: focus stays in the writing`, open && there, `list open ${open}, words ${await line()}, focus ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80))}`)
   check('16. no page errors', !c.errors.length && !boxErrors.length, [...c.errors, ...boxErrors].join(' | '))
 } catch (error) {
   check('ran to the end', false, error.message)

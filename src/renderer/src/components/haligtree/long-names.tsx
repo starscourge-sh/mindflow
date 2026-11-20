@@ -131,25 +131,29 @@ export function LongNamesSetting({ on, set }: { on: boolean; set: (on: boolean) 
   )
 }
 
+/** How recordings were (or would be) named: after their events, by what was said, or some each way. */
+const namedHow = (list: Long[]): string => (list.every((one) => one.fromEvent) ? 'after their events' : list.some((one) => one.fromEvent) ? 'after their events or by what was said' : 'by what was said')
+
 /**
  * Under Settings' "Apple Intelligence": the recordings kept before it named them ("Recording, 8 Nov at 15:28"),
  * offered while there are any, each named after its event or by what was said in its first minutes, after a look over the list.
  * Nothing at all where it is off or this Mac lacks it (main/long-names.ts gives none).
  */
 export function RecordingNames({ on }: { on: boolean }): React.JSX.Element | null {
-  const [count, setCount] = useState(0)
+  const [offered, setOffered] = useState<Long[]>([])
+  const count = offered.length
   const [seen, setSeen] = useState(0)
   useEffect(() => {
-    if (!on) return setCount(0)
+    if (!on) return setOffered([])
     let live = true
-    void call<Long[]>('names:recordings').then((list) => live && setCount(list.length))
+    void call<Long[]>('names:recordings').then((list) => live && setOffered(list))
     return () => void (live = false)
   }, [on, seen])
   if (!on || !count) return null
   return (
     <div data-recording-names>
-      <RenamePreview offer={`Name ${plural(count, 'recording')}…`} list={() => call<Long[]>('names:recordings')} ask={(one) => call<string | null>('names:recording', one.id)}
-        done={(n, picked) => `Named ${plural(n, 'recording')} ${picked.every((one) => one.fromEvent) ? 'after their events' : picked.some((one) => one.fromEvent) ? 'after their events or by what was said' : 'by what was said'}, their old names kept`} what={(one) => `Recording, now “${one.name}”`} after={() => setSeen((at) => at + 1)} />
+      <RenamePreview offer={`Name ${plural(count, 'recording')} ${namedHow(offered).replace('their events', count === 1 ? 'its event' : 'their events')}…`} list={() => call<Long[]>('names:recordings')} ask={(one) => call<string | null>('names:recording', one.id)}
+        done={(n, picked) => `Named ${plural(n, 'recording')} ${namedHow(picked)}, their old names kept`} what={(one) => `Recording, now “${one.name}”`} after={() => setSeen((at) => at + 1)} />
     </div>
   )
 }
