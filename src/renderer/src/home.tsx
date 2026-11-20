@@ -2625,7 +2625,7 @@ export function Home(): React.JSX.Element {
               )}
             </>)
             // Your most used tags, under their own row: shown with the Tags page on, between Pinned and the Bin.
-            const tagRows = !narrow && !quiet && shown.includes('tags') && tags.length > 0
+            const tagRows = !narrow && !quiet && shown.includes('tags')
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
