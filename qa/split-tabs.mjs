@@ -281,7 +281,8 @@ try {
     await row('Calendar').click({ modifiers: ['Meta'] }); await wait(500)
     await h.keyboard.press('Control+Tab'); await wait(900)
     const editor = h.locator('[data-pane] .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)').first()
-    await editor.click(); await h.keyboard.press('Meta+ArrowDown')
+    // The page in front may still be arriving: keys go to the note only once its editor holds them.
+    await editor.click(); await editor.evaluate((one) => one.focus()); await h.keyboard.press('Meta+ArrowDown')
     const mark = `${tag}-${Date.now()}`
     await h.keyboard.type(` ${mark}`)
     // What shows over or in the page as the key goes, and where the keys are: said beside a failure, so it names what held the key.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { call, haligtree, type Task } from '@/lib/haligtree'
-import { clock, dayjs, whenInLine } from '../../../../main/dates'
+import { clock, dayjs, plural, whenInLine } from '../../../../main/dates'
 
 import type { BoxPlan, BoxToken } from '@/lib/box-tokens'
 import { Kbd, Tip } from './ui'
@@ -232,7 +232,7 @@ function Around({ due, allDay }: { due: string; allDay: boolean }): React.JSX.El
   const at = dayjs(due).valueOf()
   const before = allDay ? undefined : timed.filter((one) => dayjs(one.at).valueOf() <= at).at(-1)
   const after = allDay ? undefined : timed.find((one) => dayjs(one.at).valueOf() > at)
-  const said = before && after ? <>between {named(before)} and {named(after)}</> : before ? <>after {named(before)}</> : after ? <>before {named(after)}</> : `with ${day.length} more that day`
+  const said = before && after ? <>between {named(before)} and {named(after)}</> : before ? <>after {named(before)}</> : after ? <>before {named(after)}</> : `with ${plural(day.length, 'more', 'more')} that day`
   return <span data-day-around className="min-w-0 truncate whitespace-pre text-muted-foreground">, {said}</span>
 }
 
