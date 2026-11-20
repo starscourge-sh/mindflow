@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
-import { CalendarClock } from "lucide-react"
+import { CalendarClock, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -73,7 +73,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   onChange: (kind: CaptureType) => void
   /** A row of a panel's island: flat and filling the row, no box inside the box. */
   flat?: boolean
-  /** Guessed from the wording, not chosen: drawn dashed until you pick. */
+  /** Guessed from the wording, not chosen: a small sparkle after its name until you pick. */
   suggested?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
@@ -129,9 +129,12 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
     <Popover open={open} onOpenChange={(next) => void (setKeyed(false), setOpen(next))}>
       <Tip label={suggested ? `${current.does}. Suggested from what you typed: ⌃L or ⌘1-${CAPTURE_TYPES.length} to choose` : current.does}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" data-kind-chip={flat ? undefined : ''} className={`gap-1.5 rounded-full cursor-pointer ${suggested ? 'border-dashed' : ''} ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
+        {/* One look whether you chose it or it was read from your words: a guess only adds a small sparkle after
+            its name (app-made, set apart), never a dashed border beside the solid ones. */}
+        <Button variant="outline" size="sm" data-kind-chip={flat ? undefined : ''} data-guessed={suggested || undefined} className={`gap-1.5 rounded-full cursor-pointer ${flat ? 'h-auto w-full justify-start gap-2 rounded-none border-0 bg-transparent px-2 py-1.5 font-normal shadow-none hover:bg-accent dark:bg-transparent dark:hover:bg-accent' : ''}`}>
           <Icon className="size-4" style={{ color: current.tint }} />
           {current.label}
+          {suggested && <Sparkles aria-label="guessed" data-kind-guessed className="-ml-0.5 size-3 text-muted-foreground" />}
         </Button>
         </PopoverTrigger>
       </Tip>

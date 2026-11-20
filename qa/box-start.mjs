@@ -34,7 +34,7 @@ try {
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
   await page.keyboard.type('start the essay', { delay: 8 }); await page.waitForTimeout(900)
   const task = await page.evaluate(() => document.querySelector('[data-will-do]')?.textContent ?? '')
-  check('“start the essay” with no length is still a task', /Add to your tasks/.test(task) && !/timer/.test(task), task)
+  check('“start the essay” with no length is still a task', /^A task/.test(task) && !/timer/.test(task), task)
   // Words that name an open task time that task: a session on it, not a plain timer.
   await page.keyboard.press('Escape'); await page.waitForTimeout(300)
   const made = await v('task:add', 'Write the long report')
