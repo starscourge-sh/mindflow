@@ -181,15 +181,12 @@ function HabitDay({ day, done, future }: { day: string; done: boolean; future: b
  * and the trend, said as a record: no streak to keep, nothing broken. A gap
  * pointed at shows what you wrote that night, so it keeps its reason.
  */
-export function HabitGrid({ example }: { example: boolean }): React.JSX.Element | null {
+export function HabitGrid(): React.JSX.Element | null {
   const habits = useHabits()
   const from = dayjs().subtract(WEEKS * 7 + 60, 'day').format('YYYY-MM-DD')
-  const real = useLive(() => call<Done[]>('habits:since', from), [] as Done[], [from])
-  const names = example ? ['Read twenty pages', 'Walk outside'] : [...new Set([...habits, ...real.map((one) => one.habit)])]
-  const rows = example
-    ? names.flatMap((habit, h) => Array.from({ length: 90 }, (_, at) => ((at * (h + 3)) % 7 < 5 ? [{ habit, day: dayjs().subtract(at + 1, 'day').format('YYYY-MM-DD') }] : [])).flat())
-    : real
-  useReading(!example && unloaded(real))
+  const rows = useLive(() => call<Done[]>('habits:since', from), [] as Done[], [from])
+  const names = [...new Set([...habits, ...rows.map((one) => one.habit)])]
+  useReading(unloaded(rows))
   if (!names.length) return null
   const today = dayjs().format('YYYY-MM-DD')
   // Monday-led weeks, the last one this week.
@@ -205,7 +202,7 @@ export function HabitGrid({ example }: { example: boolean }): React.JSX.Element 
           <div key={name} data-habit-grid={name} className="space-y-2">
             <p className="flex flex-wrap items-baseline gap-x-2 text-body">
               <span className="font-semibold text-foreground">{name}</span>
-              {!habits.includes(name) && !example && <span className="text-control">not this season</span>}
+              {!habits.includes(name) && <span className="text-control">not this season</span>}
             </p>
             <div className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]">
               {grid.map((day) => <HabitDay key={day} day={day} done={days.has(day)} future={day > today} />)}

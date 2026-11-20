@@ -4,7 +4,7 @@ import { useReading } from '@/lib/reads-in'
 import { call, unloaded, useLive, haligtree, when, whenInLine } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
-import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
+import { streaks, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
 import { dated, dayjs, howLong, num, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Chips } from './display'
@@ -165,35 +165,19 @@ function Tile({ value, label, note }: { value: ReactNode; label: string; note?: 
 
 const PART = { morning: 'Mornings', afternoon: 'Afternoons', evening: 'Evenings', night: 'Late at night' }
 
-/** Made up, for Stats' example page: ten weeks of mornings, as the sandbox has. */
-function exampleFocus(): FocusStats {
-  const rows: FocusRow[] = []
-  for (let n = 60; n >= 1; n--) {
-    if (n > 8 && (n % 7 === 3 || n % 11 === 5)) continue
-    for (let i = 0; i < 1 + Number(n % 3 === 0); i++) {
-      const start = dayjs().subtract(n, 'day').hour(9 + i * 2).minute(n % 4 * 10).startOf('minute')
-      const planned = (n + i) % 3 === 0 ? 50 : 25
-      const worked = (n + i) % 9 === 4 ? 15 : planned
-      rows.push({ id: `${n}-${i}`, taskId: ['a', 'b', 'c'][(n + i) % 3], title: ['Write the budget', 'Draft the repair plan', 'Practise cuneiform'][(n + i) % 3], startedAt: start.toISOString(), endedAt: start.add(worked, 'minute').toISOString(), pausedMs: 0, plannedMs: planned * 60000, abandonedAt: (n * 7 + i) % 17 === 0 ? start.add(worked, 'minute').toISOString() : null })
-    }
-  }
-  return focusStats(rows, rows.slice(0, 20).map((one) => ({ at: one.endedAt, ms: 300000 })))
-}
-
 /**
  * Stats' focus sections: the time, a day or a week at a glance; how sessions
  * end and when you work best; where the time went. With none yet, one
  * section that says what will be here and how to start.
  */
-export function FocusSections({ example }: { example: boolean }): React.JSX.Element | null {
-  const real = useLive(() => call<FocusStats>('focus:stats'), null as FocusStats | null)
+export function FocusSections(): React.JSX.Element | null {
+  const focus = useLive(() => call<FocusStats>('focus:stats'), null as FocusStats | null)
   const [span, setSpan] = useState<'days' | 'weeks'>('days')
   // Where the focus went: each task opens, and right-clicks with its own menu, as in every list.
   const tasks = useLive(haligtree.tasks, [] as Task[])
   const taskNow = useTaskNow()
   // The session running on a task, for its dot in the lists of tasks here (each row says its own time already).
   const taskTime = useTaskTime()
-  const focus = example ? exampleFocus() : real
   // Stats is drawn once every section's read is in (lib/reads-in.tsx), never a section popping in between two others.
   useReading(!focus || unloaded(tasks))
   if (!focus) return null
@@ -271,7 +255,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
         </Section>
       )}
 
-      {!example && <SitesKeptOff />}
+      <SitesKeptOff />
 
       {focus.sessions >= 3 && focus.best && (
         <Section title="When you focus" big={{ value: PART[focus.best.part], label: `around ${focus.best.hour}:00` }}>
@@ -288,10 +272,10 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
             {focus.top.map((one) => {
               const task = tasks.find((t) => t.id === one.taskId)
               return (
-              <RowMenu key={one.taskId} items={example || !task ? [] : taskMenu(task, { open: () => openTask(task.id), now: taskNow })}>
+              <RowMenu key={one.taskId} items={!task ? [] : taskMenu(task, { open: () => openTask(task.id), now: taskNow })}>
               <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
                 <SessionDot id={one.taskId} time={taskTime} className={`${DOT_IN_MARGIN} top-0 h-6`} />
-                <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                <button type="button" onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2">
                   <span dir="auto" className="truncate">{taskName(one.title).text}</span>
                   <Tags tags={taskName(one.title).tags} />
                 </button>
@@ -318,7 +302,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
               {focus.taskTimes.tasks.map((one) => (
                 <div key={one.taskId} data-task-time={one.taskId} className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
                   <SessionDot id={one.taskId} time={taskTime} className={`${DOT_IN_MARGIN} top-0 h-6`} />
-                  <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                  <button type="button" onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2">
                     <span dir="auto" className="truncate">{taskName(one.title).text}</span>
                   </button>
                   <span className="text-right tabular-nums text-foreground">
@@ -446,12 +430,11 @@ type Habits = { goals: { made: number; missed: number; letGo: number; open: numb
  * its number. Routines this week and the longest run going, reviews on days
  * in a row, and what was read from the queue. Shown once any of it has begun.
  */
-export function HabitSections({ example }: { example: boolean }): React.JSX.Element | null {
-  const real = useLive(() => call<Habits>('habits:stats'), null as Habits | null)
+export function HabitSections(): React.JSX.Element | null {
+  const habits = useHabits()
   const days = useLive(haligtree.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
-  const habits: Habits | null = example ? { ...EXAMPLE_HABITS, routines: 3, doneWeek: 12, best: { title: 'Read twenty pages before bed', run: 9 }, read30: 6, readAll: 23 } : real
-  const reviewRun = example ? 14 : days?.run ?? 0
-  useReading(!habits || (!example && !days))
+  const reviewRun = days?.run ?? 0
+  useReading(!habits || !days)
   if (!habits || (!habits.routines && !habits.readAll && reviewRun < 2)) return null
   return (
     <Section title="Kept up" big={habits.routines ? { value: habits.doneWeek, label: `${habits.doneWeek === 1 ? 'routine' : 'routines'} done in the last 7 days` } : undefined}>
@@ -469,20 +452,12 @@ export function HabitSections({ example }: { example: boolean }): React.JSX.Elem
   )
 }
 
-const EXAMPLE_HABITS = {
-  goals: { made: 4, missed: 1, letGo: 1, open: 3 },
-  tags: [{ tag: 'astrophysics', dealt: 14, waiting: 3 }, { tag: 'book', dealt: 9, waiting: 6 }, { tag: 'ideas', dealt: 4, waiting: 7 }, { tag: 'history', dealt: 6, waiting: 1 }]
-}
-
-/** The made-up numbers, or yours: one read for the goal and tag sections both. */
-function useHabits(example: boolean): Habits | null {
-  const real = useLive(() => call<Habits>('habits:stats'), null as Habits | null)
-  return example ? { ...EXAMPLE_HABITS, routines: 3, doneWeek: 12, best: null, read30: 6, readAll: 23 } : real
-}
+/** One read for the goal and tag sections both. */
+const useHabits = (): Habits | null => useLive(() => call<Habits>('habits:stats'), null as Habits | null)
 
 /** How goals have ended: made it, missed, let go, with those still under way. */
-export function GoalSection({ example }: { example: boolean }): React.JSX.Element | null {
-  const habits = useHabits(example)
+export function GoalSection(): React.JSX.Element | null {
+  const habits = useHabits()
   useReading(!habits)
   if (!habits) return null
   const { made, missed, letGo, open } = habits.goals
@@ -511,8 +486,8 @@ export function GoalSection({ example }: { example: boolean }): React.JSX.Elemen
 }
 
 /** Each tag's captures: how many are dealt with, how many still wait in the Inbox. */
-export function TagSection({ example }: { example: boolean }): React.JSX.Element | null {
-  const habits = useHabits(example)
+export function TagSection(): React.JSX.Element | null {
+  const habits = useHabits()
   if (!habits?.tags.length) return null
   const top = Math.max(...habits.tags.map((one) => one.dealt + one.waiting))
   const most = [...habits.tags].sort((a, b) => b.waiting - a.waiting)[0]

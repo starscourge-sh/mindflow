@@ -1,7 +1,7 @@
 import { useLive } from '@/lib/haligtree'
 import { useReading } from '@/lib/reads-in'
 import { DaysHeatmap } from './days-heatmap'
-import { N, Section } from './stats-view'
+import { Later, N, Section } from './stats-view'
 import { num, plural } from '../../../../main/dates'
 
 type Written = {
@@ -14,12 +14,8 @@ type Written = {
   notes: { id: string; type: string; title: string; private: boolean; words: number }[]
 }
 
-/** The made-up numbers for the example Stats page. */
-const EXAMPLE: Written = {
-  today: 640, week: 2180, lastWeek: 1710, total: 48210, daysWritten: 96,
-  days: Array.from({ length: 120 }, (_, at) => ({ day: new Date(Date.now() - at * 86400000).toISOString().slice(0, 10), words: (at * 37) % 5 === 0 ? 0 : ((at * 131) % 900) + 40 })),
-  notes: [{ id: 'a', type: 'article', title: 'Why old movies feel real', private: false, words: 420 }, { id: 'b', type: 'day', title: 'Today', private: false, words: 220 }]
-}
+/** Writing days (any day words were added to a note, a page or the Journal) before Writing has a week to tell of. */
+const FEW_DAYS = 3
 
 const NAMED: Record<string, string> = { day: 'Journal', period: 'A week or month page' }
 
@@ -27,13 +23,13 @@ const NAMED: Record<string, string> = { day: 'Journal', period: 'A week or month
  * Words written: today, this week against the same days of last week, and in
  * all; today's notes, each with the words it gained; and a year of writing
  * days, shaded by how much. Said as a record, never a target: no goal, no
- * run to keep.
+ * run to keep. Until a few days of writing are in, one quiet line in its place.
  */
-export function WritingSection({ example, onOpen }: { example: boolean; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
-  const real = useLive(() => window.api.haligtree('words:stats') as Promise<Written>, null as Written | null)
-  const words = example ? EXAMPLE : real
+export function WritingSection({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
+  const words = useLive(() => window.api.haligtree('words:stats') as Promise<Written>, null as Written | null)
   useReading(!words)
   if (!words) return null
+  if (words.daysWritten < FEW_DAYS) return <Later title="Writing" when="shows after a few days of writing" />
   const change = words.lastWeek ? Math.round(((words.week - words.lastWeek) / words.lastWeek) * 100) : null
   const amount = Object.fromEntries(words.days.map((one) => [one.day, one.words]))
   return (

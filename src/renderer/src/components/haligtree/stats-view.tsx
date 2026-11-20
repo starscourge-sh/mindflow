@@ -4,8 +4,6 @@ import { Children, useState, type ReactNode } from 'react'
 
 import { CAPTURE_TYPES, byKind } from '../capture-kinds/capture-kind-picker'
 import { useFocusTools, useLive, haligtree, type Stats } from '@/lib/haligtree'
-import { exampleStats } from '@/lib/examples'
-import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { DaysHeatmap } from './days-heatmap'
 import { TONES } from './mono-card'
 import { KeptCard, StudySection } from './study-stats'
@@ -30,10 +28,6 @@ import { useStepped } from '@/lib/nav'
 import { UsageSections } from './usage-stats'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
-
-const readWords = (): Promise<{ daysWritten: number }> => window.api.haligtree('words:stats') as Promise<{ daysWritten: number }>
-/** Writing days (a day you wrote words on) before Stats has a week to tell: a week of them, not in a row. */
-const WRITING_DAYS = 7
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
 /** Time spent: "40 minutes" under an hour, "1.5 hours" from one. */
@@ -61,6 +55,11 @@ const SECTION_ICONS: [RegExp, LucideIcon][] = [
   [/^Tasks, on time or late$/, CalendarCheck], [/^Left unsorted$/, Shapes], [/^Cards you keep forgetting$/, Brain], [/^Pages started, never touched again$/, FileText], [/^Steps toward your goals$/, Target], [/^Finished or left part way$/, BookCheck], [/^What reading turned into$/, Sprout], [/^What you capture$/, Shapes], [/^Where captures go$/, Split], [/^By tag$/, Hash], [/in your own words$/, BookOpen]
 ]
 const iconOf = (title: string): LucideIcon | undefined => SECTION_ICONS.find(([test]) => test.test(title))?.[1]
+
+/** A section with too little in it yet, said in its own place in one quiet line: "Writing: shows after a few days of writing". */
+export function Later({ title, when }: { title: string; when: string }): React.JSX.Element {
+  return <p data-stats-later={title} className="mt-8 px-2 text-control text-muted-foreground">{title}: {when}</p>
+}
 
 /**
  * One island per section, the Inbox's: a small head with its icon, name and a
@@ -127,15 +126,9 @@ export function Fact({ label, value, note }: { label: ReactNode; value: ReactNod
 type Part = 'now' | 'month' | 'year'
 
 export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Element {
-  const real = useLive(haligtree.stats, null as Stats | null)
+  const stats = useLive(haligtree.stats, null as Stats | null)
   // The focus timer turned off (Settings, Tasks): no focus sections.
   const focusTools = useFocusTools()
-  // Until a week of writing days, the goal over the page told from a made-up few months, faded, so you can see what it will say.
-  // Met once, the real page for good.
-  const words = useLive(readWords, null)
-  const { real: ready, moment } = useReady('stats', words ? words.daysWritten >= WRITING_DAYS : null)
-  const example = ready === false
-  const stats = example ? exampleStats() : real
   // The month or the year, Wrapped's way, over the page; from here or ⌘K.
   // The column, for the contents beside it to read.
   const [column, setColumn] = useState<HTMLDivElement | null>(null)
@@ -147,7 +140,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     chime('slide')
     setRecap(period)
   }
-  if (!stats || ready === null) return <Page title="Stats" waiting><div /></Page>
+  if (!stats) return <Page title="Stats" waiting><div /></Page>
 
   const by = Object.fromEntries(stats.exits.map((row) => [row.status, row.n]))
   const total = stats.exits.reduce((sum, row) => sum + row.n, 0)
@@ -191,18 +184,14 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
       <TabChips name="stats" tabs={[{ value: 'now', label: 'At a glance' }, { value: 'month', label: 'Your month' }, { value: 'year', label: 'Your year' }] as { value: Part; label: string }[]} value={part} onChange={setPart} />
     }>
       <div ref={setColumn} className="max-w-[calc(62ch+2.5rem)] px-5 pb-20">
-        {moment && <ReadyMoment className="mt-6" said="Your Stats are ready" more="A week of writing is in. From here this page tells you how each week went, in sentences." />}
-        <GoalPreview on={example} className="pt-6" goal="Your Stats start once you have a week of writing days" heading="What your Stats will look like"
-          counts="A writing day is any day you add words to a note, a page or your Journal. They need not be in a row."
-          parts={[{ have: words?.daysWritten ?? 0, need: WRITING_DAYS, what: 'writing days' }]}>
         {/* Each page of Stats drawn whole once its parts are read, never a part popping in after the rest. */}
         <ReadsIn key={part} className="contents">
         {part === 'now' ? <>
-        <WritingSection example={example} />
-        <KeptCard example={example} />
-        <StudySection example={example} brief />
+        <WritingSection />
+        <KeptCard />
+        <StudySection brief />
         {/* What reading in the reader really was: finished or left part way, and what it turned into. */}
-        {!example && <ReadingSections />}
+        <ReadingSections />
 
         <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>
@@ -220,7 +209,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        {!example && <UsageSections />}
+        <UsageSections />
 
         </> : part === 'month' ? <>
         <Section title="Today" big={{ value: stats.day.captured, label: stats.day.captured === 1 ? 'thing noted down' : 'things noted down' }}>
@@ -246,7 +235,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         </Section>
 
         {/* Each read from what the book keeps (main/stats-more.ts), never guessed. */}
-        {!example && <><TaskTimingSection /><UnsortedSection /><ForgottenSection /><UntouchedSection /><GoalStepsSection /></>}
+        <TaskTimingSection /><UnsortedSection /><ForgottenSection /><UntouchedSection /><GoalStepsSection />
         {/* Focus time has its own sections just below; this one is what the week gathered around. */}
         <Section title="The week, in the work">
           <p>
@@ -266,15 +255,15 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           ) : null}
         </Section>
 
-        {focusTools && <FocusSections example={example} />}
+        {focusTools && <FocusSections />}
 
-        <HabitSections example={example} />
+        <HabitSections />
 
-        <HabitGrid example={example} />
+        <HabitGrid />
 
-        {!example && <PracticeStats />}
+        <PracticeStats />
 
-        <GoalSection example={example} />
+        <GoalSection />
 
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing from your Inbox dealt with' : 'things from your Inbox dealt with' }}>
           <p>No target here, only the trend: the last seven days.</p>
@@ -356,7 +345,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             })}
           </div>
         </Section>
-        {!example && <YearOfAnswers />}
+        <YearOfAnswers />
 
         <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'dealt with' } : undefined}>
           {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
@@ -380,11 +369,10 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
-        <TagSection example={example} />
+        <TagSection />
 
         </>}
         </ReadsIn>
-        </GoalPreview>
       </div>
     </Page>
     </>

@@ -449,8 +449,8 @@ export function registerSandbox(): void {
     const put = database().prepare('insert or replace into settings (key, value) values (?, ?)')
     put.run('sandboxSeededOn', JSON.stringify(dayKey()))
     put.run('sandboxSeededAt', JSON.stringify(new Date().toISOString()))
-    // Past the Feed's and Stats' goals already: their real pages, with no "ready" moment.
-    put.run('readyShown', JSON.stringify(['feed', 'stats']))
+    // Past the Feed's goal already: its real page, with no "ready" moment.
+    put.run('readyShown', JSON.stringify(['feed']))
     // The book's owner kept a few favourite tags, so the sidebar shows what one looks like; a new book has none.
     put.run('sideTags', JSON.stringify(['learn-haligtree', 'reading', 'renaissance', 'history', 'greek-myth']))
     // Setting the sandbox out wrote no words of yours: Stats' writing starts from here.

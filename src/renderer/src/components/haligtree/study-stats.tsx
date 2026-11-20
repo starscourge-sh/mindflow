@@ -3,7 +3,7 @@ import { useReading } from '@/lib/reads-in'
 import { chime } from '@/lib/sound'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { INK_STEPS, inkShade, Ends, Funnel, MonoCard, PillBars, Spline, Switch, ToneBar, Chip, useHover } from './mono-card'
-import { N, Section } from './stats-view'
+import { Later, N, Section } from './stats-view'
 import { DotRule, SQUARE, SQUARE_GAP as GAP } from './time-dots'
 import { dayMonth, dayjs, num, plural } from '../../../../main/dates'
 
@@ -11,32 +11,21 @@ import { dayMonth, dayjs, num, plural } from '../../../../main/dates'
 type Studied = { streak: { current: number; longest: number; /** Rest days in hand: one for each week in a row, three at most. */ banked?: number }; average: number; month: { day: string; reviews: number }[]; year: Record<string, number>; checked: number; recalled: number; due: number[]; known: number; cards: number; seconds: number | null; days: { reviewed: number; of: number }
   minutes: number[]; stages: { new: number; learning: number; learnt: number }; sources: { name: string; n: number }[]; growth: { end: string; known: number; made: number }[]; kept: { month: string; notes: number; gems: number }[] }
 
-/** The made-up numbers for the example Stats page. */
-const EXAMPLE: Studied = {
-  streak: { current: 12, longest: 41, banked: 1 }, average: 18,
-  month: Array.from({ length: 30 }, (_, at) => ({ day: new Date(Date.now() - (29 - at) * 86400000).toISOString().slice(0, 10), reviews: (at * 7) % 5 === 0 ? 0 : ((at * 13) % 30) + 4 })),
-  year: Object.fromEntries(Array.from({ length: 200 }, (_, at) => [new Date(Date.now() - at * 86400000).toISOString().slice(0, 10), (at * 11) % 4 === 0 ? 0 : (at * 17) % 40])),
-  checked: 412, recalled: 361, due: [14, 9, 11, 6, 8, 4, 7, 5, 3, 6, 2, 4, 3, 2], known: 238, cards: 540, seconds: 9, days: { reviewed: 148, of: 200 },
-  minutes: Array.from({ length: 30 }, (_, at) => ((at * 7) % 5 === 0 ? 0 : ((at * 13) % 30) / 4 + 1)),
-  stages: { new: 120, learning: 64, learnt: 356 }, sources: [{ name: 'Thinking, Fast and Slow', n: 140 }, { name: 'Biology notes', n: 96 }, { name: 'Typed in', n: 61 }],
-  growth: Array.from({ length: 12 }, (_, at) => ({ end: new Date(Date.now() - (11 - at) * 7 * 86400000).toISOString().slice(0, 10), known: 120 + at * 11, made: 330 + at * 18 })),
-  kept: Array.from({ length: 6 }, (_, at) => ({ month: dayjs().subtract(5 - at, 'month').format('YYYY-MM'), notes: 30 + ((at * 17) % 25), gems: 6 + ((at * 7) % 9) }))
-}
-
 /**
  * Remembering, as sentences first and then the charts behind them: how many
  * cards you reviewed in 30 days, how often you remembered one you had seen
  * before, how many fall due in the next two weeks, and a year of review days.
  * Each chart says in a line what it shows, its bars named in their tips.
  */
-export function StudySection({ example, brief = false }: { example: boolean; /** On the Stats page: the number and its sentence, and the way to the charts, which live in Review's "Stats" alone. */ brief?: boolean }): React.JSX.Element | null {
-  const real = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
-  const studied = example ? EXAMPLE : real
+export function StudySection({ brief = false }: { /** On the Stats page: the number and its sentence, and the way to the charts, which live in Review's "Stats" alone. */ brief?: boolean }): React.JSX.Element | null {
+  const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   // Days reviewed of the last seven, today included: the week first, which one day off cannot break.
   const today = useLive(haligtree.reviewToday, null as Awaited<ReturnType<typeof haligtree.reviewToday>> | null, [], ['item'])
-  const week = example ? 5 : today?.week ?? 0
+  const week = today?.week ?? 0
   useReading(!studied)
   if (!studied) return null
+  // Nothing to tell of before the first card: one quiet line on Stats, where the rest of the page is real.
+  if (brief && !studied.cards) return <Later title="Remembering" when="shows once you make cards" />
   const reviews = studied.month.reduce((sum, one) => sum + one.reviews, 0)
   const retention = studied.checked ? Math.round((studied.recalled / studied.checked) * 100) : null
   const coming = studied.due.reduce((sum, one) => sum + one, 0)
@@ -187,9 +176,8 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
  * Notes and gems kept, month by month: writing, not remembering, so it lives
  * on the Stats page beside the writing, never in Review.
  */
-export function KeptCard({ example }: { example: boolean }): React.JSX.Element | null {
-  const real = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
-  const studied = example ? EXAMPLE : real
+export function KeptCard(): React.JSX.Element | null {
+  const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const [onKept, sayKept] = useHover()
   // Stats waits for it: drawn late, it pushed Remembering and all under it down a card's height.
   useReading(!studied)
