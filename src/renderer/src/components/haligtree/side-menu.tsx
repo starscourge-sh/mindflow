@@ -69,8 +69,8 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
     copyLinkItem(capture ? id : `${type}:${id}`, title),
     'separator',
     pinned
-      ? { label: 'Unpin', run: () => pin(tableOf(type), id, false) }
-      : { label: 'Pin to the sidebar', run: () => void pinFromSide(type, id) },
+      ? { label: 'Remove from Favorites', run: () => pin(tableOf(type), id, false) }
+      : { label: 'Add to Favorites', run: () => void pinFromSide(type, id) },
     'separator',
     status !== 'discarded' && binItem([{ type, id, status }])
   ]

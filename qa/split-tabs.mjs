@@ -377,9 +377,9 @@ try {
   await h.locator('[data-tab-on]').first().click({ button: 'right' })
   await h.locator('[role="menu"] [role="menuitem"]').first().waitFor({ timeout: 8000 }); await wait(300)
   const pinLines = await h.locator('[role="menu"] [role="menuitem"]').allInnerTexts()
-  check('a tab\'s menu while split can pin the split', pinLines.some((line) => line.startsWith('Pin this split')), pinLines.join(' | '))
-  await h.getByRole('menuitem', { name: /^Pin this split/ }).click(); await wait(600)
-  check('it is one row in Pinned', (await h.locator('[data-pair-row="pinned"]').count()) === 1)
+  check('a tab\'s menu while split can pin the split', pinLines.some((line) => line.startsWith('Add this split to Favorites')), pinLines.join(' | '))
+  await h.getByRole('menuitem', { name: /^Add this split to Favorites/ }).click(); await wait(600)
+  check('it is one row in Favorites', (await h.locator('[data-pair-row="pinned"]').count()) === 1)
   await h.locator('[data-tab-on]').last().locator('[data-tab-close]').click(); await wait(300)
   await h.locator('[data-tab-on]').last().locator('[data-tab-close]').click(); await wait(600)
   check('its tabs closed, the split has ended', (await state()).length === 1)
@@ -387,7 +387,7 @@ try {
   s = await state()
   check('its row lays it out again, each pane one tab', s.length === 2 && s.every((one) => one.tabs.length === 1) && s[0].page === 'calendar', JSON.stringify(s))
   await h.locator('[data-pair-row="pinned"]').click({ button: 'right', position: { x: 10, y: 10 } }); await wait(300)
-  await h.getByRole('menuitem', { name: /^Unpin this split/ }).click(); await wait(500)
+  await h.getByRole('menuitem', { name: /^Remove this split from Favorites/ }).click(); await wait(500)
   check('unpinned, its row goes, the split stays', (await h.locator('[data-pair-row="pinned"]').count()) === 0 && (await state()).length === 2)
 
   // --- a list row dropped on a row of tabs

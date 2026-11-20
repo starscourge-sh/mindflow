@@ -87,20 +87,20 @@ try {
   await c.v('settings:set', { sidebarShown: [...new Set([...shownNow, 'lookups'])] }); await c.h.waitForTimeout(1200)
   await lands(c, 'Lookups into the top block', 'lookups', (await box(c.h, 'articles')).top + 2)
 
-  // 5. Onto Pinned: refused, shown, and back where it was.
-  // Home brought into sight first, so the sidebar does not scroll between reading where Pinned is and carrying to it.
+  // 5. Onto Favorites: refused, shown, and back where it was.
+  // Home brought into sight first, so the sidebar does not scroll between reading where Favorites is and carrying to it.
   await box(c.h, 'home')
   const pinned = await c.h.evaluate(() => { const r = document.querySelector('aside nav [data-side-drop="pinned"]')?.getBoundingClientRect(); return r && r.height > 0 ? r.top + r.height / 2 : null })
-  check('there is a Pinned part to try', pinned !== null)
+  check('there is a Favorites part to try', pinned !== null)
   if (pinned !== null) {
     const was = await blocks(c.h)
     const wasSaved = await c.v('settings')
     const shown = await carry(c.h, 'home', pinned)
-    check('over Pinned: no line, the page is marked refused', !shown.line && shown.refused, JSON.stringify(shown))
-    check('over Pinned: the pointer says no', shown.cursor === 'not-allowed', shown.cursor)
-    check('over Pinned: the lifted row says why', /can’t go in Pinned/.test(shown.said), shown.said)
+    check('over Favorites: no line, the page is marked refused', !shown.line && shown.refused, JSON.stringify(shown))
+    check('over Favorites: the pointer says no', shown.cursor === 'not-allowed', shown.cursor)
+    check('over Favorites: the lifted row says why', /can’t go in Favorites/.test(shown.said), shown.said)
     const now = await c.v('settings')
-    check('let go over Pinned: nothing moved, on screen or saved', flat(await blocks(c.h)) === flat(was) && JSON.stringify(now.sidebarOrder) === JSON.stringify(wasSaved.sidebarOrder) && JSON.stringify(now.sidebarGroups) === JSON.stringify(wasSaved.sidebarGroups), flat(await blocks(c.h)))
+    check('let go over Favorites: nothing moved, on screen or saved', flat(await blocks(c.h)) === flat(was) && JSON.stringify(now.sidebarOrder) === JSON.stringify(wasSaved.sidebarOrder) && JSON.stringify(now.sidebarGroups) === JSON.stringify(wasSaved.sidebarGroups), flat(await blocks(c.h)))
   }
 
   // 6. Customize lists the same order.

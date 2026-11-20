@@ -73,7 +73,7 @@ import { MatrixView } from './components/haligtree/matrix-view'
 import { comingBack } from '@/lib/note-place'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
-import { Count, Kbd, Toaster, sayNow, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
+import { Count, Kbd, Toaster, sayNow, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly, askSure } from './components/haligtree/ui'
 import { shownName } from '@/lib/haligtree'
 import { GrowFrom } from './components/haligtree/grow-from'
 import { FocusScenery } from './components/haligtree/scenery'
@@ -135,7 +135,7 @@ import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried } from '@/components/haligtree/split-drop'
 import { dropLayout, PinnedSplit, pinLayout, sameLayout, short, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
 import type { TabActions } from '@/components/haligtree/tab-row'
-import { activeTab, addTab, bareSplit, closeTab, frontOf, insertPane, keepTabs, moveTab, newTab, onShow, paneOf, readSplit, removePane, selectTab, tabStep, tabToNewPane, type Split as SplitState, type Pane as PaneState, type Tab, type Trail } from '@/lib/tabs'
+import { activeTab, addTab, bareSplit, closeTab, frontOf, insertPane, keepTabs, moveTab, newTab, onShow, paneOf, pinTab, readSplit, removePane, selectTab, tabStep, tabToNewPane, type Split as SplitState, type Pane as PaneState, type Tab, type Trail } from '@/lib/tabs'
 import type { RowItem } from '@/components/haligtree/row-menu'
 import { keepTitle, openItems, setPaneNotes, setPanes, spendAsideClick, takeClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
@@ -812,6 +812,8 @@ export function Home(): React.JSX.Element {
   // task open beside the front pane's list, then the front pane's tab; the window only when that tab is all there is, on the landing page.
   useEffect(() => {
     const onClose = (event: Event): void => {
+      // A pinned tab's "Close this pinned tab?" up: a second ⌘W says yes.
+      if (pinAsked()) return event.preventDefault()
       if (document.querySelector('[role="dialog"], [data-radix-popper-content-wrapper], [role="menu"]')) {
         event.preventDefault()
         // As Esc pressed where the keys are: a field's own Esc (search's) hears it, and it rises to the page's panels.
@@ -825,7 +827,7 @@ export function Home(): React.JSX.Element {
         chime('fold')
         return setTrail(key, (trail) => ({ ...trail, views: trail.views.map((one, index) => (index === trail.at ? { ...one, focus: undefined } : one)) }))
       }
-      if (!lastLanding(key)) return void (event.preventDefault(), closeTabIn(key))
+      if (!lastLanding(key)) return void (event.preventDefault(), closeAsked(key))
     }
     window.addEventListener('haligtree:close-front', onClose)
     return () => window.removeEventListener('haligtree:close-front', onClose)
@@ -857,16 +859,40 @@ export function Home(): React.JSX.Element {
     }
     toFront(next.front)
   }
-  /** "Close others" and "Close to the right": every tab `keep` says no to goes, and one Undo brings them back. */
+  /** "Close this pinned tab?" asked now: its Close pressed, as a second ⌘W, ⌃W or ⌫ does. */
+  const pinAsked = (): boolean => {
+    const yes = document.querySelector<HTMLElement>('[data-sure="pinned-tab"] [data-sure-yes]')
+    yes?.click()
+    return !!yes
+  }
+  /**
+   * A tab closed by its keys (⌘W, ⌃W, ⌫) or a middle click: a pinned one is asked about in place first, under it,
+   * and the same key again while it asks closes it. Its menu's Close closes it at once: that is the choice made.
+   */
+  const closeAsked = (key = frontRef.current, tab?: string): void => {
+    if (pinAsked()) return
+    const pane = splitRef.current.panes.find((one) => one.key === key)
+    const one = pane?.tabs.find((each) => each.key === (tab ?? pane.active))
+    if (!one?.pinned) return closeTabIn(key, tab)
+    const at = document.querySelector(`[data-tab-row="${key}"] [data-tab="${one.key}"]`)
+    void askSure('Close this pinned tab?', 'It stays at the left of its row, through restarts, until it is closed. ⌘W again closes it.', 'Close', { at, no: 'Keep', tag: 'pinned-tab' })
+      .then((yes) => yes && closeTabIn(key, one.key))
+  }
+  /** A tab pinned or let go, in its own pane: pinned, it moves to the left of the row, small, and stays. */
+  const pinTabIn = (key: string, tab: string, on: boolean): void => {
+    chime(on ? 'pin' : 'unpin')
+    setSplit((now) => pinTab(now, key, tab, on))
+  }
+  /** "Close others" and "Close to the right": every tab `keep` says no to goes, pinned ones never, and one Undo brings them back. */
   const closeMany = (key: string, tab: string, keep: (one: Tab, at: number) => boolean): void => {
     const now = splitRef.current
     const pane = now.panes.find((one) => one.key === key)
     if (!pane) return
-    const gone = pane.tabs.filter((one, at) => !keep(one, at))
+    const gone = pane.tabs.filter((one, at) => !one.pinned && !keep(one, at))
     if (!gone.length) return void chime('nope')
     chime('fold')
     closed.current = [...closed.current.slice(-19), ...gone.map((one) => ({ tab: one, pane: key, at: pane.tabs.indexOf(one), paneAt: now.panes.indexOf(pane) }))]
-    setSplit(keepTabs(now, key, keep, tab))
+    setSplit(keepTabs(now, key, (one, at) => !!one.pinned || keep(one, at), tab))
     toast(`Closed ${plural(gone.length, 'tab', 'tabs')}`, () => setSplit(now))
   }
   /** ⇧⌘T: the last tab closed comes back where it was, or the last note left opens again. */
@@ -1417,7 +1443,7 @@ export function Home(): React.JSX.Element {
         if (menuShowing()) return
         event.preventDefault()
         event.stopPropagation()
-        return closeTabIn()
+        return closeAsked()
       }
       if (event.ctrlKey && !event.metaKey && !event.altKey && event.key === 'Tab') {
         if (menuShowing()) return
@@ -1792,15 +1818,15 @@ export function Home(): React.JSX.Element {
     chime('slide')
     const panes = views.map((one) => fresh([{ ...one }]))
     setSplit({ panes, front: panes[at]?.key ?? panes[0].key, sizes: sizes.length === panes.length ? sizes : panes.map(() => 1 / panes.length) })
-    toast('Opened the pinned split', () => setSplit(now))
+    toast('Opened the favorite split', () => setSplit(now))
   }
   /** The split on screen, kept in Pinned or let go from there. */
   const pinLine = (): { label: string; hint: string; run: () => void } => {
     const shown = splitRef.current.panes.map(onShow)
     const pinned = layouts.find((one) => sameLayout(one.views, shown))
     return pinned
-      ? { label: 'Unpin this split', hint: 'It leaves the pinned splits; these sides stay open', run: () => dropLayout(pinned.id, 'Unpinned this split') }
-      : { label: 'Pin this split', hint: 'These sides, kept to open together again in one go', run: () => pinLayout(shown, splitRef.current.sizes) }
+      ? { label: 'Remove this split from Favorites', hint: 'It leaves Favorites; these sides stay open', run: () => dropLayout(pinned.id, 'Removed this split from Favorites') }
+      : { label: 'Add this split to Favorites', hint: 'These sides, kept in the sidebar to open together again in one go', run: () => pinLayout(shown, splitRef.current.sizes) }
   }
   /** ⌘K's Even the split out: the room shared equally, as a double-click on a divider does, said in words with a way back. */
   const evenPanes = (): void => {
@@ -1840,10 +1866,15 @@ export function Home(): React.JSX.Element {
       ? [copyLinkItem(`task:${note.id}`, note.name.title)]
       : sideMenu(note.type, note.id, note.name.title, { onOpen: open, pinned: pins.some((one) => one.id === note.id), kind: known.get(note.id)?.capture?.kind, status: known.get(note.id)?.capture?.status })
         .filter((one) => !one || one === 'separator' || !('label' in one) || !/^open( in a new tab)?$/i.test(one.label))
+    const loose = (index: number): boolean => !pane.tabs[index].pinned
     return [
       { label: 'Close', keys: '⌃W', run: () => closeTabIn(key, tabKey) },
-      pane.tabs.length > 1 && { label: 'Close others', run: () => closeMany(key, tabKey, (one) => one.key === tabKey) },
-      at < pane.tabs.length - 1 && { label: 'Close to the right', run: () => closeMany(key, tabKey, (_, index) => index <= at) },
+      pane.tabs.some((one, index) => one !== tab && loose(index)) && { label: 'Close others', hint: pane.tabs.some((one) => one.pinned && one !== tab) ? 'Pinned tabs stay' : undefined, run: () => closeMany(key, tabKey, (one) => one.key === tabKey) },
+      pane.tabs.some((_, index) => index > at && loose(index)) && { label: 'Close to the right', run: () => closeMany(key, tabKey, (_, index) => index <= at) },
+      'separator',
+      tab.pinned
+        ? { label: 'Unpin tab', hint: 'Back among the others, with its name and ✕', run: () => pinTabIn(key, tabKey, false) }
+        : { label: 'Pin tab', hint: 'Small, at the left, kept through restarts', run: () => pinTabIn(key, tabKey, true) },
       'separator',
       paneAt > 0 && { label: 'Move to the split on the left', run: () => moveTo(now.panes[paneAt - 1]) },
       paneAt < now.panes.length - 1 && { label: 'Move to the split on the right', run: () => moveTo(now.panes[paneAt + 1]) },
@@ -1856,7 +1887,7 @@ export function Home(): React.JSX.Element {
   }
   const tabActions: TabActions = {
     select: goToTab,
-    close: closeTabIn,
+    close: closeAsked,
     add: (key) => openTab(LANDING, key, true),
     menu: tabMenu,
     // Back by a click on the button, onto the page something grew open from: it shrinks back into its place (lib/hero.ts).
@@ -2035,7 +2066,7 @@ export function Home(): React.JSX.Element {
               { label: `Wrapped: ${name}`, hint: world === 'surprise' ? 'Any look, never the same twice' : `The month's wrap in the ${name} look`, words: 'wrap story month spotify', cue: null, run: () => openWrap(monthToWrap(), world) })) : []),
             { label: 'Try a celebration', hint: 'One of the moments the app marks, like an empty Inbox, shown now', cue: null, run: () => tryCelebration() },
             ...placesTo(),
-            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', hint: sidebar ? 'More room for the page; ⌘B brings it back' : 'Your pages, folders and pins on the left', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
+            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', hint: sidebar ? 'More room for the page; ⌘B brings it back' : 'Your pages, folders and favorites on the left', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', hint: sidebar || detailsShown() ? 'The page alone, with nothing at its sides' : 'The sidebar on the left and the details on the right', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', hint: fill ? 'The window back to the size it was' : 'The window as big as the screen, without going full screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
             { label: 'Split the page', hint: 'This page again beside it; ⌘O there opens something else', keys: '⌘\\', cue: null, run: () => splitRight() },
@@ -2069,7 +2100,7 @@ export function Home(): React.JSX.Element {
               const was = !!settings?.sounds
               toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void haligtree.setSettings({ sounds: was })))
             } },
-            { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', hint: settings?.safeMode ? 'Hints, pins, sticky notes and goal cards come back' : 'Nothing comes up unasked, for sharing your screen', keys: '⌥⌘S', cue: null, run: safeMode },
+            { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', hint: settings?.safeMode ? 'Hints, favorites, sticky notes and goal cards come back' : 'Nothing comes up unasked, for sharing your screen', keys: '⌥⌘S', cue: null, run: safeMode },
             // Away for a meeting or quiet hours: the way to have them out all the same.
             ...deskAwayAction(desk),
             { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', hint: settings?.stickiesShown === false ? 'Your sticky notes back on the desktop' : 'Off the desktop for now, kept as they are', keys: '⌃⌥⌘N', cue: null, run: () => {
@@ -2393,8 +2424,8 @@ export function Home(): React.JSX.Element {
               </SortableRow>
             )}
             const tagsBlock = (<>
-        {/* Your favourite tags, with counts, the way Todoist keeps favourite labels; none until you mark one. */}
-        {/* The heading folds the list, as Pinned's does (Notion's way): anywhere on it, not only its chevron.
+        {/* Your starred tags, with counts, the way Todoist keeps favourite labels; none until you star one. */}
+        {/* The heading folds the list, as Favorites' does (Notion's way): anywhere on it, not only its chevron.
             The Tags page is the arrow at its end, on pointing, and G # or ⌘K. */}
         {(
           <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
@@ -2403,7 +2434,7 @@ export function Home(): React.JSX.Element {
               data-side-row
               data-side-section-handle="tags"
               data-tags-fold
-              aria-label={!sideTags.length ? 'Open the Tags page' : tagsOpen ? 'Fold your favourite tags away' : 'Show your favourite tags'}
+              aria-label={!sideTags.length ? 'Open the Tags page' : tagsOpen ? 'Fold your starred tags away' : 'Show your starred tags'}
               // On a tag's page whose own row is folded away or not listed, the heading is the place marked.
               aria-current={light === 'tags' ? 'page' : undefined}
               aria-expanded={sideTags.length ? tagsOpen : undefined}
@@ -2513,22 +2544,22 @@ export function Home(): React.JSX.Element {
             const sectionOrder = sideOrder(settings?.sideSections)
             const sectionAt = (id: string): React.CSSProperties => ({ order: 1 + sectionOrder.indexOf(id) })
             const pinned = (<>
-              {/* Pinned, Notion's Favourites: only there while something is, or while a note is carried to it. */}
+              {/* Favorites, as Notion's: only there while something is, or while a note is carried to it. */}
               {pinsDrawn && pins.length === 0 && layouts.length === 0 && !narrow && (
                 <div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="hidden rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)] [html[data-split-pin]_&]:block">
-                  <div className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Pinned</div>
-                  <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to pin</p>
+                  <div className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Favorites</div>
+                  <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to add to Favorites</p>
                 </div>
               )}
               {pinsDrawn && !quiet && (pins.length > 0 || layouts.length > 0 || powersPin) && (<div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading(pinsGroup, pinsOpen, setPinsOpen)}
                 <Unfold open={pinsOpen || narrow}><Branches bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
-                  // "What Haligtree can do", pinned for a newcomer until they unpin it (Settings' powersPinned).
+                  // "What Haligtree can do", in Favorites for a newcomer until they take it out (Settings' powersPinned).
                   ...(powersPin ? [(
                     <RowMenu key="powers-pin" items={[
                       { label: 'Open', run: () => (chime('page'), setView({ id: 'powers' })) },
                       'separator',
-                      { label: 'Unpin', hint: 'It stays in the sidebar\'s foot', run: () => sayNow(haligtree.setSettings({ powersPinned: false }), `Unpinned ${quoted(`What ${APP_NAME} can do`, 80)}`, () => void haligtree.setSettings({ powersPinned: true })) }
+                      { label: 'Remove from Favorites', hint: 'It stays in the sidebar\'s foot', run: () => sayNow(haligtree.setSettings({ powersPinned: false }), `Removed ${quoted(`What ${APP_NAME} can do`, 80)} from Favorites`, () => void haligtree.setSettings({ powersPinned: true })) }
                     ]}>
                       <span className="flex min-w-0">
                         <Tip label={narrow ? `What ${APP_NAME} can do` : ''}>
@@ -2543,7 +2574,7 @@ export function Home(): React.JSX.Element {
                   )] : []),
                   ...layouts.map((one) => (
                     <PinnedSplit key={one.id} narrow={narrow} names={one.views.map(paneName)} onOpen={(index) => openLayout(one.views, one.sizes, index)}
-                      onUnpin={() => dropLayout(one.id, `Unpinned the split, ${one.views.map((view) => `${quoted(short(shownName(paneName(view).title)), 80)}`).join(' and ')}`)} />
+                      onUnpin={() => dropLayout(one.id, `Removed the split of ${one.views.map((view) => `${quoted(short(shownName(paneName(view).title)), 80)}`).join(' and ')} from Favorites`)} />
                   )),
                   // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
                   <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'New note')}>{(items) => items.map((pin) => {
@@ -2551,7 +2582,7 @@ export function Home(): React.JSX.Element {
                   // Made as the menu opens (RowMenu), not with every row each time the window draws.
                   const menu = (): RowItem[] => {
                     const lines = fullMenu(pin.type, pin.id, () => open(pin.type, pin.id)) ?? sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })
-                    lines.splice(lines.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'New note' }, pinSaved.length > 0))
+                    lines.splice(lines.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Favorites', name: pin.title || 'New note' }, pinSaved.length > 0))
                     return lines
                   }
                   return (
@@ -2570,8 +2601,8 @@ export function Home(): React.JSX.Element {
                         data-open={light === `pin:${pin.id}` || undefined}
                         aria-current={light === `pin:${pin.id}` ? 'page' : undefined}
                         onClick={() => (open(pin.type, pin.id), (openedFrom.current = { id: pin.id, where: 'pin' }))}
-                        // ⌫ unpins, as the menu's line does.
-                        onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
+                        // ⌫ takes it out of Favorites, as the menu's line does.
+                        onKeyDown={(event) => onRemoveKey(event, menu(), 'Remove from Favorites')}
                         className={`flex min-w-0 items-start gap-2.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? `${NARROW_ICON} items-center` : 'flex-1 rounded-md px-2 py-1.5'}`}
                       >
                         <span className="flex h-[1lh] shrink-0 items-center"><kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /></span>
@@ -2634,7 +2665,7 @@ export function Home(): React.JSX.Element {
                 blocks={parts.map((part) => ({ key: part.key, items: tagRows ? part.list.filter((section) => section.id !== 'tags') : part.list }))}
                 keyOf={(section) => section.id}
                 onMove={narrow ? undefined : (id, drop) => void dropInBlock(id, drop.block, drop.before, shown)}
-                refuse={{ selector: 'aside nav [data-side-drop]', said: 'A page can’t go in Pinned or Tags' }}
+                refuse={{ selector: 'aside nav [data-side-drop]', said: 'A page can’t go in Favorites or Tags' }}
                 row={(section, among) => row(section, among)}
                 around={(block, at, box, items) => (<>
                   {block === 'rest' && foldersPart}
@@ -2673,7 +2704,7 @@ export function Home(): React.JSX.Element {
         {/* The section carried, as a lifted card under the pointer, named as its heading is, saying what letting go would do. */}
         {sectionDrag.carrying && sectionDrag.at && (
           <CardAt x={sectionDrag.at.x} y={sectionDrag.at.y}>
-            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Favorites', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
           </CardAt>
         )}
 
@@ -2764,7 +2795,7 @@ export function Home(): React.JSX.Element {
             </DropdownMenuContent>
           </DropdownMenu>
           {settings?.safeMode && (
-            <Tip label="Safe mode is on: no hints, old captures or pinned notes come up  ⌥⌘S">
+            <Tip label="Safe mode is on: no hints, old captures or favorites come up  ⌥⌘S">
               <button type="button" aria-label="Turn safe mode off" onClick={safeMode}
                 className="flex size-7 items-center justify-center rounded-md text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))] transition-colors hover:bg-accent/60">
                 <AliveIcon icon={ShieldCheck} size={16} />
@@ -2885,7 +2916,7 @@ export function Home(): React.JSX.Element {
             tabs: pane.tabs.map((one) => {
               const name = paneName(tabStep(one))
               const note = noteIn(tabStep(one))
-              return { key: one.key, label: name.title, private: name.private, icon: name.icon, tint: name.tint, open: note && note.type !== 'task' ? `${note.type}:${note.id}` : undefined }
+              return { key: one.key, pinned: one.pinned, label: name.title, private: name.private, icon: name.icon, tint: name.tint, open: note && note.type !== 'task' ? `${note.type}:${note.id}` : undefined }
             }),
             node: pageFor(pane.key, tab.key, tabStep(tab))
           }

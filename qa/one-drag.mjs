@@ -894,10 +894,10 @@ await part('One look: the sidebar', async () => {
     const pinned = await h.evaluate(() => { const r = document.querySelector('aside nav [data-side-drop="pinned"]')?.getBoundingClientRect(); return r && r.height > 0 ? r.top + r.height / 2 : null })
     if (pinned !== null) {
       at = await hold({ x: a.x + 40, y: a.y + a.h / 2 }, { x: a.x + 40, y: pinned })
-      await oneLook('The sidebar, a page carried over Pinned', at, { words: /can’t go in Pinned/, refused: true })
+      await oneLook('The sidebar, a page carried over Favorites', at, { words: /can’t go in Favorites/, refused: true })
       await h.mouse.up(); await wait(700)
       const now = await boxes()
-      if (!check('The sidebar, a page let go over Pinned: nothing moved', Object.keys(was).every((id) => was[id] === now[id]), '')) console.log(sideSaid(was.side, null, now.side))
+      if (!check('The sidebar, a page let go over Favorites: nothing moved', Object.keys(was).every((id) => was[id] === now[id]), '')) console.log(sideSaid(was.side, null, now.side))
       await sideTop(); await wait(200)
     }
   } else console.log(`SKIP  One look: ${pages.length} pages in the sidebar`)

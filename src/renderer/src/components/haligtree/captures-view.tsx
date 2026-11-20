@@ -1106,7 +1106,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onBack }: { cap
           {capture.private ? 'Private' : 'Not private'}
         </Prop>
         <Prop icon={Pin} active={!!capture.pinnedAt} onClick={() => pin('captures', capture.id, !capture.pinnedAt)}>
-          {capture.pinnedAt ? 'Pinned to the sidebar' : 'Pin to the sidebar'}
+          {capture.pinnedAt ? 'In Favorites' : 'Add to Favorites'}
         </Prop>
         <RemindMe table="captures" id={capture.id} at={capture.remindAt} />
         {/* Out of sight, apart from the exits: whatever became of it, it can be put away. */}
@@ -1252,7 +1252,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     // Properties a kind or a tag asks for: where you are with it, and its stars.
     ...(progress.length ? [{ key: 'progress', label: 'Progress', options: progress.map((id) => ({ id, label: id })), test: (one: CaptureMeta, value: string) => (fieldOf(one.fields, 'status') ?? fieldOf(one.fields, 'state')) === value }] : []),
     ...(stars.length ? [{ key: 'rating', label: 'Rating', options: stars.map((n) => ({ id: String(n), label: '★'.repeat(n) })), test: (one: CaptureMeta, value: string) => fieldOf(one.fields, 'rating') === value }] : []),
-    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Favorites' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }
   ]
   const kindsHere = new Set(kept.map((one) => one.kind)).size
   // Words read by their headword (a "Word: meaning" title files under its word).

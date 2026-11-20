@@ -2213,7 +2213,7 @@ function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boole
   return (
     <Setting
       under
-      title="Pick favourites"
+      title="Pick favorites"
       note={`Star the ones you like and they come up most${stars.length ? `; ${num(stars.length)} starred` : ''}.`}
       more="The rest still play now and then."
       keywords="giphy favourites favorites star pick gif"
@@ -2428,7 +2428,7 @@ function InboxShowsSetting({ days, set }: { days: number; set: (days: number) =>
   const behind = open.length - listed
   const said = (n: number): string => (n === 1 ? '1 capture' : `${num(n)} captures`)
   return (
-    <Setting title="Inbox shows" note="Captures from this far back; older ones wait behind one line at the end of the Inbox." more="Pinned ones always show. Search, tags, ⌘K and the Map still find every note, and quick capture's Inbox shows the same days." keywords="inbox recent days window older calm hide old captures arc everything"
+    <Setting title="Inbox shows" note="Captures from this far back; older ones wait behind one line at the end of the Inbox." more="Favorites always show. Search, tags, ⌘K and the Map still find every note, and quick capture's Inbox shows the same days." keywords="inbox recent days window older calm hide old captures arc everything"
       below={unloaded(all) ? null : <p data-inbox-shows-preview className="text-body text-(--mf-muted-strong)">
         {days ? <>The Inbox lists <strong className="font-semibold text-foreground">{said(listed)}</strong> now{behind ? <>, and <strong className="font-semibold text-foreground">{num(behind)}</strong> older wait behind its line.</> : ', and none are older.'}</> : <>The Inbox lists all <strong className="font-semibold text-foreground">{said(open.length)}</strong> still waiting.</>}
       </p>}>
@@ -2447,7 +2447,7 @@ function PutAwaySetting({ days }: { days: number }): React.JSX.Element {
   const pick = (id: string): void => void haligtree.setSettings({ autoArchive: Number(id) }).then(() => call('putaway:now'))
   const since = dayjs().subtract(days, 'day').format('dddd D MMMM')
   return (
-    <Setting title="Put away captures I haven't sorted after" note="Untouched captures go to Archived, **never pinned ones or any with a reminder, a date or a thought**." more="Nor a task's source. At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; nothing is deleted. Archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched sorted"
+    <Setting title="Put away captures I haven't sorted after" note="Untouched captures go to Archived, **never favorites or any with a reminder, a date or a thought**." more="Nor a task's source. At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; nothing is deleted. Archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched sorted"
       below={<p data-put-away-preview className="text-body text-(--mf-muted-strong)">
         {days ? <>Captures untouched since <strong className="font-semibold text-foreground">{since}</strong> go next, at the start of a day.</> : <>Nothing goes on its own. “Put away everything before” does it by hand.</>}
       </p>}>
@@ -2471,7 +2471,7 @@ function PutAwayBefore(): React.JSX.Element {
       toast(`${moved === 1 ? '1 capture' : `${num(moved)} captures`} put away in ${quoted(folder, 80)}, in Archived`, () => void call('putaway:undo', at).then(() => chime('unshelve')))
     })
   return (
-    <Setting title="Put away everything before" note="Every open capture from before this day goes into one dated folder in Archived, unsorted." more="Pinned ones and ones with a reminder stay. Search still finds them, nothing is deleted, and Undo brings them all back." keywords="archive old captures backlog bankruptcy folder dated put away before inbox">
+    <Setting title="Put away everything before" note="Every open capture from before this day goes into one dated folder in Archived, unsorted." more="Favorites and ones with a reminder stay. Search still finds them, nothing is deleted, and Undo brings them all back." keywords="archive old captures backlog bankruptcy folder dated put away before inbox">
       <Chips className="shrink-0" options={choices.map((id) => ({ id, label: dayjs(id).format(dayjs(id).year() === dayjs().year() ? 'D MMM' : 'D MMM YYYY') }))} on={(id) => id === day} pick={setDay} />
       <Button variant="secondary" size="sm" onClick={go}>Put away</Button>
     </Setting>

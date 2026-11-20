@@ -344,7 +344,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
     ...queueItems(item.id),
     { label: 'Read from here', run: () => read(shown, index) },
     'separator',
-    { label: pinnedNote(item) ? 'Unpin' : 'Pin', run: () => pin(table(item), item.id, !pinnedNote(item)) },
+    { label: pinnedNote(item) ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin(table(item), item.id, !pinnedNote(item)) },
     item.type === 'capture' && item.status === 'open' && { label: 'Add as a clue to a question…', hint: 'Filed under a question you already have', run: () => void addToQuestion(item.id) },
     'separator',
     { label: 'Copy its title', run: () => copy(item.title || item.label) }

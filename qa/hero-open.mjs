@@ -415,7 +415,7 @@ if (runs(3)) {
 // Back shrinks it home. Frames of each, every 50ms, are written to look at.
 if (runs(4)) {
   const surfaces = [
-    { name: 'Home, pinned', view: 'home', under: 'Pinned, and what you opened lately', sel: '[data-drag-open]' },
+    { name: 'Home, pinned', view: 'home', under: 'Favorites, and what you opened lately', sel: '[data-drag-open]' },
     { name: 'Home, Jump back in', view: 'home', under: 'Jump back in', sel: '[data-drag-open]' },
     { name: 'Home, Coming back', view: 'home', under: 'Coming back', sel: '[data-drag-open]' },
     { name: 'Home, Continue reading', view: 'home', sel: '[data-pane-card] [data-reading-row]', canvas: true },

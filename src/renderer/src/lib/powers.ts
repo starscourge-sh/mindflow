@@ -261,7 +261,7 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'What comes back to you', find: 'Your notes in Spotlight', at: '[data-setting]', text: 'On, unless you turn it off here.' } },
   { id: 'finder', group: 'Windows and your Mac', name: 'Send files from Finder', needs: 'every', tryIt: 'In Finder, right-click any file, then Quick Actions or Services, “Send to Haligtree”.', line: `Any file picked in Finder (a picture, a PDF, a video, a Word or Pages file, a ZIP) goes into Files from its right-click, with no note made; Markdown and text come in as a note. Once ${APP_NAME} is in your Applications folder.`,
     show: { view: 'media', text: 'In Finder: right-click, Quick Actions or Services, “Send to Haligtree”.' } },
-  { id: 'safe', group: 'Windows and your Mac', name: 'Safe mode', line: 'One key stops hints, old captures and pinned notes coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
+  { id: 'safe', group: 'Windows and your Mac', name: 'Safe mode', line: 'One key stops hints, old captures and favorites coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘S, and again to come back.' } },
   { id: 'notch', group: 'Windows and your Mac', name: 'The bubble in the notch', tryIt: 'In Settings, set “Bubble sits” to “Under the notch”.', line: 'On a Mac with a notch, the session bubble can sit tucked around it, the time beside it, and open when you point at it.',
     show: { view: 'settings', settings: 'Appearance', find: 'Bubble sits', at: '[data-setting]', text: 'Choose “Under the notch”. On a Mac without one, the bubble stays where you put it.' } },

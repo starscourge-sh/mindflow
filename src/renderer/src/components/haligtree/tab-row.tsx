@@ -10,8 +10,8 @@ import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { RoomAcross } from './carry'
 import { plural } from '../../../../main/dates'
 
-/** A tab as its row draws it. `open`: `type:id` for a tab on a note, so carrying it can pin it. */
-export type TabShown = { key: string; label: string; private?: boolean; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tint?: string; open?: string }
+/** A tab as its row draws it. `open`: `type:id` for a tab on a note, so carrying it can pin it. `pinned`: drawn small, at the left. */
+export type TabShown = { key: string; pinned?: boolean; label: string; private?: boolean; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tint?: string; open?: string }
 export type TabGroup = { pane: string; tabs: TabShown[]; active: string; front: boolean }
 export type TabActions = {
   select: (pane: string, tab: string) => void
@@ -38,12 +38,21 @@ export function setCarry(next: Carry): void {
   carry = next
   told.forEach((tell) => tell())
 }
-/** Which gap of a row the pointer is nearest, counted without the tab in the hand. */
-export const gapIn = (row: Element, x: number, from: string | null): number =>
-  [...row.querySelectorAll<HTMLElement>('[data-tab]')].filter((one) => one.dataset.tab !== from).filter((one) => {
+/**
+ * Which gap of a row the pointer is nearest, counted without the tab in the hand: a pinned tab's among the pinned
+ * ones, anything else's after them, so the line only shows where it can land.
+ */
+export const gapIn = (row: Element, x: number, from: string | null): number => {
+  const tabs = [...row.querySelectorAll<HTMLElement>('[data-tab]')].filter((one) => one.dataset.tab !== from)
+  const at = tabs.filter((one) => {
     const box = one.getBoundingClientRect()
     return box.left + box.width / 2 < x
   }).length
+  const pinned = tabs.filter((one) => one.dataset.tabPinned !== undefined).length
+  return carriedPinned(from) ? Math.min(at, pinned) : Math.max(at, pinned)
+}
+/** Whether the tab in the hand is a pinned one: the gap it opens is a pinned tab's width. */
+export const carriedPinned = (from: string | null): boolean => !!from && document.querySelector(`[data-tab="${CSS.escape(from)}"]`)?.hasAttribute('data-tab-pinned') === true
 
 const ROUND = 'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-[color,background-color,scale] duration-[120ms] hover:bg-accent/60 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5'
 
@@ -82,37 +91,41 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
   const [cut, setCut] = useState(false)
   // Which way its words run, read from its first letter: the fade goes on the end they run out at.
   const rtl = /^[^\p{L}]*[\p{Script=Arabic}\p{Script=Hebrew}]/u.test(tab.label)
+  // Pinned: its icon alone, a fixed small width at the left of the row, no ✕ (Safari's and Chrome's pinned tabs).
+  const pinned = !!tab.pinned
   return (
     <RowMenu items={() => actions.menu(group.pane, tab.key)}>
-      <div data-tab={tab.key} data-tab-on={on ? '' : undefined} data-drag-title={tab.label} data-tab-open={tab.open}
+      <div data-tab={tab.key} data-tab-on={on ? '' : undefined} data-tab-pinned={pinned ? '' : undefined} data-drag-title={tab.label} data-tab-open={tab.open}
         onAuxClick={(event) => event.button === 1 && (event.preventDefault(), actions.close(group.pane, tab.key))}
         onMouseDown={(event) => event.button === 1 && event.preventDefault()}
         // Never narrower than its name, up to about ten letters' room (or its icon alone, open, beside it): a short
         // name reads whole and a long one keeps enough to know it; past that the row scrolls (10 Nov).
-        style={{ minWidth: Math.min(54 + [...tab.label].length * 7, 124) }}
+        style={pinned ? undefined : { minWidth: Math.min(54 + [...tab.label].length * 7, 124) }}
         // The open tab stands on the page, 4px under the bar's top (its shape joins the page); the others are pills the
         // arrows' and "+"'s height, on the bar's middle line with them, never low against the page (20 Nov).
-        className={`group/tab relative mx-0.5 flex max-w-52 flex-[1_1_0] items-stretch ${on ? 'z-10 mt-1 py-[3px]' : 'h-6 self-center'} ${faint ? 'opacity-40' : ''}`}>
+        className={`group/tab relative mx-0.5 flex items-stretch ${pinned ? 'w-10 shrink-0' : 'max-w-52 flex-[1_1_0]'} ${on ? 'z-10 mt-1 py-[3px]' : 'h-6 self-center'} ${faint ? 'opacity-40' : ''}`}>
         {on && <TabShape />}
-        <Tip label={cut ? tab.label : ''}>
-          <button type="button" role="tab" aria-selected={on} onClick={() => actions.select(group.pane, tab.key)}
+        <Tip label={pinned ? tab.label : cut ? tab.label : ''}>
+          <button type="button" role="tab" aria-selected={on} aria-label={pinned ? `${tab.label}, pinned` : undefined} onClick={() => actions.select(group.pane, tab.key)}
             onPointerEnter={(event) => { const name = event.currentTarget.querySelector('span'); setCut(!!name && name.scrollWidth > name.clientWidth) }}
-            className={`relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full pl-2 text-control transition-[color,background-color,scale] duration-[120ms] outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${
+            className={`relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full text-control transition-[color,background-color,scale] duration-[120ms] outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${pinned ? 'justify-center' : 'pl-2'} ${
               on ? (strong ? 'font-medium text-foreground' : 'text-muted-foreground') : 'bg-foreground/[0.035] text-muted-foreground shadow-[inset_0_0_0_1px_var(--mf-tab-edge)] hover:bg-foreground/[0.07] hover:text-foreground'}`}>
             <Icon className="size-3.5 shrink-0" style={{ color: tab.tint }} />
             {/* Its end fades out before the ✕, with clear air; nothing moves when the ✕ shows (split.css). */}
-            <span data-tab-name dir={rtl ? 'rtl' : 'ltr'} data-private={tab.private ? '' : undefined} className="private-text min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap">
-              {tab.label}
-            </span>
+            {!pinned && (
+              <span data-tab-name dir={rtl ? 'rtl' : 'ltr'} data-private={tab.private ? '' : undefined} className="private-text min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap">
+                {tab.label}
+              </span>
+            )}
           </button>
         </Tip>
         {/* Its tip hangs below, into the page: beside, it covered the next tab (10 Nov). */}
-        <Tip side="bottom" label={<span className="flex items-center gap-1.5">Close tab <Pressed keys="⌃W" /></span>}>
+        {!pinned && <Tip side="bottom" label={<span className="flex items-center gap-1.5">Close tab <Pressed keys="⌃W" /></span>}>
         <button type="button" data-tab-close data-no-split aria-label={`Close ${tab.label}`} onClick={() => actions.close(group.pane, tab.key)}
           className={`mf-hit absolute top-1/2 right-2 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[opacity,scale,color,background-color] duration-[120ms] hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${on ? '' : 'opacity-0 group-hover/tab:opacity-100'}`}>
           <X className="size-3" strokeWidth={2.25} />
         </button>
-        </Tip>
+        </Tip>}
       </div>
     </RowMenu>
   )

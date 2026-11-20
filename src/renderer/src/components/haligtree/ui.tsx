@@ -1313,12 +1313,12 @@ function AskHead({ title, hint }: { title: string; hint?: ReactNode }): React.JS
 }
 
 /** A sheet's foot: other ways out on the left, Cancel and the one button on the right, each with its key. */
-function AskFoot({ go, ready = true, danger = false, onGo, onCancel, children }: { go: string; ready?: boolean; /** Deleting: the button in the red tint every destructive action wears, never the accent. */ danger?: boolean; onGo: () => void; onCancel: () => void; children?: ReactNode }): React.JSX.Element {
+function AskFoot({ go, no = 'Cancel', ready = true, danger = false, onGo, onCancel, children }: { go: string; /** The way out's own word ("Keep"), Cancel unless said. */ no?: string; ready?: boolean; /** Deleting: the button in the red tint every destructive action wears, never the accent. */ danger?: boolean; onGo: () => void; onCancel: () => void; children?: ReactNode }): React.JSX.Element {
   return (
     <div data-ask-keys className="flex flex-wrap items-center gap-1.5 pt-0.5">
       {children}
       <span className="flex-1" />
-      <Button type="button" variant="ghost" size="sm" data-ask-cancel className="cursor-pointer" onClick={onCancel}>Cancel <ShadKbd>Esc</ShadKbd></Button>
+      <Button type="button" variant="ghost" size="sm" data-ask-cancel className="cursor-pointer" onClick={onCancel}>{no} <ShadKbd>Esc</ShadKbd></Button>
       <Button type="button" size="sm" variant={danger ? 'destructive' : 'default'} data-ask-go data-sure-yes="" disabled={!ready} className="cursor-pointer" onClick={onGo}>{go} <ShadKbd>↵</ShadKbd></Button>
     </div>
   )
@@ -1378,11 +1378,11 @@ function Asker(): React.JSX.Element | null {
 }
 
 /** A yes or no, asked in the same sheet as a question: true for `yes`, false for Cancel, Escape or a click away. */
-export const askSure = (question: string, detail: ReactNode, yes: string, { at, danger = false }: { at?: Element | null; /** It deletes or replaces: the button in the red tint. */ danger?: boolean } = {}): Promise<boolean> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:sure', { detail: { question, detail, yes, danger, at: at ?? opener(), review: inReview(at), answer } })))
+export const askSure = (question: string, detail: ReactNode, yes: string, { at, danger = false, no, tag }: { at?: Element | null; /** It deletes or replaces: the button in the red tint. */ danger?: boolean; /** The way out's word, Cancel unless said. */ no?: string; /** Its `data-sure`, for the key that asked to find it again (a pinned tab's second ⌘W). */ tag?: string } = {}): Promise<boolean> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:sure', { detail: { question, detail, yes, danger, no, tag, at: at ?? opener(), review: inReview(at), answer } })))
 
 function SureAsker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; detail: ReactNode; yes: string; danger: boolean; at: Element | DOMRect | null; review: boolean; answer: (ok: boolean) => void } | null>(null)
+  const [asked, setAsked] = useState<{ question: string; detail: ReactNode; yes: string; danger: boolean; no?: string; tag?: string; at: Element | DOMRect | null; review: boolean; answer: (ok: boolean) => void } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => (chime('open'), setAsked((event as CustomEvent).detail))
     window.addEventListener('haligtree:sure', onAsk)
@@ -1395,11 +1395,11 @@ function SureAsker(): React.JSX.Element | null {
     setAsked(null)
   }
   return (
-    <AskSheet at={asked.at} review={asked.review} label={asked.question} onLeave={() => answer(false)} data-sure="" role="alertdialog"
+    <AskSheet at={asked.at} review={asked.review} label={asked.question} onLeave={() => answer(false)} data-sure={asked.tag ?? ''} role="alertdialog"
       // Its keys stay its own; Enter presses the button that has the focus (the yes, at first), as a button does.
       onKeyDown={(event) => event.stopPropagation()}>
       <AskHead title={asked.question} hint={asked.detail} />
-      <AskFoot go={asked.yes} danger={asked.danger} onGo={() => answer(true)} onCancel={() => answer(false)} />
+      <AskFoot go={asked.yes} no={asked.no} danger={asked.danger} onGo={() => answer(true)} onCancel={() => answer(false)} />
     </AskSheet>
   )
 }

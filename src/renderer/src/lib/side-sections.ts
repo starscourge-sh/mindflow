@@ -8,7 +8,7 @@ import '@/lib/carry-cursor'
 
 /** The sidebar's sections under its places, in their usual order. */
 export const SECTIONS_USUAL = ['folders', 'library', 'pinned', 'recent', 'tags'] as const
-const NAMES: Record<string, string> = { folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' }
+const NAMES: Record<string, string> = { folders: 'Folders', pinned: 'Favorites', recent: 'Recent', library: 'Library', tags: 'Tags' }
 
 /** The saved order, every section once: one missing (newer than the saved order) goes where it usually sits. */
 export function sideOrder(saved: readonly string[] | undefined): string[] {

@@ -644,7 +644,7 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
   // In a narrow pane, "Edited 2m": shorter, never cut off mid-word.
   const short = `${verb} ${old === 'now' ? 'now' : old}`
   // The header's own lines are not said twice when the note's menu has them too.
-  const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history', 'Read']
+  const OWN = ['Add to Favorites', 'Remove from Favorites', 'Copy link', 'Version history', 'Read']
   // Opened away from its own list (search, a link, its own window): that list, the main window's, opened on it, which shows its row.
   const show = useShowLine() ?? { label: 'Show in list', run: () => window.api.openInHome(type, String(versions.id), 'show-in-list') }
   const all = (fits([...(show ? [show, 'separator' as const] : []), ...menu]) as typeof menu).filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
@@ -709,7 +709,7 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
                 </DropdownMenuTrigger>
               </Tip>
               <DropdownMenuContent align="end" className="w-72">
-                {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin to the sidebar'}</DropdownMenuItem>}
+                {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Remove from Favorites' : 'Add to Favorites'}</DropdownMenuItem>}
                 {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, 'Copied a link: paste it into any note')}>Copy link</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
                 {/* Drafted from the note's own words, kept or dropped where its Details open (note-questions.tsx); ⌘K has it too. */}

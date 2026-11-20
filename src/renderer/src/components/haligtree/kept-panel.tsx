@@ -130,7 +130,7 @@ export function KeptPanel({ onOpen, open, onRead, inFront }: { onOpen: (type: st
     ...(tier === 'nugget' ? [{ label: 'Start a page', run: () => article([item.id]) }] : []),
     { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday', { action: 'Make the task' }).then((when) => { if (when) void makeTask({ item: item.id, text: `Study ${quoted(item.title, 200)} ${when}` }, 'A task, with this linked') }) },
     'separator',
-    { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.pinnedAt ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
     { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),

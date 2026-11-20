@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Book, BookOpen, Check, FlaskConical, Keyboard, Lightbulb, Pin, RotateCcw, Settings2, Sparkles, Undo2, Upload } from 'lucide-react'
+import { Book, BookOpen, Check, FlaskConical, Keyboard, Lightbulb, Bookmark, RotateCcw, Settings2, Sparkles, Undo2, Upload } from 'lucide-react'
 import { BesidePeek, MCard, MChip, MRow, MTitle, PeekCard, carrying, previewsOff, tinted } from './peek'
 import { APP_NAME } from '../../../../main/name'
 
@@ -38,7 +38,7 @@ function SafeSide({ on }: { on: boolean }): React.JSX.Element {
         {!on && (<>
           {chip(<Lightbulb className="size-2.5 shrink-0" style={tinted('yellow')} />, 'A hint')}
           {chip(<RotateCcw className="size-2.5 shrink-0 text-muted-foreground" />, 'Old capture')}
-          {chip(<Pin className="size-2.5 shrink-0 text-muted-foreground" />, 'Pinned note')}
+          {chip(<Bookmark className="size-2.5 shrink-0 text-muted-foreground" />, 'Favorite')}
         </>)}
         <div className="flex items-center gap-1 py-px text-[9.5px]"><MCheckLite />Call Mum</div>
       </div>
@@ -99,7 +99,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     )
   },
   safe: {
-    text: '**Safe mode: nothing comes up on its own.** No hints, old captures coming back or pinned notes: for screen shares and quiet moments.',
+    text: '**Safe mode: nothing comes up on its own.** No hints, old captures coming back or favorites: for screen shares and quiet moments.',
     keys: '⌥⌘S',
     whole: true,
     art: () => <div className="flex h-full gap-2.5 pb-1"><SafeSide on={false} /><SafeSide on /></div>

@@ -1,8 +1,8 @@
 // The sidebar's folds and sections, on a real book (QA_DATA a copy of one): the one button beside the search folds
 // every fold in the sidebar (each section heading, each folder in Folders' tree, Writing's pages, Journal's scales,
-// Pinned, Recent, Library, Tags) and unfolds them all again, its tip saying which it will do; and every section
-// carried by its heading (Folders, Pinned, Library, Recent, Tags), let go within 100ms of reaching its spot, lands where
-// its line showed, 5 moves, Pinned above Folders among them, with Folders left unfolded as the user keeps it, and the
+// Favorites, Recent, Library, Tags) and unfolds them all again, its tip saying which it will do; and every section
+// carried by its heading (Folders, Favorites, Library, Recent, Tags), let go within 100ms of reaching its spot, lands where
+// its line showed, 5 moves, Favorites above Folders among them, with Folders left unfolded as the user keeps it, and the
 // order survives a reload. Frames of each, light and dark, go to QA_SHOTS.
 //
 //   cp -cR <a copy of a book's data folder> <copy>
@@ -113,7 +113,7 @@ try {
     const ok = shown === wanted && (shown === 'end' ? after.at(-1) === one.id : after[after.indexOf(one.id) + 1] === shown)
     landed.push(`${one.id} over ${ontoId}: line ${shown ?? 'none'}${state}, ${ok ? 'ok' : `landed ${after.join(',')}`}`)
   }
-  check('each section let go within 100ms lands where its line showed, Pinned above Folders among them, 5 times', landed.length === 5 && landed.every((one) => one.endsWith(', ok')), landed.join(' | '))
+  check('each section let go within 100ms lands where its line showed, Favorites above Folders among them, 5 times', landed.length === 5 && landed.every((one) => one.endsWith(', ok')), landed.join(' | '))
   const order = (await sections()).map((s2) => s2.id).join()
   await shot('sections-after')
   await h.reload()

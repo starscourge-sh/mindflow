@@ -1,5 +1,5 @@
 import {
-  AlarmClock, AppWindow, PictureInPicture2, ArrowUpRight, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
+  AlarmClock, AppWindow, PictureInPicture2, ArrowUpRight, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, BookmarkMinus, BookmarkPlus, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, GripVertical, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Images, Inbox, Keyboard, LayoutGrid,
@@ -140,9 +140,12 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^keep on top/i, Layers],
   // A picture's quick look (Space), and its caption: the words under it.
   [/^look$/i, Eye],
-  // A favourite tag: a star, struck through to take it out.
-  [/^remove from favourites/i, StarOff],
-  [/favourites/i, Star],
+  // A starred tag: a star, struck through to take it out.
+  [/^unstar/i, StarOff],
+  [/^star this/i, Star],
+  // Favorites, the sidebar's shortcuts to notes: a bookmark, as their marks are.
+  [/^remove .*from favorites/i, BookmarkMinus],
+  [/^(add .*to|keep in|in) favorites/i, BookmarkPlus],
   // A link taken off its words: the words stay, so never the Bin's can.
   [/^remove link/i, Unlink],
   [/^go to the footnote/i, ArrowDownToLine],
@@ -163,7 +166,6 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^hidden pages/i, EyeOff],
   [/^peek$|^details$/i, PanelRight],
   [/^window$/i, AppWindow],
-  [/^keep it pinned/i, Pin],
   [/^choose another folder/i, FolderInput],
   [/word aim/i, Target],
   [/caption/i, Type],
