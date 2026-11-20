@@ -1267,6 +1267,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const groups = arrange(kept, view, facets, {
     ...byProp.compare,
     newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
+    // Newest turned round ('first': a kept 'oldest' is read as Longest unchanged, display.tsx useView).
+    first: (a, b) => a.capturedAt.localeCompare(b.capturedAt),
     changed: (a, b) => (b.editedAt ?? b.capturedAt).localeCompare(a.editedAt ?? a.capturedAt),
     untouched: (a, b) => touched(a).localeCompare(touched(b)),
     name: (a, b) => word(a).localeCompare(word(b), undefined, { sensitivity: 'base' }),
@@ -1293,7 +1295,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       facets={facets}
       items={kept}
       defaults={filter ?? {}}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed', reverse: { id: 'untouched', label: 'Longest unchanged' } }, { id: 'name', label: 'A to Z' }, ...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), ...(rated ? [{ id: 'rating', label: 'Rating' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
+      sorts={[{ id: 'newest', label: 'Newest', reverse: { id: 'first', label: 'Oldest' } }, { id: 'changed', label: 'Recently changed', reverse: { id: 'untouched', label: 'Longest unchanged' } }, { id: 'name', label: 'A to Z' }, ...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), ...(rated ? [{ id: 'rating', label: 'Rating' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
       groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(wordsOnly ? [{ id: 'letter', label: 'First letter' }] : []), ...(books ? [{ id: 'book', label: 'Book looked up in' }] : []), ...(sources > 1 ? [{ id: 'source', label: 'Came from' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide && !columned ? 'wideDensity' : 'density']: next })}

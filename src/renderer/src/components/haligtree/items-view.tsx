@@ -1869,6 +1869,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   const arranged = arrange(all, view, facets, {
     ...byProp.compare,
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+    // Newest turned round ('first': a kept 'oldest' is read as Longest unchanged, display.tsx useView).
+    first: (a, b) => a.createdAt.localeCompare(b.createdAt),
     changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
     untouched: (a, b) => (a.updatedAt ?? a.createdAt).localeCompare(b.updatedAt ?? b.createdAt),
     name: (a, b) => word(a).localeCompare(word(b), undefined, { sensitivity: 'base' }),
@@ -1926,7 +1928,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
   // Named once: Display's "Sort" and the list's own right-click "Sort" offer the same orders.
   // Recently changed turns round to Longest unchanged on its own row's arrow; Custom order says, while chosen, where folders go.
-  const sorts: Choice[] = [{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed', reverse: { id: 'untouched', label: 'Longest unchanged' } }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order', hint: withGroups ? 'Folders on top, in your order; then the loose pages, where you put them' : undefined }]
+  const sorts: Choice[] = [{ id: 'newest', label: 'Newest', reverse: { id: 'first', label: 'Oldest' } }, { id: 'changed', label: 'Recently changed', reverse: { id: 'untouched', label: 'Longest unchanged' } }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order', hint: withGroups ? 'Folders on top, in your order; then the loose pages, where you put them' : undefined }]
   const display = (
     <Display
       view={view}
