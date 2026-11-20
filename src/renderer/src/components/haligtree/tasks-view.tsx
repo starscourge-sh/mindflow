@@ -32,7 +32,7 @@ import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPr
 import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, FoldItem, MenuRows, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
-import { Display, arrange, openDisplay, useView, type Facet } from './display'
+import { Display, arrange, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
 import { type AtLink } from './at-notes'
@@ -1305,8 +1305,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             { items: [
               // Today's tasks in four boxes; from another tab, every task's.
               { label: 'Urgent and important', hint: 'Your tasks in four boxes: urgent by date, important by the flag', on: matrixed, set: (on) => (mode === 'today' ? setView({ ...view, group: on ? 'matrix' : 'when' }) : onOpen?.('view', 'matrix')) },
-              { label: 'Your order', hint: 'In the order you set with ⌥J and ⌥K, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) },
-              { label: 'Sort, group and filter…', keys: 'F', run: () => void setTimeout(openDisplay, 0) }
+              // Sort, group and filter is the Display button beside this menu (and F): one home.
+              { label: 'Your order', hint: 'In the order you set with ⌥J and ⌥K, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) }
             ] },
             // Things to do, apart from the ways to see the list above: never one more tick among them.
             { items: [

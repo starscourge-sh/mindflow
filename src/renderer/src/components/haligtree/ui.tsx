@@ -232,7 +232,8 @@ export function Act({ label, tip, keys, icon: Icon, onSelect, words = true, grou
 export function FoldItem({ label, keys, icon: Icon, onSelect, disabled, on }: { label: ReactNode; keys?: string; icon?: React.ComponentType<{ className?: string }>; onSelect: () => void; disabled?: boolean; on?: boolean }): React.JSX.Element {
   return (
     <DropdownMenuItem disabled={disabled} onSelect={() => onSelect()}>
-      {Icon ? <Icon /> : <span aria-hidden className="size-3.5 shrink-0" />}
+      {/* At the row's icon size: an app icon drawn larger otherwise made its row taller than the rest. */}
+      {Icon ? <Icon className="size-3.5 shrink-0 text-muted-foreground" /> : <span aria-hidden className="size-3.5 shrink-0" />}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {on && <Check className="size-3.5 text-[var(--tt-brand-color-400)]" />}
       {keys && <DropdownMenuShortcut>{keys}</DropdownMenuShortcut>}

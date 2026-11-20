@@ -65,23 +65,26 @@ try {
     check('Writing: "New page" from the ⋯ menu makes a page and opens it', after > before, `editors open ${before} → ${after}`)
     await h.keyboard.press('Escape'); await wait(300)
   }
-  // Sort as a submenu: picked there, the list's order changes.
-  await go('articles')
+  // Sort as a submenu, naming the order and listing the others.
+  await go('inbox')
+  await wait(600)
   if (await fold()) {
     const sort = h.locator('[data-fit-menu] [data-fold-sort]')
-    check('Writing: Sort is a submenu in the ⋯ menu, naming the order', (await sort.count()) === 1, await sort.textContent().catch(() => ''))
-    await sort.hover(); await wait(400)
+    check('Inbox: Sort is a submenu in the ⋯ menu, naming the order', (await sort.count()) === 1, await sort.textContent({ timeout: 2000 }).catch(() => ''))
+    await sort.hover({ timeout: 3000 }).catch(() => {}); await wait(500)
     const options = await h.locator('[role="menuitemradio"]').allTextContents()
-    check('Writing: the Sort submenu lists the orders', options.length >= 2, JSON.stringify(options))
+    check('Inbox: the Sort submenu lists the orders', options.length >= 2, JSON.stringify(options))
+    if (SHOT) await h.screenshot({ path: `${SHOT}/menu-sort-sub.png` })
     await shut(); await shut()
-  }
+  } else check('Inbox: the ⋯ is there to open', false)
 
   // "More below" on Settings, in a short window.
   await c.size(900, 520)
   await go('settings')
   await wait(800)
-  const pill = h.locator('[data-more-below] button')
-  check('Settings: the ↓ pill shows while there is more below', (await pill.count()) === 1)
+  // Settings' own pill, beside its scrolling column (the sidebar may show its own too, at the window's left).
+  const pill = h.locator('.mf-more ~ [data-more-below] button')
+  check('Settings: the ↓ pill shows while there is more below', (await pill.count()) === 1, `${await h.locator('[data-more-below] button').count()} pills in the window`)
   const top0 = await h.evaluate(() => document.querySelector('[data-more-below]')?.previousElementSibling?.scrollTop ?? -1)
   const box = await h.evaluate(() => { const s = [...document.querySelectorAll('.mf-more')].find((one) => one.scrollHeight > one.clientHeight + 8); return s ? { top: s.scrollTop, h: s.clientHeight } : null })
   if (SHOT) await both(`${SHOT}/more-below-settings`)
@@ -96,9 +99,11 @@ try {
   // Reached by Tab like any button.
   await h.evaluate(() => { const s = [...document.querySelectorAll('.mf-more')].find((one) => one.scrollHeight > one.clientHeight + 8); if (s) s.scrollTop = 0 })
   await wait(700)
-  const focusable = await h.evaluate(() => { const b = document.querySelector('[data-more-below] button'); return !!b && b.tabIndex >= 0 })
+  const focusable = await h.evaluate(() => { const b = document.querySelector('.mf-more ~ [data-more-below] button'); return !!b && b.tabIndex >= 0 })
   check('Settings: the pill can be reached with Tab', focusable)
   check('no page errors', !c.errors.some((e) => e.includes('PAGEERROR')), c.errors.filter((e) => e.includes('PAGEERROR')).join(' | '))
+} catch (error) {
+  check(`ran to the end`, false, String(error?.message ?? error).split('\n')[0])
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`\n${passed}/${results.length} passed`)

@@ -713,7 +713,8 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
             <DropdownMenuSubTrigger data-fold-sort><ArrowUpDown /><span className="flex-1">Sort</span><span className="text-muted-foreground">{sortName}</span></DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-52">
               <DropdownMenuRadioGroup value={view.sort} onValueChange={(id) => id !== view.sort && (chime('tap'), onChange({ ...view, sort: id }))}>
-                {sorts.map((one) => <DropdownMenuRadioItem key={one.id} value={one.id}>{one.label}</DropdownMenuRadioItem>)}
+                {/* The orders as words alone, a tick on the one in use (no guessed drawing for "Newest" or "By Back"). */}
+                {sorts.map((one) => <DropdownMenuRadioItem key={one.id} value={one.id}><span>{one.label}</span></DropdownMenuRadioItem>)}
               </DropdownMenuRadioGroup>
             </DropdownMenuSubContent>
           </DropdownMenuSub>

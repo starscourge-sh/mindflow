@@ -1290,6 +1290,54 @@
 
 [data-motion='off'] :is(.book-panel-head, .book-panel-body) { animation-duration: auto !important; }
 
+/* Each part under the book's head (In your notes, Highlights, Information) is an island of its own, as a chat's
+   messages are each their own bubble on a contrasting ground: the app's island look (ui.tsx ISLAND: a shade off the
+   page, a hairline edge, the light along its top), squarish corners, a gap between. Drawn as one wall of text before, a
+   lone highlight read as a label and the panel's foot as more of its top (the user, 20 Nov). Opaque, so the
+   headings held at the top of a scrolling island hide the rows passing under them. */
+.book-panel {
+  /* Mixed from the panel's own ink and ground, never from a colour that may carry its own see-through: opaque. */
+  --book-island: color-mix(in oklab, var(--foreground) 5%, var(--background));
+}
+.book-panel-body {
+  gap: 0.625rem;
+}
+/* Room above the first island as a margin, not the body's padding: a heading held at the top sits at the padding's
+   edge, and rows passing under showed in a strip above it. */
+.book-panel-body > :first-child {
+  margin-top: 0.75rem;
+}
+.book-panel-body > .read-details-section {
+  padding: 0 0.625rem 0.5rem;
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  border-radius: 0.375rem;
+  background-color: var(--book-island);
+  box-shadow: inset 0 1px 1px color-mix(in oklab, white 5%, transparent);
+}
+:root:is(.light, .paper) .book-panel-body > .read-details-section {
+  box-shadow: inset 0 1px 1px color-mix(in oklab, white 60%, transparent), 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 5%, transparent);
+}
+.book-panel-body > .read-details-section .read-details-heading {
+  padding-top: 0.5rem;
+  background-color: var(--book-island);
+}
+.book-panel-body .read-details-stuck .read-details-part {
+  background-color: var(--book-island);
+}
+/* Rows run edge to edge of their island, a hairline above each, the first too: one highlight is a row of a list,
+   never a chip on its own. */
+.book-panel-body :is(.read-details-mark, .book-cited-row) {
+  width: calc(100% + 1.25rem);
+  margin-inline: -0.625rem;
+  padding-right: 0.625rem;
+}
+.book-panel-body :is(.read-details-mark, .book-cited-row)[data-first] {
+  border-top-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+.book-panel-body :is(.read-details-mark:hover, .read-details-mark.is-here, .book-cited-row:hover) {
+  background-color: color-mix(in oklab, var(--foreground) 6%, var(--book-island));
+}
+
 /* Finder's preview pane: the cover as wide as the panel in its own shape, squarish corners. Its height
    is fixed (a share of the window's), so nothing under it moves as it draws and a short window keeps room for the lists. */
 .book-head {
