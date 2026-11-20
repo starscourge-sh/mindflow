@@ -185,8 +185,10 @@ export function relaunch(into: 'sandbox' | 'real' | { book: string }, reset = fa
   relaunched = true
   const to: Target = typeof into === 'object' ? `book:${into.book}` : into === 'real' ? 'real' : reset ? 'reset' : 'sandbox'
   release()
-  // A run the dev process started: that process starts the next, and ends this one once it is up.
-  if (HANDED) return void process.send?.({ next: to })
+  // Handed over by the dev runner: tell it which book is next. When that runner has gone (its channel closed, as when
+  // the dev command was stopped), say so and start the next book here instead of throwing ERR_IPC_CHANNEL_CLOSED.
+  if (HANDED && process.connected) return void process.send?.({ next: to }, (error: Error | null) => error && console.warn(`[haligtree] the dev runner could not be told: ${error.message}`))
+  if (HANDED) console.warn('[haligtree] the dev runner has gone, so the next book starts from here')
   if (DEV) return start(to)
   const marker = arrival()
   spawn(process.execPath, argsFor(to), { detached: true, stdio: 'ignore', env: { ...process.env, HALIGTREE_ARRIVAL: marker } }).unref()
