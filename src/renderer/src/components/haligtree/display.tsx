@@ -231,7 +231,7 @@ export function useSideways(): { ref: (node: HTMLElement | null) => void; style:
   }
 }
 
-export function Chips({ options, on, pick, className = 'flex-wrap', sideways = false, drops }: {
+export function Chips({ options, on, pick, className = '', sideways = false, drops }: {
   options: readonly Choice[]
   /** Chips a dragged row can be dropped on (sortable.tsx's places), by the place each one is. */
   drops?: Partial<Record<string, string>>
@@ -250,7 +250,8 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
   const chosen = useChosen(box, ':scope > button[aria-pressed="true"]', options.map((option) => on(option.id)).join())
   return (
     <div data-hover-quiet ref={(node) => { box.current = node; if (sideways) row.ref(node) }} {...hover.handlers} style={sideways ? row.style : undefined}
-      className={`relative isolate flex gap-x-1 gap-y-0.5 ${sideways ? row.className : ''} ${className}`}>
+      // Wraps unless it scrolls sideways, whatever a caller adds: a "shrink-0" once dropped the wrap and cut 14 sounds to "O…".
+      className={`relative isolate flex gap-x-1 gap-y-0.5 ${sideways ? row.className : 'flex-wrap'} ${className}`}>
       {single && <Highlight chosen={chosen} travel={spring.moderate} className="rounded-full bg-accent" />}
       <Highlight light={hover.light} className="rounded-full bg-accent/50" />
       {options.map((option) => (
