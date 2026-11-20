@@ -98,7 +98,8 @@ export function registerInsights(aiOn: () => boolean): void {
       if ('error' in answer) return null
       said = answer.words
     }
-    const words = (said ?? '').replace(/\s+/g, ' ').trim().replace(/^["“](.*)["”]$/, '$1').replace(/^\p{Ll}/u, (letter) => letter.toUpperCase())
+    // The book's own punctuation: a dash the model sets between two thoughts becomes a colon (no em dashes in the app).
+    const words = (said ?? '').replace(/\s+/g, ' ').replace(/\s*[—–]\s*/, ': ').replace(/\s*[—–]\s*/g, ', ').trim().replace(/^["“](.*)["”]$/, '$1').replace(/^\p{Ll}/u, (letter) => letter.toUpperCase())
     // Too short or long to be what was asked for, or saying something the notes never did: not shown.
     if (words.length < 20 || words.length > 320 || newFacts(words, passages).length) return null
     return words
@@ -107,10 +108,10 @@ export function registerInsights(aiOn: () => boolean): void {
   let making: Promise<void> | null = null
   /** Up to three more of today's, one request at a time. */
   const make = (): Promise<void> => (making ??= (async () => {
-    const since = Date.now()
+    const began = Date.now()
     try {
       for (let made = 0; made < AT_ONCE; made++) {
-        if (gate().blackout || busy(since)) return
+        if (gate().blackout || busy(began)) return
         const day = dayKey()
         const withAi = await ai()
         const rows = rowsOf(day)
@@ -118,8 +119,8 @@ export function registerInsights(aiOn: () => boolean): void {
         const turn = rows.length
         const mix = Object.fromEntries(LEVELS.filter((level) => withAi || level === 'resurface').map((level) => [level, weightOf(level)]))
         const level = levelOf(day, turn, mix) ?? 'resurface'
-        const since = dayKey(dayjs(day).subtract(REST_DAYS - 1, 'day'))
-        const rested = (db.prepare("select sources from feed_insights where day >= ? and state is not 'failed'").all(since) as { sources: string }[]).flatMap((row) => (JSON.parse(row.sources) as InsightSource[]).map((one) => one.id))
+        const from = dayKey(dayjs(day).subtract(REST_DAYS - 1, 'day'))
+        const rested = (db.prepare("select sources from feed_insights where day >= ? and state is not 'failed'").all(from) as { sources: string }[]).flatMap((row) => (JSON.parse(row.sources) as InsightSource[]).map((one) => one.id))
         const picked = await ask('feed:insight', [{ day, turn, level, rested }])
         const id = randomUUID()
         const keep = (words: string, state: string | null, sources: Passage[]): void =>
@@ -133,7 +134,7 @@ export function registerInsights(aiOn: () => boolean): void {
         if (level === 'resurface') keep(lineOf(picked.passages[0].text, `${day}:${turn}`), null, picked.passages)
         else {
           // The person may have started typing while the passages were picked.
-          if (busy(since)) return
+          if (busy(began)) return
           const words = await write(level, picked.passages)
           keep(words ?? '', words ? null : 'failed', picked.passages)
         }

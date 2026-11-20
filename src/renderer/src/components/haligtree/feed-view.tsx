@@ -59,10 +59,15 @@ const insightPost = (card: Insight): FeedPost => ({
   type: 'insight', id: card.id, kind: card.level, title: '', text: card.words, who: null, made: card.made, seen: null, gloss: null, clue: null, react: null,
   replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null, insight: card
 })
-/** The insights set among the day's posts: the first after the second post, then one every fourth. */
+/**
+ * The insights spread through the day's posts: the first after the second post, the rest evenly for a full day's nine,
+ * never two together. The places hang on the day's size, not on how many are made yet, so a card made later never
+ * moves the ones already in sight.
+ */
 const woven = (posts: FeedPost[], cards: Insight[]): FeedPost[] => {
+  const step = Math.max(2, Math.floor((posts.length - 2) / 9))
   const out = [...posts]
-  cards.forEach((card, at) => out.splice(Math.min(out.length, 2 + at * 4 + at), 0, insightPost(card)))
+  cards.forEach((card, at) => out.splice(Math.min(out.length, 2 + at * (step + 1)), 0, insightPost(card)))
   return out
 }
 /**
@@ -942,19 +947,21 @@ function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: str
           ) : (
             <blockquote data-insight-words className="font-serif text-reading leading-relaxed hyphens-auto [overflow-wrap:break-word] text-foreground">{card.words}</blockquote>
           )}
-          <p data-insight-sources className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-control text-muted-foreground">
-            <span>From</span>
-            {card.sources.map((one, at) => (
-              <span key={one.id} className="flex min-w-0 items-baseline gap-2">
-                {at > 0 && <span aria-hidden>·</span>}
-                <button type="button" data-insight-source={`${one.type}:${one.id}`} {...(one.type === 'highlight' ? {} : hoverNote(one.type === 'capture' ? 'capture' : 'nugget', one.id))} onClick={() => openSource(one)}
-                  className="flex min-w-0 max-w-[32ch] items-baseline gap-1 rounded-sm text-foreground/85 underline-offset-2 hover:text-foreground hover:underline">
-                  <FileText className="size-3.5 shrink-0 self-center text-muted-foreground" />
-                  <span className="truncate">{one.title}</span>
-                </button>
-              </span>
-            ))}
-          </p>
+          {/* The notes it came from, one a line under "From", each opening its note. */}
+          <div data-insight-sources className="flex min-w-0 items-baseline gap-2 text-control text-muted-foreground">
+            <span className="shrink-0">From</span>
+            <ul className="flex min-w-0 flex-col gap-1">
+              {card.sources.map((one) => (
+                <li key={one.id} className="flex min-w-0">
+                  <button type="button" data-insight-source={`${one.type}:${one.id}`} {...(one.type === 'highlight' ? {} : hoverNote(one.type === 'capture' ? 'capture' : 'nugget', one.id))} onClick={() => openSource(one)}
+                    className="flex min-w-0 max-w-[48ch] items-baseline gap-1.5 rounded-sm text-left text-foreground/85 underline-offset-2 hover:text-foreground hover:underline">
+                    <FileText className="size-3.5 shrink-0 self-center text-muted-foreground" />
+                    <span className="truncate">{one.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
           <div data-feed-actions className="-ml-2 flex items-center gap-1 whitespace-nowrap text-muted-foreground">
             {kept ? (
               <button type="button" data-insight-kept onClick={() => card.gemId && onOpen('nugget', card.gemId)}

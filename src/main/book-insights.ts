@@ -30,10 +30,13 @@ export function bookInsights(db: DatabaseSync) {
     const out: Passage[] = []
     for (const row of rows) {
       const text = textOf(row.body).replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim()
-      const tags = tagsIn(`${row.title} ${textOf(row.body)}`).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG)
-      // #bits never come up, as in the rest of the Feed.
-      if (/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`)) continue
-      out.push({ type: row.type, id: row.id, title: row.title, text, made: row.made, tags, links: [...mentionsIn(row.body).keys()].map((link) => (link.includes(':') ? link.slice(link.indexOf(':') + 1) : link)) })
+      // Read from the words as written (a stored body is JSON: its "\n#tag" is no tag until read).
+      const tags = tagsIn(`${row.title} ${textOf(row.body)}`)
+      // #bits never come up, as in the rest of the Feed, nor the app's own lessons (#learn-haligtree): they are not yours.
+      if (tags.includes('bit') || tags.includes(LEARN_TAG)) continue
+      // Its name as the card shows it, its #tags taken out ("Primavera #renaissance" reads "Primavera").
+      const title = row.title.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gu, '').replace(/\s+/g, ' ').trim() || row.title
+      out.push({ type: row.type, id: row.id, title, text, made: row.made, tags, links: [...mentionsIn(row.body).keys()].map((link) => (link.includes(':') ? link.slice(link.indexOf(':') + 1) : link)) })
     }
     // Highlights in PDFs and web pages not kept as a gem (a kept one comes as its gem, above).
     try {
