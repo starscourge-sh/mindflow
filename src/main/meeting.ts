@@ -523,7 +523,7 @@ const undoDiscard = (id: string): Promise<void> => rename(join(discardedDir(), i
  * What Apple Intelligence is asked of a recording read again: the five lists a new one gets (native/meeting.swift
  * `take`), as fields it fills (`shaped`), each item with the [seconds] of the line it comes from.
  */
-const READ_AGAIN = 'You read part of a meeting\'s transcript and write what to take from it, plainly. Each item keeps the [seconds] of the transcript line it comes from. A list with nothing in it stays empty.'
+const READ_AGAIN = 'You read part of a meeting\'s transcript and write what to take from it, plainly, from the transcript alone. Each action appears once. Each item keeps the [seconds] of the transcript line it comes from. A list with nothing in it stays empty.'
 const SECONDS: Shape & { name: string } = { name: 'at', type: 'int', min: 0, description: 'The [seconds] of the transcript line it comes from' }
 const items = (name: string, description: string): Shape & { name: string } =>
   ({ name, type: 'array', description, items: { type: 'object', properties: [{ name: 'text', type: 'string', description: 'The item, in a short sentence' }, SECONDS] } })
@@ -531,16 +531,19 @@ const TAKE: Shape = { type: 'object', properties: [
   { name: 'summary', type: 'string', description: 'Two or three sentences, no list' },
   items('decisions', 'What was decided'),
   { name: 'actions', type: 'array', description: 'Only a real promise someone made ("I\'ll send it by Friday") or a real ask of someone ("can you check the invoice?"). Never a story, a feeling, a quote, lyrics, or a line only because it has "tell", "will" or "going to" in it. Most parts have few actions or none', items: { type: 'object', properties: [
-    { name: 'owner', type: 'string', description: 'Who will do it, as the transcript names them: "You" or "Speaker N"' },
+    // Who owns it is worked out here, not asked: the model gave a promise of "You"'s to Speaker 1 and an ask of Speaker 1
+    // to Speaker 2 (20 Nov). The line's own speaker is read from the transcript by its [seconds]; only the one asked is asked.
+    { name: 'asked', type: 'string', description: 'If the line asks someone else to do it, that person\'s label ("You" or "Speaker N"); empty if the speaker promised it themselves' },
     // "By when" is part of it, not a field: asked as its own (optional) field, the model wrote "now" for every one (20 Nov).
     { name: 'what', type: 'string', description: 'What they will do, and by when only if that was said' },
     SECONDS
   ] } },
   items('questions', 'Questions left open'),
-  items('aboutYou', 'Things said about "You" or your work')
+  // Only from the transcript: loosely asked, the model put "I am a foundation model developed by Apple." here (20 Nov).
+  items('aboutYou', 'Only lines where someone OTHER than "You" says something about You or your work ("your notes were clear"). Never a line You said. Nothing about yourself, the model. Empty if none')
 ] }
 type Item = { text: string; at: number; owner?: string }
-type Filled = { summary: string; decisions: Item[]; actions: { owner: string; what: string; at: number }[]; questions: Item[]; aboutYou: Item[] }
+type Filled = { summary: string; decisions: Item[]; actions: { asked: string; what: string; at: number }[]; questions: Item[]; aboutYou: Item[] }
 
 /**
  * A recording kept without Apple Intelligence's read (made on a Mac or a day without it): read now, a part at a time,
@@ -570,8 +573,19 @@ async function readAgain(lines: MeetingLine[], most = Infinity, ms = 5 * 60_000)
     take.decisions.push(...list(said.decisions))
     take.questions.push(...list(said.questions))
     take.missed.push(...list(said.aboutYou))
-    take.actions.push(...list((Array.isArray(said.actions) ? said.actions : []).map((one) => ({ ...one, text: one?.what }))))
+    // Its owner: the one asked, if the line asks someone else; else whoever said the line (its [seconds] in the transcript).
+    const label = (who: string): string => (who === 'you' ? 'You' : `Speaker ${who.slice(1)}`)
+    const speaker = (at: number): string => label(lines.reduce((best, one) => (Math.abs(one.at - at) < Math.abs(best.at - at) ? one : best), lines[0]).who)
+    take.actions.push(...list((Array.isArray(said.actions) ? said.actions : []).map((one) => {
+      const by = speaker(Number(one?.at) || 0)
+      const asked = String(one?.asked ?? '').trim()
+      return { text: one?.what, at: one?.at, owner: /^(You|Speaker \d+)$/.test(asked) && asked !== by ? asked : by }
+    })))
   }
+  // One job once: an ask and its answer ("Can you check it?" / "Sure, I'll check it") come back as two; the promise, the
+  // later line, names who took it on.
+  const job = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()
+  take.actions = take.actions.filter((one, at) => !take.actions.some((other, later) => later > at && job(other.text) === job(one.text)))
   return { take, actions: writtenActions(take.actions, lines) }
 }
 
