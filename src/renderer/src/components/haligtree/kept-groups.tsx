@@ -29,7 +29,7 @@ import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
 import { CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, offWindow, Slid, type Aim, type Parts, type Places } from './carry'
 import { Hinted, copy } from './row-menu'
-import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
+import { AppNamed, Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
 /** A group's title bar: as tall as a thumbnail, no taller (the old panels' slim head). */
@@ -904,7 +904,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       style={{ paddingRight: group.unsorted?.length && onSort ? '19rem' : undefined }}
                     >
                       <PopoverAnchor asChild><GroupTile group={group} empty={count === 0} /></PopoverAnchor>
-                      <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{name}</span>
+                      <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground"><AppNamed id={group.id} text={name} /></span>
                       {/* How many it holds, on the right as Finder says it, in this list's own word. */}
                       <span className="shrink-0 text-meta text-muted-foreground tabular-nums"><Count n={count} /> {count === 1 ? noun : `${noun}s`}</span>
                     </button>
@@ -926,7 +926,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '0.5rem' }}
                     >
                       <PopoverAnchor asChild><PanelTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
-                      <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
+                      <span className="min-w-0 truncate text-xs font-semibold"><AppNamed id={group.id} text={name} /></span>
                       {/* How many it holds, open or folded, on the right as a folder's row says it: one place whatever the name's length. */}
                       <span className={cn('ml-auto shrink-0 pl-3 text-xs text-muted-foreground tabular-nums transition-opacity duration-150', (over || shown) && 'opacity-0')}><Count n={count} /> {count === 1 ? noun : `${noun}s`}</span>
                       {/* Open, a hairline under it, inside the group's box. */}

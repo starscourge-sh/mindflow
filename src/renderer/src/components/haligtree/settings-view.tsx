@@ -86,7 +86,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { LongNamesSetting } from './long-names'
+import { LongNamesSetting, RecordingNames } from './long-names'
 import { StepAsideSample, BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, LineJumpSample, LineNumbersSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { useDeskAway } from '@/lib/desk-away'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Sparkles, Volume2, X } from '@/components/ui/icons'
@@ -2550,10 +2550,11 @@ function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }
   const has = meets(caps, 'ai')
   return (
     <div data-mac-needs="ai" data-mac-lacking={has ? undefined : ''}>
-      <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, and a name for a group."
-        more={has ? 'Five cards from a chapter, in the reader. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a group’s name is yours to type over.' : undefined}
-        keywords="apple intelligence ai meaning hint cards chapter typed answer check group name foundation model"
-        off={has ? undefined : lacks(caps, 'ai', true)}>
+      <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, and a name for a group or a recording."
+        more={has ? 'Five cards from a chapter, in the reader. A recording is named by what was said in its first minutes, its day and time kept after a dot. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a name is yours to type over, with Undo on its notice.' : undefined}
+        keywords="apple intelligence ai meaning hint cards chapter typed answer check group name recording meeting name foundation model"
+        off={has ? undefined : lacks(caps, 'ai', true)}
+        below={has && on && <RecordingNames on />}>
         {has && <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />}
       </Setting>
     </div>

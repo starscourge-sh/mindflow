@@ -51,7 +51,7 @@ import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
-import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
+import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
@@ -2140,6 +2140,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       // Asked from its name field (a new group, "Rename…"): put in the field, picked, while it is open; left before the
       // answer with the counting name kept, the group takes it all the same (before, it stayed "Group 3" for good).
       if (loud && live.current.renaming === group.id) return void setSuggested({ id: group.id, name })
+      namedByApp(group.id, name)
       void noteGroupsApi.set(group.id, { name })
     }
     const local = naming(members, !!group.folder)

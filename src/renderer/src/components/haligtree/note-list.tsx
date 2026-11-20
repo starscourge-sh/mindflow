@@ -24,7 +24,7 @@ import { GroupIcon, GroupedList, SectionHead, type Folds } from './kept-groups'
 import { cn } from '@/lib/cn'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
 import { IslandBox, type IslandState } from './islands'
-import { Count, Tags, Tip, VirtualList, listEnd, showRow, typing } from './ui'
+import { AppNamed, Count, Tags, Tip, VirtualList, listEnd, showRow, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -1076,7 +1076,7 @@ export const matches = (title: string, query: string, fields?: string | Record<s
  */
 /** An entry's name; with none of its own, its first line in muted ink, never a bare “Untitled” when there are words. */
 const Named = ({ entry }: { entry: Entry }): React.JSX.Element =>
-  entry.title ? <>{entry.title}</> : entry.line ? <span data-untitled className="text-muted-foreground">{entry.line}</span> : <span className="text-muted-foreground">New note</span>
+  entry.title ? <AppNamed id={entry.id} text={entry.title} /> : entry.line ? <span data-untitled className="text-muted-foreground">{entry.line}</span> : <span className="text-muted-foreground">New note</span>
 
 export function Peek({
   entry,
