@@ -2516,7 +2516,18 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
 }
 .chapter-cards-close:hover { background: color-mix(in oklab, var(--foreground) 6%, transparent); color: var(--foreground); }
 .chapter-cards-wait { display: flex; min-height: 2.5rem; align-items: center; padding-inline: 0.125rem; }
-.chapter-cards-error { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; color: var(--tt-color-text-orange); }
+/* Why no cards came, as the app's notice (study.tsx "This one keeps slipping"): a faint orange panel, its own lead
+   line in orange, the reason in the page's ink at a size that reads, never small orange words. */
+.chapter-cards-error,
+.chapter-cards-moved { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; font-size: 0.875rem; line-height: 1.45; color: var(--foreground); }
+.chapter-cards-error {
+  padding: 0.875rem 1rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--tt-color-text-orange) 35%, var(--border));
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--tt-color-text-orange) 7%, var(--background));
+}
+.chapter-cards-error-lead { margin-bottom: -0.125rem; font-size: 0.9375rem; font-weight: 600; color: var(--tt-color-text-orange); }
+.chapter-cards-moved + .chapter-cards-error { margin-top: 0.75rem; }
 
 /* "Dark pages": a cover's backing is the dark page, as the pages are (paper.ts marks the page). */
 html.dark-pages {

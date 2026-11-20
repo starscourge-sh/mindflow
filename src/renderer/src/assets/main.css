@@ -2260,20 +2260,25 @@ input[type='number']::-webkit-outer-spin-button {
    so it reads in light and dark alike; still with Motion off. A floating one
    (import-done's toast) gives itself its own surface. */
 @layer components {
+/* Never wider than the room it is in: a long wait ("Reading “Private and “Protected” Attributes…") wraps onto a
+   second line there, rather than running off a side panel's edge cut mid-word, as it did held to one line. */
 .mf-orb-pill {
   display: inline-flex;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 6px;
   min-height: 20px;
   font-size: 13px;
-  line-height: 14px;
-  white-space: nowrap;
+  line-height: 16px;
 }
 }
 .mf-shimmer {
   position: relative;
   display: inline-block;
+  min-width: 0;
+  overflow-wrap: break-word;
   color: var(--muted-foreground);
 }
 .mf-shimmer::before {

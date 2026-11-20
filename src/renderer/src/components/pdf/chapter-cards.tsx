@@ -65,9 +65,8 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
       if (!text.trim()) return setError(span === 1 ? "This page has no words to read: a scanned book needs its text read first, in Details." : "These pages have no words to read: a scanned book needs its text read first, in Details.")
       const got = await cardsFrom(range.title ? `${title}: ${range.title}` : title, text, 5)
       if (asked.current !== ask) return
+      // The real reason, from main (study-ai.ts cardsSaid): what the model answered when it held no card, never a guess.
       if ("error" in got) return setError(got.error)
-      // Said as it happened: the model read them and wrote nothing it could stand behind.
-      if (!got.cards.length) return setError(`Apple Intelligence read ${span === 1 ? "the page" : `the ${span} pages`} of ${named} and wrote no card from ${span === 1 ? "it" : "them"}. Highlight the lines that matter, which it reads first, and try again.`)
       chime("open")
       setCards(got.cards.map((one) => ({ ...one, page: one.page >= range.from && one.page <= range.to ? one.page : range.from, state: "open" })))
     })()
@@ -111,17 +110,20 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
       </div>
       <div className="book-panel-body chapter-cards-body" data-panel-scroll>
       {!cards && !error && (
-        <p className="chapter-cards-wait"><Orb label={`Reading ${named}…`} stop={stop} /></p>
+        // The heading names the section already: the wait says only how much, so it fits the panel at any title.
+        <p className="chapter-cards-wait"><Orb label={span === 1 ? "Reading this page…" : `Reading these ${span} pages…`} stop={stop} /></p>
       )}
       {/* Read on into another section: the cards here stay, and the one you are in is a press away. */}
       {moved && (
-        <div className="chapter-cards-error" data-chapter-cards-moved>
+        <div className="chapter-cards-moved" data-chapter-cards-moved>
           <p>You are in {nameOf(here)} now.</p>
           <Button variant="outline" size="sm" onClick={() => (chime("tap"), setRange(here))}>Cards from here</Button>
         </div>
       )}
       {error && (
-        <div className="chapter-cards-error" data-chapter-cards-error>
+        // A notice, not small orange words: its own lead line, the reason in the page's ink, then the way on.
+        <div className="chapter-cards-error" data-chapter-cards-error role="status">
+          <p className="chapter-cards-error-lead">No cards this time</p>
           <p>{error}</p>
           {!moved && <Button variant="outline" size="sm" onClick={() => (chime("tap"), setTries((n) => n + 1))}>Try again</Button>}
         </div>
