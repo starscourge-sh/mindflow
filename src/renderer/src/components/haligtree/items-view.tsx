@@ -53,7 +53,7 @@ import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
 import { Term } from './term'
-import { AGES, Chips, Display, FilterChips, arrange, inAge, period, useView, type Density, type Facet, type View } from './display'
+import { AGES, COLUMNS_OR_LIST, Chips, Display, columnsOrList, FilterChips, arrange, inAge, period, useView, type Density, type Facet, type View } from './display'
 import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
@@ -756,7 +756,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const from = sourceSaid(one)
     return from ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-source className="min-w-0 max-w-[50%] shrink truncate">{from}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
   }
-  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn, questionsOnly) : sourced(itemEntry(one, () => menuFor(one)), one), one)
+  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn, questionsOnly && density === 'compact') : sourced(itemEntry(one, () => menuFor(one)), one), one)
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
@@ -947,7 +947,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           <div data-list-space="" className="min-h-full pb-24">
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
-            picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} columns={questionsOnly} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
+            picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} columns={questionsOnly && density === 'compact'} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined, parts: underHeads,
               // Already in your own order, under headings: a row moves among the rows under its own.
               ...(view.sort === 'manual' && heads ? { hint: { name: 'grouped-drag', said: 'Drag a row to move it among the rows under its heading. Hold it on another row to make a group.' } } : {}) } : undefined} />
@@ -958,7 +958,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           // No questions yet: the page as it will look, as every other list shows itself.
           // Words has its own: a word with its meaning, kept from Looked up, not a question.
           <Example tryIt={ask === 'words' ? 'open “Looked up”, right-click a word with its meaning and choose “Turn it into”, then “Save as a gem”. It is kept here and comes back in Review.' : 'press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.'}>
-            <NoteList groups={[['', ask === 'words' ? exampleWords().map((one) => itemEntry(one)) : exampleQuestions().filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)).map((one) => questionEntry(one, false, undefined, true, true))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} columns className="list-edge my-2" />
+            <NoteList groups={[['', ask === 'words' ? exampleWords().map((one) => itemEntry(one)) : exampleQuestions().filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)).map((one) => questionEntry(one, false, undefined, true, density === 'compact'))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} columns={density === 'compact'} className="list-edge my-2" />
           </Example>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
@@ -1922,10 +1922,11 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   }
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
-  // Questions are one-line rows in newspaper columns and nothing else (the user, 20 Nov: "Remove the grid views");
-  // every other list starts on rows, and a choice made in Display is kept.
+  // Questions are one-line rows in newspaper columns, or the List with each row's picture boxed at its left, and no
+  // grid (the user, 20 Nov: "Remove the grid views", then the List back); every other list starts on rows, and a
+  // choice made in Display is kept.
   const columned = name === 'question' || name === WORDS
-  const density = columned ? 'compact' : (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
+  const density = columned ? columnsOrList(view) : (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
   // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
   // Named once: Display's "Sort" and the list's own right-click "Sort" offer the same orders.
   const sorts = [{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]
@@ -1942,8 +1943,9 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       sortNote={withGroups ? groupsSaid(view.sort) : undefined}
       // Grouping cuts the loose notes into sections (by kind or date) under the folders: a group is never a folder (qa/list-grouping.mjs).
       groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sourced ? [{ id: 'source', label: 'Source' }] : []), ...(all.length && all.every((one) => one.kind === 'word') ? [{ id: 'letter', label: 'First letter' }] : [])]}
-      density={columned ? undefined : density}
-      onDensity={columned ? undefined : (next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
+      density={density}
+      onDensity={(next) => setView({ ...view, [wide && !columned ? 'wideDensity' : 'density']: next })}
+      {...(columned ? COLUMNS_OR_LIST : {})}
       folders
     />
   )

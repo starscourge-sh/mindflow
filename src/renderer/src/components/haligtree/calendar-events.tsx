@@ -129,7 +129,7 @@ function ScopeAsk({ verb, offerOne, onPick }: { verb: string; offerOne: boolean;
         const n = Number(event.key)
         if (n >= 1 && n <= choices.length) (event.preventDefault(), chime('tap'), onPick(choices[n - 1][0]))
       }}>
-      <div role="dialog" aria-label={`${verb} a repeating event`} className="flex w-80 flex-col gap-1 rounded-xl border bg-background p-3 shadow-(--mf-panel-shadow)">
+      <div role="dialog" aria-label={`${verb} a repeating event`} className="flex w-80 flex-col gap-1 rounded-float border bg-background p-3 shadow-(--mf-panel-shadow)">
         <h2 className="px-1 pb-1 text-body font-semibold text-foreground">{verb} a repeating event</h2>
         {choices.map(([scope, label, note], at) => (
           <button key={scope} ref={at === 0 ? first : undefined} type="button" data-scope={scope} onClick={() => (chime('tap'), onPick(scope))}

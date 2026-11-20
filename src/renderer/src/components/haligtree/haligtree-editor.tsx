@@ -2460,7 +2460,7 @@ function Surface({
           </div>
         )}
         {lookAt && editor && createPortal(
-          <div data-look-menu role="menu" className={cn(FLOAT, "fixed z-[95] min-w-36 rounded-lg p-1 text-sm")} style={{ left: lookAt.x, top: lookAt.y }}>
+          <div data-look-menu role="menu" className={cn(FLOAT, "fixed z-[95] min-w-36 rounded-float p-1 text-sm")} style={{ left: lookAt.x, top: lookAt.y }}>
             <button type="button" role="menuitem" autoFocus className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-accent focus-visible:bg-accent"
               onClick={() => (lookUpIn(editor, lookAt.from, lookAt.to, lookAt.words), setLookAt(null))}>
               <BookOpenText className="size-4 text-muted-foreground" /> Look up

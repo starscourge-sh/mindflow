@@ -1582,7 +1582,7 @@
   max-height: 28rem;
   padding: 0.875rem 1rem 0.625rem;
   overflow-y: auto;
-  border-radius: 0.75rem;
+  border-radius: var(--mf-float-radius);
   font-size: 0.875rem;
   line-height: 1.5;
   animation: look-up-in 160ms cubic-bezier(0.16, 1, 0.3, 1);

@@ -128,7 +128,7 @@ export function NoteSize({ editor }: { editor: Editor | null }): React.JSX.Eleme
         </button>
       </TooltipTrigger>
       <TooltipContent ref={cue} data-note-size-card side="bottom" align="end" sideOffset={6}
-        className="block w-64 max-w-none rounded-xl p-3 text-control">
+        className="block w-64 max-w-none rounded-float p-3 text-control">
         {/* Its key beside its name, as a peek card shows one: the way to ask for it again without the pointer. */}
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Ruler aria-hidden className="size-3.5 shrink-0" />

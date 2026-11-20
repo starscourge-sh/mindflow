@@ -24,7 +24,7 @@ import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
 import { CaptureList, fieldOf, captureEntry, captureMenu, captureWays, inInboxWindow, selectionWays, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
-import { AGES, Display, inAge, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
+import { AGES, COLUMNS_OR_LIST, Display, columnsOrList, inAge, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
 import { useIslands, useShowOpen, type IslandState } from './islands'
 import { GraphChip, InboxGraph, useGraphShown } from './inbox-graph'
 import { DatePicker } from './date-picker'
@@ -713,10 +713,10 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
             ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => picking.toggle(capture.id) }, !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }]}
-            onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} columns={lookups} className={spread ? 'list-edge my-3' : 'list-edge my-2'} />
+            onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} columns={lookups && density === 'compact'} className={spread ? 'list-edge my-3' : 'list-edge my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
           <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : lookups ? 'press ⌘. and pick Word, or look a word up as you type it. It waits here, asked, until you write what it means.' : `press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it. ${LIFECYCLE}`}>
-            <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} columns={lookups} className="list-edge my-2" />
+            <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} columns={lookups && density === 'compact'} className="list-edge my-2" />
           </Example>
         ) : everything && (unloaded(tasks) || !shown.length) && !(spread && query.trim()) ? (unloaded(tasks) ? null : (() => {
           // Each filter's own empty page: what it would hold, and how to get some.
@@ -1283,9 +1283,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   })
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
-  // Looked up, a list of Questions, is one-line rows in newspaper columns and nothing else, as Questions' other lists are.
+  // Looked up, a list of Questions, is one-line rows in newspaper columns or the List, as Questions' other lists are.
   const columned = name === LOOKED_UP
-  const density = columned ? 'compact' : (wide ? view.wideDensity ?? 'grid' : view.density) ?? (wordsOnly ? 'small' : 'list')
+  const density = columned ? columnsOrList(view) : (wide ? view.wideDensity ?? 'grid' : view.density) ?? (wordsOnly ? 'small' : 'list')
   const display = (
     <Display
       view={view}
@@ -1295,8 +1295,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       defaults={filter ?? {}}
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), ...(rated ? [{ id: 'rating', label: 'Rating' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
       groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(wordsOnly ? [{ id: 'letter', label: 'First letter' }] : []), ...(books ? [{ id: 'book', label: 'Book looked up in' }] : []), ...(sources > 1 ? [{ id: 'source', label: 'Came from' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
-      density={columned ? undefined : density}
-      onDensity={columned ? undefined : (next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
+      density={density}
+      onDensity={(next) => setView({ ...view, [wide && !columned ? 'wideDensity' : 'density']: next })}
+      {...(columned ? COLUMNS_OR_LIST : {})}
     />
   )
   // Which tasks show rides on the Task chip. While tasks are not among what shows (another kind picked

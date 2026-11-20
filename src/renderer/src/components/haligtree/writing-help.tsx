@@ -410,7 +410,7 @@ function Card({ now }: { now: Asked }): React.JSX.Element {
       aria-label={`Writing help: ${help.label}`}
       {...pop}
       data-side={spot?.origin.endsWith('100%') ? 'top' : 'bottom'}
-      className="mf-pop fixed z-[56] flex w-[min(360px,calc(100vw-24px))] flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow) data-[state=closed]:pointer-events-none"
+      className="mf-pop fixed z-[56] flex w-[min(360px,calc(100vw-24px))] flex-col gap-2 rounded-float border bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow) data-[state=closed]:pointer-events-none"
       style={spot ? { left: spot.left, top: spot.top } : { left: -9999, top: -9999 }}
     >
       <div className="flex items-center gap-1.5 text-control font-medium text-foreground [&_svg]:size-4 [&_svg]:text-muted-foreground">

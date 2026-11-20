@@ -127,7 +127,7 @@ export function MilestoneAsker(): React.JSX.Element | null {
                 if (event.key === 'Enter' && found[0]) (event.preventDefault(), event.stopPropagation(), chime('tap'), setNote({ link: found[0].id, label: found[0].label }), setFinding(''))
               }} />
             {found.length > 0 && (
-              <div className="absolute inset-x-0 top-full z-10 mt-1 flex flex-col rounded-md border bg-popover p-1 shadow-(--mf-panel-shadow)">
+              <div className="absolute inset-x-0 top-full z-10 mt-1 flex flex-col rounded-float border bg-popover p-1 shadow-(--mf-panel-shadow)">
                 {found.map((one) => (
                   <button key={one.id} type="button" onClick={() => (chime('tap'), setNote({ link: one.id, label: one.label }), setFinding(''))}
                     className="private-text truncate rounded px-2 py-1 text-left text-control hover:bg-accent">{one.label}</button>

@@ -71,7 +71,7 @@ function PopoverContent({
           FLOAT,
           // Its entrance and exit are `mf-pop` (main.css): grown out of the trigger's side by a clip, the surface whole from
           // its first frame, never faded (a frosted surface fading in shows the page sharp through it until the fade ends).
-          "mf-pop z-50 flex max-h-(--radix-popover-content-available-height) w-72 flex-col gap-4 overflow-y-auto rounded-lg p-2.5 text-xs outline-hidden",
+          "mf-pop z-50 flex max-h-(--radix-popover-content-available-height) w-72 flex-col gap-4 overflow-y-auto rounded-float p-2.5 text-xs outline-hidden",
           className
         )}
         {...props}

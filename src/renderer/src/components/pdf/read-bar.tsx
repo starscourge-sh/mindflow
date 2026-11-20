@@ -9,7 +9,6 @@ import { menuIcon } from "@/components/ui/menu-icon-rules"
 import { HELP_LINES, helpWords, type Away } from "@/components/haligtree/writing-help"
 import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
 import { MCard } from "@/components/haligtree/peek"
-import { Pressed } from "@/components/haligtree/ui"
 import { BLANK } from "@/lib/blanks"
 import { chime } from "@/lib/sound"
 import { quoted } from '../../../../main/clip'
@@ -188,8 +187,6 @@ function Words({ picked, style, className }: { picked: Picked; style?: React.CSS
   const [before, words, after] = around(picked)
   return <Before>{before}<span style={style} className={className}>{words}</span>{after}</Before>
 }
-const Gap = (): React.JSX.Element => <span className="inline-block w-12 border-b border-foreground/60 align-baseline" />
-const Also = ({ keys }: { keys: string }): React.JSX.Element => <><Pressed keys={keys} /> keeps it as a gem too</>
 
 /**
  * The right-click menu's previews on picked words, as the slash menu has: a
@@ -198,7 +195,6 @@ const Also = ({ keys }: { keys: string }): React.JSX.Element => <><Pressed keys=
  */
 function readPeeks(picked: Picked, keyed = true): Record<string, MenuPeekEntry> {
   const [before, words, after] = around(picked)
-  const [ask, rest] = blankOf(picked).asked.split(BLANK)
   const where = [picked.by, picked.where].filter(Boolean).join(", ")
   const colours = Object.fromEntries(MARK_COLORS.filter((one) => one.id !== "later").map((one, i): [string, MenuPeekEntry] => [`colour-${one.id ?? "book"}`, {
     text: `**Highlight in ${one.id ? one.label.toLowerCase() : "the book's colour"}.** The words keep it on the page.`, keys: String(i + 1), whole: true, fit: true,
@@ -208,8 +204,6 @@ function readPeeks(picked: Picked, keyed = true): Record<string, MenuPeekEntry> 
     ...colours,
     highlight: { text: "**The words get a colour that stays on the page.** H uses the last colour; 1 to 5 pick one.", whole: true, fit: true, art: () => (<><Before>{before}{words}{after}</Before><Arrow /><Words picked={picked} style={lit(markCss(lastColor()))} /></>) },
     keep: { text: "**The words become a gem, with where they came from.** It comes back in Home and the Feed.", keys: "K", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{quoted(words, 80)}</p><p className="mt-1 text-[9.5px] text-muted-foreground">{picked.where}</p></MCard>) },
-    card: { text: "**A question you write, with these words as its answer.** A study card: it comes up in Review only.", keys: "C", foot: <Also keys="⌥C" />, whole: true, fit: true, art: () => (<MCard><p className="text-[9px] text-muted-foreground">Question</p><p className="text-[10.5px] italic text-muted-foreground">The one you write next</p><div className="my-1 h-px bg-foreground/10" /><p className="text-[9px] text-muted-foreground">Answer</p><p className="font-serif text-[10.5px]">{words}</p></MCard>) },
-    blank: { text: "**The words blanked out of their sentence: a card that asks you to fill them in.** In Review only.", keys: "⇧C", foot: <Also keys="⌥⇧C" />, whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{ask.length > 60 ? `…${ask.slice(-60).replace(/^\S*\s+/, "")}` : ask}<Gap />{short(rest ?? "", 50)}</p><p className="mt-1 text-[9.5px] text-muted-foreground">Answer: {words}</p></MCard>) },
     later: { text: "**Mark words to turn into cards later, all at once.** “Make your marked cards” asks for each.", keys: "6", whole: true, fit: true, art: () => <Words picked={picked} className="border-b border-dashed" style={{ borderColor: "var(--tt-brand-color-500, #c08a2e)" }} /> },
     cite: { text: "**Copied with where they came from,** ready to paste into an essay.", keys: "⇧⌘C", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{quoted(words, 80)} ({where})</p></MCard>) },
     copy: { text: "**Just the words, copied as they are.**", keys: "⌘C", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{words}</p></MCard>) },
@@ -243,7 +237,7 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
           field is filled with its question while nothing is typed (WhyAfter `about`); Writing help keeps no copy of it. */}
       {actions.card ? (
         <ContextMenuSub>
-          <ContextMenuSubTrigger data-peek="card" data-make-card onClick={makeCard}>
+          <ContextMenuSubTrigger data-make-card onClick={makeCard}>
             <SquareStack />
             Make a card
             <ContextMenuShortcut>C</ContextMenuShortcut>

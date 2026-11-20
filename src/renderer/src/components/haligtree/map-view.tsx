@@ -480,7 +480,7 @@ function FindOnMap({ nodes, onPick }: { nodes: NoteMap['nodes']; onPick: (id: st
           className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground" />
       </label>
       {open && words.trim() && (
-        <ul className={`absolute top-full right-0 z-20 mt-1 w-72 rounded-lg p-1 text-control ${FLOAT}`}>
+        <ul className={`absolute top-full right-0 z-20 mt-1 w-72 rounded-float p-1 text-control ${FLOAT}`}>
           {found.length ? found.map((node, n) => {
             const Icon = (kindOf(node.kind) ?? CAPTURE_TYPES[0]).icon
             return (

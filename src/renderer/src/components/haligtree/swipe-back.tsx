@@ -325,7 +325,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={calm ? { duration: 0.15 } : { type: 'spring', duration: 0.32, bounce: 0.18 }}
-            className="fixed z-50 flex w-64 flex-col gap-0.5 rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow)"
+            className="fixed z-50 flex w-64 flex-col gap-0.5 rounded-float border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow)"
             // Where the swipe was: grown out of the round arrow at the pane's edge, on the side it came from, at the
             // pane's middle, always inside the window; a long list rises to fit. Not from the arrows up in the tab
             // row: the hand is at the edge, and the list belongs under it.

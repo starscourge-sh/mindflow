@@ -152,7 +152,7 @@ export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline'
       <AnimatePresence>
         {note && (
           <motion.span key={note.at} role="status"
-            className={`pointer-events-none fixed z-[100] -translate-x-1/2 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap ${FLOAT}`}
+            className={`pointer-events-none fixed z-[100] -translate-x-1/2 rounded-tip px-2.5 py-1.5 text-xs font-medium whitespace-nowrap ${FLOAT}`}
             style={{ left: note.x, top: note.y }}
             initial={still() ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

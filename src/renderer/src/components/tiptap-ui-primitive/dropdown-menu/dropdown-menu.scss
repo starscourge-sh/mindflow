@@ -30,7 +30,7 @@
   max-height: var(--radix-dropdown-menu-content-available-height);
   overflow-x: hidden;
   overflow-y: auto;
-  border-radius: var(--radius, 0.625rem); // a menu: 10px (DESIGN.md "Shapes")
+  border-radius: var(--mf-float-radius); // every floating surface: one corner (main.css)
   padding: 0.375rem;
   background-color: var(--tt-dropdown-menu-bg-color);
   color: var(--tt-dropdown-menu-text-color);
@@ -71,7 +71,7 @@
   z-index: 50;
   min-width: 6rem;
   overflow: hidden;
-  border-radius: var(--radius, 0.625rem); // a menu: 10px (DESIGN.md "Shapes")
+  border-radius: var(--mf-float-radius); // every floating surface: one corner (main.css)
   padding: 0.25rem;
   background-color: var(--tt-dropdown-menu-bg-color);
   box-shadow: var(--tt-shadow-elevated-md);

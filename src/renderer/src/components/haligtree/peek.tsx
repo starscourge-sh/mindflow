@@ -18,7 +18,7 @@ import { Pressed, WithMarks } from './ui'
  */
 
 /** The card's own surface: the one floating material (lib/float.ts). */
-export const PEEK_SURFACE = `w-[17rem] rounded-xl p-1.5 ${FLOAT}`
+export const PEEK_SURFACE = `w-[17rem] rounded-float p-1.5 ${FLOAT}`
 
 /** True while something is being carried: a list row, a note, a split. */
 export const carrying = (): boolean => {
@@ -36,7 +36,7 @@ export function PeekCard({ art, text, keys, foot, fit = false, whole = false }: 
     <div data-peek-card className="flex flex-col gap-0">
       {/* A picture of the thing, never a control: nothing in it can be reached. */}
       {art !== undefined && (
-        <div aria-hidden inert className={`pointer-events-none relative ${fit ? 'max-h-[8.75rem] min-h-[4rem]' : 'h-[8.75rem]'} overflow-hidden rounded-lg border border-foreground/[0.08] bg-background px-3 py-2.5 text-[10.5px] leading-[1.4] text-foreground select-none ${whole ? '' : '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),rgb(0_0_0/0.25))]'}`}>
+        <div aria-hidden inert className={`pointer-events-none relative ${fit ? 'max-h-[8.75rem] min-h-[4rem]' : 'h-[8.75rem]'} overflow-hidden rounded-sm border border-foreground/[0.08] bg-background px-3 py-2.5 text-[10.5px] leading-[1.4] text-foreground select-none ${whole ? '' : '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),rgb(0_0_0/0.25))]'}`}>
           {art}
         </div>
       )}

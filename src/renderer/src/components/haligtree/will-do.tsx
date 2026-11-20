@@ -175,7 +175,7 @@ export function TokenHint({ hover }: { hover: { token: BoxToken; rect: DOMRect }
       data-token-hint
       // In by `mf-pop` (main.css), as every tip is: grown down from the token by a clip, never faded (it is frosted).
       data-state="open" data-side="bottom"
-      className="mf-pop mf-frost pointer-events-none fixed z-[100] flex max-w-xs flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-xs bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
+      className="mf-pop mf-frost pointer-events-none fixed z-[100] flex max-w-xs flex-col gap-0.5 rounded-tip px-2.5 py-1.5 text-xs bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
       style={{ left: Math.max(8, Math.min(rect.left, window.innerWidth - 300)), top: rect.bottom + 6 }}
     >
       <span className="flex items-center gap-1.5">
