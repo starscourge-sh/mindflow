@@ -122,9 +122,9 @@ export function ScanDetail({ src, doc, onRead }: { src: string; doc: PDFDocument
     return (
       <p data-pdf-scan-detail className="mt-3 flex items-center gap-2 text-meta text-muted-foreground">
         <ScanText className="size-3.5 shrink-0" aria-hidden />
-        <span className="flex-1">Text read on this Mac.</span>
+        <span className="flex-1">A scan, its words read on this Mac so you can search, select and highlight them.</span>
         <button type="button" data-pdf-scan-forget className="cursor-pointer rounded-sm font-medium text-(--mf-muted-strong) hover:text-foreground hover:underline active:scale-[0.97]"
-          onClick={() => void call<boolean>("pdf:read-forget", src).then((gone) => gone && (chime("fold"), toast("Back to the scan as it came", () => void readPages(src)), onRead()))}>Back to the scan</button>
+          onClick={() => void call<boolean>("pdf:read-forget", src).then((gone) => gone && (chime("fold"), toast("The words read from this scan are forgotten: it is photos again", () => void readPages(src)), onRead()))}>Forget the words</button>
       </p>
     )
   if (!scanned) return null
