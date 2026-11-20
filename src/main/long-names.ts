@@ -26,7 +26,7 @@ export const isLong = (name: string): boolean => {
   return words.split(' ').length > 7 || words.length > 56
 }
 
-export type Long = { kind: 'capture' | 'task'; id: string; name: string; /** A recording named after its event, not by what was said. */ fromEvent?: boolean }
+export type Long = { kind: 'capture' | 'task'; id: string; name: string }
 export type Renamed = Long & { to: string }
 /** As it was, for Undo; `heading`: the name its heading was given (a note named for itself), put back alone. */
 type Was = { kind: 'capture' | 'task'; id: string; title: string; body: string | null; aliases: string | null; named: number; heading?: string }
@@ -194,7 +194,8 @@ export async function nameRecording(id: string): Promise<void> {
 }
 
 /** The meeting notes still under the name they were kept with, newest first, for the backfill. */
-function recordingsToName(): Long[] {
+/** Each with whether its name comes from its event (`fromEvent`), not from what was said. */
+function recordingsToName(): (Long & { fromEvent: boolean })[] {
   // Only the ones that can still wear the name they were kept with: "Recording, …", or an event's (its title). The
   // rest (renamed by hand, or by this) are never opened and read.
   const ids = database().prepare(`select id from captures where source = 'Meeting' and status != 'discarded' and private = 0 and (${LABEL} like 'Recording, %' or body like '%"event":{%') order by captured_at desc limit 2000`).all() as { id: string }[]
