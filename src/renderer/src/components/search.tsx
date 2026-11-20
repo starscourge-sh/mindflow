@@ -4,12 +4,12 @@ import { BookMarked, Image as ImageIcon } from 'lucide-react'
 import { showMediaFile } from '@/lib/media-files'
 import { aimAt } from '@/lib/meeting'
 import { useSeen } from '@/lib/reads-in'
-import { Fragment, memo, useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, memo, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { smallPicture } from '@/lib/notes'
 import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
-import { motion, useIsPresent } from 'motion/react'
-import { byKeys, sheetMotion } from '@/lib/motion'
+import { AnimatePresence, motion, useIsPresent, type Variants } from 'motion/react'
+import { byKeys, EASE, motionNow, sheetMotion } from '@/lib/motion'
 import { chime, click, step, type Cue } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { Swatch } from './theme/theme-picker'
@@ -82,8 +82,59 @@ export type Choice = { label: string; note?: string; mark?: ReactNode; run: () =
 
 /** A row of ⌘K's "Look it up": a free site's line, one of its answers, one plain line on why there are none, or its ask under way.
  * `count`: a site asked as you type (“Look things up as I search”), folded to one row saying how many it found; `under`: one of
- * its answers, shown when that row is open, hung under it. */
-type Look = { site: FreeSite; hit?: FreeHit; said?: string; asking?: boolean; count?: number; under?: boolean }
+ * its answers, shown when that row is open, hung under it. `suggest`: the site's own "Did you mean", where it found nothing;
+ * `waiting`: a site asked as you type and not yet answered, its room kept (the orb only once the wait is a real one). */
+type Look = { site: FreeSite; hit?: FreeHit; said?: string; asking?: boolean; count?: number; under?: boolean; suggest?: string; waiting?: boolean }
+/** A look row's own name among its section's, the same from one keystroke to the next, so a row that stays is never drawn afresh. */
+const lookKey = (one: Look): string => one.waiting ? 'look:waiting' : `${one.site.id}:${one.hit?.href ?? (one.count !== undefined ? 'count' : one.suggest !== undefined ? 'suggest' : one.said ? 'said' : one.asking || one.waiting ? 'asking' : 'line')}`
+
+/**
+ * How "Look it up" takes what a site sends back (the user, 20 Nov 2026: "nothing smooth or delightful about how results
+ * just pop in and consume space"). Only what arrives late moves: an answer opens its own room, 0 to its height, as it
+ * fades in, so the rows under it glide down rather than jump, and the wait it replaces closes in the same beat, so the
+ * section's height swaps in one movement. A few rows overlap by 30ms, then 25, then 20 (all in by 250ms). What a key
+ * does (a letter typed, a line picked, a site's answers opened) is simply there, as is everything with Motion off;
+ * with Reduce motion the rows only fade, nothing grows.
+ */
+const LOOK_DELAY = [0, 0.03, 0.055, 0.075, 0.09]
+/** The orb in a room kept for an answer, once the wait is a real one (300ms, as search's own "Searching…"): a site that answers in a blink shows none. */
+function RealWait({ label }: { label: string }): React.JSX.Element | null {
+  const [real, setReal] = useState(false)
+  useEffect(() => {
+    const wait = setTimeout(() => setReal(true), 300)
+    return () => clearTimeout(wait)
+  }, [])
+  return real ? <Orb label={label} className="animate-in fade-in-0 duration-200" /> : null
+}
+type Arrive = { late: boolean; step: number }
+/**
+ * One look row's room. Going (its wait answered, an answer gone by the next one), it is no longer a row while it closes:
+ * nothing in it is lit, walked by the arrows, clicked or found as a look row, so the light lands on what came instead.
+ */
+function LookRoom({ arrive, children }: { arrive: Arrive; children: ReactNode }): React.JSX.Element {
+  const present = useIsPresent()
+  const room = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (present) return
+    for (const one of room.current?.querySelectorAll('[data-search-at], [data-look], [data-look-asking]') ?? [])
+      for (const name of ['data-search-at', 'data-look', 'data-look-asking', 'data-look-waiting']) one.removeAttribute(name)
+  }, [present])
+  return (
+    <motion.div ref={room} data-look-room custom={arrive} variants={LOOK_ROW} initial={arrive.late ? 'away' : false} animate="here" exit="away" inert={!present} className="overflow-hidden">
+      {children}
+    </motion.div>
+  )
+}
+const LOOK_ROW: Variants = {
+  here: ({ late, step }: Arrive) => {
+    const how = late ? motionNow() : 'none'
+    return { opacity: 1, height: 'auto', transition: how === 'none' ? { duration: 0 } : { duration: 0.18, ease: EASE, delay: how === 'all' ? LOOK_DELAY[Math.min(step, LOOK_DELAY.length - 1)] : 0 } }
+  },
+  away: ({ late }: Arrive) => {
+    const how = late ? motionNow() : 'none'
+    return how === 'all' ? { opacity: 0, height: 0, transition: { duration: 0.16, ease: EASE } } : { opacity: 0, height: how === 'fade' ? 'auto' : 0, transition: { duration: 0 } }
+  }
+}
 
 /** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
 const ROOMY = '(min-width: 700px)'
@@ -233,51 +284,65 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // place, or one plain line says it could not be reached; words typed since bring the line back.
   const lookWords = pre?.words ?? typed
   const lookSites = pre ? [pre.site] : menus && !scoped && !address && lookWords.length > 1 && !typed.startsWith('kind:') ? FREE_SITES : []
-  const [outside, setOutside] = useState<{ site: FreeSite['id']; words: string; hits: FreeHit[] | null; offline?: boolean; failed?: boolean } | null>(null)
+  const [outside, setOutside] = useState<{ site: FreeSite['id']; words: string; hits: FreeHit[] | null; suggest?: string; offline?: boolean; failed?: boolean } | null>(null)
   // “Look things up as I search” (Settings, off at first): the ticked sites whose terms allow it are asked once your own
   // results are in, with the words typed and nothing else. Each that found something is one folded row under your
-  // results ("Wikipedia · 5 results ›"); one that found nothing shows nothing; one that did not answer keeps its line,
+  // results ("Wikipedia · 5 results ›"); one that found nothing shows nothing (or its own "Did you mean"); one that did not answer keeps its line,
   // which asks again and says why. The last answer stays until the next one lands, so nothing blinks as you type.
   const settings = useLive(haligtree.settings, null as Settings | null)
   const asYouType = settings?.lookAsYouSearch && !pre ? lookSites.filter((one) => one.asYouType && (settings.lookSources ?? []).includes(one.id)) : []
-  const [typedAsk, setTypedAsk] = useState<Partial<Record<FreeSite['id'], { words: string; hits?: FreeHit[] }>>>({})
+  const [typedAsk, setTypedAsk] = useState<Partial<Record<FreeSite['id'], { words: string; hits?: FreeHit[]; suggest?: string }>>>({})
   const [openSites, setOpenSites] = useState<FreeSite['id'][]>([])
+  // Counted up each time a site's answer lands: the render it lands in is the only one whose new rows move (LOOK_ROW).
+  const [landed, setLanded] = useState(0)
+  const landedSeen = useRef(landed)
+  const late = landed !== landedSeen.current
+  useEffect(() => void (landedSeen.current = landed), [landed])
   const typedSites = asYouType.map((one) => one.id).join(' ')
   useEffect(() => {
     if (!typedSites || searched !== query) return
     let old = false
     for (const site of asYouType)
-      void call<{ hits?: FreeHit[] }>('free:search', site.id, lookWords).then((got) => !old && setTypedAsk((now) => ({ ...now, [site.id]: { words: lookWords, hits: got.hits } })))
+      void call<{ hits?: FreeHit[]; suggest?: string }>('free:search', site.id, lookWords).then((got) => {
+        if (old) return
+        setTypedAsk((now) => ({ ...now, [site.id]: { words: lookWords, hits: got.hits, suggest: got.suggest } }))
+        setLanded((n) => n + 1)
+      })
     return () => void (old = true)
   }, [searched, typedSites]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Asked as you type, the sites answer in their own order and in their own time: each shows only once every site above
+  // it has answered, so an answer only ever grows the section under what is there, never pushes in above it. Until then
+  // one row keeps the room, where the first site still out will go.
+  const firstOut = asYouType.findIndex((site) => !typedAsk[site.id])
   const lookRows: Look[] = lookSites.flatMap((site): Look[] => {
     const got = outside?.site === site.id && outside.words === lookWords ? outside : null
-    const typedGot = asYouType.includes(site) ? typedAsk[site.id] : undefined
+    const typedAt = asYouType.indexOf(site)
+    if (!got && typedAt >= 0 && firstOut >= 0 && typedAt >= firstOut) return typedAt === firstOut ? [{ site, waiting: true }] : []
+    const typedGot = typedAt >= 0 ? typedAsk[site.id] : undefined
     if (!got && typedGot) {
       if (!typedGot.hits) return [{ site }]
-      if (!typedGot.hits.length) return []
+      if (!typedGot.hits.length) return typedGot.suggest ? [{ site, suggest: typedGot.suggest, said: `${site.word} has nothing by that name` }] : []
       return [{ site, count: typedGot.hits.length }, ...(openSites.includes(site.id) ? typedGot.hits.map((hit) => ({ site, hit, under: true })) : [])]
     }
-    // Not yet answered as you type: nothing until it is, so a line never shows only to give way to its answer.
-    if (!got && asYouType.includes(site)) return []
     if (!got) return [{ site }]
     if (got.offline) return [{ site, said: `${site.word} cannot be reached: this Mac is offline` }]
     if (got.failed) return [{ site, said: `${site.word} did not answer just now` }]
     if (!got.hits) return [{ site, asking: true }]
-    if (!got.hits.length) return [{ site, said: `${site.word} has nothing by that name` }]
+    if (!got.hits.length) return [{ site, said: `${site.word} has nothing by that name`, suggest: got.suggest }]
     return got.hits.map((hit) => ({ site, hit }))
   })
   const lookIsland = useFold('cmdk.look', { total: lookRows.length })
   const lookShown = lookIsland.folded ? [] : lookRows
   // Asked: the light goes to its first answer (or its line saying why there is none) when it comes.
   const landOn = useRef<string | null>(null)
-  const askSite = (site: FreeSite): void => {
-    const words = lookWords
+  const askSite = (site: FreeSite, words = lookWords): void => {
     chime('tap')
     landOn.current = site.id
     setOutside({ site: site.id, words, hits: null })
-    void call<{ hits?: FreeHit[]; offline?: true; failed?: true }>('free:search', site.id, words).then((got) =>
-      setOutside((now) => (now?.site === site.id && now.words === words ? { site: site.id, words, hits: got.hits ?? null, offline: !!got.offline, failed: !!got.failed } : now)))
+    void call<{ hits?: FreeHit[]; suggest?: string; offline?: true; failed?: true }>('free:search', site.id, words).then((got) => {
+      setOutside((now) => (now?.site === site.id && now.words === words ? { site: site.id, words, hits: got.hits ?? null, suggest: got.suggest, offline: !!got.offline, failed: !!got.failed } : now))
+      setLanded((n) => n + 1)
+    })
   }
   // Several results picked (⇧-click, or ⌘A once the words are all selected), to make tasks of or queue together.
   // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
@@ -352,7 +417,13 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   }, [outside]) // eslint-disable-line react-hooks/exhaustive-deps
   /** A look row picked: an answer opens in the reader (to the side on ⌥, a new tab on ⌘); a line asks its site. */
   const runLook = (one: Look, how?: 'aside' | 'tab'): void => {
-    if (one.asking) return
+    if (one.asking || one.waiting) return
+    // The site's "Did you mean": its words take the box's place, and the site is asked them (as you type, by the box's own ask).
+    if (one.suggest !== undefined) {
+      setQuery(pre ? `${pre.site.prefix} ${one.suggest}` : one.suggest)
+      if (!asYouType.includes(one.site)) askSite(one.site, one.suggest)
+      return
+    }
     // A site's folded answers: opened or folded again, the light staying on its row.
     if (one.count !== undefined) {
       const open = openSites.includes(one.site.id)
@@ -570,9 +641,11 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // site's word at the right edge, and a second line under the name: what it is, beside its picture where it has one).
   const lookRow = (one: Look, index: number): React.JSX.Element => {
     const on = index === at
-    const key = `${one.site.id}:${one.hit?.href ?? (one.said ? 'said' : one.asking ? 'asking' : 'line')}`
-    if (one.asking) return <p key={key} data-search-at={on || undefined} data-look-asking={one.site.id} className="relative flex px-2 py-1.5"><Orb label={`Asking ${one.site.name}…`} /></p>
-    const Mark = one.hit || one.count !== undefined ? BookOpen : one.said ? (outside?.offline ? WifiOff : SearchX) : null
+    const key = lookKey(one)
+    if (one.asking) return <p key={key} data-search-at={on || undefined} data-look-asking={one.site.id} className="relative flex h-8 px-2 py-1.5"><Orb label={`Asking ${one.site.name}…`} /></p>
+    // Asked as you type: the room is there at once, at a row's height; the orb only once it is a real wait.
+    if (one.waiting) return <p key={key} data-search-at={on || undefined} data-look-asking={one.site.id} data-look-waiting className="relative flex h-8 px-2 py-1.5"><RealWait label={`Asking ${one.site.name}…`} /></p>
+    const Mark = one.suggest !== undefined ? SpellCheck : one.hit || one.count !== undefined ? BookOpen : one.said ? (outside?.offline ? WifiOff : SearchX) : null
     const open = one.count !== undefined && openSites.includes(one.site.id)
     const hit = one.hit
     // An answer's right-click: where it can open, as a link's own menu offers them (turn-into/clicked.tsx).
@@ -584,14 +657,14 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     ] : []
     return (
       <RowMenu key={key} items={menu}>
-      <button type="button" data-search-at={on || undefined} data-look={one.site.id} data-look-kind={one.hit ? 'hit' : one.said ? 'said' : one.count !== undefined ? 'count' : 'line'} aria-expanded={one.count !== undefined ? open : undefined}
+      <button type="button" data-search-at={on || undefined} data-look={one.site.id} data-look-kind={one.hit ? 'hit' : one.suggest !== undefined ? 'suggest' : one.said ? 'said' : one.count !== undefined ? 'count' : 'line'} aria-expanded={one.count !== undefined ? open : undefined}
         className="relative flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left"
         onMouseMove={(event) => realMove(event) && setAt(index)}
         onClick={(event) => (runLook(one, event.altKey ? 'aside' : event.metaKey ? 'tab' : undefined), box.current?.focus())}>
         <span className="flex h-5 w-full min-w-0 items-center gap-2">
           {Mark ? <Mark aria-hidden className="size-4 shrink-0" style={{ color: one.hit ? 'var(--tt-color-text-blue)' : 'var(--muted-foreground)' }} /> : <MenuGlyph label="Search" small />}
-          <span data-look-title className="min-w-0 truncate leading-5">{one.hit ? one.hit.title : one.count !== undefined ? `${one.site.word} · ${plural(one.count, 'result')}` : one.said ?? `Search ${one.site.say} for ${quoted(clip(lookWords, 40), 80)}`}</span>
-          {one.hit && !one.under && <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">{one.site.word}</span>}
+          <span data-look-title className="min-w-0 truncate leading-5">{one.hit ? one.hit.title : one.suggest !== undefined ? `Did you mean ${quoted(clip(one.suggest, 40), 80)}?` : one.count !== undefined ? `${one.site.word} · ${plural(one.count, 'result')}` : one.said ?? `Search ${one.site.say} for ${quoted(clip(lookWords, 40), 80)}`}</span>
+          {(one.hit || one.suggest !== undefined) && !one.under && <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">{one.site.word}</span>}
           {one.count !== undefined && <ChevronRight aria-hidden className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-(--mf-ease) ${open ? 'rotate-90' : ''}`} />}
         </span>
         {one.hit && (one.hit.line || one.hit.picture) && (
@@ -600,6 +673,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
             <span className="min-w-0 truncate">{one.hit.line}</span>
           </span>
         )}
+        {/* Said under it, so the guess never reads as a match: the site has nothing by the words as typed. */}
+        {one.suggest !== undefined && one.said && <span data-look-line className="flex h-5 min-w-0 items-center pl-6 text-sm leading-5 text-muted-foreground"><span className="min-w-0 truncate">{one.said}</span></span>}
       </button>
       </RowMenu>
     )
@@ -799,18 +874,22 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
             {lookRows.length > 0 && (
               <IslandBox plain name={pre ? pre.site.word : 'Look it up'} island={{ ...lookIsland, whole: false }} shown={lookRows.length} uncounted
                 icon={<BookOpenText aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
-                {lookShown.map((one, step) => {
-                  if (one.under) return null
+                {/* Each row by its own name, so one that stays from a keystroke to the next is the same row, never drawn
+                    afresh; what lands late opens its room and fades in, what it replaces closes in the same beat (LOOK_ROW). */}
+                <AnimatePresence initial={false} custom={{ late, step: 0 } satisfies Arrive}>
+                {lookShown.filter((one) => !one.under).map((one, row) => {
+                  const step = lookShown.indexOf(one)
                   const base = doing.length + rowsShown.length
                   // An open site's answers hang under its row, as children do everywhere (Branches): its trunk lit to the one in the light.
                   const under = one.count !== undefined && openSites.includes(one.site.id) ? lookShown.flatMap((each, place) => (each.under && each.site === one.site ? [place] : [])) : []
                   return (
-                    <Fragment key={`${one.site.id}:${step}`}>
+                    <LookRoom key={lookKey(one)} arrive={{ late, step: row }}>
                       {lookRow(one, base + step)}
                       {under.length > 0 && <Branches current={under.findIndex((place) => base + place === at)} className="ml-5 flex flex-col">{under.map((place) => lookRow(lookShown[place], base + place))}</Branches>}
-                    </Fragment>
+                    </LookRoom>
                   )
                 })}
+                </AnimatePresence>
               </IslandBox>
             )}
             </>}

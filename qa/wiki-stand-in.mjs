@@ -3,7 +3,7 @@
 // catalogue, the Stanford Encyclopedia of Philosophy's search and Wikimedia's pictures,
 // on this machine. Its search answers by the words asked: a Faust's bargain (any spelling) finds three pages, "nothing" none. Set HALIGTREE_QA_SITES to its address before the app starts:
 // main sends every ask for those sites here (src/main/outside.ts), so a test never asks
-// the real ones. `asked` lists every ask; `offline(true)` makes each one fail as a Mac
+// the real ones. `asked` lists every ask; `slow(ms)` holds each wiki search that long; `offline(true)` makes each one fail as a Mac
 // with no network would.
 import { createServer } from 'node:http'
 import { deflateSync, crc32 } from 'node:zlib'
@@ -78,6 +78,41 @@ const FAUST = {
     { id: 22, key: 'Faustian_bargain', title: 'Faustian bargain', excerpt: 'A pact in which a person trades something of supreme value', description: 'Pact trading something of supreme value for worldly gain', thumbnail: null }
   ]
 }
+/** Wikipedia's full-text answer to a word cut short, "serendipit", as it really gave it (20 Nov 2026): pages that use the word, not the word's own page. */
+const MEDICI = {
+  pages: [
+    { id: 30, key: 'The_Medici_Effect', title: 'The Medici Effect', excerpt: 'a book about <span class="searchmatch">serendipit</span>ous innovation', description: 'Book by Frans Johansson', thumbnail: null },
+    { id: 31, key: 'Frans_Johansson', title: 'Frans Johansson', excerpt: 'an author who writes on <span class="searchmatch">serendipit</span>y', description: 'Swedish-American writer', thumbnail: null }
+  ]
+}
+/** The titles each wiki's own autocomplete knows (its search box's prefix search), with what it says of each. */
+const TITLES = {
+  'en.wikipedia.org': [
+    { id: 1, key: 'Roman_Empire', title: 'Roman Empire', excerpt: 'Roman Empire', description: 'State and civilisation, 27 BC to AD 476', thumbnail: { url: '//thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Trajan_117AD.png/60px-Trajan_117AD.png?utm_source=en.wikipedia.org' } },
+    { id: 40, key: 'Serendipity', title: 'Serendipity', excerpt: 'Serendipity', description: 'Unplanned, fortunate discovery', thumbnail: { url: '//thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Horace_Walpole.jpg/60px-Horace_Walpole.jpg?utm_source=en.wikipedia.org' } },
+    { id: 41, key: 'Serendipity_(film)', title: 'Serendipity (film)', excerpt: 'Serendipity (film)', description: '2001 film by Peter Chelsom', thumbnail: null }
+  ],
+  'en.wiktionary.org': [
+    { id: 9, key: 'serendipity', title: 'serendipity', excerpt: 'serendipity', description: null, thumbnail: null },
+    { id: 10, key: 'serendipitous', title: 'serendipitous', excerpt: 'serendipitous', description: null, thumbnail: null }
+  ]
+}
+/** As the wiki's autocomplete forgives: a title starts with the words, or would with one letter changed, added or dropped. */
+const near = (a, b) => {
+  if (Math.abs(a.length - b.length) > 1) return false
+  let i = 0
+  while (i < a.length && a[i] === b[i]) i++
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i)
+}
+const titled = (host, q) => {
+  const typed = q.toLowerCase().trim()
+  return (TITLES[host] ?? []).filter(({ title }) => {
+    const name = title.toLowerCase()
+    return name.startsWith(typed) || [typed.length - 1, typed.length, typed.length + 1].some((cut) => near(typed, name.slice(0, cut)))
+  })
+}
+/** Words no page has, misspelt, and the search's own "Did you mean" for them. */
+const GUESSES = { 'serendipty discovry': 'serendipity discovery' }
 const GUTENBERG = `<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Books: frankenstein</title>
 <entry><id>https://www.gutenberg.org/ebooks/authors/search.opds/?query=frankenstein</id><title>Authors</title><content type="text">One author name matches your search.</content></entry>
 <entry><id>https://www.gutenberg.org/ebooks/84.opds</id><title>Frankenstein; or, The modern Prometheus</title><content type="text">Mary Wollstonecraft Shelley</content></entry></feed>`
@@ -89,6 +124,7 @@ const SEP = `<html><body><div class="search_results"><div class="result_listing"
 export async function standIn() {
   const asked = []
   let down = false
+  let wait = 0
   const server = createServer((request, response) => {
     asked.push(request.url)
     if (down) return void request.socket.destroy()
@@ -100,11 +136,19 @@ export async function standIn() {
     const agent = request.headers['user-agent'] ?? ''
     if (!agent || agent === 'node' || /^undici/i.test(agent)) return send(429, 'text/plain', 'Too many requests')
     // Words of a Faust's bargain, misspelt or not, find it, as Wikipedia's own search forgives spelling; "nothing" finds nothing.
+    // A wiki's search answers after `slow(ms)`'s wait, to film the section while it waits and as the answers land.
+    const later = (body) => void setTimeout(() => send(200, 'application/json', JSON.stringify(body)), wait)
+    if (url.pathname.endsWith('/w/rest.php/v1/search/title') && search[host]) return later({ pages: titled(host, url.searchParams.get('q') ?? '') })
+    if (url.pathname.endsWith('/w/api.php') && search[host]) {
+      const guess = GUESSES[(url.searchParams.get('srsearch') ?? '').toLowerCase()]
+      return later({ batchcomplete: true, query: { searchinfo: guess ? { suggestion: guess } : {}, search: [] } })
+    }
     if (url.pathname.endsWith('/w/rest.php/v1/search/page') && search[host]) {
       const q = url.searchParams.get('q') ?? ''
-      if (/nothing/i.test(q)) return send(200, 'application/json', JSON.stringify({ pages: [] }))
-      if (/faust/i.test(q) && host === 'en.wikipedia.org') return send(200, 'application/json', JSON.stringify(FAUST))
-      return send(200, 'application/json', JSON.stringify(search[host]))
+      if (/nothing/i.test(q) || GUESSES[q.toLowerCase()]) return later({ pages: [] })
+      if (/faust/i.test(q) && host === 'en.wikipedia.org') return later(FAUST)
+      if (/^serendip/i.test(q)) return later(host === 'en.wikipedia.org' ? MEDICI : search[host])
+      return later(search[host])
     }
     if (url.pathname === '/www.gutenberg.org/ebooks/search.opds/') return send(200, 'application/atom+xml', GUTENBERG)
     if (url.pathname === '/plato.stanford.edu/search/searcher.py') return send(200, 'text/html; charset=utf-8', SEP)
@@ -119,5 +163,5 @@ export async function standIn() {
     send(404, 'text/plain', 'not here')
   })
   await new Promise((done) => server.listen(0, '127.0.0.1', done))
-  return { base: `http://127.0.0.1:${server.address().port}`, asked, offline: (on) => void (down = on), close: () => server.close() }
+  return { base: `http://127.0.0.1:${server.address().port}`, asked, offline: (on) => void (down = on), slow: (ms) => void (wait = ms), close: () => server.close() }
 }
