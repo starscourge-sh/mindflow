@@ -7,7 +7,7 @@ import { app, ipcMain, shell, systemPreferences } from 'electron'
 import helper from '../../resources/meeting?asset&asarUnpack'
 import { database, keepMeeting, setting } from './captures'
 import { assetsDir } from './pictures'
-import { caps, understand } from './understand'
+import { caps, shaped, type Shape } from './understand'
 import { meets } from './needs'
 import { foundActions, writtenActions, type MeetingLine } from './meeting-doc'
 import { readTake } from './meeting-take'
@@ -513,12 +513,28 @@ async function discardLeft(id: string): Promise<void> {
 }
 const undoDiscard = (id: string): Promise<void> => rename(join(discardedDir(), id), join(meetingsDir(), id))
 
-/** What Apple Intelligence is asked of a recording read again: the five lists a new one gets (native/meeting.swift `take`). */
-const READ_AGAIN = `You read part of a meeting's transcript and write what to take from it, plainly. Answer in exactly these sections, each line starting with "- ":
-SUMMARY (two or three sentences, no list), DECISIONS, ACTIONS, OPEN QUESTIONS, ABOUT YOU (things said about "You" or your work).
-ACTIONS holds only a real promise someone made ("I'll send it by Friday") or a real ask of someone ("can you check the invoice?"), each "- [owner] what, by when if said [12s]".
-Never a story, a feeling, a quote, lyrics, or a line only because it has "tell", "will" or "going to" in it. Most parts have few actions or none.
-Keep each line's [seconds] from the transcript. Write "- none" under a heading with nothing.`
+/**
+ * What Apple Intelligence is asked of a recording read again: the five lists a new one gets (native/meeting.swift
+ * `take`), as fields it fills (`shaped`), each item with the [seconds] of the line it comes from.
+ */
+const READ_AGAIN = 'You read part of a meeting\'s transcript and write what to take from it, plainly. Each item keeps the [seconds] of the transcript line it comes from. A list with nothing in it stays empty.'
+const SECONDS: Shape & { name: string } = { name: 'at', type: 'int', min: 0, description: 'The [seconds] of the transcript line it comes from' }
+const items = (name: string, description: string): Shape & { name: string } =>
+  ({ name, type: 'array', description, items: { type: 'object', properties: [{ name: 'text', type: 'string', description: 'The item, in a short sentence' }, SECONDS] } })
+const TAKE: Shape = { type: 'object', properties: [
+  { name: 'summary', type: 'string', description: 'Two or three sentences, no list' },
+  items('decisions', 'What was decided'),
+  { name: 'actions', type: 'array', description: 'Only a real promise someone made ("I\'ll send it by Friday") or a real ask of someone ("can you check the invoice?"). Never a story, a feeling, a quote, lyrics, or a line only because it has "tell", "will" or "going to" in it. Most parts have few actions or none', items: { type: 'object', properties: [
+    { name: 'owner', type: 'string', description: 'Who will do it, as the transcript names them: "You" or "Speaker N"' },
+    // "By when" is part of it, not a field: asked as its own (optional) field, the model wrote "now" for every one (20 Nov).
+    { name: 'what', type: 'string', description: 'What they will do, and by when only if that was said' },
+    SECONDS
+  ] } },
+  items('questions', 'Questions left open'),
+  items('aboutYou', 'Things said about "You" or your work')
+] }
+type Item = { text: string; at: number; owner?: string }
+type Filled = { summary: string; decisions: Item[]; actions: { owner: string; what: string; at: number }[]; questions: Item[]; aboutYou: Item[] }
 
 /**
  * A recording kept without Apple Intelligence's read (made on a Mac or a day without it): read now, a part at a time,
@@ -531,17 +547,24 @@ async function readAgain(lines: MeetingLine[]): Promise<{ take: Record<string, u
   const said = lines.map((one) => `[${Math.floor(one.at)}s] ${one.who === 'you' ? 'You' : `Speaker ${one.who.slice(1)}`}: ${one.text}`)
   const parts: string[] = []
   for (const line of said) {
-    if (!parts.length || parts[parts.length - 1].length + line.length > 10_000) parts.push(line)
+    // 8,000 characters a part: the shape asked for is read by the model too, and the whole must fit what it reads at once.
+    if (!parts.length || parts[parts.length - 1].length + line.length > 8000) parts.push(line)
     else parts[parts.length - 1] += `\n${line}`
   }
-  const texts: string[] = []
-  for (const [at, part] of parts.entries()) {
-    const answer = await understand('write', { instructions: READ_AGAIN + (at ? '\nThis is a later part: write "- none" under SUMMARY.' : ''), prompt: part })
-    if (answer.error) return { failed: answer.error.message }
-    texts.push(String(answer.text ?? ''))
+  const take = { summary: '', decisions: [] as Item[], actions: [] as Item[], questions: [] as Item[], missed: [] as Item[] }
+  // Each part's items as the page keeps them (meeting-take.ts `TakeLine`): an action's owner its "You" or "Speaker N".
+  const list = (value: unknown): Item[] => (Array.isArray(value) ? value : []).filter((one) => typeof one?.text === 'string' && one.text.trim())
+    .map((one) => ({ text: one.text.trim(), at: Number(one.at) || 0, ...(typeof one.owner === 'string' && one.owner.trim() ? { owner: one.owner.trim() } : {}) }))
+  for (const [n, part] of parts.entries()) {
+    const said = await shaped<Filled>(READ_AGAIN + (n ? ' This is a later part: leave the summary empty.' : ''), part, TAKE, undefined, 5 * 60_000)
+    if ('error' in said) return { failed: said.error }
+    if (!n) take.summary = String(said.summary ?? '').trim()
+    take.decisions.push(...list(said.decisions))
+    take.questions.push(...list(said.questions))
+    take.missed.push(...list(said.aboutYou))
+    take.actions.push(...list((Array.isArray(said.actions) ? said.actions : []).map((one) => ({ ...one, text: one?.what }))))
   }
-  const take = { text: texts.join('\n') }
-  return { take, actions: writtenActions(readTake(take)?.actions ?? [], lines) }
+  return { take, actions: writtenActions(take.actions, lines) }
 }
 
 export function registerMeeting(show: Shown): void {
