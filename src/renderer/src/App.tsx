@@ -81,7 +81,7 @@ import { usePicking } from './lib/pick-range'
 import { PickDays } from './components/haligtree/late-tasks'
 import { binItem, moveToBin } from './lib/to-bin'
 import TrashIcon from './components/ui/trash-icon'
-import { DayAround, WillDo, TokenHint } from './components/haligtree/will-do'
+import { WillDo, TokenHint } from './components/haligtree/will-do'
 import { useHas } from './lib/needs'
 import { saidBySuggestion } from './lib/source-rows'
 import { saidByRenderer } from './components/note-link/note-link-menu'
@@ -2698,9 +2698,13 @@ export default function App(): React.JSX.Element {
                 <span className="flex shrink-0 items-center gap-1"><Pressed keys="⌘[" /> takes you back.</span>
               </div>
             )}
+            {/* One quiet line under the words, its room kept from the first frame whether it says anything or not, so
+                the box never grows or jumps as a reading comes and goes: what sending it will do, and where you were. */}
+            {!editing && (
+            <div data-chrome data-will-line className="flex min-h-7 min-w-0 items-center px-[4.75rem] pt-1.5 text-xs text-muted-foreground">
             {/* "start" (or "focus", "timer") alone, as Raycast's focus command is typed: how long, one press away. */}
-            {!editing && /^(start|focus|timer)$/i.test(boxText.trim()) && (
-              <div data-start-lengths className="flex flex-wrap items-center gap-1.5 px-[4.75rem] pt-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-150">
+            {/^(start|focus|timer)$/i.test(boxText.trim()) ? (
+              <div data-start-lengths className="flex flex-wrap items-center gap-1.5 animate-in fade-in-0 duration-150">
                 <span className="mr-0.5">How long?</span>
                 {[5, 10, 15, 25, 45, 60].map((minutes) => (
                   <button key={minutes} type="button" data-start-length={minutes}
@@ -2711,11 +2715,37 @@ export default function App(): React.JSX.Element {
                   </button>
                 ))}
               </div>
-            )}
-            {/* What sending it will do, read from the lit words, each with its ×. */}
-            {!editing && !/^(start|focus|timer)$/i.test(boxText.trim()) && (
+            ) : (
+              /* What sending it will do, read from the lit words, one part each, pressed to leave it out. */
               <WillDo
                 plan={plan}
+                // A task with a day: said as one part, with the day around it ("tomorrow at 15:00, after 10:00 Design meeting").
+                when={plan?.task && !listed ? (() => {
+                  const read = readTask(first, new Date(), plan.taskPlain)
+                  return read.due ? { due: read.due, allDay: read.allDay, recurrence: read.recurrence } : null
+                })() : null}
+                // Where you were as the box came up: said last on the line, quietly; pressed, it is left off this note.
+                source={started && !lesson && fromKept() ? (alone) => (
+                  <span data-box-from={from!.app} className="inline-flex min-w-0 items-center gap-1">
+                    <Tip label="Leave it off this note">
+                      <button type="button" aria-label="Leave it off this note" data-box-from-off onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('off'), setFromOff(true))}
+                        className="inline-flex min-w-0 cursor-pointer items-center gap-1 rounded-sm decoration-foreground/50 transition-colors hover:text-foreground hover:line-through">
+                        <AppWindow aria-hidden className="size-3 shrink-0" />
+                        <span className="truncate">{alone ? 'From' : 'from'} {from!.app}{from!.page || from!.title ? <>: {quoted(from!.page || from!.title, 40)}</> : null}</span>
+                      </button>
+                    </Tip>
+                    {from!.ask === 'ask' && (
+                      <Tip label={`Keeps the address of the page open in ${from!.browser}. Your Mac asks you once`}>
+                        <button type="button" data-box-from-ask onMouseDown={(event) => event.preventDefault()} onClick={askPage} className="shrink-0 cursor-pointer rounded-sm px-1 text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground">Add the page</button>
+                      </Tip>
+                    )}
+                    {from!.ask === 'denied' && (
+                      <Tip label={`Your Mac does not let Haligtree read ${from!.browser}'s page. Turn it on under Privacy & Security, Automation`}>
+                        <button type="button" data-box-from-allow onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('tap'), void window.api.haligtree('site-block:privacy'))} className="shrink-0 cursor-pointer rounded-sm px-1 text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground">Allow the page…</button>
+                      </Tip>
+                    )}
+                  </span>
+                ) : null}
                 joins={twin}
                 orQuestion={plan?.kind === 'todo' && askedLine(textOf(body)) ? () => keepAsQuestion(askedLine(textOf(body))!) : undefined}
                 asks={!!loneQuestion(plan, boxText)}
@@ -2748,11 +2778,8 @@ export default function App(): React.JSX.Element {
                 })}
               />
             )}
-            {/* A task with a day: that day around it, the new one lit in its place. */}
-            {!editing && plan?.task && !listed && (() => {
-              const read = readTask(first, new Date(), plan.taskPlain)
-              return read.due ? <DayAround due={read.due} allDay={read.allDay} title={read.title} /> : null
-            })()}
+            </div>
+            )}
             <TokenHint hover={tokenHover} />
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}
@@ -2788,26 +2815,6 @@ export default function App(): React.JSX.Element {
                     <EyeOff />
                   </Button>
                 </Tip>
-              )}
-              {/* Where you were as the box came up: said before it is kept, left off with ×. */}
-              {started && !editing && !lesson && fromKept() && (
-                <span data-box-from={from!.app} className="flex min-h-6 min-w-0 max-w-full shrink items-center gap-1.5 rounded-full border border-border bg-muted py-0.5 pl-2.5 pr-0.5 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
-                  <AppWindow className="size-3.5 shrink-0" />
-                  <span className="truncate">From <span className="text-foreground">{from!.app}</span>{from!.page || from!.title ? <>: {quoted(from!.page || from!.title, 48)}</> : null}</span>
-                  {from!.ask === 'ask' && (
-                    <Tip label={`Keeps the address of the page open in ${from!.browser}. Your Mac asks you once`}>
-                      <button type="button" data-box-from-ask onClick={askPage} className="shrink-0 cursor-pointer rounded-full px-1.5 font-medium text-foreground hover:bg-accent">Add the page</button>
-                    </Tip>
-                  )}
-                  {from!.ask === 'denied' && (
-                    <Tip label={`Your Mac does not let Haligtree read ${from!.browser}'s page. Turn it on under Privacy & Security, Automation`}>
-                      <button type="button" data-box-from-allow onClick={() => (chime('tap'), void window.api.haligtree('site-block:privacy'))} className="shrink-0 cursor-pointer rounded-full px-1.5 font-medium text-foreground hover:bg-accent">Allow the page…</button>
-                    </Tip>
-                  )}
-                  <Tip label="Leave it off this note">
-                    <button type="button" aria-label="Leave it off this note" data-box-from-off onClick={() => (chime('off'), setFromOff(true))} className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-full hover:bg-accent hover:text-foreground"><X className="size-3" /></button>
-                  </Tip>
-                </span>
               )}
               {like && !plus && !lesson && !listed && !twin && (
                 <Tip label={`Open it: ${like.title}`}>

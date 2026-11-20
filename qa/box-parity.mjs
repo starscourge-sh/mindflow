@@ -86,7 +86,7 @@ try {
 
   // 3. A new task: said as one, one sound, and the main window says it with Open.
   const fresh = await typed('call the plumber')
-  check('a new task: the box says it will add it', fresh.will.includes('Add to your tasks'), fresh.will)
+  check('a new task: the box says it will be one', fresh.will.startsWith('A task'), fresh.will)
   await shot('add')
   const made = await sent('Added to your tasks')
   check('one sound for it', one(made, 'send'), JSON.stringify(made))
