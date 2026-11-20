@@ -16,8 +16,8 @@ export type Palette = { bg: string; ink: string; accent: string; alt: string; so
 
 export const PALETTES: Record<World, Palette[]> = {
   files: [
-    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#634ff3', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#8b7cf6', '#f1efe9'] },
-    { bg: '#232321', ink: '#f1efe9', accent: '#c6f24e', alt: '#f1efe9', soft: '#3a3a37', glow: ['#c6f24e', '#6f6f6a'] },
+    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#634ff3', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#8b7cf6', '#5fb8f0'] },
+    { bg: '#232321', ink: '#f1efe9', accent: '#c6f24e', alt: '#f1efe9', soft: '#3a3a37', glow: ['#c6f24e', '#2fc4a0'] },
     { bg: '#f1efe9', ink: '#1d1d1b', accent: '#d22000', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#ff5a3c', '#f6c945'] },
     { bg: '#232321', ink: '#f1efe9', accent: '#e8c547', alt: '#f1efe9', soft: '#3a3a37', glow: ['#e8c547', '#8b7cf6'] }
   ],
@@ -28,8 +28,14 @@ export const PALETTES: Record<World, Palette[]> = {
   ]
 }
 
-/** The dimmed window behind the card, and the grain and shadow every world shares. */
+/** The dimmed window behind the card, its shadow and vignette, and the folder's papers: the same in every world. */
 export const STAGE = { dim: 'rgba(0, 0, 0, 0.72)', shadow: '0 40px 120px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06)', paper: '#fbfaf6', paperInk: '#1d1d1b', vignette: 'radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.65) 100%)' }
+
+/**
+ * How far the light behind and inside the card turns round the colour wheel on each card (radians, Silk's `hue`): never the same two in
+ * a row, and never far from the look's own colours, so lime leans yellow, then teal, then back.
+ */
+export const HUES = [0, 0.55, -0.45, 0.9, -0.2, 0.35, -0.7, 0.15, 0.7, -0.35, 0.45, -0.6]
 
 /** A small seeded random, so one seed always tells the same story. */
 export function seeded(seed: number): () => number {

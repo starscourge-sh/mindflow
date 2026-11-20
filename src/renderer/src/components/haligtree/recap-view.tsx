@@ -79,7 +79,8 @@ export function Ranked({ rows, prefix = '' }: { rows: { name: string; n: number 
   )
 }
 
-type Picture = { src: string; title: string; type: string; id: string }
+/** `src` the small copy drawn in rows; `stored` the kept picture itself (haligtree://assets/...), for a large frame and its words. */
+type Picture = { src: string; title: string; type: string; id: string; stored?: string }
 
 /** Fewer than this, and a strip of them would only look empty. */
 export const FEW_PICTURES = 5
@@ -111,7 +112,7 @@ export function usePicturesFrom(since: string | null, until: string | null): Pic
       // Made small by the main process. Only a picture it could read is kept:
       // the strip draws with WebGL, which takes a picture's pixels only from here.
       const made = await Promise.all(kept.map((one) => smallPicture(thumbs[one.id], true).catch(() => '')))
-      if (live) setPictures(kept.flatMap((one, at) => made[at].startsWith('data:image/') ? [{ src: made[at], title: splitTags(one.title).text, type: one.type, id: one.id }] : []))
+      if (live) setPictures(kept.flatMap((one, at) => made[at].startsWith('data:image/') ? [{ src: made[at], title: splitTags(one.title).text, type: one.type, id: one.id, stored: thumbs[one.id] }] : []))
     })()
     return () => void (live = false)
   }, [since, until])
