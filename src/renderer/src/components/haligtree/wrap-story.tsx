@@ -684,10 +684,10 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
         return split(<><In at={0.12}><h2 className={fit(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2></In><In at={0.45}>{caption(most)}</In></>, <Ranked rows={top} accent={p.accent} />)
       }
       case 'focus': {
-        // Past two hours it is said in hours; a part hour is never rounded away in silence: the sentence says the whole.
-        const hours = f.minutes >= 120
-        const big = hours ? Math.round(f.minutes / 60) : f.minutes
-        const unit = hours ? (f.minutes % 60 ? `hours of focus (${howLong(f.minutes)} in all)` : 'hours of focus') : f.minutes === 1 ? 'minute of focus' : 'minutes of focus'
+        // Counted in minutes, as Spotify counts listening: a whole number that rolls up, never hours rounded up or down;
+        // past an hour the sentence says it in hours too.
+        const big = f.minutes
+        const unit = `${f.minutes === 1 ? 'minute' : 'minutes'} of focus${f.minutes >= 60 ? ` (${howLong(f.minutes)})` : ''}`
         const number = <div className={HUGE} style={{ color: p.accent }}><Roll n={big} /></div>
         const [one, two] = f.focusTasks
         if (f.focusTasks.length < LIST)
