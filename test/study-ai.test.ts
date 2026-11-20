@@ -67,23 +67,20 @@ test('an 80-page chapter is read across, highlights and headings first, within t
 })
 
 // The native program itself, on a fixture, in the stand-in a probe uses on a Mac without Apple Intelligence.
-test('native: judge, hint and cards answer in their shapes, and a hint never gives the answer', { skip: process.platform !== 'darwin' }, () => {
+// (A typed answer's check by meaning is asked from main now, as a shape: understand.ts `shaped`, its stand-in there.)
+test('native: hint and cards answer in their shapes, and a hint never gives the answer', { skip: process.platform !== 'darwin' }, () => {
   const ask = [
-    { id: 1, op: 'judge', question: 'A word for a feeling of unease', answer: 'disquiet', said: 'disquiet' },
-    { id: 2, op: 'judge', question: 'A word for a feeling of unease', answer: 'disquiet', said: 'no idea' },
     { id: 3, op: 'hint', question: 'A word for a feeling of unease', answer: 'disquiet', level: 1 },
     { id: 4, op: 'hint', question: 'A word for a feeling of unease', answer: 'disquiet', level: 2 },
     { id: 5, op: 'cards', title: 'Cells', text: '[p. 3] The mitochondrion is where the cell makes most of its energy.\n[p. 4] Ribosomes build proteins from the instructions in messenger RNA.', count: 5 }
   ]
   const run = spawnSync('resources/understand', [], { input: ask.map((one) => JSON.stringify(one)).join('\n') + '\n', env: { ...process.env, HALIGTREE_QA_CAPS: 'ai' }, encoding: 'utf8' })
   const got = Object.fromEntries(run.stdout.trim().split('\n').map((line) => JSON.parse(line)).map((one) => [one.id, one]))
-  assert.equal(got[1].verdict, 'same')
-  assert.equal(got[2].verdict, 'off')
   for (const id of [3, 4]) assert.ok(!/disquiet/i.test(got[id].text), got[id].text)
   assert.notEqual(got[3].text, got[4].text)
   assert.deepEqual(got[5].cards.map((one: { page: number }) => one.page), [3, 4])
   // Without the stand-in on this Mac (Apple Intelligence off), it says so plainly, never an empty answer.
-  const off = spawnSync('resources/understand', [], { input: JSON.stringify(ask[2]) + '\n', env: { ...process.env, HALIGTREE_QA_CAPS: '' }, encoding: 'utf8' })
+  const off = spawnSync('resources/understand', [], { input: JSON.stringify(ask[0]) + '\n', env: { ...process.env, HALIGTREE_QA_CAPS: '' }, encoding: 'utf8' })
   const said = JSON.parse(off.stdout.trim())
   assert.ok(said.error || said.text, off.stdout)
 })
