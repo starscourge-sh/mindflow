@@ -882,21 +882,22 @@ export async function saberLength(up: boolean): Promise<number> {
 type Clock = { running: boolean; left: number | null; tick: boolean; level: number; sound?: TickSound }
 /** What plays while a session runs, to choose from in Settings: clocks, then tenser sounds, each a loop (assets/sounds/SOURCES.txt). */
 export const TICKS = [
-  { id: 'old', label: 'Old clock', url: tickUrl },
-  { id: 'wall', label: 'Wall clock', url: wallUrl },
-  { id: 'watch', label: 'Pocket watch', url: watchUrl },
-  { id: 'desk', label: 'Desk clock', url: deskUrl },
-  // Ten more the user chose (17 Nov), for a session that wants tension rather than a clock: each a loop of up to 30 s.
-  { id: 'pulse', label: 'Dark pulse', url: sessionPulseUrl },
-  { id: 'heartbeat', label: 'Heartbeat', url: sessionHeartbeatUrl },
-  { id: 'tense-loop', label: 'Tense loop', url: sessionTenseLoopUrl },
-  { id: 'approaching', label: 'Approaching', url: sessionApproachingUrl },
-  { id: 'braam', label: 'Braam', url: sessionBraamUrl },
-  { id: 'ominous', label: 'Ominous', url: sessionOminousUrl },
-  { id: 'drone', label: 'Deep drone', url: sessionDroneUrl },
-  { id: 'suspense', label: 'Soft suspense', url: sessionSuspenseUrl },
-  { id: 'grandfather', label: 'Grandfather clock', url: sessionGrandfatherUrl },
-  { id: 'mantel', label: 'Mantel clock', url: sessionMantelUrl }
+  // The clocks first, together; then, for a session that wants tension rather than a clock, the cinematic ones the
+  // user chose (17 Nov), each a loop of up to 30 s.
+  { id: 'old', label: 'Old clock', url: tickUrl, kind: 'clock' },
+  { id: 'wall', label: 'Wall clock', url: wallUrl, kind: 'clock' },
+  { id: 'watch', label: 'Pocket watch', url: watchUrl, kind: 'clock' },
+  { id: 'desk', label: 'Desk clock', url: deskUrl, kind: 'clock' },
+  { id: 'mantel', label: 'Mantel clock', url: sessionMantelUrl, kind: 'clock' },
+  { id: 'grandfather', label: 'Grandfather clock', url: sessionGrandfatherUrl, kind: 'clock' },
+  { id: 'pulse', label: 'Dark pulse', url: sessionPulseUrl, kind: 'cinematic' },
+  { id: 'heartbeat', label: 'Heartbeat', url: sessionHeartbeatUrl, kind: 'cinematic' },
+  { id: 'tense-loop', label: 'Tense loop', url: sessionTenseLoopUrl, kind: 'cinematic' },
+  { id: 'approaching', label: 'Approaching', url: sessionApproachingUrl, kind: 'cinematic' },
+  { id: 'braam', label: 'Braam', url: sessionBraamUrl, kind: 'cinematic' },
+  { id: 'ominous', label: 'Ominous', url: sessionOminousUrl, kind: 'cinematic' },
+  { id: 'drone', label: 'Deep drone', url: sessionDroneUrl, kind: 'cinematic' },
+  { id: 'suspense', label: 'Soft suspense', url: sessionSuspenseUrl, kind: 'cinematic' }
 ] as const
 export type TickSound = (typeof TICKS)[number]['id']
 const tickOf = (sound?: TickSound): string => (TICKS.find((one) => one.id === (sound ?? 'wall')) ?? TICKS[1]).url

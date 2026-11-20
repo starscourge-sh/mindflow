@@ -14,7 +14,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useStepped } from '@/lib/nav'
 import { PACKS, SCAPES, TICKS, scapeSample, type Scape, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { CalendarDays, Check, FlaskConical, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, FlaskConical, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { SecondZoneSetting } from './calendar-events'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import CameraIcon from '@/components/ui/camera-icon'
@@ -972,8 +972,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <Setting under off={!settings.sounds ? 'Turn “Sounds” on to change this.' : !settings.sessionTick && 'Turn on “Session ticking” to change this.'} title="Session sound" note="A clock, or something tenser, while you focus; pick one to hear it." keywords="tick ticking clock sound watch wall desk focus session heartbeat drone tense pulse ominous suspense braam grandfather mantel">
             <div inert={!settings.sounds || !settings.sessionTick} className={settings.sounds && settings.sessionTick ? '' : 'opacity-50'}>
-              <Chips className="shrink-0" options={TICKS} on={(id) => id === (settings.sessionTickSound ?? 'wall')} pick={(id) => {
-                const sessionTickSound = id as TickSound
+              <SessionSounds chosen={settings.sessionTickSound ?? 'wall'} pick={(sessionTickSound) => {
                 tickSample(sessionTickSound, settings.sessionTickVolume ?? 0.5)
                 set({ sessionTickSound })
               }} />
@@ -2574,5 +2573,38 @@ function MarkdownDefault(): React.JSX.Element {
       {mine ? <span data-markdown-default="on" className="text-control text-muted-foreground">Haligtree opens them</span>
         : <Button size="sm" variant="outline" className="h-8 cursor-pointer px-3" data-markdown-default="off" disabled={mine === null} onClick={make}>Make Haligtree the default</Button>}
     </Setting>
+  )
+}
+
+/**
+ * The session's sounds: the clocks as chips, side by side; the cinematic ones folded into one more chip, "Cinematic ⌄",
+ * that names the one chosen. Its menu stays open as you pick, so you can hear one after another; Esc or a click away
+ * closes it.
+ */
+function SessionSounds({ chosen, pick }: { chosen: TickSound; pick: (sound: TickSound) => void }): React.JSX.Element {
+  const clocks = TICKS.filter((one) => one.kind === 'clock')
+  const cinematic = TICKS.filter((one) => one.kind === 'cinematic')
+  const picked = cinematic.find((one) => one.id === chosen)
+  return (
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+      <Chips options={clocks} on={(id) => id === chosen} pick={(id) => pick(id as TickSound)} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" data-session-cinematic aria-pressed={Boolean(picked)}
+            className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs transition-colors duration-80 ${picked ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            {picked?.label ?? 'Cinematic'}
+            <ChevronDown aria-hidden className="size-3 opacity-70" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-52">
+          {cinematic.map((one) => (
+            <DropdownMenuItem key={one.id} data-session-sound={one.id} onSelect={(event) => (event.preventDefault(), pick(one.id))}>
+              <span className="min-w-0 flex-1 truncate">{one.label}</span>
+              {one.id === chosen && <Check aria-hidden className="size-3.5 shrink-0" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
