@@ -1491,6 +1491,18 @@ export function registerHaligtree(): void {
     }
     db.prepare("insert or replace into settings (key, value) values ('sidebarQuestionsOnce', 'true')").run()
   }
+  // Home went above the Inbox (the user, 20 Nov): an order kept from before with the Inbox over Home gets Home put just
+  // above it, once; anything else in it stays where it was.
+  if (!db.prepare("select 1 from settings where key = 'sidebarHomeFirstOnce'").get()) {
+    let order: unknown = null
+    try { order = JSON.parse((db.prepare("select value from settings where key = 'sidebarOrder'").get() as { value: string } | undefined)?.value ?? 'null') } catch { /* Unreadable: the default, which has it. */ }
+    if (Array.isArray(order) && order.includes('home') && order.indexOf('inbox') >= 0 && order.indexOf('inbox') < order.indexOf('home')) {
+      const rest = order.filter((one) => one !== 'home')
+      const at = rest.indexOf('inbox')
+      db.prepare("update settings set value = ? where key = 'sidebarOrder'").run(JSON.stringify([...rest.slice(0, at), 'home', ...rest.slice(at)]))
+    }
+    db.prepare("insert or replace into settings (key, value) values ('sidebarHomeFirstOnce', 'true')").run()
+  }
   // Every page shows in the sidebar now, so a sidebar set up before gets them all, once.
   // Only which ones show goes back to the default; your order (sidebarOrder) stays.
   if (!db.prepare("select 1 from settings where key = 'sidebarAllOnce'").get()) {

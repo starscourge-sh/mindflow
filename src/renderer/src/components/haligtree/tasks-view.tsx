@@ -1619,7 +1619,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                         {/* Grouped by note, or getting ready for its due-by day, the subtasks show under their task, tickable where they are. */}
                         {/* Or while a step is being written into it, the new one last. */}
                         {((view.group === 'note' || gettingReady(task) || stepsOpen.has(task.id)) && subtasks.length > 0 || writing?.step === task.id) && (
-                          <Branches current={-1} rows="li" className="mf-held-folds w-full pt-0.5">
+                          <Branches rows="li" className="mf-held-folds w-full pt-0.5">
                           <ul data-steps-of={task.id} className="w-full space-y-0.5 pl-3">
                             {subtasks.map((one, at) => (
                               <li key={at} className="flex items-center gap-2 text-control">

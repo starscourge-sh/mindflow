@@ -7,8 +7,8 @@ import { clearWay, makeWay, restBox, swallowClick, type Spot } from '@/component
 import '@/lib/carry-cursor'
 
 /** The sidebar's sections under its places, in their usual order. */
-export const SECTIONS_USUAL = ['folders', 'library', 'look', 'pinned', 'recent', 'tags'] as const
-const NAMES: Record<string, string> = { folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' }
+export const SECTIONS_USUAL = ['folders', 'library', 'pinned', 'recent', 'tags'] as const
+const NAMES: Record<string, string> = { folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' }
 
 /** The saved order, every section once: one missing (newer than the saved order) goes where it usually sits. */
 export function sideOrder(saved: readonly string[] | undefined): string[] {
@@ -18,11 +18,12 @@ export function sideOrder(saved: readonly string[] | undefined): string[] {
   return out
 }
 
-/** A section put at `to` in the order, saved, said with Undo. */
-export async function placeSection(id: string, to: number): Promise<void> {
+/** A section put at `to` in the order (or just before the section named `to`, or after it with `after`), saved, said with Undo. */
+export async function placeSection(id: string, to: number | string, after = false): Promise<void> {
   const was = sideOrder((await haligtree.settings()).sideSections)
   const next = was.filter((one) => one !== id)
-  next.splice(Math.max(0, Math.min(next.length, to)), 0, id)
+  const at = typeof to === 'number' ? to : next.indexOf(to) + (after ? 1 : 0)
+  next.splice(Math.max(0, Math.min(next.length, at)), 0, id)
   if (next.join() === was.join()) return
   chime('shift')
   await haligtree.setSettings({ sideSections: next })
@@ -131,7 +132,11 @@ export function useSectionDrag(): { carrying: string | null; at: { x: number; y:
       const was = held
       end(false, !stays)
       if (stays) return chime('stay')
-      void placeSection(id, at > from ? at - 1 : at).then(() => (clearWay(true), unhold(was)))
+      // Named by the section it lands beside, never by its place among those on show: the saved order also holds
+      // sections not drawn (an empty one, one switched off), so a place counted on screen put it elsewhere, or where it
+      // already was, and the drop did nothing (the user, 20 Nov: "Look back" let go between Folders and Library).
+      const next = order[at] ?? order[order.length - 1]
+      void placeSection(id, next, at >= order.length).then(() => (clearWay(true), unhold(was)))
     }
     const onKey = (event: KeyboardEvent): void => void (event.key === 'Escape' && down && (event.stopPropagation(), swallowClick(), lifted && chime('stay'), end(false)))
     window.addEventListener('pointerdown', onDown, true)

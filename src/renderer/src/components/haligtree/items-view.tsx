@@ -106,7 +106,7 @@ import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
 import { pictureItems } from '@/lib/note-picture'
 import { cardItem } from '@/lib/share-card'
-import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Pencil, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
+import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, Gem, History, Layers, Pencil, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
 import { menuOpen } from '@/lib/menu-keys'
 
 
@@ -166,7 +166,8 @@ const rowOf = (item: Item): Entry => {
     // Still “Untitled”: its first line stands in, in muted ink (note-list's Named).
     ...(text.trim() === 'Untitled' && item.line?.trim() ? { title: '', line: splitTags(item.line).text || item.line } : { title: text }),
     tags,
-    icon: article ? FileText : kind.icon,
+    // A plain gem wears the gem's own sign, as Gems' row in the sidebar and Recent draw it: the note sign read as a page.
+    icon: article ? FileText : kind.id === 'note' ? Gem : kind.icon,
     tint: article ? undefined : kind.tint,
     age: age(item.createdAt),
     sub: article ? item.attribution ?? undefined : (
@@ -184,7 +185,8 @@ const rowOf = (item: Item): Entry => {
     marks: (
       <>
         {item.supersededBy && <Tip label="Replaced by a corrected gem: out of Review, kept beside what is true"><span className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Replaced</span></Tip>}
-        {item.lapses >= 4 && <Tip label="Forgotten often"><TriangleAlert className="size-3 shrink-0 text-[var(--tt-color-text-orange)]" /></Tip>}
+        {/* Said in words, as "Replaced" is: a bare orange triangle gave no reason (its tip never showed on the icon). */}
+        {item.lapses >= 4 && <Tip label={`Forgotten ${num(item.lapses)} times in Review: rewording it, or splitting it in two, often helps`}><span data-often-forgotten="" className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Often forgotten</span></Tip>}
         {item.pinnedAt && <Tip label="Pinned: at the top of the sidebar and in quick capture"><Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Pinned" /></Tip>}
         {item.private ? <Tip label="Private: never comes up unasked in quiet hours or safe mode"><EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /></Tip> : null}
       </>
@@ -1795,9 +1797,10 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   /** Grouped by source, a row in "One gem each" names its book or site quietly. */
   sourceSaid: (one: Item) => string | undefined
 } {
-  // Grouped by kind to start: a few short lists read calmer than one long one.
+  // Newest first under date headings to start, as Notebook Navigator's list (Today, Previous 7 days, Previous 30 days,
+  // then each year): a sort or grouping the person chose is kept as theirs (useView).
   // Words, as Looked up: A to Z under their letters (a list of its own, so Open and Answered keep theirs).
-  const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'kind' })
+  const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'date' })
   // Archived ones are out of sight until Display's Marked asks for them.
   const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
   const folderOf = useFolderOf()

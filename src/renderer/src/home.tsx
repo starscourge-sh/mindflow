@@ -117,7 +117,7 @@ import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
 import { sideOrder, sectionMoves, useSectionDrag } from '@/lib/side-sections'
 import { sideTagLine, sideTagsOf } from '@/lib/side-tags'
-import { FOOT, G_ALIASES, JOURNAL_SCALES, LIBRARY, LOOK_BACK, SECTIONS as PLACES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { FOOT, G_ALIASES, JOURNAL_SCALES, LIBRARY, SECTIONS as PLACES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -150,7 +150,7 @@ import { openCloseWeek } from '@/components/haligtree/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ArrowRight, ChevronRight, History } from '@/components/ui/icons'
+import { ArrowRight, ChevronRight, Gem as GemSign, History } from '@/components/ui/icons'
 import { glideWay } from '@/lib/motion'
 import { SwipeBack, placesFrom } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
@@ -283,6 +283,8 @@ const stepOf = (type: string, id: string): View =>
   // A work found in ⌘K: its page among the sources.
   : type === 'work' ? { id: 'source', focus: `medium:${id}` }
   : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
+/** A folder page's tab for each kind it holds (folder-view.tsx `KIND_TABS`). */
+const FOLDER_TAB: Record<string, string> = { article: 'pages', capture: 'notes', nugget: 'gems', question: 'questions', task: 'tasks' }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
 const atNow = (view: View): boolean => {
@@ -389,7 +391,7 @@ function useNewest<T extends Record<string, (...args: never[]) => unknown>>(now:
 
 /** What a pane's page asks of the window: each is the window's newest (useNewest), so a page kept as drawn is never behind. */
 type PageDoes = {
-  open: (type: string, id: string, key?: string) => void
+  open: (type: string, id: string, key?: string, folder?: string) => void
   toScale: (scale: Scale, key?: string) => void
   setView: (asked: View, key?: string) => void
   setTrail: (key: string, change: (trail: Trail) => Trail, tab?: string) => void
@@ -507,7 +509,7 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
       ) : view.id === 'queue' ? (
         <QueueView />
       ) : view.id === 'folders' ? (
-        <FoldersView focus={view.folder} note={view.focus} tab={view.tab} onTab={(tab) => does.setView({ id: 'folders', folder: view.folder, tab }, key)} onOpen={go} onPlace={(id) => does.setView({ id: 'folders', folder: id ?? 'all' }, key)} />
+        <FoldersView focus={view.folder} note={view.focus} tab={view.tab} onTab={(tab) => does.setView({ id: 'folders', folder: view.folder, tab }, key)} onOpen={(type, id, folder) => does.open(type, id, key, folder)} onPlace={(id) => does.setView({ id: 'folders', folder: id ?? 'all' }, key)} />
       ) : view.id === 'tags' ? (
         <TagsView onOpen={go} focus={view.focus} />
       ) : view.id === 'sources' ? (
@@ -1131,10 +1133,10 @@ export function Home(): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
   // Library came after people had dragged its rows into other runs: they go into it once, then stay wherever they are dragged.
   // The sidebar by how often a place is used (8 Nov): every row goes to its new home once (the seven of every day on top,
-  // Library and Look back folded, Bin, Archived and the powers in the foot), then stays wherever it is dragged.
+  // Library folded, Bin, Archived and the powers in the foot), then stays wherever it is dragged.
   useEffect(() => {
     if (!settings || settings.sidebarByUseOnce) return
-    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['folders', 'library', 'look', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
+    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['folders', 'library', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
   }, [settings?.sidebarByUseOnce]) // eslint-disable-line react-hooks/exhaustive-deps
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
   useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1536,11 +1538,14 @@ export function Home(): React.JSX.Element {
     const off = window.api.captures.onChange((what) => void (what === null && read()), ['capture'])
     return () => (window.removeEventListener('haligtree:pdf-title', read), off())
   }, [view.focus])
-  const open = (type: string, id: string, key = frontRef.current): void => {
+  const open = (type: string, id: string, key = frontRef.current, folder?: string): void => {
     // Which way it goes is read from the click itself, before any wait.
     const how = takeClick()
     // A task opens in the list that holds it (Today, Routines, Later), so its row is there beside it; Upcoming when it is not known yet.
+    // Opened from under its folder in the sidebar: in that folder's page, so ↓↑ step through what it holds, as a press
+    // on its row there does (a gem went to Gems and stepped through all 122).
     const step = (): View => {
+      if (folder) return { id: 'folders', folder, focus: id, tab: FOLDER_TAB[type] }
       const task = type === 'task' ? peekRead<Task>('task', id) : undefined
       const list = !task || task.status !== 'open' ? null : onToday(task) ? 'today' : task.recurrence ? 'routines' : bucket(task) && !task.deadline ? 'later' : null
       return list ? { id: list, focus: id } : stepOf(type, id)
@@ -1706,7 +1711,7 @@ export function Home(): React.JSX.Element {
     }
     if (item) {
       const kind = CAPTURE_TYPES.find((type) => type.id === item.kind)
-      return { type: item.tier, id: item.id, name: { title: item.title || 'New note', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private, kind: item.tier === 'article' ? 'Writing' : kind?.label ?? 'Note' } }
+      return { type: item.tier, id: item.id, name: { title: item.title || 'New note', icon: item.tier === 'nugget' && (!kind || kind.id === 'note') ? GemSign : kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private, kind: item.tier === 'article' ? 'Writing' : kind?.label ?? 'Note' } }
     }
     return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'New note', icon: TASK_KIND.icon, tint: TASK_KIND.tint, kind: 'Task' } } : null
   }
@@ -1734,6 +1739,7 @@ export function Home(): React.JSX.Element {
     return at?.id ?? null
   })()
   // Where the note in front lives in Folders (any kind but a task): Folders' own record of it.
+  const openedFrom = useRef<{ id: string; where: 'pin' | 'recent' } | null>(null)
   const keptNuggets = useFolderOf()
   const keptCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
   const keptFolder = noteNow && noteNow.type !== 'task' ? (noteNow.type === 'capture' ? keptCaptures[noteNow.id] : keptNuggets[noteNow.id]) : undefined
@@ -1741,6 +1747,13 @@ export function Home(): React.JSX.Element {
   const recentOn = !(settings?.sidebarGroupsOff ?? []).includes(SIDE_GROUPS[1].id) && !quiet && !narrow
   const pinsOn = !(settings?.sidebarGroupsOff ?? []).includes(SIDE_GROUPS[0].id) && !quiet && !narrow
   const inRecent = !!view.focus && (!!noteNow || view.id === 'pdf' || view.id === 'web') && noteNow?.type !== 'task' && (!!noteNow || recents.some((one) => one.id === view.focus))
+  // The note open now, if it was opened from its row under Pinned or Recent: that row is where the person is. Opened
+  // from a list (Writing, the Inbox, Gems), the list's own row in the sidebar keeps the light (the user, 20 Nov: a page
+  // opened in Writing lit Recent, and Writing not at all).
+  if (openedFrom.current && openedFrom.current.id !== view.focus) openedFrom.current = null
+  const from = openedFrom.current?.where
+  // Whether the page on show has a row of its own in the sidebar to light.
+  const placeShown = shown.includes(litRow(view.id, shown))
   /** Where the light belongs, whatever is folded: the kind of row, and which. */
   const wanted = (() => {
     // A folder's page, "Not in a folder" or every folder: the one row of the Folders section that is lit (one light
@@ -1749,8 +1762,8 @@ export function Home(): React.JSX.Element {
     if (noteList && homeFolder && foldersOn(noteList)) return `note:${noteNow!.id}`
     // A note kept in one of Folders' folders: its row under that folder (the section lights its heading when folded).
     if (keptFolder && !narrow && !quiet) return `kept:${noteNow!.id}`
-    if (noteNow && noteNow.type !== 'task' && pinsOn && pins.some((one) => one.id === noteNow.id)) return `pin:${noteNow.id}`
-    if (inRecent && recentOn) return `recent:${view.focus}`
+    if (noteNow && noteNow.type !== 'task' && pinsOn && pins.some((one) => one.id === noteNow.id) && (from === 'pin' || !placeShown)) return `pin:${noteNow.id}`
+    if (inRecent && recentOn && (from === 'recent' || !placeShown)) return `recent:${view.focus}`
     if (narrow) return `place:${litRow(view.id, shown)}`
     if ((view.id === 'articles' || view.id === 'nuggets') && view.folder && !noteNow && foldersOn(view.id === 'articles' ? 'article' : 'nugget')) return `folder:${view.folder}`
     if (!shown.includes(view.id) && JOURNAL_SCALES.some((one) => one.id === view.id)) return `scale:${view.id}`
@@ -2259,7 +2272,8 @@ export function Home(): React.JSX.Element {
                   className="flex w-full min-w-0 items-start gap-2 rounded-md py-1 pr-2 pl-2 text-foreground">
                   {/* A long title goes on to a second line, as a folder's name does, rather than being cut; the icon stays on its first. */}
                   <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center"><NoteIcon className="size-3.5 shrink-0" style={{ color: noteNow.name.tint }} /></span>
-                  <Weighted on className="private-text min-w-0 flex-1 text-left truncate">{noteNow.name.title}</Weighted>
+                  {/* Its weight is the rows' around it, as Recent's lit row's is: the highlight says it is the one open. */}
+                  <span className="private-text min-w-0 flex-1 text-left truncate">{noteNow.name.title}</span>
                 </button>
               </RowMenu>
             )
@@ -2353,7 +2367,7 @@ export function Home(): React.JSX.Element {
               </RowMenu>
               {scales.length > 0 && (
                 <Unfold open={journalOpen || inScale}>
-                <Branches current={inScale ? scales.findIndex((one) => one.id === view.id) : -1} className="ml-5 flex flex-col gap-px">
+                <Branches className="ml-5 flex flex-col gap-px">
                   {scales.map((one) => (
                     <button key={one.id} type="button" data-side-row data-side-scale={one.id} aria-current={light === `scale:${one.id}` ? 'page' : undefined}
                       // Its own press, not the Journal row's carry (lib/own-press.ts): the press itself travels on.
@@ -2416,7 +2430,7 @@ export function Home(): React.JSX.Element {
           {/* A tag's card comes beside the list, not over the tags under it. */}
           <div data-note-side>
           {/* Stepped in under the heading, the trunk where Writing's folders hang theirs. */}
-          <Branches current={sideTags.findIndex(({ tag }) => light === `tag:${tag}`)} className={`flex flex-col ${narrow ? '' : 'ml-5'}`}>
+          <Branches className={`flex flex-col ${narrow ? '' : 'ml-5'}`}>
           {/* Dragged into your own order, as the pages and pins above are; saved. */}
           <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }) => (
             <SortableRow key={tag} id={tag} glide={`side-tag-${tag}`}>
@@ -2511,7 +2525,7 @@ export function Home(): React.JSX.Element {
               )}
               {pinsDrawn && !quiet && (pins.length > 0 || layouts.length > 0 || powersPin) && (<div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading(pinsGroup, pinsOpen, setPinsOpen)}
-                <Unfold open={pinsOpen || narrow}><Branches current={(() => { if (powersPin && light === 'place:powers') return 0; const at = pins.findIndex((pin) => light === `pin:${pin.id}`); return at < 0 ? -1 : (powersPin ? 1 : 0) + layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
+                <Unfold open={pinsOpen || narrow}><Branches bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   // "What Haligtree can do", pinned for a newcomer until they unpin it (Settings' powersPinned).
                   ...(powersPin ? [(
                     <RowMenu key="powers-pin" items={[
@@ -2558,7 +2572,7 @@ export function Home(): React.JSX.Element {
                         // The one open now says so, in full ink, as the page you are on does above.
                         data-open={light === `pin:${pin.id}` || undefined}
                         aria-current={light === `pin:${pin.id}` ? 'page' : undefined}
-                        onClick={() => open(pin.type, pin.id)}
+                        onClick={() => ((openedFrom.current = { id: pin.id, where: 'pin' }), open(pin.type, pin.id))}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
                         className={`flex min-w-0 items-start gap-2.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? `${NARROW_ICON} items-center` : 'flex-1 rounded-md px-2 py-1.5'}`}
@@ -2588,10 +2602,10 @@ export function Home(): React.JSX.Element {
                 return (
                   <div data-side-recent data-side-section="recent" style={sectionAt('recent')}>
                     {heading(recentGroup, recentOpen, setRecentOpen)}
-                    <Unfold open={recentOpen}><Branches current={rows.findIndex((one) => light === `recent:${one.id}`)} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
+                    <Unfold open={recentOpen}><Branches className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
-                          onClick={() => open(one.type, one.id)}
+                          onClick={() => ((openedFrom.current = { id: one.id, where: 'recent' }), open(one.type, one.id))}
                           // Past, so quieter than the places above: the muted ink (never see-through), the row's full ink when pointed at or open.
                           className="group/recent flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors duration-80 hover:text-foreground aria-[current=page]:text-foreground">
                           <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground group-hover/recent:text-(--mf-muted-strong)" /></span>
@@ -2615,7 +2629,7 @@ export function Home(): React.JSX.Element {
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
-            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder ? noteRow : undefined} here={view.id === 'folders' ? (!view.folder || view.folder === 'all' ? null : view.folder) : undefined} onOpen={(place) => setView({ id: 'folders', folder: place ?? 'all' })} onOpenItem={(type, id) => open(type, id)} lit={noteNow?.id} />
+            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder ? noteRow : undefined} here={view.id === 'folders' ? (!view.folder || view.folder === 'all' ? null : view.folder) : undefined} onOpen={(place) => setView({ id: 'folders', folder: place ?? 'all' })} onOpenItem={(type, id, folder) => open(type, id, undefined, folder)} lit={noteNow?.id} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList
@@ -2630,18 +2644,18 @@ export function Home(): React.JSX.Element {
                   {block === 'rest' && tagRows && tagsPart}
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
-                  {(block === 'Library' || block === 'Look') && items.length > 0 ? (() => {
-                    const [head, id] = block === 'Library' ? [LIBRARY, 'library'] as const : [LOOK_BACK, 'look'] as const
+                  {block === 'Library' && items.length > 0 ? (() => {
+                    const [head, id] = [LIBRARY, 'library'] as const
                     // The page you are on is in sight: its fold opens when you go there from elsewhere.
                     // A note lit under its folder, or a folder's page, is in sight under its list's row (Gems is in Library).
                     const lit = (one: { id: string }): boolean => light === `place:${one.id}` || (light.startsWith('note:') && one.id === (noteList === 'article' ? 'articles' : 'nuggets')) || (light.startsWith('folder:') && one.id === view.id)
                     const here = items.some(lit)
-                    // Library and Look back fold under their headings, folded to start; each stays as you leave it,
+                    // Library folds under its heading, folded to start; it stays as you leave it,
                     // and keeps that itself (Folding), so a fold draws the group alone.
                     return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
                       <Folding kept={`sidebar:${id}`} held={narrow} here={here} head={(open, fold) => heading(head, open, fold)}>
                         {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
-                        <Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches>
+                        <Branches bare={narrow} rows=":scope > [data-drop-list] > *" className={narrow ? '' : 'ml-5'}>{box}</Branches>
                       </Folding>
                     </div>)
                   })() : (<div className="flex flex-col" style={block === 'rest' ? { order: 9 } : undefined}>
@@ -2662,7 +2676,7 @@ export function Home(): React.JSX.Element {
         {/* The section carried, as a lifted card under the pointer, named as its heading is, saying what letting go would do. */}
         {sectionDrag.carrying && sectionDrag.at && (
           <CardAt x={sectionDrag.at.x} y={sectionDrag.at.y}>
-            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
           </CardAt>
         )}
 
@@ -2783,14 +2797,18 @@ export function Home(): React.JSX.Element {
         onOpenAutoFocus={(event) => (event.preventDefault(), (event.currentTarget as HTMLElement).focus())}
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
-        className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
+        // The panel holds still with its heading; its long list scrolls inside, fading at whichever edge has more (the
+        // lists' one fade, .mf-more): on the panel itself, the panel's own opening animation took the fade's place.
+        className="flex max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 flex-col gap-1 overflow-hidden p-1.5">
         {/* A way out in sight: Esc and a click away close it too, but nothing said so. */}
         <div className="flex items-center justify-between gap-2 pl-2">
           <span className="text-control font-medium text-foreground">Customize sidebar</span>
           <Tip label="Close (Esc)"><Button variant="ghost" size="icon-sm" data-customize-close aria-label="Close" onClick={() => (chime('away'), setCustomizing(false))}><AliveIcon icon={XIcon} size={16} /></Button></Tip>
         </div>
+        <div data-customize-list="" className="mf-more -mx-1.5 min-h-0 overflow-y-auto px-1.5">
         <p className="px-2 pt-0.5 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" counts={countsIn ? counts : undefined} />
+        </div>
       </PopoverContent>
       </Popover>
       </div>

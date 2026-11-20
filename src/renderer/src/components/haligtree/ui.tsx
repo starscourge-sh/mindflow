@@ -113,6 +113,8 @@ const UNDO_HUSH = 900
  * of titles needs a column, not half the window.
  */
 const LIST_WIDTH = 'list-width'
+/** The narrowest a list beside an open page is: the drag's own floor, whatever width was kept or the page leaves it. */
+const LIST_LEAST = 280
 function useListWidth(): [string, React.JSX.Element] {
   const [width, setWidth] = useState<number>(() => {
     try {
@@ -149,7 +151,7 @@ function useListWidth(): [string, React.JSX.Element] {
         const tick = slotTicker()
         tick.start(Math.round(section.getBoundingClientRect().width) === 400 ? 'home' : null)
         const move = (at: PointerEvent): void => {
-          const next = detent(Math.min(most, Math.max(280, at.clientX - left)), 400, 10)
+          const next = detent(Math.max(LIST_LEAST, Math.min(most, at.clientX - left)), 400, 10)
           if (next === 400) tick('home')
           else tick.start(null)
           keep(next)
@@ -211,8 +213,9 @@ export function FitActions({ children, keep, room }: { children: ReactNode; /** 
     // Overflowing to the right, never the left, so the line can measure what does not fit.
     // Never narrower than the ⋯ itself: a crowded line gives up its count before its menu.
     <div ref={line} className="flex min-w-7 flex-1 items-center overflow-hidden">
-      <div className="ml-auto flex shrink-0 items-center gap-1">
-      {keep}
+      {/* Folded, the line gives up its count's last letters before any of the ⋯: cut by the line's edge, it was one dot. */}
+      <div className={cn('ml-auto flex items-center gap-1', folded ? 'min-w-0' : 'shrink-0')}>
+      {keep && (folded ? <span className="flex min-w-0 items-center gap-1 overflow-hidden">{keep}</span> : keep)}
       {folded ? (
         <Popover open={open} onOpenChange={setOpen}>
           <Tip label="More">
@@ -300,7 +303,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
     className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', lead && 'mr-2 border-l border-foreground/15 pl-3 text-xs', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null
   return provide(
     <section data-chrome={aside || undefined} data-apart={apart ? 'list' : undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
-      style={{ ...(aside ? { width: listWidth, maxWidth: '60%', minWidth: leadNeed ? leadNeed + 48 : undefined } : {}), ...style }}>
+      style={{ ...(aside ? { width: listWidth, maxWidth: '60%', minWidth: Math.max(LIST_LEAST, leadNeed ? leadNeed + 48 : 0) } : {}), ...style }}>
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
           carries what it shows (lead), the count and the actions, and goes when it has none. */}

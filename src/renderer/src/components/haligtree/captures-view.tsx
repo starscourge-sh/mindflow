@@ -24,7 +24,7 @@ import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
 import { CaptureList, fieldOf, captureEntry, captureMenu, captureWays, inInboxWindow, selectionWays, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
-import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
+import { AGES, Display, inAge, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
 import { useIslands, useShowOpen, type IslandState } from './islands'
 import { GraphChip, InboxGraph, useGraphShown } from './inbox-graph'
 import { DatePicker } from './date-picker'
@@ -1195,10 +1195,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   ownUnread: boolean
 } {
   // Archived opens in its folders: each "Put away everything before" run is one, by its day.
-  // The Inbox by kind to start (notes, then tasks, quotes, words), newest first: what each capture is, at a glance.
-  // Every other list by date, the way Pages lists: Today, This week, This month, This year. Either is a choice in Display.
+  // Every list by date, the Inbox too, the way Pages lists: Today, Previous 7 days, Previous 30 days, then each year. Any other is a choice in Display.
   // Looked up is a word list: A to Z under their letters, as a dictionary is, so 159 of them can be scanned by eye.
-  const [view, setView] = useView(name, name === LOOKED_UP ? { sort: 'name', group: 'letter', filter } : { sort: 'newest', group: archived ? 'folder' : name === 'captures:Inbox' ? 'kind' : 'date', filter })
+  const [view, setView] = useView(name, name === LOOKED_UP ? { sort: 'name', group: 'letter', filter } : { sort: 'newest', group: archived ? 'folder' : 'date', filter })
   // Archived ones only in the Archived view, or when Display asks for them.
   const showArchived = archived || !!view.filter.flags?.includes('archived')
   const kept = all.filter((one) => !!one.archivedAt === showArchived)
@@ -1246,7 +1245,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.flatMap((type) => (withTasks && type.id === 'todo' ? [TASK_KIND] : reach.some((one) => one.kind === type.id) ? [{ id: type.id, label: type.label, icon: type.icon, tint: type.tint }] : [])) as Choice[], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
     // A Word is a lookup: asked until its answer is written. Offered once there is one.
     ...(reach.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Meaning', options: [{ id: 'asked', label: 'No meaning yet' }, { id: 'answered', label: 'Written' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
-    { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
+    { key: 'when', label: 'Captured', options: AGES, test: (one, when) => inAge(one.capturedAt, when) },
     { key: 'tag', label: 'Tag', options: [...new Set(reach.flatMap((one) => splitTags(one.label, one.tagLine).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label, one.tagLine).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
     { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },

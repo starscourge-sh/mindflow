@@ -92,14 +92,23 @@ try {
   // A gem in a folder
   if (gem) { await send('nugget', gem.id); await wait(1200); await one('a gem in a folder', { kind: 'note' }) }
 
-  // A note in no folder: Recent
+  // A note in no folder, opened in Writing: Writing keeps the light, never its row in Recent (the user, 20 Nov).
   await send('article', loose.id); await wait(1200)
-  await one('a note in no folder, not pinned: its row in Recent', { kind: 'recent', text: loose.title.slice(0, 10) })
+  await one('a page in no folder, opened in Writing: Writing', { kind: 'place', text: 'Writing' })
+  await h.screenshot({ path: `${shots}/writing-row-light.png` })
+  await c.look('dark'); await wait(300); await h.screenshot({ path: `${shots}/writing-row-dark.png` }); await c.look('light'); await wait(200)
+  // Opened from its row under Recent: that row.
+  await h.locator(`aside [data-side-recent-row="${loose.id}"]`).click(); await wait(1000)
+  await one('opened from Recent: its row in Recent', { kind: 'recent', text: loose.title.slice(0, 10) })
   await h.screenshot({ path: `${shots}/recent-row-light.png` })
-  // Pinned
+  // Pinned while open in Writing: still Writing; opened from its pin: the pin.
+  await go('calendar')
+  await send('article', loose.id); await wait(1200)
   await h.evaluate((id) => window.api.haligtree('pin', 'nuggets', id, true), loose.id).catch(() => {})
   await wait(800)
-  await one('pinned, its row in Pinned', { kind: 'pin', text: loose.title.slice(0, 10) })
+  await one('pinned, opened in Writing: still Writing', { kind: 'place', text: 'Writing' })
+  await h.locator(`aside [data-drag-open="article:${loose.id}"]`).first().click(); await wait(1000)
+  await one('opened from Pinned: its row in Pinned', { kind: 'pin', text: loose.title.slice(0, 10) })
   const pinCurrent = await h.evaluate(() => document.querySelector('aside [data-drag-open][aria-current]')?.getAttribute('aria-current'))
   check('a pinned row marks aria-current="page"', pinCurrent === 'page', String(pinCurrent))
   const glide = await h.evaluate(() => { const row = document.querySelector('aside [data-drag-open][aria-current="page"]'); return !!row })

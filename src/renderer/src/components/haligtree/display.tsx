@@ -144,13 +144,19 @@ export function period(iso: string | null): string {
 }
 const periodSeen = new Map<string, string>()
 let periodDay = ''
+/** Notebook Navigator's headings: today, the last week, the last month, then each year on its own, newest first. */
 function periodOf(iso: string): string {
   const days = daysSince(iso)
   if (dayjs(iso).isSame(dayjs(), 'day')) return 'Today'
-  return days <= 7 ? 'This week' : days <= 30 ? 'This month' : days <= 365 ? 'This year' : 'Older'
+  return days <= 7 ? 'Previous 7 days' : days <= 30 ? 'Previous 30 days' : String(dayjs(iso).year())
 }
-export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 'Older'].map((id) => ({ id, label: id }))
-const ageRank = (name: string): number => { const at = AGES.findIndex((one) => one.id === name); return at < 0 ? AGES.length : at }
+const RECENT_AGES = ['Today', 'Previous 7 days', 'Previous 30 days']
+/** Date's filter: the three recent spans, and "Older" for every year before them. */
+export const AGES: Choice[] = [...RECENT_AGES, 'Older'].map((id) => ({ id, label: id }))
+/** Whether a date falls in one of AGES. */
+export const inAge = (iso: string | null, age: string): boolean => (age === 'Older' ? /^\d{4}$/.test(period(iso)) : period(iso) === age)
+// The recent spans first, then the years, newest first; "No date" last.
+const ageRank = (name: string): number => { const at = RECENT_AGES.indexOf(name); return at >= 0 ? at : /^\d{4}$/.test(name) ? RECENT_AGES.length + (9999 - Number(name)) : 1e5 }
 
 /**
  * A row that scrolls sideways: no scrollbar either way, each edge faded only

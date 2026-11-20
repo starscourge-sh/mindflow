@@ -298,17 +298,13 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   const drag: Drag = { carried: carried?.id ?? landing, aim, carry }
   const lifted = carried && all.find((one) => one.id === carried.id)
   // Each level hung off a thin trunk from the row above it, a curved branch to each folder, as Pinned and
-  // Tags are; the way down to the folder you are in lit. Each level steps in under its parent's icon.
-  // The folder you are in, or one it sits inside: the lit way down runs through each.
-  const holds = (id: string): boolean => id === here || kids(id).some((one) => holds(one.id))
+  // Tags are, every line the one grey. Each level steps in under its parent's icon.
   const rows = (parent: string | null, depth: number): React.JSX.Element | null => {
     const these = kids(parent).filter(isFolder)
     const noted = !!noteRow && parent === here && parent !== null
     if (!these.length && !noted) return null
-    const lit = these.findIndex((one) => holds(one.id))
-    const before = these.length
     return (
-      <Branches current={noted ? before : lit} className="ml-5 flex flex-col gap-px">
+      <Branches className="ml-5 flex flex-col gap-px">
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
           return [
