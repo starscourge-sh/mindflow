@@ -383,7 +383,7 @@ try {
     await h.keyboard.press('Escape')
     await wait(300)
     check('3 a press on it shows the session, as the row\'s menu does', hidden && (await pill()), `hidden first ${hidden}, shown after ${await pill()}`)
-    check('3 a press and a pull on it never start a carry, open the row or make a group', !!dotA && !carried && !(await h.evaluate((id) => !!document.querySelector(`.note-pane[data-open="${id}"]`), F)) && !(await h.evaluate(() => /new group|moved/i.test(document.querySelector('[data-sonner-toaster]')?.textContent ?? ''))))
+    check('3 a press and a pull on it never start a carry, open the row or make a group', !!dotA && !carried && !(await h.evaluate((id) => !!document.querySelector(`.note-pane[data-open="${id}"]`), F)) && !(await h.evaluate(() => /new group|moved/i.test(document.querySelector('[role="status"]')?.textContent ?? ''))))
     await h.evaluate(() => window.api.showFocus(false))
     await wait(250)
     if (at) { await h.evaluate((sel) => document.querySelector(sel)?.focus(), dot(F)); await h.keyboard.press('Enter') }

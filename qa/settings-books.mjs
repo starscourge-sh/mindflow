@@ -16,7 +16,7 @@ if (/--sandbox/.test(process.env.QA_ARGS ?? '')) {
 const s = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, close, errors, v } = s
 const wait = (ms) => h.waitForTimeout(ms)
-const notice = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((one) => one.textContent).join(' | '))
+const notice = () => h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent).join(' | '))
 try {
   const books = (await v('books:list')).books
   const open = books.find((one) => one.current)
@@ -45,7 +45,7 @@ try {
   await pick.click(); await wait(600)
   const now = await h.locator(`[data-book-row="${other.id}"] [data-book-mark]`).getAttribute('data-book-mark')
   check('a colour picked in the … is worn by the book’s mark at once, and said', now !== was && /is .* now|theme’s own colour now/.test(await notice()), `${was} → ${now} (${picked}); ${await notice()}`)
-  await h.locator('[data-sonner-toast] button', { hasText: 'Undo' }).first().click(); await wait(600)
+  await h.locator('[role="status"] button', { hasText: 'Undo' }).first().click(); await wait(600)
   check('Undo puts its colour back', (await h.locator(`[data-book-row="${other.id}"] [data-book-mark]`).getAttribute('data-book-mark')) === was)
   // Rename from the …: the name field takes the keys as the menu shuts.
   await more.click(); await wait(300)

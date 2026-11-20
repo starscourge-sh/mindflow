@@ -85,7 +85,7 @@ try {
   // Never fetched and offline: nothing but a quiet way to write one; filled once back online.
   await make({ kind: 'quote', body: doc('Late is still on time'), attribution: 'Bo Later' })
   await openPage('attribution', 'Bo Later')
-  check('16. offline and never fetched: no error, a quiet "Add a line about them"', await h.locator('[data-bio-add]').isVisible() && (await h.locator('[data-bio-add]').textContent()) === 'Add a line about them' && await h.locator('[data-sonner-toast]').count() === 0)
+  check('16. offline and never fetched: no error, a quiet "Add a line about them"', await h.locator('[data-bio-add]').isVisible() && (await h.locator('[data-bio-add]').textContent()) === 'Add a line about them' && await h.locator('[role="status"]').count() === 0)
   check('17. the offline ask was made', asked > before)
   offline = false; await mac(true)
   await h.evaluate(() => window.dispatchEvent(new Event('online')))

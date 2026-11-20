@@ -185,7 +185,8 @@ try {
   await h.locator('[role="menu"] [role="menuitem"]').first().waitFor({ timeout: 8000 }); await wait(300)
   const lines = await h.locator('[role="menu"] [role="menuitem"]').allInnerTexts()
   check('a place\'s menu: Close, Close others, Close to the right, Move to a new split', ['Close', 'Close others', 'Close to the right', 'Move to a new split'].every((one) => lines.some((line) => line.startsWith(one))), lines.join(' | '))
-  check('a place has no pin or link lines', !lines.some((line) => /pin|copy link/i.test(line)), lines.join(' | '))
+  // A tab's own "Pin tab" (small at the left of its row, ea1a09176) belongs here; Favorites and a link do not, a place having neither.
+  check('a place has no Favorites or link lines', !lines.some((line) => /favou?rites|copy link/i.test(line)), lines.join(' | '))
   await h.screenshot({ path: `${shots}/tab-menu-place.png` })
   await h.getByRole('menuitem', { name: /^Move to a new split/ }).click(); await wait(800)
   s = await state()
@@ -419,10 +420,15 @@ try {
       const all = [...row.querySelectorAll('[data-tab]')].map((one) => one.getBoundingClientRect())
       const on = row.querySelector('[data-tab-on]').getBoundingClientRect()
       const rect = row.getBoundingClientRect()
-      return { widths: all.map((one) => Math.round(one.width)), onIn: on.left >= rect.left - 1 && on.right <= rect.right + 1, sideways: document.documentElement.scrollWidth > innerWidth, plus: !!document.querySelector('[data-tab-add]') && document.querySelector('[data-tab-add]').getBoundingClientRect().right <= innerWidth }
+      const least = [...row.querySelectorAll('[data-tab]')].map((one) => parseFloat(one.style.minWidth) || 40)
+      return { least, scrolls: row.scrollWidth > row.clientWidth + 1, widths: all.map((one) => Math.round(one.width)), onIn: on.left >= rect.left - 1 && on.right <= rect.right + 1, sideways: document.documentElement.scrollWidth > innerWidth, plus: !!document.querySelector('[data-tab-add]') && document.querySelector('[data-tab-add]').getBoundingClientRect().right <= innerWidth }
     })
+    // Since c9c9d025c (10 Nov) a tab is never narrower than its name, up to about ten letters (54px + 7 a letter, at most
+    // 124): with room they share it evenly, past that each keeps its name's width and the row scrolls. Goals (89) and
+    // Calendar (110) side by side are then rightly unequal; what counts is that none is cut below its name's room.
     const least = Math.min(...m.widths), most = Math.max(...m.widths.filter((_, at) => at !== Math.floor(n / 2)), least)
-    check(`${n} tabs: they share evenly, the open one in view, + still there, no sideways scroll`, m.onIn && !m.sideways && m.plus && most - least <= 14 && least >= 44, JSON.stringify({ least, most, onIn: m.onIn }))
+    const fits = m.widths.every((width, at) => width + 1 >= m.least[at])
+    check(`${n} tabs: they share evenly down to each name's room, the open one in view, + still there, no sideways scroll`, m.onIn && !m.sideways && m.plus && (m.scrolls ? fits : most - least <= 14) && least >= 44, JSON.stringify({ least, most, onIn: m.onIn, scrolls: m.scrolls, fits }))
     await shot(`tabs-${n}-light`)
     await c.look('dark'); await wait(200); await shot(`tabs-${n}-dark`); await c.look('light'); await wait(100)
   }

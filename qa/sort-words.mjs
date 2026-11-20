@@ -45,7 +45,7 @@ try {
   await h.waitForTimeout(300)
   const turned = await rows()
   const said = await h.evaluate(() => document.querySelector('[data-display]')?.textContent.replace(/\s+/g, ' ').trim())
-  check('its arrow turns it round: the row and the button say "Longest unchanged"', turned.find((one) => one.on)?.name === 'Longest unchanged' && /Sort: Longest unchanged/.test(said ?? ''), `${JSON.stringify(turned.find((one) => one.on))} ${said}`)
+  check('its arrow turns it round: the row and the button say "Longest unchanged"', turned.find((one) => one.on)?.name === 'Longest unchanged' && /Sort:\s*Longest unchanged/.test(said ?? ''), `${JSON.stringify(turned.find((one) => one.on))} ${said}`)
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/q1-sort-by`)
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } finally {
