@@ -18,7 +18,7 @@ import { ListSearch } from './note-list'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { folders, pathOf, useFolders, writeFrom, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
-import { deepCount, folderMenu, newFolderHere } from './side-folder-section'
+import { FolderRows, deepCount, folderMenu, newFolderHere } from './side-folder-section'
 import { calendarInk, events, useCalendars } from '@/lib/events'
 import { clock } from '@/lib/clock'
 import { dayjs, num, plural } from '../../../../main/dates'
@@ -29,7 +29,7 @@ import { dayjs, num, plural } from '../../../../main/dates'
  * ('unfiled'). A folder shows only what is inside it (folders isolate): the folders in it first, then one island per
  * kind, writing first. What is archived stays in its folder, under "Show archived (N)".
  */
-export function FoldersView({ focus, note, tab, onTab, onOpen, onPlace }: { focus?: string; /** The page open beside the folder's list (the step's focus, as Writing keeps it). */ note?: string; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
+export function FoldersView({ focus, note, tab, onTab, onOpen, onPlace }: { focus?: string; /** The page open beside the folder's list (the step's focus, as Writing keeps it). */ note?: string; tab?: string; onTab: (tab: string) => void; /** With `folder`: opened in that folder's page (a subfolder's own row unfolded here). */ onOpen: (type: string, id: string, folder?: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const all = useFolders()
   if (!focus || focus === 'all') return <AllFolders all={all} onPlace={onPlace} />
   return <OneFolder key={focus} id={focus} note={note} all={all} tab={tab} onTab={onTab} onOpen={onOpen} onPlace={onPlace} />
@@ -52,7 +52,7 @@ const KIND_TABS: { id: KindTab; label: string; types: FolderKind[] }[] = [
  * where the folder is, its one fact and the folders inside it. Never a list of its own (the user, 19 Nov: "what a
  * downgrade", beside Writing).
  */
-function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string; note?: string; all: Folder[]; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
+function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string; note?: string; all: Folder[]; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string, folder?: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const items = useLive(() => folders.items(id), null as FolderItem[] | null, [id], undefined, `folders:items:${id}`)
   const ofCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
   const ofTasks = useLive(() => folders.of('tasks'), {} as Record<string, string>, [], undefined, 'folders:of:tasks')
@@ -73,7 +73,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   const on = (tabs.find((one) => one.id === tab) ?? tabs.find((one) => one.id === noteKind) ?? tabs[0]).id
   // The one fact, on its own line: what it holds, every kind counted, the total said only when it adds kinds up.
   const kindsSaid = islands.map((one) => plural(one.n, one.label.toLowerCase().replace(/s$/, ''), one.label.toLowerCase())).join(', ')
-  const folderSaid = inside.length ? `${num(inside.length)} ${inside.length === 1 ? 'folder' : 'folders'}` : ''
+  const folderSaid = inside.length ? plural(inside.length, 'folder') : ''
   const fact = unfiled
     ? `${plural(shown.length, 'page or gem', 'pages and gems')} in no folder.`
     : !shown.length && !inside.length ? `Nothing in ${name} yet.`
@@ -124,20 +124,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
           )) : <p className="px-3 py-2 text-body text-muted-foreground">Nothing on {coming.calendars.length === 1 ? 'it' : 'them'} in the next four weeks.</p>}
         </Island>
       )}
-      {inside.length > 0 && (
-        <Island className="mt-3" title={`Folders · ${num(inside.length)}`}>
-          {inside.map((one) => (
-            <RowMenu key={one.id} items={() => folderMenu(one, all, () => onPlace(one.id), () => onPlace(one.id))}>
-              <button type="button" data-folder-open={one.id} data-keep-drop={one.id} data-folder-name={one.name} onClick={() => (chime('page'), onPlace(one.id))}
-                className="flex w-full min-w-0 cursor-pointer items-center gap-2.5 px-3 py-2 text-left hover:bg-accent/60">
-                <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />
-                <span className="min-w-0 flex-1 truncate">{one.name}</span>
-                {deepCount(all, one.id) > 0 && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{num(deepCount(all, one.id))}</span>}
-              </button>
-            </RowMenu>
-          ))}
-        </Island>
-      )}
+      {/* The folders inside it, as the first rows of its list: the sidebar tree's own rows, at the list's size. */}
+      {!unfiled && <div className="mt-3"><FolderRows parent={id} onPlace={(one) => onPlace(one)} onOpenItem={onOpen} /></div>}
     </div>
   )
   const box = { id, name }

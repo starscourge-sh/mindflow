@@ -35,6 +35,20 @@ try {
   const space = all.find((one) => one.name === 'Space')
   const trips = all.find((one) => one.name === 'Trips to write up')
 
+  // Writing, never sorted by hand here, newest first under date headings: Today (a page made now), then Previous 7 days.
+  await c.v('article:new')
+  await c.go('articles')
+  const heads = await h.evaluate(() => [...document.querySelectorAll('[data-page="articles"] [data-group-head]')].map((one) => one.getAttribute('data-group-head')))
+  check('Writing starts under date headings: Today, then Previous 7 days', heads[0] === 'Today' && heads[1] === 'Previous 7 days', JSON.stringify(heads))
+  await shot('writing-dates')
+  // The day page: every card on it one width and one left edge, Getting started's too.
+  await c.go('day')
+  await wait(800)
+  const edges = await h.evaluate(() => [...document.querySelectorAll('[data-day-moments] > * > * > *:first-child, [data-day-moments] > * > *:first-child')]
+    .map((one) => one.getBoundingClientRect()).filter((r) => r.width > 200 && r.height > 30).map((r) => [Math.round(r.left), Math.round(r.right)]))
+  check('every card on the day page has the same left and right edge', edges.length > 0 && edges.every(([l, r]) => Math.abs(l - edges[0][0]) <= 2 && Math.abs(r - edges[0][1]) <= 2), JSON.stringify(edges))
+  await shot('day-cards')
+
   // The sidebar's top: Home, then Inbox.
   const order = await h.evaluate(() => [...document.querySelectorAll('aside [data-side-row][aria-label]')].map((one) => one.getAttribute('aria-label')))
   check('Home is above Inbox', order.indexOf('Home') >= 0 && order.indexOf('Home') < order.indexOf('Inbox'), JSON.stringify(order.slice(0, 4)))
@@ -102,6 +116,85 @@ try {
   const hist = await line()
   check('with tabs, at the narrowest width, the ⋯ is still whole', hist.tabs.length > 1 && hist.width >= 280 && (!hist.more || hist.whole), JSON.stringify(hist))
   await shot('history-narrow')
+
+  // A folder holding folders: they are the first rows of its list, the sidebar's own rows at the list's size, no card.
+  const parentOf = all.find((one) => all.some((kid) => kid.parent === one.id && !kid.archived))
+  await h.locator(`aside [data-side-folder="${parentOf.id}"]`).click()
+  await wait(1200)
+  const sub = await h.evaluate(() => {
+    const rows = [...document.querySelectorAll('[data-folder-rows] [data-folder-open]')]
+    const listRow = document.querySelector('section button[data-row]')?.getBoundingClientRect()
+    return { n: rows.length, height: Math.round(rows[0]?.getBoundingClientRect().height ?? 0), list: Math.round(listRow?.height ?? 0), island: [...document.querySelectorAll('[data-folder-head] [data-island-body]')].some((one) => /Folders/.test(one.closest('section')?.textContent ?? '')) }
+  })
+  check('its folders are rows at the head of its list, never a card', sub.n > 0 && sub.height >= 34 && !sub.island, JSON.stringify(sub))
+  await h.locator('[data-folder-rows] [data-folder-open]').first().hover()
+  await shot('folder-rows')
+
+  // Look back is part of Library now: one heading fewer.
+  if ((await h.locator('aside [data-side-section="library"] [aria-label="Stats"]').count()) === 0) await h.locator('aside [data-side-section-handle="library"]').click()
+  await wait(400)
+  check('no "Look back" heading; Stats and the Map sit in Library', (await h.locator('aside [data-side-section="look"]').count()) === 0 && (await h.locator('aside [data-side-section="library"] [aria-label="Stats"]').count()) > 0 && (await h.locator('aside [data-side-section="library"] [aria-label="Map"]').count()) > 0)
+  await shot('library')
+
+  // Customize sidebar: its long list scrolls under the lists' one fade, at whichever edge has more.
+  await h.locator('aside [data-side-row][aria-label="Home"]').click({ button: 'right' })
+  await wait(300)
+  await h.getByRole('menuitem', { name: 'Customize the sidebar…' }).click()
+  await wait(700)
+  const fade = await h.evaluate(() => { const list = document.querySelector('[data-customize-list]'); if (!list) return null; const s2 = getComputedStyle(list); return { scrolls: list.scrollHeight > list.clientHeight + 2, mask: s2.maskImage !== 'none' && /gradient/.test(s2.maskImage), name: s2.animationName } })
+  check('Customize sidebar\'s long list fades where there is more', !!fade && fade.scrolls && fade.mask && /mf-more/.test(fade.name), JSON.stringify(fade))
+  await shot('customize')
+  await h.keyboard.press('Escape')
+  await wait(300)
+
+  // A section carried by its heading and let go within 100ms of reaching its spot lands where the line showed, 5 times.
+  await h.evaluate(() => localStorage.setItem('list-width', '400'))
+  await c.go('day')
+  await wait(600)
+  const sections = () => h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-section]')].filter((one) => one.offsetHeight > 0)
+    .filter((one, n, all) => all.findIndex((other) => other.dataset.sideSection === one.dataset.sideSection) === n)
+    .map((one) => ({ id: one.dataset.sideSection, top: one.getBoundingClientRect().top, bottom: one.getBoundingClientRect().bottom, head: one.querySelector('[data-side-section-handle]')?.getBoundingClientRect() }))
+    // As drawn, top to bottom (each section's place is set by CSS order, not where it sits in the page's code).
+    .sort((a, b) => a.top - b.top))
+  // Folded to their headings, so every section is in the window (a heading under its edge cannot be pressed).
+  for (const id of ['folders', 'library']) {
+    const handle = h.locator(`aside [data-side-section-handle="${id}"]`)
+    if ((await handle.count()) && (await handle.getAttribute('aria-expanded')) !== 'false') await handle.click()
+    await wait(300)
+  }
+  const landed = []
+  // Each: the section carried, and the section it is let go just over (its top edge), or past the last ('end').
+  for (const [carry, onto] of [[0, 2], [1, 0], [3, 0], [0, 4], [2, 'end']]) {
+    const before = await sections()
+    if (before.length < 5) break
+    const one = before[carry]
+    await h.mouse.move(one.head.left + 20, one.head.top + one.head.height / 2)
+    await h.mouse.down()
+    await h.mouse.move(one.head.left + 20, one.head.top + one.head.height / 2 + 10, { steps: 2 })
+    // Aimed once it is lifted: in the hand it folds to its heading, and the sections under it close up.
+    const lifted = await sections()
+    const target = onto === 'end' ? null : lifted.find((s2) => s2.id === before[onto].id)
+    const y = onto === 'end' ? lifted.at(-1).bottom + 4 : target.top + 1
+    await h.mouse.move(one.head.left + 20, y, { steps: 4 })
+    await h.waitForTimeout(60)
+    // What the line shows: the first section, as laid out at rest (made way undone), under the room's middle.
+    const shown = await h.evaluate((carried) => {
+      const room = document.querySelector('[data-drop-room]')?.getBoundingClientRect()
+      if (!room) return null
+      const rest = [...document.querySelectorAll('aside nav [data-side-section]')].filter((el) => el.offsetHeight > 0 && el.dataset.sideSection !== carried)
+        .filter((el, n, all) => all.findIndex((other) => other.dataset.sideSection === el.dataset.sideSection) === n)
+        .map((el) => ({ id: el.dataset.sideSection, top: el.getBoundingClientRect().top })).sort((a, b) => a.top - b.top)
+      return rest.find((el) => el.top >= room.top + room.height / 2)?.id ?? 'end'
+    }, one.id)
+    await h.mouse.up()
+    await wait(700)
+    const after = (await sections()).map((s2) => s2.id)
+    const ok = shown === null ? after.join() === before.map((s2) => s2.id).join() : shown === 'end' ? after.at(-1) === one.id : after[after.indexOf(one.id) + 1] === shown
+    // Over its own place (the section just under it) there is no line, and nothing moves.
+    const own = onto === carry + 1 || (onto === 'end' && carry === before.length - 1)
+    landed.push(`${one.id} over ${onto === 'end' ? 'end' : before[onto].id}: line ${shown ?? (own ? 'its own place' : 'none')}, ${ok ? 'ok' : `landed ${after.join(',')}`}`)
+  }
+  check('a section let go within 100ms lands where its line showed, 5 times', landed.length === 5 && landed.every((one) => one.endsWith(', ok') && !one.includes('line none')), landed.join(' | '))
 
   // A heading reached by keys fills, as its row would; never a blue box.
   await h.locator('[data-side-section-handle="folders"]').focus()

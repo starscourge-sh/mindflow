@@ -117,7 +117,7 @@ import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
 import { sideOrder, sectionMoves, useSectionDrag } from '@/lib/side-sections'
 import { sideTagLine, sideTagsOf } from '@/lib/side-tags'
-import { FOOT, G_ALIASES, JOURNAL_SCALES, LIBRARY, LOOK_BACK, SECTIONS as PLACES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { FOOT, G_ALIASES, JOURNAL_SCALES, LIBRARY, SECTIONS as PLACES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -391,7 +391,7 @@ function useNewest<T extends Record<string, (...args: never[]) => unknown>>(now:
 
 /** What a pane's page asks of the window: each is the window's newest (useNewest), so a page kept as drawn is never behind. */
 type PageDoes = {
-  open: (type: string, id: string, key?: string) => void
+  open: (type: string, id: string, key?: string, folder?: string) => void
   toScale: (scale: Scale, key?: string) => void
   setView: (asked: View, key?: string) => void
   setTrail: (key: string, change: (trail: Trail) => Trail, tab?: string) => void
@@ -509,7 +509,7 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
       ) : view.id === 'queue' ? (
         <QueueView />
       ) : view.id === 'folders' ? (
-        <FoldersView focus={view.folder} note={view.focus} tab={view.tab} onTab={(tab) => does.setView({ id: 'folders', folder: view.folder, tab }, key)} onOpen={go} onPlace={(id) => does.setView({ id: 'folders', folder: id ?? 'all' }, key)} />
+        <FoldersView focus={view.folder} note={view.focus} tab={view.tab} onTab={(tab) => does.setView({ id: 'folders', folder: view.folder, tab }, key)} onOpen={(type, id, folder) => does.open(type, id, key, folder)} onPlace={(id) => does.setView({ id: 'folders', folder: id ?? 'all' }, key)} />
       ) : view.id === 'tags' ? (
         <TagsView onOpen={go} focus={view.focus} />
       ) : view.id === 'sources' ? (
@@ -1133,10 +1133,10 @@ export function Home(): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
   // Library came after people had dragged its rows into other runs: they go into it once, then stay wherever they are dragged.
   // The sidebar by how often a place is used (8 Nov): every row goes to its new home once (the seven of every day on top,
-  // Library and Look back folded, Bin, Archived and the powers in the foot), then stays wherever it is dragged.
+  // Library folded, Bin, Archived and the powers in the foot), then stays wherever it is dragged.
   useEffect(() => {
     if (!settings || settings.sidebarByUseOnce) return
-    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['folders', 'library', 'look', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
+    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['folders', 'library', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
   }, [settings?.sidebarByUseOnce]) // eslint-disable-line react-hooks/exhaustive-deps
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
   useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -2644,13 +2644,13 @@ export function Home(): React.JSX.Element {
                   {block === 'rest' && tagRows && tagsPart}
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
-                  {(block === 'Library' || block === 'Look') && items.length > 0 ? (() => {
-                    const [head, id] = block === 'Library' ? [LIBRARY, 'library'] as const : [LOOK_BACK, 'look'] as const
+                  {block === 'Library' && items.length > 0 ? (() => {
+                    const [head, id] = [LIBRARY, 'library'] as const
                     // The page you are on is in sight: its fold opens when you go there from elsewhere.
                     // A note lit under its folder, or a folder's page, is in sight under its list's row (Gems is in Library).
                     const lit = (one: { id: string }): boolean => light === `place:${one.id}` || (light.startsWith('note:') && one.id === (noteList === 'article' ? 'articles' : 'nuggets')) || (light.startsWith('folder:') && one.id === view.id)
                     const here = items.some(lit)
-                    // Library and Look back fold under their headings, folded to start; each stays as you leave it,
+                    // Library folds under its heading, folded to start; it stays as you leave it,
                     // and keeps that itself (Folding), so a fold draws the group alone.
                     return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
                       <Folding kept={`sidebar:${id}`} held={narrow} here={here} head={(open, fold) => heading(head, open, fold)}>
@@ -2676,7 +2676,7 @@ export function Home(): React.JSX.Element {
         {/* The section carried, as a lifted card under the pointer, named as its heading is, saying what letting go would do. */}
         {sectionDrag.carrying && sectionDrag.at && (
           <CardAt x={sectionDrag.at.x} y={sectionDrag.at.y}>
-            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
           </CardAt>
         )}
 
@@ -2797,14 +2797,18 @@ export function Home(): React.JSX.Element {
         onOpenAutoFocus={(event) => (event.preventDefault(), (event.currentTarget as HTMLElement).focus())}
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
-        className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
+        // The panel holds still with its heading; its long list scrolls inside, fading at whichever edge has more (the
+        // lists' one fade, .mf-more): on the panel itself, the panel's own opening animation took the fade's place.
+        className="flex max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 flex-col gap-1 overflow-hidden p-1.5">
         {/* A way out in sight: Esc and a click away close it too, but nothing said so. */}
         <div className="flex items-center justify-between gap-2 pl-2">
           <span className="text-control font-medium text-foreground">Customize sidebar</span>
           <Tip label="Close (Esc)"><Button variant="ghost" size="icon-sm" data-customize-close aria-label="Close" onClick={() => (chime('away'), setCustomizing(false))}><AliveIcon icon={XIcon} size={16} /></Button></Tip>
         </div>
+        <div data-customize-list="" className="mf-more -mx-1.5 min-h-0 overflow-y-auto px-1.5">
         <p className="px-2 pt-0.5 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" counts={countsIn ? counts : undefined} />
+        </div>
       </PopoverContent>
       </Popover>
       </div>

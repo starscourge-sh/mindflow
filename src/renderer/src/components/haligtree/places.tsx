@@ -28,9 +28,9 @@ import { num } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
 
 /** A run of the sidebar's places with a gap before it and no heading: what you write and keep, then what you do. */
-/** The sidebar's runs: what you use every day, then Library (what you keep and come back to), then Look back (how
- * it is going), each folded under its heading; the Bin, Archived and the powers sit in the sidebar's foot. */
-export type Group = 'Write' | 'Library' | 'Look'
+/** The sidebar's runs: what you use every day, then Library (what you keep and come back to, and Stats and the Map,
+ * how it is going), folded under its heading; the Bin, Archived and the powers sit in the sidebar's foot. */
+export type Group = 'Write' | 'Library'
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
   id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: Group
@@ -68,8 +68,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'today', emoji: '✅', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Write' },
   // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
   { id: 'calendar', emoji: '📅', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Write' },
-  // Goals: a day you are working toward, and the road there. Looks ahead, so it sits with Tasks and Calendar, not under
-  // Look back (Stats and the Map look at what you did).
+  // Goals: a day you are working toward, and the road there. Looks ahead, so it sits with Tasks and Calendar, not in
+  // Library with Stats and the Map (they look at what you did).
   { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Write' },
   // The rest: off to start, a G and its letter or ⌘K away, each switched on in "Customize sidebar…".
   { id: 'weekpage', emoji: '🗓️', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
@@ -82,9 +82,9 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'tags', emoji: '🏷️', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   // Every person and source your notes are from, a page each (source-page.tsx).
   { id: 'sources', emoji: '👤', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue', group: 'Library' },
-  { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue', group: 'Look' },
+  { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue', group: 'Library' },
   // Every note you have linked, as a map of dots and lines.
-  { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple', group: 'Look' },
+  { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple', group: 'Library' },
   // Every picture, GIF, PDF and recording your notes keep, as a grid (media-view.tsx). G and the comma: every letter is taken.
   { id: 'media', emoji: '🖼️', label: 'Files', icon: Images, key: ',', tint: 'purple', group: 'Library' },
   { id: 'discarded', emoji: '🗑️', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
@@ -96,8 +96,6 @@ export const SECTIONS: (Place & { key: string })[] = [
 
 /** Library's heading in the sidebar: what you keep and come back to, under one fold. Not a page. */
 export const LIBRARY: Place = { id: 'library', emoji: '📚', label: 'Library', icon: Gem, tint: 'pink' }
-/** Look back's heading: Goals, Stats and the Map, how it is going, under one fold. Not a page. */
-export const LOOK_BACK: Place = { id: 'look', emoji: '🔭', label: 'Look back', icon: BarChart3, tint: 'blue' }
 /** Kept in the sidebar's foot as small icons beside the book's menu, out of the list: places you go to now and then. */
 export const FOOT = ['discarded', 'archived', 'powers'] as const
 
@@ -267,8 +265,9 @@ type SidebarPart = { key: string; group?: Group; list: (typeof SECTIONS)[number]
 /** Which block a place is in: the one it was dragged into, else its own ("rest" for the ungrouped). */
 export const blockOf = (place: Place, groups: Record<string, string> = {}): string => {
   const block = groups[place.id] ?? place.group ?? 'rest'
-  // Tasks and Calendar were a block of their own ('Do'); a row dragged into it then is in the one list now.
-  return block === 'Do' ? 'Write' : block
+  // Tasks and Calendar were a block of their own ('Do'); a row dragged into it then is in the one list now. Look back
+  // (Stats, the Map) went into Library (the user, 20 Nov: one heading fewer), and a row once dragged there with it.
+  return block === 'Do' ? 'Write' : block === 'Look' ? 'Library' : block
 }
 export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, shown: string[], groups: Record<string, string> = {}): SidebarPart[] {
   const runs: { group?: Group; key: string }[] = []

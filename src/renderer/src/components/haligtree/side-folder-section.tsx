@@ -222,7 +222,7 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
   ]
 }
 
-function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold: () => void; onAdd: () => void }): React.JSX.Element {
+function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd, page = false }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold: () => void; onAdd: () => void; /** On a folder's page, at the list's row size, as its list's first rows (FolderRows). */ page?: boolean }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
   const name = (words: string | null): void => {
     onNamed()
@@ -257,19 +257,19 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
         <div>
     <RowMenu items={menu}>
       <div className="group/fold relative flex flex-col">
-        <button type="button" data-side-row data-side-folder={folder.id} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
+        <button type="button" data-side-row={page ? undefined : ''} data-side-folder={page ? undefined : folder.id} data-folder-open={page ? folder.id : undefined} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
           onClick={() => (chime('page'), onOpen())}
-          className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
+          className={`flex w-full min-w-0 items-baseline gap-2 rounded-md pr-2 pl-2 ${page ? 'cursor-pointer py-2 text-body hover:bg-accent/60' : 'py-1'} ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
           <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
           <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
           {/* An empty folder shows no count: a "0" reads as something to see to. */}
           {!!n && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
         </button>
         <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
-          className="absolute top-[0.1875rem] left-1.5 flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
+          className={`absolute ${page ? 'top-[0.5625rem]' : 'top-[0.1875rem]'} left-1.5 flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <ChevronRight className={`size-3.5 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
         </button>
-        <span className="absolute top-[0.1875rem] right-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0">
+        <span className={`absolute ${page ? 'top-[0.5625rem]' : 'top-[0.1875rem]'} right-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <Tip label="More">
             <button type="button" data-folder-more={folder.id} aria-label={`${folder.name} menu`} onClick={openFromGrip}
               className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
@@ -292,6 +292,41 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
       </PopoverContent>
     </Popover>
   )
+}
+
+/**
+ * A folder page's subfolders, as the first rows of its list: the sidebar tree's own rows (icon, name, count, the fold
+ * over the icon, the menu and + at the right), at the list's row size; unfolded, what each holds hangs under it on a
+ * trunk, as in the sidebar. Never a card of their own (the user, 20 Nov: "Renaissance ... 3" in one wide island).
+ */
+export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string; onPlace: (id: string) => void; onOpenItem: (type: string, id: string, folder?: string) => void }): React.JSX.Element | null {
+  const all = useFolders()
+  const live = all.filter((one) => !one.archived)
+  const [naming, setNaming] = useState<string | null>(null)
+  const [unfolded, setUnfolded] = useState<Set<string>>(new Set())
+  const fold = (id: string): void => setUnfolded((was) => {
+    const next = new Set(was)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    chime(next.has(id) ? 'slide' : 'fold')
+    return next
+  })
+  const rows = (under: string, top: boolean): React.JSX.Element[] => live.filter((one) => one.parent === under).flatMap((one) => {
+    const open = unfolded.has(one.id)
+    const n = deepCount(live, one.id)
+    return [
+      <FolderRow key={one.id} page={top} folder={one} all={live} here={false} n={n || null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)}
+        onOpen={() => onPlace(one.id)} open={open} onFold={() => fold(one.id)} onAdd={() => void addPageIn(one, onOpenItem)} />,
+      ...(open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
+        <Branches className="ml-5 flex flex-col gap-px">
+          {rows(one.id, false)}
+          <FolderThings key={`${one.id}:things`} folder={one} onOpen={(type, id) => onOpenItem(type, id, one.id)} onAll={() => onPlace(one.id)} />
+        </Branches>
+      </div>] : [])
+    ]
+  })
+  const shown = rows(parent, true)
+  return shown.length ? <div data-folder-rows="" className="-mx-2 mb-2 flex flex-col">{shown}</div> : null
 }
 
 /** A new page in Writing, kept in this folder, opened: the folder's "+" (Notion's "Add a page inside"). */
