@@ -1,16 +1,23 @@
 /* A pane's open tab is one surface with its page (tab-row.tsx): the same fill and the same hairline, whichever the theme. */
+/* The front and back looks are worked out on the pane, where they never change, and only its tab row takes one: a
+   variable changed on the pane itself restyled everything in it, a long article's 5,000 elements, on every press that
+   brought a pane to the front (700ms, 20 Nov 2026). */
 [data-pane] {
   --mf-tab: var(--background);
   --mf-tab-line: var(--border);
+  --mf-tab-front: var(--background);
+  --mf-tab-line-front: color-mix(in oklab, var(--foreground) 12%, transparent);
+  --mf-tab-line-back: color-mix(in oklab, var(--foreground) 6%, transparent);
 }
-[data-pane][data-pane-front] {
-  --mf-tab-line: color-mix(in oklab, var(--foreground) 12%, transparent);
+:root:not([data-light]) [data-pane] {
+  --mf-tab-front: color-mix(in srgb, var(--mf-under) 94%, white);
 }
-[data-pane][data-pane-back] {
-  --mf-tab-line: color-mix(in oklab, var(--foreground) 6%, transparent);
+[data-pane][data-pane-front] > [data-tabs] {
+  --mf-tab: var(--mf-tab-front);
+  --mf-tab-line: var(--mf-tab-line-front);
 }
-:root:not([data-light]) [data-pane][data-pane-front] {
-  --mf-tab: color-mix(in srgb, var(--mf-under) 94%, white);
+[data-pane][data-pane-back] > [data-tabs] {
+  --mf-tab-line: var(--mf-tab-line-back);
 }
 /* Every other tab's own edge: a hair of ink round its shape, low enough to read as an edge and not a box. Inside the tab row
    the ink is the row's own, so on the dark frame it is the frame's light ink (main.css), on a plain page the page's. */
@@ -122,9 +129,7 @@ html[data-split-drag] [role='dialog'][aria-label='Search'] {
 }
 /* On the dark frame the open tab is drawn round with a clear line, curves and all: without it, it was hard to find
    which tab is open (10 Nov). */
-[data-frame='dark'] [data-pane][data-pane-front] {
-  --mf-tab-line: color-mix(in oklab, var(--foreground) 20%, transparent);
-}
-[data-frame='dark'] [data-pane][data-pane-back] {
-  --mf-tab-line: color-mix(in oklab, var(--foreground) 10%, transparent);
+[data-frame='dark'] [data-pane] {
+  --mf-tab-line-front: color-mix(in oklab, var(--foreground) 20%, transparent);
+  --mf-tab-line-back: color-mix(in oklab, var(--foreground) 10%, transparent);
 }
