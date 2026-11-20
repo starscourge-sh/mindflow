@@ -217,12 +217,15 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     }
     const letTake = (): void => void (taking && (delete taking.dataset.paneTake, setTakeBox(null)), (taking = null))
     // Read under the carried picture too: over the list's path bar it sits right under the pointer.
+    // A row of tabs is read from its bar's box as a carried tab's is (rowAt, below): anywhere on the bar and a little
+    // above and below it, never only where a tab or the row itself is hit. Read by hit alone, a list row let go on
+    // the middle of a row of tabs opened nothing there in the 20 Nov run (qa/split-tabs.mjs).
     const queueAt = (px: number, py: number): HTMLElement | null => {
       for (const one of document.elementsFromPoint(px, py)) {
         const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-keep-drop], [data-writing-drop], [data-tab-row]')
         if (place) return place
       }
-      return null
+      return rowAt(px, py)
     }
     // The panes' pages: the rows of tabs over them are places of their own.
     // Read from its holder, which never moves: the pages themselves step back by a scale while the strips are up (below),
