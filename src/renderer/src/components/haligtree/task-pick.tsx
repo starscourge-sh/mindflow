@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { CalendarDays, CircleCheck, ListChecks, Trash2, X } from 'lucide-react'
+import { DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu'
 import { chime, type Cue } from '@/lib/sound'
 import { haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { useSelectAll } from '@/lib/select-all'
@@ -10,7 +11,7 @@ import { manyTaskItems } from './late-tasks'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import TrashIcon from '@/components/ui/trash-icon'
-import { Tip, toast, typing } from './ui'
+import { FoldItem, MenuRows, Tip, toast, typing } from './ui'
 import type { RowItem } from './row-menu'
 import { shiftTo } from './tasks-view'
 import { menuOpen } from '@/lib/menu-keys'
@@ -100,6 +101,23 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
       </Tip>
       {!allPicked && <Tip label="Every task on show  ⌘A"><Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button></Tip>}
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
+      {/* The same, as rows of the line's ⋯ when it folds. */}
+      <MenuRows>
+        <FoldItem icon={CircleCheck} label={live.length === 1 ? 'Complete' : `Complete ${num(live.length)}`} onSelect={() => void done()} />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger><CalendarDays />Move to</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-44">
+            <DropdownMenuItem onSelect={() => void move(0)}>Today</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void move(1)}>Tomorrow</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void move(7)}>Next week</DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <FoldItem icon={Trash2} label="Move to the Bin" keys="⌫" onSelect={() => toBin(live)} />
+      </MenuRows>
+      <MenuRows group="select">
+        {!allPicked && <FoldItem icon={ListChecks} label="Select all" keys="⌘A" onSelect={selectAll} />}
+        <FoldItem icon={X} label="Clear the selection" keys="Esc" onSelect={clear} />
+      </MenuRows>
     </span>
   ) : null
   // Right-clicked among several picked, the menu speaks for all of them.

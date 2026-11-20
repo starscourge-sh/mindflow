@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { JSONContent } from '@tiptap/core'
-import { ArchiveRestore, Trash2, X } from 'lucide-react'
+import { ArchiveRestore, ListChecks, Trash2, X } from 'lucide-react'
 import { AnimatePresence, PresenceContext, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -9,7 +9,7 @@ import { call, unloaded, useLive, haligtree, whenInLine, type BinPeek } from '@/
 import { HaligtreeEditor } from '@/components/haligtree'
 import { hoverNote } from './note-preview'
 import { Button } from '@/components/ui/button'
-import { Page, Stepper, Tags, Tip, toast, typing, useListKeys, VirtualList } from './ui'
+import { FoldItem, MenuRows, Page, Stepper, Tags, Tip, toast, typing, useListKeys, VirtualList } from './ui'
 import { taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
@@ -203,8 +203,21 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
           <Tip label="Asks first, then you hold to delete for good  ⌫"><Button size="sm" variant="ghost" onClick={() => ask(chosen)}>Delete for good…</Button></Tip>
           {!allPicked && <Tip label="Everything on show  ⌘A"><Button size="sm" variant="ghost" onClick={selectAll}>Select all</Button></Tip>}
           <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
+          <MenuRows>
+            <FoldItem icon={ArchiveRestore} label={chosen.length === 1 ? 'Restore' : `Restore ${num(chosen.length)}`} onSelect={() => restoreMany(pickedRows)} />
+            <FoldItem icon={Trash2} label="Delete for good…" keys="⌫" onSelect={() => ask(chosen)} />
+          </MenuRows>
+          <MenuRows group="select">
+            {!allPicked && <FoldItem icon={ListChecks} label="Select all" keys="⌘A" onSelect={selectAll} />}
+            <FoldItem icon={X} label="Clear the selection" keys="Esc" onSelect={clear} />
+          </MenuRows>
         </span>
       ) : binned.length > 0 ? <span className="flex items-center gap-1">
+        {/* Folded: Restore all, and deleting for good as a row that asks first (then you hold), as ⌫ does on picked rows. */}
+        <MenuRows>
+          {shown.length > 1 && <FoldItem icon={ArchiveRestore} label={`Restore ${filtered ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}`} onSelect={() => restoreMany(shown)} />}
+          {shown.length > 0 && <FoldItem icon={Trash2} label={filtered ? `Delete ${num(shown.length)} for good…` : 'Empty the Bin…'} onSelect={() => ask(shown.map(keyOf))} />}
+        </MenuRows>
         {shown.length > 1 && <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" onClick={() => restoreMany(shown)}>Restore {filtered ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}
         {filtered ? (
           shown.length > 0 && <HoldButton className="h-7 px-3" hint={`The ${num(shown.length)} on show, deleted for good`} done="Deleting…" onHold={() => forget(shown.map(keyOf))}>{shown.length === 1 ? 'Hold to delete' : `Hold to delete ${num(shown.length)}`}</HoldButton>

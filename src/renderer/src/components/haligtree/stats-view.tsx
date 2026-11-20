@@ -10,7 +10,7 @@ import { KeptCard, StudySection } from './study-stats'
 import { WritingSection } from './writing-stats'
 import { ReadingSections } from './reading-stats'
 import { ForgottenSection, GoalStepsSection, TaskTimingSection, UnsortedSection, UntouchedSection } from './more-stats'
-import { Count, ISLAND, Page, Rolling } from './ui'
+import { Count, FoldItem, MenuRows, ISLAND, Page, Rolling } from './ui'
 import { Button } from '@/components/ui/button'
 import { useFold } from './islands'
 import { Activity, BookCheck, BookOpen, Brain, CalendarCheck, CalendarDays, CalendarRange, ChevronRight, Clock, FileText, Flag, Hash, Hourglass, LayoutGrid, ListChecks, MessageSquareText, PenLine, Repeat, Search, Shapes, ShieldBan, Split, Sprout, Sun, Target, Timer, type LucideIcon } from 'lucide-react'
@@ -177,6 +177,10 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           <Button variant="ghost" size="sm" onClick={() => wrap('month')}><MessageSquareText className="size-3.5" /> Tell me my month</Button>
           <Button variant="ghost" size="sm" data-your-month-open onClick={() => wrap('cards')}><LayoutGrid className="size-3.5" /> Card by card</Button>
         </> : <Button variant="ghost" size="sm" onClick={() => wrap('year')}><BookOpen className="size-3.5" /> Your year, page by page</Button>}
+        <MenuRows>{part === 'month' ? <>
+          <FoldItem icon={MessageSquareText} label="Tell me my month" onSelect={() => wrap('month')} />
+          <FoldItem icon={LayoutGrid} label="Card by card" onSelect={() => wrap('cards')} />
+        </> : <FoldItem icon={BookOpen} label="Your year, page by page" onSelect={() => wrap('year')} />}</MenuRows>
       </span>
     )} lead={
       // Four or five parts at a glance; the rest a chip away, by the month and by the year. On the

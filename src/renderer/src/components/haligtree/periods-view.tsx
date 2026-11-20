@@ -20,12 +20,12 @@ import { Chips } from './display'
 import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
 import { EarlierPages, SERIF, weekSpan } from './issue'
-import { Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
+import { FoldItem, MenuRows, Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
 import { dayjs, noon, num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
 import { ArrowLeft, ArrowRight, BookOpen as BookOpenText } from '@/components/ui/icons'
-import { Flag } from 'lucide-react'
+import { Flag, History } from 'lucide-react'
 import { weekGoalLines } from '../../../../main/goal-days'
 import { PlannedVsDid } from './planned-did'
 import { WeekTasks } from './week-tasks'
@@ -272,6 +272,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
               </Button>
             </Tip>
           )}
+          {onRecent && <MenuRows><FoldItem icon={History} label="Recent" keys="⇧⌘Y" on={!!recentOpen} onSelect={() => (chime(recentOpen ? 'fold' : 'slide'), onRecent(recentOpen ? 'close' : current ? null : new Date(end).toISOString()))} /></MenuRows>}
         </span>
       }
     >
@@ -394,6 +395,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
           <Tip label="Read the month back, told from what you noted down in it">
             <Button variant="ghost" size="sm" aria-label="Read the month back" onClick={() => (chime('slide'), setReflect(true))}><BookOpenText className="size-3.5" /> Read back</Button>
           </Tip>
+          <MenuRows><FoldItem icon={BookOpenText} label="Read the month back" onSelect={() => (chime('slide'), setReflect(true))} /></MenuRows>
         </span>
       }
     >

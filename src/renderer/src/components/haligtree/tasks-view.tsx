@@ -12,7 +12,7 @@ import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, Link2, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, Link2, ListTree, PencilLine, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 import { hrefFor, looksLikeAddress } from '@/extensions/link-tidy'
 import { tagTint } from './tag-icon'
@@ -33,8 +33,8 @@ import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPriority, useKept } from './task-input'
 import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
-import { Display, arrange, openDisplay, useView, type Facet } from './display'
+import { Empty, FoldItem, MenuRows, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
+import { Display, arrange, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
 import { type AtLink } from './at-notes'
@@ -1276,12 +1276,15 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
   )
   // On Today alone, where it writes; the controls after it sit at the bar's right end, so nothing moves without it.
   const writeOut = mode === 'today' && (
+    <>
     <Tip label="A new line at the end of the list, to write a task a line">
       <Button data-write-day variant="ghost" size="sm"
         onClick={() => (matrixed && setView({ ...view, group: 'when' }), startWriting(null))}>
         Write out my day
       </Button>
-    </Tip>
+      </Tip>
+      <MenuRows><FoldItem icon={PencilLine} label="Write out my day" onSelect={() => (matrixed && setView({ ...view, group: 'when' }), startWriting(null))} /></MenuRows>
+    </>
   )
   const actions = (
         <span className="flex items-center gap-1">
@@ -1304,8 +1307,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             { items: [
               // Today's tasks in four boxes; from another tab, every task's.
               { label: 'Urgent and important', hint: 'Your tasks in four boxes: urgent by date, important by the flag', on: matrixed, set: (on) => (mode === 'today' ? setView({ ...view, group: on ? 'matrix' : 'when' }) : onOpen?.('view', 'matrix')) },
-              { label: 'Your order', hint: 'In the order you set with ⌥J and ⌥K, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) },
-              { label: 'Sort, group and filter…', keys: 'F', run: () => void setTimeout(openDisplay, 0) }
+              // Sort, group and filter is the Display button beside this menu (and F): one home.
+              { label: 'Your order', hint: 'In the order you set with ⌥J and ⌥K, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) }
             ] },
             // Things to do, apart from the ways to see the list above: never one more tick among them.
             { items: [

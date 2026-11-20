@@ -1,13 +1,13 @@
 import { byLetter } from '@/lib/headword'
 import { byKind } from '@/components/capture-kinds/capture-kind-picker'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { AlignJustify, Columns2, Grid3x3, X } from 'lucide-react'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { AlignJustify, ArrowUpDown, Columns2, Grid3x3, SlidersHorizontal, X } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Count, Island, Rolling, Tip, typing } from './ui'
+import { Count, FoldItem, MenuRows, MoreBelow, Island, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
 import { glideWay, spring } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
@@ -537,6 +537,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   const sheetNow = useRef(sheet)
   sheetNow.current = sheet
   const button = useRef<HTMLButtonElement>(null)
+  const sheetBox = useRef<HTMLDivElement>(null)
   // Each opening starts as a popover and measures again: the window may have changed size.
   const show = (next: boolean): void => {
     // Its button out of sight (folded into ⋯ beside an open task), a popover
@@ -705,6 +706,33 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   if (few && !onDensity && !shownFacets.length && !active) return null
   return (
     <>
+    {/* Folded behind the line's ⋯: the order and the view as submenus, the rest of the panel a line away (F). */}
+    {!hidden && (
+      <MenuRows group="view">
+        {sorts.length > 1 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger data-fold-sort><ArrowUpDown /><span className="flex-1">Sort</span><span className="text-muted-foreground">{sortName}</span></DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-52">
+              <DropdownMenuRadioGroup value={view.sort} onValueChange={(id) => id !== view.sort && (chime('tap'), onChange({ ...view, sort: id }))}>
+                {/* The orders as words alone, a tick on the one in use (no guessed drawing for "Newest" or "By Back"). */}
+                {sorts.map((one) => <DropdownMenuRadioItem key={one.id} value={one.id}><span>{one.label}</span></DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {onDensity && views.length > 1 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger data-fold-view>{Shown ? <Shown /> : <LayoutList />}<span className="flex-1">View as</span><span className="text-muted-foreground">{views.find((one) => one.id === density)?.label}</span></DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-48">
+              <DropdownMenuRadioGroup value={density} onValueChange={(id) => pickDensity(id as Density)}>
+                {views.map((one) => <DropdownMenuRadioItem key={one.id} value={one.id}><one.icon />{one.label}</DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        <FoldItem icon={SlidersHorizontal} label={filtered ? `Display… (${num(filtered)} ${filtered === 1 ? 'filter' : 'filters'} on)` : 'Display…'} keys="F" onSelect={() => show(true)} />
+      </MenuRows>
+    )}
     {!hidden && <Popover open={open && !sheet} onOpenChange={show}>
       {/* The room for the longest order name is kept beside the button, not inside it: the fill hugs the name shown and
           the icon, its right edge never moves, and nothing beside it moves when the order does. */}
@@ -755,7 +783,8 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
           <SheetTitle className="text-sm">Display</SheetTitle>
           <SheetDescription className="sr-only">How this list is ordered, grouped, drawn and filtered.</SheetDescription>
         </SheetHeader>
-        <div className="mf-more min-h-0 flex-1 overflow-y-auto p-2">{panel}</div>
+        <div ref={sheetBox} className="mf-more min-h-0 flex-1 overflow-y-auto p-2">{panel}</div>
+        <MoreBelow target={sheetBox} />
       </SheetContent>
     </Sheet>
     </>

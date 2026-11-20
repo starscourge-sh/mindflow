@@ -17,7 +17,8 @@ import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
-import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
+import { MenuRows, Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
+import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
 import { ListSearch, matches } from './note-list'
 import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
@@ -284,6 +285,7 @@ export function FeedView({ onOpen, focus }: { onOpen: (type: string, id: string)
     <label data-feed-pages className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
       <Switch checked={pages} onCheckedChange={(feedPages) => (chime(feedPages ? 'tick' : 'tap'), void haligtree.setSettings({ feedPages }))} />
       Pages too
+      <MenuRows><DropdownMenuCheckboxItem checked={pages} onCheckedChange={(feedPages) => void haligtree.setSettings({ feedPages })} onSelect={(event) => event.preventDefault()}><FileText />Pages too</DropdownMenuCheckboxItem></MenuRows>
     </label>
   ) : undefined
   return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : tab === 'liked' ? <FeedLiked tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} extra={extra} onOpen={onOpen} pages={pages} />}</QueuedProvider>

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { Kbd } from "@/components/ui/kbd"
 import { labelFor } from "./pdf-labels"
 import { Search } from "lucide-react"
-import { BackToTop, VirtualList } from "@/components/haligtree/ui"
+import { BackToTop, MoreBelow, VirtualList } from "@/components/haligtree/ui"
 import { useLive } from "@/lib/haligtree"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
 import type { PdfCover } from "./pdf-cover"
@@ -157,6 +157,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
       </div>
     </aside>
     <BackToTop target={box} />
+    <MoreBelow target={box} />
     </div>
   )
 }

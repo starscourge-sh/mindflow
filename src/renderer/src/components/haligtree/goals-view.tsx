@@ -28,7 +28,7 @@ import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { calendarsNow, events, useCalendars } from '@/lib/events'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
-import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, typing, useListKeys, quietly } from './ui'
+import { Empty, FoldItem, MenuRows, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, typing, useListKeys, quietly } from './ui'
 import { useFolding } from './items-view'
 import { ICE, KIND_ICON, kindOf } from '@/lib/goal-kind'
 import { archive, useOwnOrder } from '@/lib/notes'
@@ -648,6 +648,10 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
             {openOnes(all).length > 1 && <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" />Stick all goals</Button>}
             {/* Always here, whichever chip is on: nothing in the bar comes or goes as you switch. */}
             <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-goal onClick={() => void startGoal(go)}><Plus className="size-3.5" />New goal</Button>
+            <MenuRows>
+              <FoldItem icon={Plus} label="New goal" onSelect={() => void startGoal(go)} />
+              {openOnes(all).length > 1 && <FoldItem icon={StickyNote} label="Stick all goals" onSelect={showAllGoals} />}
+            </MenuRows>
           </span>
         }
       >

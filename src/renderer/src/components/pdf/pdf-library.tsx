@@ -10,7 +10,7 @@ import { scrubbedPage } from "./pdf-peek"
 import { PictureRow } from "@/components/haligtree/picture-row"
 import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
-import { BackToTop } from "@/components/haligtree/ui"
+import { BackToTop, MoreBelow } from "@/components/haligtree/ui"
 import { RowMenu, type RowItem } from "@/components/haligtree/row-menu"
 import { canSplit, useHere } from "@/lib/split"
 import { binFiles } from "@/lib/media-files"
@@ -252,6 +252,7 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
         <BookInfo one={one} linked={linked} />
       </div>
       <BackToTop target={box} />
+      <MoreBelow target={box} />
     </aside>
   )
 }

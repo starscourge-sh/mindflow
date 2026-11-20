@@ -24,8 +24,7 @@ import { GroupIcon, GroupedList, SectionHead, type Folds } from './kept-groups'
 import { cn } from '@/lib/cn'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
 import { IslandBox, type IslandState } from './islands'
-import { AppNamed, Count, Tags, Tip, VirtualList, listEnd, showRow, typing } from './ui'
-import { Button } from '@/components/ui/button'
+import { Act, AppNamed, Count, Tags, Tip, VirtualList, listEnd, showRow, typing } from './ui'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
@@ -1191,27 +1190,11 @@ export function PaneButtons({
     onPane(next)
   }
   if (pane === 'wide')
-    return (
-      <Tip label="Back beside the note">
-        <Button variant="ghost" size="icon-sm" onClick={() => to('list', 'fold')}>
-          <Minimize2 className="size-3.5" />
-        </Button>
-      </Tip>
-    )
+    return <Act group="pane" words={false} icon={Minimize2} label="Back beside the note" onSelect={() => to('list', 'fold')} />
   return (
     <>
-      {fold && (
-        <Tip label="Fold the list to pictures">
-          <Button variant="ghost" size="icon" onClick={() => to('rail', 'fold')}>
-            <PanelLeftClose className="size-3.5" />
-          </Button>
-        </Tip>
-      )}
-      <Tip label="Spread the list over the page">
-        <Button variant="ghost" size="icon" onClick={() => to('wide', 'slide')}>
-          <Maximize2 className="size-3.5" />
-        </Button>
-      </Tip>
+      {fold && <Act group="pane" words={false} icon={PanelLeftClose} label="Fold the list to pictures" onSelect={() => to('rail', 'fold')} />}
+      <Act group="pane" words={false} icon={Maximize2} label="Spread the list over the page" onSelect={() => to('wide', 'slide')} />
     </>
   )
 }

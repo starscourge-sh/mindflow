@@ -1,4 +1,4 @@
-import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Children, cloneElement, createContext, Fragment, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { afterLayout } from '@/lib/after-layout'
 import { scrollerOf } from '@/lib/note-place'
 import { useToolKeys } from '@/lib/tool-keys'
@@ -43,8 +43,8 @@ import { RestoreAsker } from './restore-ask'
 import { HashField, asTag, isTag } from './hash-field'
 import { brief, num } from '../../../../main/dates'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
 import { SaveTroubleLine } from './save-trouble'
@@ -176,18 +176,94 @@ function useListWidth(): [string, React.JSX.Element] {
   return [`${width}px`, grip]
 }
 
+/** A header action's own rows, given to its line's ⋯ menu (FitActions): where it stands among the rest, and its group. */
+type Fold = { id: string; at: HTMLElement; rows: ReactNode; group: string }
+const FoldsInto = createContext<((id: string, fold: Fold | null) => void) | null>(null)
+
+/**
+ * What a header action is as rows of its line's ⋯ menu (icon, words, keys; a
+ * submenu for a choice), for when the line is too narrow for the actions:
+ * written beside the action itself, so the two never drift apart. In the menu
+ * in the order the actions stand on the line, a separator where the group
+ * changes. Outside a page's line, nothing.
+ */
+export function MenuRows({ children, group = '' }: { children: ReactNode; /** Rows of one group sit together, a line between groups: the list's view, its pane. */ group?: string }): React.JSX.Element | null {
+  const into = useContext(FoldsInto)
+  const at = useRef<HTMLSpanElement>(null)
+  const id = useId()
+  useLayoutEffect(() => void (into && at.current && into(id, { id, at: at.current, rows: children, group })))
+  useLayoutEffect(() => () => into?.(id, null), [into, id])
+  return into ? <span ref={at} hidden data-fold-row /> : null
+}
+
+/**
+ * A header action that is a button: on the line, a button with its words (or
+ * only its icon), its tip and keys; folded behind ⋯, a menu row of the same
+ * icon, words and keys.
+ */
+export function Act({ label, tip, keys, icon: Icon, onSelect, words = true, group, variant = 'ghost', disabled, children, ...rest }: {
+  label: string
+  /** The tip, where it says more than the words. */
+  tip?: string
+  keys?: string
+  icon?: React.ComponentType<{ className?: string }>
+  onSelect: () => void
+  /** Its words on the line too, not only its icon. */
+  words?: boolean
+  group?: string
+  variant?: 'ghost' | 'secondary' | 'outline'
+  disabled?: boolean
+  /** What the line shows instead of icon and words (a count that rolls). */
+  children?: ReactNode
+} & { [data: `data-${string}`]: string | number | undefined }): React.JSX.Element {
+  return (
+    <>
+      <Tip label={keys ? `${tip ?? label}  ${keys}` : tip ?? label}>
+        <Button variant={variant} size={words ? 'default' : 'icon'} aria-label={label} disabled={disabled} onClick={() => onSelect()} {...rest}>
+          {children ?? <>{Icon && <Icon className="size-3.5" />}{words && label}</>}
+        </Button>
+      </Tip>
+      <MenuRows group={group}><FoldItem label={label} keys={keys} icon={Icon} disabled={disabled} onSelect={onSelect} /></MenuRows>
+    </>
+  )
+}
+
+/** One row of a ⋯ menu: icon, words, keys, a tick when on. */
+export function FoldItem({ label, keys, icon: Icon, onSelect, disabled, on }: { label: ReactNode; keys?: string; icon?: React.ComponentType<{ className?: string }>; onSelect: () => void; disabled?: boolean; on?: boolean }): React.JSX.Element {
+  return (
+    <DropdownMenuItem disabled={disabled} onSelect={() => onSelect()}>
+      {/* At the row's icon size: an app icon drawn larger otherwise made its row taller than the rest. */}
+      {Icon ? <Icon className="size-3.5 shrink-0 text-muted-foreground" /> : <span aria-hidden className="size-3.5 shrink-0" />}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {on && <Check className="size-3.5 text-[var(--tt-brand-color-400)]" />}
+      {keys && <DropdownMenuShortcut>{keys}</DropdownMenuShortcut>}
+    </DropdownMenuItem>
+  )
+}
+
 /**
  * A page's actions, on the right of its header line, as long as they fit
  * there. A narrow pane of a split page (or a narrow window) has less room
- * than they need: then they wait behind one ⋯ button, in the same order.
+ * than they need: then they wait behind one ⋯ button, as a menu of rows
+ * (each action's MenuRows), in the same order.
  * Measured on the line itself, so it follows the pane, not the window.
  */
-export function FitActions({ children, menu, keep, room }: { children: ReactNode; /** The same actions as a menu's rows (icon, words, keys), shown behind ⋯ when they fold: never the bar's bare icons in a column. Without it (a list page's actions, which carry their words), the actions themselves wait in a panel. */ menu?: ReactNode; /** Never folded behind ⋯: a list's search, a box to type in, not a menu line. */ keep?: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
+export function FitActions({ children, menu, keep, room }: { children: ReactNode; /** The menu's rows, where the actions do not give their own (MenuRows): a reader's bar. Never the bar's bare icons in a column. */ menu?: ReactNode; /** Never folded behind ⋯: a list's search, a box to type in, not a menu line. */ keep?: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
   const line = useRef<HTMLDivElement>(null)
   // The width they took the last time they were all on the line.
   const need = useRef(0)
   const [folded, setFolded] = useState(false)
   const [open, setOpen] = useState(false)
+  // Each action's rows, kept as they draw; the menu is drawn again only while it is open.
+  const folds = useRef(new Map<string, Fold>())
+  const openNow = useRef(open)
+  openNow.current = open
+  const [, redraw] = useReducer((n: number) => n + 1, 0)
+  const [into] = useState(() => (id: string, fold: Fold | null): void => {
+    if (fold) folds.current.set(id, fold)
+    else folds.current.delete(id)
+    if (openNow.current) redraw()
+  })
   // Not measured while the page it is on waits unseen for its reads: a list
   // held back beside a note would lay out the whole window in the note's
   // first frame. Measured in the frame it goes on show, before it is painted.
@@ -213,6 +289,8 @@ export function FitActions({ children, menu, keep, room }: { children: ReactNode
     return () => watch.disconnect()
   }, [folded, room, seen])
   useEffect(() => void (!folded && setOpen(false)), [folded])
+  // In the order the actions stand on the line, a line between groups.
+  const rows = open && !menu ? [...folds.current.values()].filter((one) => one.at.isConnected).sort((a, b) => (a.at.compareDocumentPosition(b.at) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)) : []
   return (
     // Overflowing to the right, never the left, so the line can measure what does not fit.
     // Never narrower than the ⋯ itself: a crowded line gives up its count before its menu.
@@ -220,42 +298,33 @@ export function FitActions({ children, menu, keep, room }: { children: ReactNode
       {/* Folded, the line gives up its count's last letters before any of the ⋯: cut by the line's edge, it was one dot. */}
       <div className={cn('ml-auto flex items-center gap-1', folded ? 'min-w-0' : 'shrink-0')}>
       {keep && (folded ? <span className="flex min-w-0 items-center gap-1 overflow-hidden">{keep}</span> : keep)}
-      {folded && !menu ? (
-        <Popover open={open} onOpenChange={setOpen}>
-          <Tip label="More">
-            <PopoverTrigger asChild>
-              <button type="button" aria-label="More" className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground data-[state=open]:bg-accent/60 data-[state=open]:text-foreground">
-                <AliveIcon icon={DotsHorizontalIcon} size={16} />
-              </button>
-            </PopoverTrigger>
-          </Tip>
-          <PopoverContent align="end" className="w-auto max-w-[min(22rem,calc(100vw-2rem))] p-1.5 text-xs text-muted-foreground [&>*]:flex-wrap [&>*]:justify-end">
-            {children}
-          </PopoverContent>
-          {/* Folded and shut, they stay on the page unseen, so their keys still answer:
-              F opens Display (as a sheet, its button out of sight) beside an open note too. */}
-          {!open && <div hidden>{children}</div>}
-        </Popover>
-      ) : folded ? (
+      <FoldsInto.Provider value={into}>
+      {folded ? (
         // A menu as the note's ⋯ is (note-extras.tsx): rows of icon, words and keys, grouped. The bar's own buttons
         // stay mounted unseen, never moved into it, so opening it builds only its rows: moving them in made every
         // button, tip and menu of the bar anew on each opening, and their keys (F, ⌘F) still answer while it is shut.
         <>
-          <DropdownMenu modal={false}>
+          <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
             <Tip label="More">
               <DropdownMenuTrigger asChild>
-                <button type="button" aria-label="More" className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground data-[state=open]:bg-accent/60 data-[state=open]:text-foreground">
+                <button type="button" aria-label="More" data-fit-more className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground data-[state=open]:bg-accent/60 data-[state=open]:text-foreground">
                   <AliveIcon icon={DotsHorizontalIcon} size={16} />
                 </button>
               </DropdownMenuTrigger>
             </Tip>
             <DropdownMenuContent align="end" className="w-64" data-fit-menu>
-              {menu}
+              {menu ?? rows.map((one, at) => (
+                <Fragment key={one.id}>
+                  {at > 0 && one.group !== rows[at - 1].group && <DropdownMenuSeparator />}
+                  {one.rows}
+                </Fragment>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <div hidden>{children}</div>
         </>
       ) : children}
+      </FoldsInto.Provider>
       </div>
     </div>
   )
@@ -2124,14 +2193,76 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
             // A glide, or there at once with Motion off or Reduce motion.
             glideTo(target, 0)
           }}
-          // Dressed like the app's other floating controls: the popover surface, a
-          // hairline edge, the shared panel shadow, the text size of every control.
-          className={`pointer-events-auto flex items-center gap-1.5 rounded-full border bg-popover text-control text-muted-foreground shadow-(--mf-panel-shadow) transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'size-8 justify-center' : 'py-1 pr-3 pl-2.5'}`}
+          className={`${FLOAT_PILL} ${narrow ? 'size-8 justify-center' : 'py-1 pr-3 pl-2.5'}`}
         >
           <ArrowUp className="size-3.5" />{!narrow && ' Top'}
         </motion.button>
       )}
     </AnimatePresence>
+    </div>
+  )
+}
+
+// Dressed like the app's other floating controls: the popover surface, a
+// hairline edge, the shared panel shadow, the text size of every control.
+const FLOAT_PILL = 'pointer-events-auto flex cursor-pointer items-center gap-1.5 rounded-full border bg-popover text-control text-muted-foreground shadow-(--mf-panel-shadow) transition-colors hover:bg-accent hover:text-foreground'
+
+/**
+ * "More below": a small round ↓ at the foot of a panel that scrolls, shown
+ * only while there is more under its fold (Arc's sidebar does this), so the
+ * part under the fade is never taken for the end. Pressed (or ↵ with it in
+ * focus), the panel goes down a screenful; at the end it goes. Put beside the
+ * scrolling box, inside the same positioned panel, its foot at the panel's.
+ */
+export function MoreBelow({ target: given }: { /** The box, or a ref to it set by the time the pill mounts beside it. */ target: HTMLElement | null | React.RefObject<HTMLElement | null> }): React.JSX.Element {
+  // A ref is read once mounted, when it is set.
+  const boxOf = (): HTMLElement | null => (given && 'current' in given ? given.current : given)
+  const [below, setBelow] = useState(false)
+  // Over the box's own foot and centred on it, wherever it sits in the panel (a footer under it, a column beside it).
+  const [place, setPlace] = useState<React.CSSProperties>({ left: 0, right: 0, bottom: 12 })
+  useEffect(() => {
+    const box = boxOf()
+    setBelow(false)
+    if (!box) return
+    // Read in the scroll event and when the box or what is in it changes size (a section read in late, a fold opened),
+    // never on a timer; a few pixels short of the end counts as the end.
+    const check = (): void => setBelow(box.scrollHeight - box.scrollTop - box.clientHeight > 8)
+    const sized = new ResizeObserver(() => {
+      const frame = box.offsetParent as HTMLElement | null
+      if (frame) setPlace({ left: box.offsetLeft, width: box.offsetWidth, bottom: frame.clientHeight - box.offsetTop - box.offsetHeight + 12 })
+      check()
+    })
+    sized.observe(box)
+    for (const one of box.children) sized.observe(one)
+    // A part put in later (a list read in) is watched too.
+    const added = new MutationObserver(() => { for (const one of box.children) sized.observe(one) })
+    added.observe(box, { childList: true })
+    box.addEventListener('scroll', check, { passive: true })
+    return () => (box.removeEventListener('scroll', check), sized.disconnect(), added.disconnect())
+  }, [given]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div data-more-below={below || undefined} style={place} className="pointer-events-none absolute z-20 flex justify-center">
+      <AnimatePresence>
+        {below && (
+          <motion.button
+            type="button"
+            aria-label="More below"
+            title="More below"
+            initial={{ opacity: 0, transform: shift('translateY(6px) scale(0.9)') }}
+            animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
+            exit={{ opacity: 0, transform: shift('translateY(6px) scale(0.9)'), transition: { duration: 0.14, ease: EASE } }}
+            transition={{ duration: 0.2, ease: EASE }}
+            // A screenful less a little, so the last lines seen stay in sight as the next come up: a glide, or there at once with Motion off.
+            onClick={() => {
+              const box = boxOf()
+              if (box) glideTo(box, Math.min(box.scrollTop + box.clientHeight * 0.85, box.scrollHeight - box.clientHeight))
+            }}
+            className={`${FLOAT_PILL} size-7 justify-center`}
+          >
+            <ArrowDown className="size-3.5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

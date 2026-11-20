@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
-import { Tip } from './ui'
+import { MenuRows, Tip } from './ui'
 import { cn } from '@/lib/cn'
 import { Swatch } from '../theme/theme-picker'
 import { keyFor } from '@/lib/keys'
@@ -103,14 +103,15 @@ function Item({ one }: { one: Option | Action }): React.JSX.Element {
   return 'on' in one ? (
     <DropdownMenuCheckboxItem checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
       {/* Its own drawing in the menu's one icon place, at the line's start, as every menu has it. */}
-      {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="text-muted-foreground" />}
+      {one.icon ? <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="text-muted-foreground" /> : <MenuGlyph label={one.label} small />}
       <Named label={one.label} hint={one.hint} />
       {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
     </DropdownMenuCheckboxItem>
   ) : (
     // Room on the right like the tickable rows, so every shortcut lines up.
     <DropdownMenuItem onSelect={one.run} className="pr-8">
-      {one.hint && <MenuGlyph label={one.label} small />}
+      {/* Every line its drawing in the one icon place, as every menu row has it. */}
+      <MenuGlyph label={one.label} small />
       <Named label={one.label} hint={one.hint} />
       {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
     </DropdownMenuItem>
@@ -175,6 +176,9 @@ export function OptionsMenu({ sections, options = [], actions = [], app = false,
 }): React.JSX.Element {
   const parts = sections ?? [{ items: [...options, ...(app ? (['sounds', 'theme'] as const) : [])] }, { items: actions }]
   return (
+    <>
+    {/* On a page's line that folds behind ⋯: its rows join that menu, never a menu behind a menu. */}
+    <MenuRows group={label}><MenuSections sections={parts} /></MenuRows>
     <DropdownMenu modal={false}>
       <Tip label={tip ? label : ''}>
         <DropdownMenuTrigger asChild>
@@ -195,6 +199,7 @@ export function OptionsMenu({ sections, options = [], actions = [], app = false,
         <MenuSections sections={parts} />
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   )
 }
 
