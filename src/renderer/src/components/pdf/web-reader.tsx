@@ -1100,10 +1100,11 @@ function unwrapped(html: string, href = ''): string {
     }
   }
   lay(page.content)
-  // A drop cap opens the article (pdf.css) when it opens on a paragraph's own letter: not on a picture, a heading, a
-  // quote mark, a number or a link's words. Only a mark is added, so the words stay exactly as they were.
-  // (Comments are passed over: a kept article starts with its cleaning's own, main/web-articles.ts CLEANING.)
-  const opening = [...page.content.childNodes].find((node) => node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
+  // A drop cap opens the article (pdf.css) when its words open on a paragraph's own letter: not on a heading, a
+  // quote mark, a number or a link's words. A picture or a box of facts set before the words (Wikipedia's infobox)
+  // is passed over, so the letter opens the first paragraph under it, never beside it. Only a mark is added, so the
+  // words stay exactly as they were. (Comments are passed over: a kept article starts with its cleaning's own, main/web-articles.ts CLEANING.)
+  const opening = [...page.content.childNodes].find((node) => (node.nodeType === Node.ELEMENT_NODE && !/^(TABLE|FIGURE|IMG)$/.test(node.nodeName)) || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
   if (opening?.nodeName === 'P') {
     const walk = page.ownerDocument.createTreeWalker(opening, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
     let lead: Node | null = walk.nextNode()

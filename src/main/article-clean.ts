@@ -129,6 +129,7 @@ export function beforeReading(page: ReturnType<typeof parseHTML>['document']): v
     }
     if (facts.length) {
       const table = page.createElement('table')
+      table.setAttribute('data-infobox', '')
       for (const one of facts) {
         const row = page.createElement('tr')
         const label = page.createElement('th')
@@ -229,8 +230,6 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
   const words = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
   const first = clean.querySelector('h1, h2, h3')
   if (words(title) && first && words(first.textContent ?? '') === words(title)) first.remove()
-  // A wiki's own tagline ("From Wikipedia, the free encyclopedia"), which stood as the article's first words under its big first letter.
-  for (const one of [...clean.querySelectorAll('#siteSub, p, div')].slice(0, 12)) if (/^from (wikipedia|wiktionary), the free (encyclopedia|dictionary)\.?$/i.test(one.textContent?.trim() ?? '')) one.remove()
   codeAsWritten(clean)
   // Of each picture's versions, the one a desktop reader sees, read from its sources and classes before they are stripped:
   // a <picture>'s first source a wide window takes, a srcset's sharpest for the column, and nothing a wide window hides.
@@ -257,7 +256,7 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
   for (const one of clean.querySelectorAll('*')) {
     for (const { name } of [...one.attributes]) {
       // A picture's credit (free-sites.ts creditCommons, marked before the cleaning) is the one mark kept.
-      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-(?!credit$|language$)|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
+      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-(?!credit$|language$|infobox$)|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
     }
   }
   for (const one of clean.querySelectorAll('a[href]')) {
@@ -354,8 +353,14 @@ function tidy(clean: ReturnType<typeof parseHTML>['document'], buttons: Set<Elem
   // A heading of more words is a statement of its own (a guarantee, a claim) and stays.
   const last = (): Element | undefined => [...clean.querySelectorAll('p, li, dd, dt, blockquote, pre, table, img, figcaption, h1, h2, h3, h4, h5, h6')].filter((one) => one.matches('img, table') || wordsOf(one)).at(-1)
   for (let end = last(); end?.matches('h1, h2, h3, h4, h5, h6') && (end.textContent ?? '').trim().split(/\s+/).length <= 8; end = last()) end.remove()
-  // What is left with nothing in it: a wrapper whose button or icon went.
-  for (const one of [...clean.querySelectorAll('p, div, span, section, figure, picture, header, footer, aside, li, a')].reverse()) if (!wordsOf(one) && !one.querySelector('img, table, hr, pre')) one.remove()
+  // What is left with nothing in it: a wrapper whose button or icon went, a table's row whose picture went (an
+  // infobox's cover held under fair use, free-sites.ts creditCommons), which stood as an empty band. A span or a link holding only a space is the
+  // space between two words (Wikipedia sets "Followed&nbsp;by" with its space in a span of its own): its space stays.
+  for (const one of [...clean.querySelectorAll('p, div, span, section, figure, picture, header, footer, aside, li, a, tr')].reverse()) {
+    if (wordsOf(one) || one.querySelector('img, table, hr, pre')) continue
+    if (one.matches('span, a') && one.textContent) one.replaceWith(one.textContent)
+    else one.remove()
+  }
   // Readability's own wrappers (a page div, the site's article) unwrapped, so the words sit straight in the reader's column.
   let inner = clean.body as unknown as Element
   while (inner.children.length === 1 && /^(div|article|section|main)$/i.test(inner.children[0].tagName) && [...inner.childNodes].every((node) => node.nodeType === 1 || !(node.textContent ?? '').trim())) inner = inner.children[0]
