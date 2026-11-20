@@ -9,7 +9,7 @@ import { RowMenu, copyLinkItem, type RowItem } from "@/components/haligtree/row-
 import { VirtualList } from "@/components/haligtree/ui"
 import { hoverNote } from "@/components/haligtree/note-preview"
 import { open, pagesOf, useBookGraph, type Cited } from "./same-book"
-export { useCited, type Cited } from "./same-book"
+export { useCited, useCitedRead, type Cited } from "./same-book"
 import { GraphCanvas } from "@/components/haligtree/graph-canvas"
 import { openPdf } from "./pdf-reader"
 import { plural, num } from '../../../../main/dates'
@@ -91,8 +91,8 @@ export function StuckHead<T>({ lines, onFold }: { lines: Line<T>[]; onFold: (par
     let asked = 0
     const read = (): void => {
       asked = 0
-      // Under the section's heading, held at the top of the panel too.
-      const top = scroller.getBoundingClientRect().top + (list.closest("section")?.querySelector(".read-details-heading")?.getBoundingClientRect().height ?? 0)
+      // At the top of the panel: the section's own title scrolls away with its island.
+      const top = scroller.getBoundingClientRect().top
       // The first row still showing below it: read down to it and no further, where every row was read on each frame.
       const first = [...list.querySelectorAll<HTMLElement>("[data-part], [data-mark-group]:not(.read-details-stuck *)")].find((one) => one.getBoundingClientRect().bottom > top + 1)
       setStuck(first && first.dataset.part && first.getBoundingClientRect().top < top + 30 ? first.dataset.part : null)
@@ -132,8 +132,8 @@ const WHOLE: Part = { key: "whole", title: "Whole book", from: 0 }
  * book come first, under "Whole book". Pointed at, the shared note card shows
  * it whole. A click opens it, ⌥-click to the side; right-click for the row menu.
  */
-export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { cited: Cited[]; empty: string; parts?: Part[]; here?: number; /** The book, so its pages are named as printed. */ src?: string }): React.JSX.Element {
-  const shown = useMemo(() => inNotes(cited).sort((a, b) => (a.pages[0] ?? 0) - (b.pages[0] ?? 0)), [cited])
+export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { /** Null while first read: a row's room kept, empty, so nothing says "none yet" before it knows. */ cited: Cited[] | null; empty: string; parts?: Part[]; here?: number; /** The book, so its pages are named as printed. */ src?: string }): React.JSX.Element {
+  const shown = useMemo(() => inNotes(cited ?? []).sort((a, b) => (a.pages[0] ?? 0) - (b.pages[0] ?? 0)), [cited])
   const long = shown.length > 30
   const grouped = long && parts.length > 1
   const [folded, flip, foldKey] = useFolded(grouped, here && parts.length ? partAt(parts, here).key : undefined)
@@ -142,7 +142,9 @@ export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { cite
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [shown, parts, grouped, foldKey],
   )
-  if (!shown.length) return <p className="read-details-empty">{empty}</p>
+  // What arrives fades in where it lands; the island's height glides to it (ui.tsx Grows).
+  if (!cited) return <div aria-busy className="book-cited-wait" />
+  if (!shown.length) return <p className="read-details-empty animate-in fade-in-0 duration-200 motion-reduce:animate-none">{empty}</p>
   const row = (one: Cited, first: boolean, part?: string): React.JSX.Element => {
     const items: RowItem[] = [
       { label: "Open", run: () => open(one, false) },
@@ -166,7 +168,7 @@ export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { cite
     )
   }
   return (
-    <div className="book-cited" data-book-cited>
+    <div className="book-cited animate-in fade-in-0 duration-200 motion-reduce:animate-none" data-book-cited>
       {grouped && <StuckHead lines={lines} onFold={flip} />}
       <VirtualList items={lines} keyOf={(line) => ("head" in line ? `h:${line.head.key}` : `${line.row.type}:${line.row.id}`)} estimate={60} sizeOf={(line) => ("head" in line ? 30 : 60)} rowClass="">
         {(line) => ("head" in line ? <PartHead part={line.head} count={line.count} open={line.open} onFold={() => flip(line.head)} /> : row(line.row, line.first, line.part))}
@@ -456,7 +458,7 @@ export function BookMap({ src, title, cited }: { src: string; title: string; cit
   if (!graph) return null
   const n = around.length
   return (
-    <figure className="book-map" data-book-map data-nodes={graph.nodes.length} data-lines={graph.edges.length}>
+    <figure className="book-map animate-in fade-in-0 duration-200 motion-reduce:animate-none" data-book-map data-nodes={graph.nodes.length} data-lines={graph.edges.length}>
       <GraphCanvas map={graph} centre={src} onOpen={(type, id, aside) => open({ type, id }, !!aside)} className="h-[180px]" />
       <figcaption className="book-map-says">
         {num(n)} {n === 1 ? "note links" : "notes link"} to this book{graph.among ? `; ${plural(graph.among, 'link joins them', 'links join them')} to each other` : ""}.

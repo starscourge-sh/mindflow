@@ -16,7 +16,7 @@ import { Avatar } from './avatar'
 import { ListSearch, NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
-import { Count, Empty, FoldItem, MenuRows, Page, Tip, ask, askSure, openTag, quietly, sayNow, toast, typing } from './ui'
+import { Count, Empty, FoldItem, Grows, MenuRows, Page, Tip, ask, askSure, openTag, quietly, sayNow, toast, typing } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { IslandBox, useIslands } from './islands'
 import { withoutTags } from '../../../../main/tag-words'
@@ -1008,11 +1008,20 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
       <div className="page-column pb-16">
         {/* A quote with no source is the one thing here to put right: said first, in full size. */}
         {missing.length > 0 && (
-          // One quiet island on the list's own edge: the heading on its line, a sentence, then each quote as a row whose
-          // light wraps only its own words, its "Add who" beside them, never a band across the page.
-          <section data-missing-source className="mf-island mx-3 mt-5 rounded-xl border bg-accent/25 px-3 py-3">
-            <h3 className="flex items-center gap-2 text-heading font-semibold"><Quote className="size-4 shrink-0" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${num(missing.length)} quotes have no source`}</h3>
-            <p className="mt-0.5 mb-2 text-control text-foreground/90 text-pretty">A quote is someone’s words: say whose, so it never drifts from them. Point at one for its choices.</p>
+          // As the Display menu draws a section (ui.tsx Island compact): the heading and its sentence on the page's own
+          // ground, "Show all" at the heading's right, and the island under them holding only the quotes, each a row
+          // whose light wraps only its own words, its "Add who" beside them, never a band across the page.
+          <section data-missing-source className="mx-3 mt-5">
+            <div className="flex items-center gap-2 px-1">
+              <h3 className="flex min-w-0 items-center gap-2 text-heading font-semibold"><Quote className="size-4 shrink-0" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${num(missing.length)} quotes have no source`}</h3>
+              {missing.length > 5 && (
+                <Button variant="ghost" size="sm" className="-mr-2 ml-auto" data-missing-more onClick={() => (chime(allMissing ? 'fold' : 'slide'), setAllMissing(!allMissing))}>
+                  {allMissing ? 'Show fewer' : `Show all ${num(missing.length)}`}
+                </Button>
+              )}
+            </div>
+            <p className="mt-0.5 mb-2 px-1 text-control text-foreground/90 text-pretty">A quote is someone’s words: say whose, so it never drifts from them. Point at one for its choices.</p>
+            <Grows className="mf-island rounded-xl border bg-accent/25" inner="p-1.5">
             <ul className="flex flex-col gap-1">
               {missing.slice(0, allMissing ? undefined : 5).map((item) => (
                 // The three ways out show on the row pointed at (always, where nothing can point), in room kept for them, so nothing moves.
@@ -1030,11 +1039,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
                 </RowMenu>
               ))}
             </ul>
-            {missing.length > 5 && (
-              <Button variant="ghost" size="sm" className="-mx-2 mt-1" data-missing-more onClick={() => (chime(allMissing ? 'fold' : 'slide'), setAllMissing(!allMissing))}>
-                {allMissing ? 'Show fewer' : `Show all ${num(missing.length)}`}
-              </Button>
-            )}
+            </Grows>
           </section>
         )}
         {unknown && (

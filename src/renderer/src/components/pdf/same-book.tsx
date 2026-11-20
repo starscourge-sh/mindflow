@@ -14,10 +14,16 @@ export type Cited = { type: string; id: string; title: string; at: string; pages
 
 /** Every note, gem and card that holds or links into a book, in page order through it; read again when `again` changes. */
 export function useCited(src: string, again?: unknown): Cited[] {
-  const [cited, setCited] = useState<Cited[]>([])
+  return useCitedRead(src, again) ?? NONE
+}
+const NONE: Cited[] = []
+
+/** The same, null until the book's are first read: a panel says "none yet" only once it knows (it said so, then showed rows). */
+export function useCitedRead(src: string, again?: unknown): Cited[] | null {
+  const [cited, setCited] = useState<{ src: string; rows: Cited[] } | null>(null)
   useEffect(() => {
     let live = true
-    const load = (): void => void call<Cited[]>("pdf:cited", src).then((rows) => live && setCited(rows))
+    const load = (): void => void call<Cited[]>("pdf:cited", src).then((rows) => live && setCited({ src, rows }))
     load()
     const stop = window.api.captures.onChange(load)
     return () => {
@@ -25,7 +31,7 @@ export function useCited(src: string, again?: unknown): Cited[] {
       stop()
     }
   }, [src, again])
-  return cited
+  return cited?.src === src ? cited.rows : null
 }
 
 export const pagesOf = (pages: number[], label: (n: number) => string = String): string => (!pages.length ? "Holds it" : pages.length === 1 ? `p. ${label(pages[0])}` : pages.length === 2 ? `pp. ${label(pages[0])}, ${label(pages[1])}` : `pp. ${label(pages[0])}, ${label(pages[1])} +${pages.length - 2}`)

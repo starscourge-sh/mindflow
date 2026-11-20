@@ -1290,52 +1290,88 @@
 
 [data-motion='off'] :is(.book-panel-head, .book-panel-body) { animation-duration: auto !important; }
 
-/* Each part under the book's head (In your notes, Highlights, Information) is an island of its own, as a chat's
-   messages are each their own bubble on a contrasting ground: the app's island look (ui.tsx ISLAND: a shade off the
-   page, a hairline edge, the light along its top), squarish corners, a gap between. Drawn as one wall of text before, a
-   lone highlight read as a label and the panel's foot as more of its top (the user, 20 Nov). Opaque, so the
-   headings held at the top of a scrolling island hide the rows passing under them. */
+/* Each part under the book's head (In your notes, Highlights, Information) as the Display menu draws its sections
+   (display.tsx Section, ui.tsx Island compact): the part's title row (its name, its count, its action at the right)
+   on the panel's own ground, 4px above its island, the island holding only the rows, 12px from one part to the next.
+   With the titles inside, the panel read as cards with captions, and a title held at the top of its scrolling island
+   let the rows show at its sides (the user, 21 Nov). Nothing is held at the top now but a long list's chapter, and the
+   island is opaque, so that chapter hides the rows passing under it. */
 .book-panel {
   /* Mixed from the panel's own ink and ground, never from a colour that may carry its own see-through: opaque. */
   --book-island: color-mix(in oklab, var(--foreground) 5%, var(--background));
 }
 .book-panel-body {
-  gap: 0.625rem;
+  gap: 0.75rem;
 }
-/* Room above the first island as a margin, not the body's padding: a heading held at the top sits at the padding's
-   edge, and rows passing under showed in a strip above it. */
+/* Room above the first part, under the head. */
 .book-panel-body > :first-child {
   margin-top: 0.75rem;
 }
 .book-panel-body > .read-details-section {
-  padding: 0 0.625rem 0.5rem;
+  gap: 0.25rem;
+}
+/* The island (with .mf-island's light along its top, in every theme). Its height glides to what it holds (ui.tsx
+   Grows), so rows read in late or "Show more" never push what is under them at once. */
+.read-details-island {
   border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  border-radius: 0.375rem;
-  background-color: var(--book-island);
-  box-shadow: inset 0 1px 1px color-mix(in oklab, white 5%, transparent);
-}
-:root:is(.light, .paper) .book-panel-body > .read-details-section {
-  box-shadow: inset 0 1px 1px color-mix(in oklab, white 60%, transparent), 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 5%, transparent);
-}
-.book-panel-body > .read-details-section .read-details-heading {
-  padding-top: 0.5rem;
+  border-radius: var(--radius-sm);
   background-color: var(--book-island);
 }
-.book-panel-body .read-details-stuck .read-details-part {
-  background-color: var(--book-island);
+.read-details-island > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0 0.625rem;
 }
-/* Rows run edge to edge of their island, a hairline above each, the first too: one highlight is a row of a list,
-   never a chip on its own. */
-.book-panel-body :is(.read-details-mark, .book-cited-row) {
+/* What is not a row (the search, the colours, a sentence) keeps room from the island's edge; rows run to it. */
+.read-details-island > div > :first-child:not(.book-cited, .read-details-marks, .pdf-inspector-rows) {
+  margin-top: 0.5rem;
+}
+.read-details-island > div > :last-child:not(.book-cited, .read-details-marks, .pdf-inspector-rows, .book-map) {
+  margin-bottom: 0.5rem;
+}
+/* Room for one row while the notes linking in are first read: empty, never a grey bar, and the rows fade into it. */
+.book-cited-wait {
+  min-height: 3.5rem;
+}
+.read-details-island .read-details-marks > .read-details-empty {
+  padding: 0.25rem 0 0.5rem;
+}
+/* Rows run edge to edge of their island, a hairline between: one highlight is a row of a list, never a chip on its own. */
+.read-details-island :is(.read-details-mark, .book-cited-row) {
   width: calc(100% + 1.25rem);
   margin-inline: -0.625rem;
   padding-right: 0.625rem;
 }
-.book-panel-body :is(.read-details-mark, .book-cited-row)[data-first] {
+/* Under the search and the colours, the first highlight's hairline parts it from them. */
+.read-details-island .read-details-mark[data-first]:not([data-part]) {
   border-top-color: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
-.book-panel-body :is(.read-details-mark:hover, .read-details-mark.is-here, .book-cited-row:hover) {
+.read-details-island :is(.read-details-mark:hover, .read-details-mark.is-here, .book-cited-row:hover) {
   background-color: color-mix(in oklab, var(--foreground) 6%, var(--book-island));
+}
+.read-details-island .pdf-inspector-row {
+  margin-inline: -0.625rem;
+  padding-inline: 0.625rem;
+}
+/* The chapter held at the top spans the island's whole width, so no row shows at its sides. */
+.read-details-island .read-details-stuck {
+  width: calc(100% + 1.25rem);
+  margin-inline: -0.625rem;
+}
+.read-details-island .read-details-stuck .read-details-part {
+  padding-left: 0.875rem;
+  background-color: var(--book-island);
+}
+/* The book's map is the island's last row, not a framed box inside it. */
+.read-details-island .book-map {
+  margin: 0 -0.625rem;
+  border: 0;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 0;
+}
+.read-details-island .read-details-stacked {
+  background-color: color-mix(in oklab, var(--foreground) 5%, var(--book-island));
 }
 
 /* Finder's preview pane: the cover as wide as the panel in its own shape, squarish corners. Its height
@@ -1426,16 +1462,14 @@
 
 /* A section's heading: its name and count at the left, its action at the right, on one line. */
 .read-details-heading {
-  position: sticky;
-  z-index: 3;
-  top: 0;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  /* Held at the top of the panel's body while its section's rows pass under it, on the panel's own ground. */
-  padding: 0.75rem 0 0.375rem;
-  background-color: var(--background);
+  /* Display's title row (ui.tsx Island compact): 4px in from the island's edge, on the panel's own ground, scrolling
+     away with its island; held at the top, rows showed beside it. */
+  min-height: 1.25rem;
+  padding: 0 0.25rem;
 }
 
 .read-details-heading h3 {
@@ -1443,8 +1477,14 @@
   align-items: baseline;
   gap: 0.375rem;
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 600;
+}
+
+/* The action's words end in line with the island's right edge, as the title starts in line with its left. */
+.read-details-heading .read-details-action {
+  margin-right: -0.375rem;
 }
 
 /* Secondary words tinted from the panel's own ink, never grey on grey: 4.5:1 or more in every theme. */
@@ -1549,15 +1589,12 @@
 .read-details-stuck {
   position: sticky;
   z-index: 2;
-  /* Under the section's own heading, which is held at the top too. */
-  top: 0.75rem;
+  /* At the top of the panel's body: the part's title scrolls away with its island. */
+  top: 0;
   height: 0;
 }
 
 .read-details-stuck .read-details-part {
-  height: auto;
-  padding-top: 1.75rem;
-  padding-bottom: 0.25rem;
   background-color: var(--background);
   box-shadow: 0 1px 0 color-mix(in oklab, var(--foreground) 8%, transparent);
   border-radius: 0;

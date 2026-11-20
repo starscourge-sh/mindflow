@@ -10,7 +10,7 @@ import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { byKeys, EASE, glideWay, glides, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
+import { byKeys, EASE, glideWay, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
 import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
@@ -2132,12 +2132,56 @@ export function jumpTo(box: HTMLElement, top: number): void {
   if (lenis) lenis.scrollTo(top, { immediate: true, force: true })
   else box.scrollTop = top
 }
+/** The glide each box is making, stopped by the next one asked of it or by the person taking the scroll. */
+const gliding = new WeakMap<HTMLElement, () => void>()
+/**
+ * A scroll the app makes never jumps (the user's hard rule, 21 Nov): a glide drawn frame by frame, eased in and out,
+ * about 0.8 ms a pixel (a screenful in about half a second, never more than 650 ms however far); with Motion off or
+ * Reduce motion, the box fades out and back in at its new place. Drawn here and not by the browser's smooth scroll:
+ * that one is off with "Smooth scrolling" off, and a list keeping its place as rows above it are measured (VirtualList)
+ * set the scroll mid-glide, which ended it there and left the rest a jump. Here the glide moves with such a shift.
+ */
 export function glideTo(box: HTMLElement, top: number): void {
   const lenis = smooth.get(box)
-  // Motion or "Smooth scrolling" can be turned off after the box was set up to glide.
-  const calm = !glides()
-  if (lenis) return lenis.scrollTo(top, calm ? { immediate: true } : { duration: 0.4 })
-  box.scrollTo({ top, behavior: calm ? 'instant' : 'smooth' })
+  gliding.get(box)?.()
+  if (still()) {
+    const out = box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, easing: 'ease-out' })
+    out.onfinish = () => {
+      if (lenis) lenis.scrollTo(top, { immediate: true, force: true })
+      else box.scrollTop = top
+      box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' })
+    }
+    return
+  }
+  if (lenis) return lenis.scrollTo(top, { duration: 0.4 })
+  let from = box.scrollTop
+  let to = Math.max(0, Math.min(top, box.scrollHeight - box.clientHeight))
+  const far = Math.abs(to - from)
+  if (far < 1) return
+  const time = Math.min(650, Math.max(280, far * 0.8))
+  const start = performance.now()
+  let wrote = from
+  let frame = 0
+  const stop = (): void => {
+    cancelAnimationFrame(frame)
+    gliding.delete(box)
+    for (const kind of ['wheel', 'pointerdown', 'touchstart'] as const) box.removeEventListener(kind, stop)
+  }
+  const step = (now: number): void => {
+    // Rows above measured mid-glide moved the scroll by as much to keep the view still: the glide moves with them.
+    const shift = box.scrollTop - wrote
+    from += shift
+    to += shift
+    const done = Math.min(1, (now - start) / time)
+    box.scrollTop = from + (to - from) * (0.5 - Math.cos(Math.PI * done) / 2)
+    wrote = box.scrollTop
+    if (done < 1) frame = requestAnimationFrame(step)
+    else stop()
+  }
+  // The person's own scroll or press takes over at once.
+  for (const kind of ['wheel', 'pointerdown', 'touchstart'] as const) box.addEventListener(kind, stop, { passive: true })
+  gliding.set(box, stop)
+  frame = requestAnimationFrame(step)
 }
 
 /**
@@ -2181,18 +2225,11 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
           exit={{ opacity: 0, transform: shift('translateY(8px) scale(0.95)'), transition: { duration: 0.14, ease: EASE } }}
           transition={{ duration: 0.22, ease: EASE }}
           style={{ transformOrigin: 'bottom right' }}
-          onClick={() => {
-            // From far down, jump most of the way and glide the last stretch:
-            // a glide over a few hundred rows is a wait, not a motion.
-            if (!target) return
-            const lenis = smooth.get(target)
-            if (target.scrollTop > target.clientHeight * 2) {
-              if (lenis) lenis.scrollTo(target.clientHeight, { immediate: true })
-              else target.scrollTop = target.clientHeight
-            }
-            // A glide, or there at once with Motion off or Reduce motion.
-            glideTo(target, 0)
-          }}
+          // A press keeps the keys where they were and wears no ring; Tab still reaches it, with the ring.
+          onMouseDown={(event) => event.preventDefault()}
+          // A glide however far (never longer than glideTo's 650 ms, so never a wait); a fade with Motion off. It jumped
+          // most of the way before: the hard rule is that nothing jumps.
+          onClick={() => target && glideTo(target, 0)}
           className={`${FLOAT_PILL} ${narrow ? 'size-8 justify-center' : 'py-1 pr-3 pl-2.5'}`}
         >
           <ArrowUp className="size-3.5" />{!narrow && ' Top'}
@@ -2248,10 +2285,13 @@ export function MoreBelow({ target: given }: { /** The box, or a ref to it set b
             type="button"
             aria-label="More below"
             title="More below"
-            initial={{ opacity: 0, transform: shift('translateY(6px) scale(0.9)') }}
-            animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
-            exit={{ opacity: 0, transform: shift('translateY(6px) scale(0.9)'), transition: { duration: 0.14, ease: EASE } }}
+            // A fade with a 4px rise, never a pop: grown from 90% it read as a pop at the panel's foot.
+            initial={{ opacity: 0, transform: shift('translateY(4px)') }}
+            animate={{ opacity: 1, transform: shift('translateY(0px)') }}
+            exit={{ opacity: 0, transform: shift('translateY(4px)'), transition: { duration: 0.16, ease: EASE } }}
             transition={{ duration: 0.2, ease: EASE }}
+            // A press keeps the keys where they were and wears no ring (a ring stayed on it after a click); Tab still reaches it, with the ring.
+            onMouseDown={(event) => event.preventDefault()}
             // A screenful less a little, so the last lines seen stay in sight as the next come up: a glide, or there at once with Motion off.
             onClick={() => {
               const box = boxOf()
@@ -3164,6 +3204,38 @@ export function Island({ title, actions, children, className, compact, name, gro
     </section>
   )
 }
+/**
+ * A box whose height glides to what it holds whenever that changes (rows read in late, a "Show more", a search that
+ * finds fewer), so what is under it never jumps; at once the first time, and with Motion off or Reduce motion. Read
+ * from the size watch, never on a render. Its own class draws the box; `inner` lays out what is in it.
+ */
+export function Grows({ className, inner, children, ...rest }: { className?: string; inner?: string; children: ReactNode } & Omit<React.HTMLAttributes<HTMLDivElement>, 'children'>): React.JSX.Element {
+  const outer = useRef<HTMLDivElement>(null)
+  const held = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const box = outer.current
+    const body = held.current
+    if (!box || !body) return
+    let first = true
+    const fit = (): void => {
+      // Its own border counts in its height (border-box).
+      const edge = box.offsetHeight - box.clientHeight
+      box.style.transition = first || still() ? 'none' : ''
+      box.style.height = `${body.offsetHeight + edge}px`
+      first = false
+    }
+    fit()
+    const sized = new ResizeObserver(fit)
+    sized.observe(body)
+    return () => sized.disconnect()
+  }, [])
+  return (
+    <div ref={outer} className={cn('overflow-clip transition-[height] duration-200 ease-(--mf-ease)', className)} {...rest}>
+      <div ref={held} className={inner}>{children}</div>
+    </div>
+  )
+}
+
 export const ISLAND = 'mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25'
 const ISLAND_COMPACT = 'rounded-lg [&>*]:rounded-none [&>button]:w-full [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
 

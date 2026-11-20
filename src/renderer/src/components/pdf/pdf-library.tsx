@@ -8,9 +8,9 @@ import { openPdf } from "./pdf-reader"
 import { coverOnPaper, pdfCover, usePdfCover } from "./pdf-cover"
 import { scrubbedPage } from "./pdf-peek"
 import { PictureRow } from "@/components/haligtree/picture-row"
-import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
+import { BookMap, InYourNotes, PageBar, inNotes, useCitedRead } from "./book-links"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
-import { BackToTop, MoreBelow } from "@/components/haligtree/ui"
+import { BackToTop, Grows, MoreBelow } from "@/components/haligtree/ui"
 import { RowMenu, type RowItem } from "@/components/haligtree/row-menu"
 import { canSplit, useHere } from "@/lib/split"
 import { binFiles } from "@/lib/media-files"
@@ -221,7 +221,8 @@ function BookCard({ one, lit, picked, menu, onPick, onRest, onLeave }: { one: Bo
  */
 function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JSX.Element {
   const cover = usePdfCover(one.src, one.name)
-  const cited = useCited(one.src, one.highlights)
+  const read = useCitedRead(one.src, one.highlights)
+  const cited = read ?? []
   const [marks, setMarks] = useState<{ page: number; color?: string | null }[]>([])
   const [box, setBox] = useState<HTMLElement | null>(null)
   useEffect(() => {
@@ -240,14 +241,17 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
         {one.pages ? <PageBar src={one.src} name={one.name} pages={one.pages} page={one.page} cited={cited} marks={marks} /> : null}
       </div>
       <div ref={setBox} className="book-panel-body" data-panel-scroll>
-        <section className="read-details-section">
+        {/* Each part as Display draws its sections: its title row on the panel, the island under it holding only the rows. */}
+        <section className="read-details-section" data-in-notes>
           <div className="read-details-heading">
             <h3>
-              In your notes <span className="read-details-count">{linked.toLocaleString()}</span>
+              In your notes {read && <span className="read-details-count animate-in fade-in-0 duration-200 motion-reduce:animate-none">{linked.toLocaleString()}</span>}
             </h3>
           </div>
-          <InYourNotes src={one.src} cited={cited} empty="No note links here yet. Link a page from the reader with “Copy link to this page” and paste it in any note." />
-          <BookMap src={one.src} title={titleOf(one)} cited={cited} />
+          <Grows className="read-details-island mf-island">
+            <InYourNotes src={one.src} cited={read} empty="No note links here yet. Link a page from the reader with “Copy link to this page” and paste it in any note." />
+            <BookMap src={one.src} title={titleOf(one)} cited={cited} />
+          </Grows>
         </section>
         <BookInfo one={one} linked={linked} />
       </div>
