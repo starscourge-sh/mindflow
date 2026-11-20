@@ -13,7 +13,7 @@ import { glideWay, spring } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import SlidersHorizontalIcon from '@/components/ui/sliders-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { dayjs, daysSince, num } from '../../../../main/dates'
+import { dayjs, daysSince, num, plural } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { ArrowDown, ArrowUp, Check, ChevronDown, LayoutGrid, List as LayoutList } from '@/components/ui/icons'
 import { DROP_LIT } from './sortable'
@@ -773,7 +773,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         )}
-        <FoldItem icon={SlidersHorizontal} label={filtered ? `Display… (${num(filtered)} ${filtered === 1 ? 'filter' : 'filters'} on)` : 'Display…'} keys="F" onSelect={() => show(true)} />
+        <FoldItem icon={SlidersHorizontal} label={filtered ? `Display… (${plural(filtered, 'filter')} on)` : 'Display…'} keys="F" onSelect={() => show(true)} />
       </MenuRows>
     )}
     {!hidden && <Popover open={open && !sheet} onOpenChange={show}>
