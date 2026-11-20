@@ -1739,6 +1739,7 @@ export function Home(): React.JSX.Element {
     return at?.id ?? null
   })()
   // Where the note in front lives in Folders (any kind but a task): Folders' own record of it.
+  const openedFrom = useRef<{ id: string; where: 'pin' | 'recent' } | null>(null)
   const keptNuggets = useFolderOf()
   const keptCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
   const keptFolder = noteNow && noteNow.type !== 'task' ? (noteNow.type === 'capture' ? keptCaptures[noteNow.id] : keptNuggets[noteNow.id]) : undefined
@@ -1746,6 +1747,13 @@ export function Home(): React.JSX.Element {
   const recentOn = !(settings?.sidebarGroupsOff ?? []).includes(SIDE_GROUPS[1].id) && !quiet && !narrow
   const pinsOn = !(settings?.sidebarGroupsOff ?? []).includes(SIDE_GROUPS[0].id) && !quiet && !narrow
   const inRecent = !!view.focus && (!!noteNow || view.id === 'pdf' || view.id === 'web') && noteNow?.type !== 'task' && (!!noteNow || recents.some((one) => one.id === view.focus))
+  // The note open now, if it was opened from its row under Pinned or Recent: that row is where the person is. Opened
+  // from a list (Writing, the Inbox, Gems), the list's own row in the sidebar keeps the light (the user, 20 Nov: a page
+  // opened in Writing lit Recent, and Writing not at all).
+  if (openedFrom.current && openedFrom.current.id !== view.focus) openedFrom.current = null
+  const from = openedFrom.current?.where
+  // Whether the page on show has a row of its own in the sidebar to light.
+  const placeShown = shown.includes(litRow(view.id, shown))
   /** Where the light belongs, whatever is folded: the kind of row, and which. */
   const wanted = (() => {
     // A folder's page, "Not in a folder" or every folder: the one row of the Folders section that is lit (one light
@@ -1754,8 +1762,8 @@ export function Home(): React.JSX.Element {
     if (noteList && homeFolder && foldersOn(noteList)) return `note:${noteNow!.id}`
     // A note kept in one of Folders' folders: its row under that folder (the section lights its heading when folded).
     if (keptFolder && !narrow && !quiet) return `kept:${noteNow!.id}`
-    if (noteNow && noteNow.type !== 'task' && pinsOn && pins.some((one) => one.id === noteNow.id)) return `pin:${noteNow.id}`
-    if (inRecent && recentOn) return `recent:${view.focus}`
+    if (noteNow && noteNow.type !== 'task' && pinsOn && pins.some((one) => one.id === noteNow.id) && (from === 'pin' || !placeShown)) return `pin:${noteNow.id}`
+    if (inRecent && recentOn && (from === 'recent' || !placeShown)) return `recent:${view.focus}`
     if (narrow) return `place:${litRow(view.id, shown)}`
     if ((view.id === 'articles' || view.id === 'nuggets') && view.folder && !noteNow && foldersOn(view.id === 'articles' ? 'article' : 'nugget')) return `folder:${view.folder}`
     if (!shown.includes(view.id) && JOURNAL_SCALES.some((one) => one.id === view.id)) return `scale:${view.id}`
@@ -2564,7 +2572,7 @@ export function Home(): React.JSX.Element {
                         // The one open now says so, in full ink, as the page you are on does above.
                         data-open={light === `pin:${pin.id}` || undefined}
                         aria-current={light === `pin:${pin.id}` ? 'page' : undefined}
-                        onClick={() => open(pin.type, pin.id)}
+                        onClick={() => ((openedFrom.current = { id: pin.id, where: 'pin' }), open(pin.type, pin.id))}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
                         className={`flex min-w-0 items-start gap-2.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? `${NARROW_ICON} items-center` : 'flex-1 rounded-md px-2 py-1.5'}`}
@@ -2597,7 +2605,7 @@ export function Home(): React.JSX.Element {
                     <Unfold open={recentOpen}><Branches className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
-                          onClick={() => open(one.type, one.id)}
+                          onClick={() => ((openedFrom.current = { id: one.id, where: 'recent' }), open(one.type, one.id))}
                           // Past, so quieter than the places above: the muted ink (never see-through), the row's full ink when pointed at or open.
                           className="group/recent flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors duration-80 hover:text-foreground aria-[current=page]:text-foreground">
                           <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground group-hover/recent:text-(--mf-muted-strong)" /></span>
