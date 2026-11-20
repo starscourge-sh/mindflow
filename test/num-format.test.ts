@@ -28,7 +28,6 @@ const ALLOWED: [file: string, bit: string, why: string][] = [
   ['src/renderer/src/components/capture-kinds/capture-kind-picker.tsx', '${CAPTURE_TYPES.length}', 'a key range, ⌘1-9: never past 9'],
   ['src/renderer/src/lib/people.ts', '${used.size}', 'part of an id made from initials'],
   ['src/main/freeze-catch.ts', '${all.length} lines', 'a log line for us, not shown in the app'],
-  ['src/main/study-ai.ts', 'Make exactly $', 'words to Apple Intelligence, never shown in the app'],
   ['src/main/celebrate.ts', '${facts.size}', 'a cache key from a file size'],
   ['src/main/book-words.ts', '${raw.length}', 'a key for finding the same capture twice'],
   ['src/main/scenery.ts', '${facts.size}', 'a cache key from a file size'],
