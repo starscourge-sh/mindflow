@@ -15,7 +15,7 @@ const wait = (ms) => h.waitForTimeout(ms)
 const sql = (q, ...args) => electron.evaluate((_, [q, args]) => globalThis.qaFeedSql(q, ...args), [q, args])
 const words = (n) => Array.from({ length: n }, (_, i) => ['the', 'river', 'keeps', 'its', 'own', 'counsel', 'and', 'night'][i % 8]).join(' ')
 const article = (href, title, n) => sql('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)',
-  `qa-${title}`, href, title, '', 'example.org', '', `<!-- reader 3 --><p>${words(n)}</p>`, new Date().toISOString())
+  `qa-${title}`, href, title, '', 'example.org', '', `<!-- reader 4 --><p>${words(n)}</p>`, new Date().toISOString())
 const READ = { href: 'https://example.org/finished', title: 'A short read, finished', words: 120 }
 const QUICK = { href: 'https://example.org/quick', title: 'A short read, skimmed', words: 120 }
 const LONG = { href: 'https://example.org/long', title: 'A long read, begun', words: 4000 }

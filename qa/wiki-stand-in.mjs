@@ -7,6 +7,7 @@
 // with no network would.
 import { createServer } from 'node:http'
 import { deflateSync, crc32 } from 'node:zlib'
+import { readFileSync } from 'node:fs'
 
 const png = (r, g, b, w = 64, h = 40) => {
   const chunk = (type, data) => {
@@ -35,7 +36,10 @@ export const ROMAN = 'https://en.wikipedia.org/wiki/Roman_Empire'
 export const BYZANTINE = 'https://en.wikipedia.org/wiki/Byzantine_Empire'
 /** An article the stand-in takes a moment and a half to send, to see the reader while it reads. */
 export const CARTHAGE = 'https://en.wikipedia.org/wiki/Carthage'
+/** A real page as Wikipedia sent it (fetched once, 20 Nov 2026): its tagline in #siteSub, an infobox whose labels hold their spaces in spans of their own ("Followed<span>&nbsp;</span>by"). */
+export const MORGOTH = "https://en.wikipedia.org/wiki/Morgoth%27s_Ring"
 const pages = {
+  '/en.wikipedia.org/wiki/Morgoth%27s_Ring': readFileSync(new URL('./fixtures/reader/morgoths-ring.html', import.meta.url), 'utf8'),
   '/en.wikipedia.org/wiki/Roman_Empire': article('Roman Empire', `
     <p>The <b>Roman Empire</b> was the state ruled by the Romans after Augustus took sole rule, and it lasted in the west until the fifth century and in the east, as the <a href="/wiki/Byzantine_Empire" title="Byzantine Empire">Byzantine Empire</a>, for a thousand years more.<sup class="reference"><a href="#cite_note-1">[1]</a></sup> Its story is told on <a href="https://example.org/rome-elsewhere">a page elsewhere</a> too.</p>
     <figure typeof="mw:File/Thumb"><a href="/wiki/File:Colosseum.jpg" class="mw-file-description"><img src="//upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Colosseum.jpg/250px-Colosseum.jpg" width="250" height="160" alt="The Colosseum"></a><figcaption>The Colosseum in Rome</figcaption></figure>

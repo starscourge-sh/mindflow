@@ -101,6 +101,16 @@ test("a picture's credit keeps its mark through the cleaning, and only it", asyn
   assert.equal(credit?.hasAttribute('data-x'), false)
 })
 
+test('a space held in a span of its own stays ("Followed by", not "Followedby"), and an infobox keeps its mark (20 Nov, Wikipedia)', async () => {
+  // As Wikipedia sends it: the label's space a no-break space in a span of its own.
+  const page = '<table data-infobox=""><tbody><tr><th>Followed<span typeof="mw:Entity">&nbsp;</span>by</th><td><i>The War of the Jewels</i></td></tr></tbody></table>' +
+    '<p>Morgoth\'s Ring is the tenth volume of the History of Middle-earth, in which Christopher Tolkien reads his father\'s papers.</p>'
+  const html = await cleanArticle(page, new URL('https://en.wikipedia.org/wiki/Morgoth%27s_Ring'), 'Wikipedia', async (src) => ({ kept: src, size: null }))
+  const body = parseHTML(`<!doctype html><html><body>${html}</body></html>`).document
+  assert.equal(body.querySelector('th')?.textContent?.replace(/\s/g, ' '), 'Followed by')
+  assert.equal(body.querySelector('table')?.hasAttribute('data-infobox'), true)
+})
+
 test("a first heading that only repeats the article's name comes off, so the title never shows twice; any other stays", async () => {
   const page = '<h2>The Arctic Letters</h2><p>I am already far north of London, and as I walk in the streets of Petersburgh, I feel a cold northern breeze.</p><h2>The voyage</h2><p>Inspirited by this wind of promise, my daydreams become more fervent and vivid.</p>'
   const keep = async (src: string): Promise<{ kept: string; size: null }> => ({ kept: src, size: null })
