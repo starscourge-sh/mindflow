@@ -463,6 +463,8 @@ function blockAtIndex(editor: Editor, index: number): string | null {
 
 export const noteLinkPluginKey = new PluginKey("noteLink")
 export const tagPluginKey = new PluginKey("tagSuggest")
+/** A quote's "- who, where" being typed in the box (lib/source-rows.tsx saidBySuggestion). */
+export const saidByPluginKey = new PluginKey("said-by")
 export const wikiPluginKey = new PluginKey("wikiSuggest")
 export const embedPluginKey = new PluginKey("embedSuggest")
 /** What each note list does, said over its rows, for the menus that pick a note. */
