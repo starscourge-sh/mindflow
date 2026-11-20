@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Sparkles } from "lucide-react"
-import { BookOpen, Check, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, Search, SquareStack, X, ZoomIn } from "lucide-react"
+import { BookOpen, Check, ChevronDown, ChevronUp, Copy, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, Search, SquareStack, X, ZoomIn } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
@@ -606,7 +606,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // table) cut out as a picture, then made a card's answer or kept as a gem.
   const [snipping, setSnipping] = useState(false)
   const [snip, setSnip] = useState<{ x: number; y: number; w: number; h: number; from?: { x: number; y: number } } | null>(null)
-  const [snipped, setSnipped] = useState<{ src: string; page: number; x: number; y: number; bottom: number } | null>(null)
+  // Its picture is saved as the bar shows: `src` settles once the PNG is written, and Card, Keep and Copy wait for it.
+  const [snipped, setSnipped] = useState<{ src: Promise<string | null>; page: number; x: number; y: number; bottom: number } | null>(null)
   /** A pointer's place in the pages' own scrolling space, where the floating bars are placed. */
   const within = (event: { clientX: number; clientY: number }): { x: number; y: number } => {
     const frame = scroller.current!.getBoundingClientRect()
@@ -630,18 +631,40 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     out.width = Math.max(1, Math.round(box.w * scale))
     out.height = Math.max(1, Math.round(box.h * scale))
     out.getContext("2d")!.drawImage(canvas, (left - drawn.left) * scale, (top - drawn.top) * scale, out.width, out.height, 0, 0, out.width, out.height)
-    const blob = await new Promise<Blob | null>((done) => out.toBlob(done, "image/png"))
-    if (!blob) return
     const page = Number(sheet.dataset.page)
-    const { src: saved } = await saveAttachment(new File([blob], `${title} p${page} snip.png`, { type: "image/png" }))
+    // The bar comes at once; encoding the PNG and writing it to the book (hundreds of ms on a large figure) go on after.
+    const saved = new Promise<Blob | null>((done) => out.toBlob(done, "image/png"))
+      .then((blob) => (blob ? saveAttachment(new File([blob], `${title} p${page} snip.png`, { type: "image/png" })).then((one) => one.src) : null))
     setSnipping(false)
-    setSnipped({ src: saved, page, x: box.x + box.w / 2 - 70, y: box.y, bottom: box.y + box.h })
+    setSnipped({ src: saved, page, x: box.x + box.w / 2 - 105, y: box.y, bottom: box.y + box.h })
     chime("saved")
   }
+  /** The snip's picture, once saved; a snip that could not be saved says so and goes. */
+  const snipSrc = async (one: { src: Promise<string | null> }): Promise<string | null> => {
+    const saved = await one.src.catch(() => null)
+    if (!saved) (setSnipped(null), said("Could not save the snip", false))
+    return saved
+  }
+  /** A card of the snip: its question asked where the snip was. */
+  const cardSnip = async (one: NonNullable<typeof snipped>, gem: boolean): Promise<void> => {
+    setSnipped(null)
+    const saved = await snipSrc(one)
+    if (saved) setCarding({ page: one.page, quote: `![](${saved})`, x: one.x, y: one.y, gem })
+  }
+  /** The snipped picture to the clipboard, as "Copy image" does in the web reader (web-reader.tsx). */
+  const copySnip = async (one: NonNullable<typeof snipped>): Promise<void> => {
+    const saved = await snipSrc(one)
+    if (!saved) return
+    if (!(await window.api.copyImage(saved))) return said("Could not copy the snip", false)
+    chime("copy")
+    said("Copied the snip")
+  }
   /** The snip kept as a gem: the picture, the book and page under it, linked back. */
-  const keepSnip = async (one: { src: string; page: number }): Promise<void> => {
+  const keepSnip = async (one: { src: Promise<string | null>; page: number }): Promise<void> => {
+    const saved = await snipSrc(one)
+    if (!saved) return
     const { author, where } = await whereFrom(one.page)
-    const gem = await call<string>("nugget:from", `![](${one.src})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${label(one.page)}`, kind: "quote" })
+    const gem = await call<string>("nugget:from", `![](${saved})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${label(one.page)}`, kind: "quote" })
     // Named for what it is, a figure from this page: its first line is the picture, which no list can show as a name.
     await call("item:save", gem, { title: `Figure from ${where}` })
     setSnipped(null)
@@ -653,8 +676,15 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === "Escape" && keysHere(pane)) (setSnipping(false), setSnip(null), setSnipped(null))
     }
+    // ⌘C (the Edit menu's Copy) with a snip shown and no words picked: the snip's picture.
+    const onCopy = (event: ClipboardEvent): void => {
+      if (!snipped || !keysHere(pane) || !document.getSelection()?.isCollapsed) return
+      event.preventDefault()
+      void copySnip(snipped)
+    }
     window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    document.addEventListener("copy", onCopy)
+    return () => (window.removeEventListener("keydown", onKey), document.removeEventListener("copy", onCopy))
   })
   // C: the question asked where the words were; Return makes the card.
   const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number; bottom?: number; markId?: string; gem?: boolean } | null>(null)
@@ -662,7 +692,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   useToolKeys(snipped && !carding ? (event) => {
     if (!keysHere(pane) || event.metaKey || event.ctrlKey || event.shiftKey) return false
     if (event.target instanceof HTMLElement && event.target.closest("input, textarea, [contenteditable=true]")) return false
-    if (event.code === "KeyC") return (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y, gem: event.altKey }), setSnipped(null), chime("open"), true)
+    if (event.code === "KeyC") return (void cardSnip(snipped, event.altKey), chime("open"), true)
     if (event.code === "KeyK" && !event.altKey) return (void keepSnip(snipped), true)
     return false
   } : null)
@@ -1261,13 +1291,17 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               <div className="pdf-keep-bar" style={{ left: snipped.x, top: snipped.bottom + 8 }} onMouseDown={(event) => event.preventDefault()}>
                 <Toolbar variant="floating">
                   <ToolbarGroup>
-                    <Button data-style="ghost" aria-label="Card" title={"Make a card of this snip  C\nIn Review only; ⌥C keeps it as a gem too"} onClick={(event) => (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y, gem: event.altKey }), setSnipped(null))}>
+                    <Button data-style="ghost" aria-label="Card" title={"Make a card of this snip  C\nIn Review only; ⌥C keeps it as a gem too"} onClick={(event) => void cardSnip(snipped, event.altKey)}>
                       <SquareStack className="tiptap-button-icon" />
                       <span className="tiptap-button-text">Card</span>
                     </Button>
                     <Button data-style="ghost" aria-label="Keep" title="Keep the snip as a gem  K" onClick={() => void keepSnip(snipped)}>
                       <Gem className="tiptap-button-icon" />
                       <span className="tiptap-button-text">Keep</span>
+                    </Button>
+                    <Button data-style="ghost" aria-label="Copy" title="Copy the snip as a picture  ⌘C" onClick={() => void copySnip(snipped)}>
+                      <Copy className="tiptap-button-icon" />
+                      <span className="tiptap-button-text">Copy</span>
                     </Button>
                   </ToolbarGroup>
                 </Toolbar>
