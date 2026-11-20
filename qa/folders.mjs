@@ -80,6 +80,17 @@ try {
   check('"Not in a folder" counts one fewer', await until(async () => (await unfiled()) === before - 1), `${await unfiled()}`)
   check('Writing still lists it, with a quiet folder label', (await h.locator(`[data-page="articles"] [data-id="${page}"] [data-row-folder="${thesis.id}"]`).count()) === 1)
   await shot('writing')
+  // ⌘Z puts it back.
+  await h.keyboard.press('Meta+z')
+  await wait(700)
+  check('⌘Z takes it out again', await until(async () => !(await c.v('folders:of', 'nuggets'))[page]), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
+  // Again.
+  await menu(row, 'Keep in folder…')
+  await h.keyboard.type('Thesis')
+  await h.keyboard.press('Enter')
+  await wait(700)
+  check('kept in Thesis again', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id))
+
   // The label sits at the row's right edge, centred on the row, one line; Display › "Show folder" off hides it, and
   // nothing else on the row moves.
   const label = () => h.evaluate((id) => {
@@ -104,16 +115,6 @@ try {
   await h.locator('[data-show-folder]').click(); await wait(400)
   await h.keyboard.press('Escape'); await wait(300)
   check('and on again shows it', (await label())?.shown === true)
-  // ⌘Z puts it back.
-  await h.keyboard.press('Meta+z')
-  await wait(700)
-  check('⌘Z takes it out again', await until(async () => !(await c.v('folders:of', 'nuggets'))[page]), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
-  // Again.
-  await menu(row, 'Keep in folder…')
-  await h.keyboard.type('Thesis')
-  await h.keyboard.press('Enter')
-  await wait(700)
-  check('kept in Thesis again', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id))
 
   // A gem, into a new folder made from the picker's last row.
   await c.go('nuggets')
