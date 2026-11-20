@@ -90,7 +90,9 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
         // Never narrower than its name, up to about ten letters' room (or its icon alone, open, beside it): a short
         // name reads whole and a long one keeps enough to know it; past that the row scrolls (10 Nov).
         style={{ minWidth: Math.min(54 + [...tab.label].length * 7, 124) }}
-        className={`group/tab relative mx-0.5 flex h-full max-w-52 flex-[1_1_0] items-stretch py-[3px] ${on ? 'z-10' : ''} ${faint ? 'opacity-40' : ''}`}>
+        // The open tab stands on the page, 4px under the bar's top (its shape joins the page); the others are pills the
+        // arrows' and "+"'s height, on the bar's middle line with them, never low against the page (20 Nov).
+        className={`group/tab relative mx-0.5 flex max-w-52 flex-[1_1_0] items-stretch ${on ? 'z-10 mt-1 py-[3px]' : 'h-6 self-center'} ${faint ? 'opacity-40' : ''}`}>
         {on && <TabShape />}
         <Tip label={cut ? tab.label : ''}>
           <button type="button" role="tab" aria-selected={on} onClick={() => actions.select(group.pane, tab.key)}
@@ -217,7 +219,7 @@ export function TabRow({ groups, actions, pane, lead, tail }: { groups: TabGroup
           <StepButton key={label} by={by} label={label} keys={keys} icon={icon} pane={pane} actions={actions} />
         ))}
       </span>
-      <div data-tab-room className="flex h-[30px] min-w-0 flex-1">
+      <div data-tab-room className="flex h-full min-w-0 flex-1">
         {groups.map((group, at) => (
           <Fragment key={group.pane}>
             {at > 0 && <span aria-hidden className="my-1.5 w-px shrink-0 bg-foreground/15" />}
