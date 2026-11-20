@@ -229,22 +229,35 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     // taken from the distance kept instead, which is no place in a long note: the sizes above it are guesses that
     // move as its blocks are drawn, and it came back some 200 blocks further on.) Whatever takes the screen
     // elsewhere on purpose lets go of the place first (`stop`).
+    // The block brought onto the page for the place, once: brought again on every size change, each bringing changed
+    // the page's size, which told the size watch below, which brought it again, and the window was held in layout
+    // for minutes (the user's freeze, 20 Nov 05:17 and 05:20, the 4 MB "Exam Cliff Notes" opened at its place).
+    let brought: number | null = null
     const put = (): void => {
       // Not while the note is off the page or hidden with its pane: nothing has a place then, and the layout that
       // brings it back tells again.
       if (!holding || !kept || !scroller || !dom.isConnected || !scroller.clientHeight) return
-      let by = drift()
-      if (by === null && anchor) {
-        showBlock(editor, anchor.block)
-        by = drift()
+      // Settled here and now, in a few steps at most, so the sizes this changes are already in hand when the size
+      // watch tells of them: the next telling finds the block in its place and changes nothing, and the watch rests.
+      for (let step = 0; step < 3; step++) {
+        let by = drift()
+        if (by === null && anchor && brought !== anchor.block) {
+          brought = anchor.block
+          showBlock(editor, anchor.block)
+          by = drift()
+        }
+        if (by === null) {
+          // Kept before blocks were, or its block is gone: the distance from the top, once the note is tall enough.
+          if (scroller.scrollHeight - scroller.clientHeight >= kept.top - 1) (go(kept.top), (holding = false))
+          return
+        }
+        // The block is where it was left: held, and nothing moved, so nothing more is told.
+        if (Math.abs(by) < 0.5) return
+        go(scroller.scrollTop + by)
       }
-      if (by !== null) {
-        if (Math.abs(by) >= 0.5) go(scroller.scrollTop + by)
-      } else if (scroller.scrollHeight - scroller.clientHeight >= kept.top - 1) {
-        // Kept before blocks were, or its block is gone: the distance from the top, once the note is tall enough.
-        go(kept.top)
-        holding = false
-      }
+      // Still moving after three steps: the page is changing under it on its own (pictures arriving in a block that is
+      // never still). Let go here, near enough, rather than chase it frame after frame.
+      holding = false
     }
     const stop = (): void => void (holding = false)
     // Sent somewhere from now on (sentElsewhere, the rule above): the place is let go of there and then.
