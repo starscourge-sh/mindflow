@@ -42,7 +42,7 @@ export type Place = {
 
 /**
  * The main window's sections, each with the key that jumps to it after G, in
- * the order the sidebar lists them: writing first (Inbox, Home, Journal, Pages, Gems,
+ * the order the sidebar lists them: writing first (Home, Inbox, Journal, Pages, Gems,
  * Review), then a gap, then doing (Tasks, Calendar), then the rest. Each has
  * its own colour from the theme. Which ones show is a setting
  * (`sidebarShown`), the same for every book to start: one switched off is
@@ -51,10 +51,10 @@ export type Place = {
  * yours is kept as `sidebarOrder` (useInOrder).
  */
 export const SECTIONS: (Place & { key: string })[] = [
-  // Where everything you catch lands first: on top.
-  { id: 'inbox', emoji: '📥', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
-  // Where things come back to you: shelves of what you opened and kept, and the card for the moment.
+  // On top, where you start: where things come back to you: shelves of what you opened and kept, and the card for the moment.
   { id: 'home', emoji: '🏠', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange', group: 'Write' },
+  // Where everything you catch lands first, under Home.
+  { id: 'inbox', emoji: '📥', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
   // Journal, the Day page: the day's writing on top, today's tasks under it. The window opens here.
   // Its Week, Month and Year keep this row lit (litRow), unless that page is a row of its own.
   { id: 'day', emoji: '☀️', label: 'Journal', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },

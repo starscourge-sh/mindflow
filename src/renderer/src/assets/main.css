@@ -1323,7 +1323,9 @@ body > :not(#root, [data-paper-stage]),
    window's body or anything holding a field you type in never wears it: those showed a stray box round a whole card
    while you typed in it. */
 :focus-visible { outline: none; }
-:is(button, a[href], summary, [role='button'], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='slider'], [data-focus-ring]):focus-visible:not([tabindex="-1"]):not(:has(input, textarea, [contenteditable])) {
+/* Never on a row (below): the ring outweighed the row's own rule, so a sidebar heading or row reached by keys, or
+   handed the focus back after a menu or a drag, wore a blue box (the Tags heading, 20 Nov). */
+:is(button, a[href], summary, [role='button'], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='slider'], [data-focus-ring]):focus-visible:not([tabindex="-1"]):not(:has(input, textarea, [contenteditable])):not(:is([data-row], [data-side-row], [data-tag-row], [role='treeitem'])) {
   outline: 1.5px solid color-mix(in srgb, var(--tt-brand-color-400) 70%, transparent);
   /* Drawn just inside the edge: outside it, any panel that clips its
      overflow cut the ring off wherever a control met the panel's edge. */

@@ -3,19 +3,22 @@ import { motion, useReducedMotion } from 'motion/react'
 import { EASE, byKeys } from '@/lib/motion'
 
 // Drawn in the list's own left padding, so no row moves: the trunk a few px
-// left of the rows' edge, each branch curving off it and just into its row.
+// left of the rows' edge, each branch curving off it and ending a pixel short of its row, so a lit row's highlight
+// never sits over the line (it ran 5px under it).
 const TRUNK = -4.5
-const BEND = 4.5
-const TIP = 5
+const BEND = 3.5
+const TIP = -1
 // The border colour reads as nothing this thin, so a softened muted ink instead.
 // The text's own colour, faded: so the lines show on the page, on the dark frame and on any theme alike (a fixed
 // grey from the page went missing on the dark frame).
 const QUIET = 'color-mix(in oklab, currentColor 30%, transparent)'
 
 /** An open group's rows hung off a thin trunk from its heading, a curved branch
- *  to each; the way down to the page you are on is lit, and moves with you.
+ *  to each; given `current`, the way down to that row is lit, and moves with you (a page's contents). The sidebar
+ *  gives none: its lit row's own highlight says where you are, and every line there stays the one quiet grey (the
+ *  user, 20 Nov: one folder's line in blue beside grey ones).
  *  Bare, as on the icon rail, just the rows. */
-export function Branches({ current, bare, rows: deep, className, children }: { current: number; bare?: boolean; /** Where the rows are, when they sit deeper than its own children (a list that drags); each twig meets the row's first line. */ rows?: string; className?: string; children: ReactNode }): React.JSX.Element {
+export function Branches({ current = -1, bare, rows: deep, className, children }: { current?: number; bare?: boolean; /** Where the rows are, when they sit deeper than its own children (a list that drags); each twig meets the row's first line. */ rows?: string; className?: string; children: ReactNode }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   // Where each row's middle sits, read off the rows themselves, since their heights differ.
   const [mids, setMids] = useState<number[]>([])
@@ -64,7 +67,7 @@ export function Branches({ current, bare, rows: deep, className, children }: { c
           ))}
           {/* From the top every time, so moving between pages, the light runs down
               the trunk and round; moved by a key (G and a letter), it is there at once. */}
-          {mids.map((y, k) => (
+          {current >= 0 && mids.map((y, k) => (
             <motion.path key={`lit${k}`} d={`M ${TRUNK} -2 V ${y - BEND} ${twig(y)}`} {...line} stroke="var(--primary)"
               initial={still ? false : { pathLength: 0 }} animate={{ pathLength: k === current ? 1 : 0 }} transition={{ duration: still || byKeys() ? 0 : 0.2, ease: EASE }} />
           ))}

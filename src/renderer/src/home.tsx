@@ -150,7 +150,7 @@ import { openCloseWeek } from '@/components/haligtree/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ArrowRight, ChevronRight, History } from '@/components/ui/icons'
+import { ArrowRight, ChevronRight, Gem as GemSign, History } from '@/components/ui/icons'
 import { glideWay } from '@/lib/motion'
 import { SwipeBack, placesFrom } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
@@ -283,6 +283,8 @@ const stepOf = (type: string, id: string): View =>
   // A work found in ⌘K: its page among the sources.
   : type === 'work' ? { id: 'source', focus: `medium:${id}` }
   : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
+/** A folder page's tab for each kind it holds (folder-view.tsx `KIND_TABS`). */
+const FOLDER_TAB: Record<string, string> = { article: 'pages', capture: 'notes', nugget: 'gems', question: 'questions', task: 'tasks' }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
 const atNow = (view: View): boolean => {
@@ -1536,11 +1538,14 @@ export function Home(): React.JSX.Element {
     const off = window.api.captures.onChange((what) => void (what === null && read()), ['capture'])
     return () => (window.removeEventListener('haligtree:pdf-title', read), off())
   }, [view.focus])
-  const open = (type: string, id: string, key = frontRef.current): void => {
+  const open = (type: string, id: string, key = frontRef.current, folder?: string): void => {
     // Which way it goes is read from the click itself, before any wait.
     const how = takeClick()
     // A task opens in the list that holds it (Today, Routines, Later), so its row is there beside it; Upcoming when it is not known yet.
+    // Opened from under its folder in the sidebar: in that folder's page, so ↓↑ step through what it holds, as a press
+    // on its row there does (a gem went to Gems and stepped through all 122).
     const step = (): View => {
+      if (folder) return { id: 'folders', folder, focus: id, tab: FOLDER_TAB[type] }
       const task = type === 'task' ? peekRead<Task>('task', id) : undefined
       const list = !task || task.status !== 'open' ? null : onToday(task) ? 'today' : task.recurrence ? 'routines' : bucket(task) && !task.deadline ? 'later' : null
       return list ? { id: list, focus: id } : stepOf(type, id)
@@ -1706,7 +1711,7 @@ export function Home(): React.JSX.Element {
     }
     if (item) {
       const kind = CAPTURE_TYPES.find((type) => type.id === item.kind)
-      return { type: item.tier, id: item.id, name: { title: item.title || 'New note', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private, kind: item.tier === 'article' ? 'Writing' : kind?.label ?? 'Note' } }
+      return { type: item.tier, id: item.id, name: { title: item.title || 'New note', icon: item.tier === 'nugget' && (!kind || kind.id === 'note') ? GemSign : kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private, kind: item.tier === 'article' ? 'Writing' : kind?.label ?? 'Note' } }
     }
     return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'New note', icon: TASK_KIND.icon, tint: TASK_KIND.tint, kind: 'Task' } } : null
   }
@@ -2259,7 +2264,8 @@ export function Home(): React.JSX.Element {
                   className="flex w-full min-w-0 items-start gap-2 rounded-md py-1 pr-2 pl-2 text-foreground">
                   {/* A long title goes on to a second line, as a folder's name does, rather than being cut; the icon stays on its first. */}
                   <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center"><NoteIcon className="size-3.5 shrink-0" style={{ color: noteNow.name.tint }} /></span>
-                  <Weighted on className="private-text min-w-0 flex-1 text-left truncate">{noteNow.name.title}</Weighted>
+                  {/* Its weight is the rows' around it, as Recent's lit row's is: the highlight says it is the one open. */}
+                  <span className="private-text min-w-0 flex-1 text-left truncate">{noteNow.name.title}</span>
                 </button>
               </RowMenu>
             )
@@ -2353,7 +2359,7 @@ export function Home(): React.JSX.Element {
               </RowMenu>
               {scales.length > 0 && (
                 <Unfold open={journalOpen || inScale}>
-                <Branches current={inScale ? scales.findIndex((one) => one.id === view.id) : -1} className="ml-5 flex flex-col gap-px">
+                <Branches className="ml-5 flex flex-col gap-px">
                   {scales.map((one) => (
                     <button key={one.id} type="button" data-side-row data-side-scale={one.id} aria-current={light === `scale:${one.id}` ? 'page' : undefined}
                       // Its own press, not the Journal row's carry (lib/own-press.ts): the press itself travels on.
@@ -2416,7 +2422,7 @@ export function Home(): React.JSX.Element {
           {/* A tag's card comes beside the list, not over the tags under it. */}
           <div data-note-side>
           {/* Stepped in under the heading, the trunk where Writing's folders hang theirs. */}
-          <Branches current={sideTags.findIndex(({ tag }) => light === `tag:${tag}`)} className={`flex flex-col ${narrow ? '' : 'ml-5'}`}>
+          <Branches className={`flex flex-col ${narrow ? '' : 'ml-5'}`}>
           {/* Dragged into your own order, as the pages and pins above are; saved. */}
           <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }) => (
             <SortableRow key={tag} id={tag} glide={`side-tag-${tag}`}>
@@ -2511,7 +2517,7 @@ export function Home(): React.JSX.Element {
               )}
               {pinsDrawn && !quiet && (pins.length > 0 || layouts.length > 0 || powersPin) && (<div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading(pinsGroup, pinsOpen, setPinsOpen)}
-                <Unfold open={pinsOpen || narrow}><Branches current={(() => { if (powersPin && light === 'place:powers') return 0; const at = pins.findIndex((pin) => light === `pin:${pin.id}`); return at < 0 ? -1 : (powersPin ? 1 : 0) + layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
+                <Unfold open={pinsOpen || narrow}><Branches bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   // "What Haligtree can do", pinned for a newcomer until they unpin it (Settings' powersPinned).
                   ...(powersPin ? [(
                     <RowMenu key="powers-pin" items={[
@@ -2588,7 +2594,7 @@ export function Home(): React.JSX.Element {
                 return (
                   <div data-side-recent data-side-section="recent" style={sectionAt('recent')}>
                     {heading(recentGroup, recentOpen, setRecentOpen)}
-                    <Unfold open={recentOpen}><Branches current={rows.findIndex((one) => light === `recent:${one.id}`)} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
+                    <Unfold open={recentOpen}><Branches className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
                           onClick={() => open(one.type, one.id)}
@@ -2615,7 +2621,7 @@ export function Home(): React.JSX.Element {
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
-            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder ? noteRow : undefined} here={view.id === 'folders' ? (!view.folder || view.folder === 'all' ? null : view.folder) : undefined} onOpen={(place) => setView({ id: 'folders', folder: place ?? 'all' })} onOpenItem={(type, id) => open(type, id)} lit={noteNow?.id} />
+            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder ? noteRow : undefined} here={view.id === 'folders' ? (!view.folder || view.folder === 'all' ? null : view.folder) : undefined} onOpen={(place) => setView({ id: 'folders', folder: place ?? 'all' })} onOpenItem={(type, id, folder) => open(type, id, undefined, folder)} lit={noteNow?.id} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList
@@ -2641,7 +2647,7 @@ export function Home(): React.JSX.Element {
                     return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
                       <Folding kept={`sidebar:${id}`} held={narrow} here={here} head={(open, fold) => heading(head, open, fold)}>
                         {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
-                        <Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches>
+                        <Branches bare={narrow} rows=":scope > [data-drop-list] > *" className={narrow ? '' : 'ml-5'}>{box}</Branches>
                       </Folding>
                     </div>)
                   })() : (<div className="flex flex-col" style={block === 'rest' ? { order: 9 } : undefined}>

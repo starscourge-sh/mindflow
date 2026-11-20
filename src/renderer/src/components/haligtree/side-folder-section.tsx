@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, CalendarDays, Check, ChevronRight, CircleCheck, FileText, Gem, HelpCircle, MoreHorizontal, Plus, StickyNote } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronRight, CircleCheck, FileText, HelpCircle, MoreHorizontal, Plus, StickyNote } from 'lucide-react'
+import { Gem } from '@/components/ui/icons'
 import { openItems } from '@/lib/split'
 import { Branches } from './branches'
 import { NameInPlace } from './name-in-place'
@@ -35,8 +36,9 @@ export const deepCount = (all: Folder[], id: string): number =>
  every folder's page from the heading (its arrow, its right-click). A row takes anything dropped on it (split-drop.tsx `keepDrop`).
  */
 export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem, style, noteIn, noteRow, noteKey }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void
-  /** A page, note, gem or task in a folder unfolded here, opened as anywhere else. */
-  onOpenItem: (type: string, id: string) => void
+  /** A page, note, gem or task in a folder unfolded here: opened in that folder (`folder`), so ↓↑ step through what it
+   *  holds, as a press on its row in the folder's own list does; a new page made inside one (no folder) as anywhere. */
+  onOpenItem: (type: string, id: string, folder?: string) => void
   /** The thing open now, lit where it shows under its folder. */
   lit?: string
   style?: React.CSSProperties
@@ -83,7 +85,6 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
   const starredAbove = (one: Folder): boolean => pathOf(live, one.parent).some((up) => up.starred)
   const tops = live.filter((one) => (one.starred && !starredAbove(one)) || (one.id === path[0] && !one.starred && !path.slice(0, -1).some((up) => live.find((f) => f.id === up)?.starred)))
   const inside = (id: string): Folder[] => live.filter((one) => one.parent === id)
-  const lit = (list: Folder[]): number => list.findIndex((one) => one.id === at || path.includes(one.id))
   const row = (one: Folder, depth: number): React.JSX.Element[] => {
     // Unfolded, a folder shows what it holds: its folders, then its pages and notes (Notion's way). Folded, only the
     // way down to the folder you are in.
@@ -95,14 +96,14 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
         open={open} onFold={() => foldOne(one.id)} onAdd={() => void addPageIn(one, onOpenItem)} />,
       // Its own presses (lib/own-press.ts): a page carried from under it is that page, never the folder above it.
       ...(kids.length || open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
-        <Branches current={kids.length ? lit(kids) : -1} className="ml-5 flex flex-col gap-px">
+        <Branches className="ml-5 flex flex-col gap-px">
           {kids.flatMap((kid) => row(kid, depth + 1))}
-          {open && <FolderThings key={`${one.id}:things`} folder={one} lit={litItem} onOpen={onOpenItem} onAll={() => onOpen(one.id)} />}
+          {open && <FolderThings key={`${one.id}:things`} folder={one} lit={litItem} onOpen={(type, id) => onOpenItem(type, id, one.id)} onAll={() => onOpen(one.id)} />}
         </Branches>
       </div>] : []),
       // The note in front, under the folder it lives in, while the folder is folded: only that one row, lit. Unfolded,
       // the folder's own list shows it, lit there (FolderThings).
-      ...(noteRow && one.id === noteIn && !open ? [<div key={`${one.id}:note`} data-no-twig=""><Branches current={0} className="ml-5 flex flex-col gap-px">{noteRow}</Branches></div>] : [])
+      ...(noteRow && one.id === noteIn && !open ? [<div key={`${one.id}:note`} data-no-twig=""><Branches className="ml-5 flex flex-col gap-px">{noteRow}</Branches></div>] : [])
     ]
   }
   // Many starred: the first 12, and the one you are in, the rest a press away, so they never push the sidebar long.
@@ -171,7 +172,7 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
         </div>
       </RowMenu>
       <Unfold open={open}>
-        <Branches rows=":scope > *" current={lit(rows)} className="ml-5 flex flex-col gap-px">
+        <Branches rows=":scope > *" className="ml-5 flex flex-col gap-px">
           <SortableList key={epoch} items={rows} keyOf={(one) => one.id} onMove={place} onNest={nest}>{(items) => items.map((one) => (
             <SortableRow key={one.id} id={one.id} glide={`side-folder-${one.id}`}><div className="flex flex-col gap-px">{row(one, 0)}</div></SortableRow>
           ))}</SortableList>
@@ -261,7 +262,8 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
           className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
           <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
           <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
-          {n !== null && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
+          {/* An empty folder shows no count: a "0" reads as something to see to. */}
+          {!!n && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
         </button>
         <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
           className="absolute top-[0.1875rem] left-1.5 flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
@@ -302,7 +304,7 @@ async function addPageIn(folder: Folder, open: (type: string, id: string) => voi
 }
 
 /** Each kind's own sign, as its rows show it elsewhere. */
-const KIND_ICON: Record<string, typeof FileText> = { article: FileText, capture: StickyNote, nugget: Gem, question: HelpCircle, task: CircleCheck }
+const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = { article: FileText, capture: StickyNote, nugget: Gem, question: HelpCircle, task: CircleCheck }
 const THINGS_SHOWN = 8
 
 /**
@@ -332,7 +334,7 @@ function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: st
               onClick={() => (chime('page'), onOpen(one.type, one.id))}
               className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
               <span className="flex w-4 shrink-0 items-center justify-center"><Icon className="size-3.5 text-muted-foreground" /></span>
-              <Weighted on={here} className="private-text min-w-0 flex-1 truncate text-left">{one.title.trim() || (one.type === 'article' ? 'Untitled' : 'New note')}</Weighted>
+              <span className="private-text min-w-0 flex-1 truncate text-left">{one.title.trim() || (one.type === 'article' ? 'Untitled' : 'New note')}</span>
             </button>
           </RowMenu>
         )

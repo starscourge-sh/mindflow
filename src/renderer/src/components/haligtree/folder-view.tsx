@@ -65,15 +65,20 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   const name = unfiled ? 'Not in a folder' : folder?.name ?? 'Folder'
   const shown = (items ?? []).filter((one) => !one.archived)
   const counted = KIND_TABS.map((kind) => ({ ...kind, n: shown.filter((one) => kind.types.includes(one.type)).length }))
-  // The kinds it holds, and Pages always, so the switch never stands empty; "Not in a folder" is pages and gems.
-  const tabs = counted.filter((one) => one.id === 'pages' || one.n > 0 || (unfiled && one.id === 'gems'))
-  const on = (tabs.find((one) => one.id === tab) ?? tabs.find((one) => one.n > 0) ?? tabs[0]).id
+  // Only the kinds it holds are tabs ("Pages 0" offered nothing); holding nothing, its list is Pages', where "New page" is.
   const islands = counted.filter((one) => one.n)
-  // The one fact, on its own line: what it holds, every kind counted.
+  const tabs = islands.length ? islands : counted.filter((one) => one.id === 'pages')
+  // The note open beside it says which kind is on show, when no tab was asked for: a gem opened here is among the gems.
+  const noteKind = KIND_TABS.find((kind) => kind.types.includes(shown.find((one) => one.id === note)?.type as FolderKind))?.id
+  const on = (tabs.find((one) => one.id === tab) ?? tabs.find((one) => one.id === noteKind) ?? tabs[0]).id
+  // The one fact, on its own line: what it holds, every kind counted, the total said only when it adds kinds up.
+  const kindsSaid = islands.map((one) => plural(one.n, one.label.toLowerCase().replace(/s$/, ''), one.label.toLowerCase())).join(', ')
+  const folderSaid = inside.length ? `${num(inside.length)} ${inside.length === 1 ? 'folder' : 'folders'}` : ''
   const fact = unfiled
     ? `${plural(shown.length, 'page or gem', 'pages and gems')} in no folder.`
     : !shown.length && !inside.length ? `Nothing in ${name} yet.`
-    : `${name} holds ${num(shown.length)}${islands.length ? `: ${islands.map((one) => plural(one.n, one.label.toLowerCase().replace(/s$/, ''), one.label.toLowerCase())).join(', ')}` : ''}${inside.length ? `${shown.length ? ', and' : ' things, and'} ${num(inside.length)} ${inside.length === 1 ? 'folder' : 'folders'}` : ''}.`
+    : islands.length > 1 ? `${name} holds ${num(shown.length)}: ${kindsSaid}${folderSaid ? `, and ${folderSaid}` : ''}.`
+    : `${name} holds ${[kindsSaid, folderSaid].filter(Boolean).join(' and ')}.`
   const kinds = tabs.length > 1 ? (
     <div data-list-tabs data-folder-kinds="" className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
       <TabChips name="folder-kinds" tabs={tabs.map((one) => ({ value: one.id, label: one.label, count: one.n }))} value={on} onChange={(next) => onTab(next)} />
@@ -127,7 +132,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
                 className="flex w-full min-w-0 cursor-pointer items-center gap-2.5 px-3 py-2 text-left hover:bg-accent/60">
                 <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />
                 <span className="min-w-0 flex-1 truncate">{one.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{num(deepCount(all, one.id))}</span>
+                {deepCount(all, one.id) > 0 && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{num(deepCount(all, one.id))}</span>}
               </button>
             </RowMenu>
           ))}
@@ -242,7 +247,7 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
             <span className={`min-w-0 truncate ${one.archived ? 'text-muted-foreground' : ''}`}>{one.name}</span>
             {path && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{path}</span>}
             {one.starred ? <span className="sr-only">starred</span> : null}
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">{num(deepCount(all, one.id))}</span>
+            {deepCount(all, one.id) > 0 && <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">{num(deepCount(all, one.id))}</span>}
           </button>
         </div>
       </RowMenu>
@@ -250,7 +255,7 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
   }
   // Each level hung off a trunk under its folder, as the sidebar's are (children look like children).
   const tree = (parent: string | null): React.JSX.Element[] =>
-    live.filter((one) => (one.parent ?? null) === parent).flatMap((one) => [line(one, 0), ...(open.has(one.id) ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={-1} className="ml-6 flex flex-col">{tree(one.id)}</Branches></div>] : [])])
+    live.filter((one) => (one.parent ?? null) === parent).flatMap((one) => [line(one, 0), ...(open.has(one.id) ? [<div key={`${one.id}:in`} data-no-twig=""><Branches className="ml-6 flex flex-col">{tree(one.id)}</Branches></div>] : [])])
   return (
     <Page title="Folders" count={live.length} unit={['folder', 'folders']}
       // The lists' own search field (note-list.tsx `ListSearch`); ↵ opens the first folder found.
