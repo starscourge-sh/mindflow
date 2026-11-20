@@ -103,7 +103,7 @@ const CLIPPED = /(?:…|\.\.\.)\s*$/
 /** A date said first, as a clue or a dated line starts: "7 May 2026 · ", "Tue 4 March: ", "2026-05-07 - ". */
 const LEAD_DATE = /^(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+)?(?:\d{1,2}\s+[a-z]{3,9}\.?(?:\s+\d{4})?|[a-z]{3,9}\s+\d{1,2}(?:,?\s+\d{4})?|\d{4}-\d{2}-\d{2})\s*(?:[·:,–-]\s*)/i
 /** What a dek never reads: pictures, embeds and other blocks that are not prose. */
-const NOT_PROSE = new Set(['noteEmbed', 'image', 'imagePlaceholder', 'attachment', 'bookmark', 'excalidraw', 'graph', 'tableOfContents', 'codeBlock', 'horizontalRule', 'table', 'columns'])
+const NOT_PROSE = new Set(['noteEmbed', 'image', 'imagePlaceholder', 'attachment', 'bookmark', 'excalidraw', 'graph', 'tableOfContents', 'codeBlock', 'horizontalRule', 'joinedFrom', 'table', 'columns'])
 /** Marks a line a clipped link was in, so it is never the dek. */
 const POISON = '\u0000'
 /**

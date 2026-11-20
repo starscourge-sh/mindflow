@@ -282,6 +282,7 @@ import {
 // --- Tiptap Node ---
 import { Document } from "@tiptap/extension-document"
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
+import { JoinedFrom } from "@/extensions/joined-from"
 import "@/components/tiptap-node/blockquote-node/blockquote-node.scss"
 import "@/components/tiptap-node/code-block-node/code-block-node.scss"
 import "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss"
@@ -1392,6 +1393,8 @@ function Surface({
       }),
       ...(shape === "line" ? [Document.extend({ content: "paragraph" })] : []),
       HorizontalRule,
+      // Where two notes were made one: a labelled divider kept in the note (extensions/joined-from.ts).
+      JoinedFrom,
       // Not on a line. There is nothing to align a one line title against, and
       // registering it hands Mod-Shift-r and its siblings a title to push to
       // the right - which is how a title ended up right aligned.

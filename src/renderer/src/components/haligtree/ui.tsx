@@ -1057,9 +1057,9 @@ export type Made = { type: string; id: string; title?: string; /** Where in it t
  */
 const undone = (): void => void window.dispatchEvent(new CustomEvent('haligtree:undone'))
 
-export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction, made?: Made): void => {
+export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction, made?: Made, /** How long it stays, unpressed, when not the usual. */ ms?: number): void => {
   beam(tone)
-  window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, made } }))
+  window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, made, ms } }))
 }
 
 /**
@@ -1620,7 +1620,7 @@ export function Toaster(): React.JSX.Element | null {
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
       // A problem stays as long, so what to do about it can be read.
-      at.left = detail.undo || detail.action || detail.tone === 'error' || detail.tone === 'warning' ? 6000 : 3200
+      at.left = detail.ms ?? (detail.undo || detail.action || detail.tone === 'error' || detail.tone === 'warning' ? 6000 : 3200)
       at.since = Date.now()
       // A new toast is not under the pointer yet, whatever the old one was, nor its menu open.
       at.held.delete('pointer')

@@ -201,6 +201,7 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       case 'blockquote': return kids.map((child) => block(child)).join('\n\n').split('\n').map((line) => `> ${line}`).join('\n')
       case 'codeBlock': return `\`\`\`${node.attrs?.language ?? ''}\n${inline(kids)}\n\`\`\``
       case 'horizontalRule': return '---'
+      case 'joinedFrom': return `---\n\n*Joined from “${String(node.attrs?.title ?? '')}”, ${String(node.attrs?.date ?? '')}: ${String(node.attrs?.lines ?? '')} lines it had that this didn't*`
       case 'image': return captioned(inline([node]), node)
       // A picture from Obsidian not found here: pointed at again, the way Obsidian wrote it.
       case 'imagePlaceholder': return node.attrs?.embed ? `![[${node.attrs.embed}]]` : ''
@@ -2563,6 +2564,9 @@ export function registerHaligtree(): void {
     // Nothing new, no rule. Nothing is lost: the other stays whole in the Bin.
     let joined: unknown = one
     let added = 0
+    // The divider's own name, so the window can find it and show it once the note opens again.
+    const mark = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+    const titleOf = (row: Record<string, unknown>): string => String((db.prepare('select label(?, ?) as name').get((row.title ?? null) as string | null, (row.body ?? null) as string | null) as { name: string | null } | undefined)?.name ?? '').trim() || 'another note'
     if (blank(two)) joined = one
     else if (blank(one)) (joined = two), (added = typeof two === 'string' ? two.split('\n').filter((line) => line.trim()).length : ((two as Doc).content ?? []).reduce((sum, block) => sum + linesOf(block), 0))
     // A side still the Markdown it came in as: the window reads it as its editor would, and asks again with it.
@@ -2578,7 +2582,9 @@ export function registerHaligtree(): void {
       const fresh = ((two as Doc).content ?? []).filter((block) => !(block.type === 'paragraph' && !blockWords(block).trim()) && !held.has(keyOf(block)))
       added = fresh.reduce((sum, block) => sum + linesOf(block), 0)
       const last = ends.length ? ends : ['paragraph', 'footnotes'].includes(fresh.at(-1)?.type ?? '') ? [] : [{ type: 'paragraph' }]
-      if (fresh.length) joined = { ...(one as Doc), content: [...first, { type: 'horizontalRule' }, ...fresh, ...last] }
+      // Where it came in, said in the note itself and kept with it: a labelled divider (extensions/joined-from.ts), the
+      // other's name, the day, and how many lines came over ("can't tell what happened", 20 Nov). Nothing new, none.
+      if (fresh.length) joined = { ...(one as Doc), content: [...first, { type: 'joinedFrom', attrs: { title: titleOf(b), date: now().slice(0, 10), lines: added, at: mark } }, ...fresh, ...last] }
     }
     // Its words change only when something came over (or it held none): otherwise they stay as stored, letter for letter.
     const grew = joined !== one
@@ -2624,7 +2630,9 @@ export function registerHaligtree(): void {
     changed(changeOf(other))
     for (const one of linking) changed(changeOf({ table: one.table, id: one.id }))
     // Its words put in whole: an editor showing it opens it again from here. Unchanged, only what the list shows.
-    return write({ token: joinsMade, added, links }, changeOf(keep, grew))
+    // Where to show it: the divider's name when one was put in, and how the note kept opens (its tier, or a capture).
+    const opens = keep.table === 'captures' ? 'capture' : (['article', 'question', 'goal'].includes(String(a.tier)) ? String(a.tier) : 'nugget')
+    return write({ token: joinsMade, added, links, mark: grew && added ? mark : null, opens }, changeOf(keep, grew))
   })
   /** A block's words, all of them, to tell whether a note already holds it. */
   const blockWords = (node: Doc): string => node.text ?? (node.content ?? []).map(blockWords).join(node.content?.some((one) => one.text !== undefined) ? '' : '\n')

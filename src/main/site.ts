@@ -82,6 +82,7 @@ export function pageHtml(raw: string | null, hrefOf: (id: string) => string | un
       case 'taskItem': return `<li class="${node.attrs?.checked ? 'done' : ''}">${kids(node)}</li>`
       case 'codeBlock': return `<pre><code>${escape((node.content ?? []).map((one) => one.text ?? '').join(''))}</code></pre>`
       case 'horizontalRule': return '<hr>'
+      case 'joinedFrom': return '<hr>'
       case 'image': { const picture = inline([node]); return picture ? `<figure>${picture}${caption(node)}</figure>` : '' }
       case 'blockMath': return `<pre class="math"><code>${escape(node.attrs?.latex)}</code></pre>`
       case 'table': return `<table>${kids(node)}</table>`

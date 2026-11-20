@@ -4297,3 +4297,10 @@ html[data-small] [data-reading-pane] .note-pane[data-all-shown] [data-thought-do
 @media (min-width: 640px) and (min-height: 560px) {
   .wrap-card { width: min(760px, 86vw); height: min(560px, 86vh); border-radius: 10px; }
 }
+
+/* Where two notes were made one (extensions/joined-from.ts): a hairline either side of its words, in the quiet ink at
+   the controls' size, never small grey type; the lines that came over lit a moment as the note opens on it (lib/join-notes.ts). */
+.tiptap.ProseMirror .mf-joined-from { display: flex; align-items: center; gap: 0.75rem; margin: 1.75rem 0 1rem; user-select: none; color: var(--mf-muted-strong); }
+.tiptap.ProseMirror .mf-joined-from::before, .tiptap.ProseMirror .mf-joined-from::after { content: ''; flex: 1 1 0; min-width: 2rem; height: 1px; background: var(--border); }
+.tiptap.ProseMirror .mf-joined-from-words { flex: 0 1 auto; max-width: 85%; font-size: var(--text-control); line-height: 1.4; text-align: center; text-wrap: balance; }
+.tiptap.ProseMirror .mf-joined-from.ProseMirror-selectednode .mf-joined-from-words { color: var(--foreground); }

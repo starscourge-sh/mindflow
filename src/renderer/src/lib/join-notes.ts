@@ -5,6 +5,7 @@ import { expectBack, stays } from './room'
 import { tear } from './sound'
 import { readMarkdownGently } from '@/components/haligtree/haligtree-editor'
 import { refuse, toast } from '@/components/haligtree/ui'
+import { still } from './motion'
 
 /** A note as an offer or a link names it, its id for a capture or "tier:id" for a gem, a page or the rest: one side of a join. */
 export const sideOf = (key: string): NoteSide => (key.includes(':') ? { table: 'nuggets', id: key.slice(key.indexOf(':') + 1) } : { table: 'captures', id: key })
@@ -41,7 +42,7 @@ export async function joinNotes(keep: NoteSide, other: NoteSide, said: (added: n
   }
   if ('markdown' in made) return not('It changed as it was read, so nothing was joined')
   if ('why' in made) return not(NOT[made.why])
-  const { token, added, links } = made
+  const { token, added, links, mark, opens } = made
   // The Bin's one sound, and every page with the other open moves off it (false: one did).
   flight?.()
   tear()
@@ -53,6 +54,37 @@ export async function joinNotes(keep: NoteSide, other: NoteSide, said: (added: n
     if (!stayed) window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [other.id] }))
     // Written in since the join: its words stay as they are, nothing of them lost, and the other is back beside it.
     if (back === 'both') refuse('The note was written in since, so it keeps both sets of words; the other is out of the Bin')
-  })), 'success', seeTheBin)
+  })), 'success', mark ? { label: 'Show what came over', key: 'S', run: () => showJoined(mark, opens, keep.id) } : seeTheBin, undefined, 8000)
+  // The note opens on where it happened: scrolled to the divider, what came over lit a moment.
+  if (mark) showJoined(mark, opens, keep.id)
   return true
+}
+
+/**
+ * The divider a join put in (extensions/joined-from.ts) brought into view, and the lines under it, what came over, lit
+ * a moment. The note kept opens first where it is not on screen; it is looked for as it opens again from the book.
+ */
+export function showJoined(mark: string, opens: string, id: string): void {
+  let tries = 0
+  const look = (): void => {
+    const divider = document.querySelector<HTMLElement>(`[data-joined-at="${CSS.escape(mark)}"]`)
+    if (divider && divider.getClientRects().length) return land(divider)
+    // Not on screen a moment on (the note was left as it went to the Bin, or another page is in front): opened.
+    if (tries === 6) window.api.openInHome(opens, id)
+    if (++tries < 50) setTimeout(look, 100)
+  }
+  look()
+}
+
+const land = (divider: HTMLElement): void => {
+  divider.scrollIntoView({ block: 'center', behavior: still() ? 'auto' : 'smooth' })
+  // Lit by a rule of its own, not by marks on the lines: the editor draws its lines again and would take marks away.
+  const mark = CSS.escape(divider.dataset.joinedAt ?? '')
+  const rule = document.createElement('style')
+  rule.dataset.joinedLit = mark
+  const paint = (on: boolean): void => void (rule.textContent = `.tiptap.ProseMirror [data-joined-at="${mark}"] ~ * { background-color: ${on ? 'color-mix(in oklab, var(--tt-color-highlight-yellow, #fde68a) 55%, transparent)' : 'transparent'}; border-radius: 4px; transition: background-color ${still() ? 0 : 900}ms var(--mf-ease, ease-out); }`)
+  paint(true)
+  document.head.append(rule)
+  setTimeout(() => paint(false), 1400)
+  setTimeout(() => rule.remove(), 2600)
 }

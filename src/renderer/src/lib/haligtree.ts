@@ -195,7 +195,7 @@ export type NoteSide = { table: 'captures' | 'nuggets'; id: string }
  * Two notes made one: the token its Undo takes back; or which side is still the Markdown it came in, to be read by
  * the window's editor and asked again with; or why nothing was joined (one is gone, one is in the Bin).
  */
-export type Joined = { token: number; added: number; links: number } | { markdown: 'keep' | 'other'; text: string } | { why: 'same' | 'gone' | 'bin' }
+export type Joined = { token: number; added: number; links: number; /** The divider put in where the other's lines begin (extensions/joined-from.ts), or null when none came over. */ mark: string | null; /** How the note kept opens. */ opens: string } | { markdown: 'keep' | 'other'; text: string } | { why: 'same' | 'gone' | 'bin' }
 /** `resolved`: the captures this took out of the inbox, for its undo to open again. */
 /** A task made, or the open one with that name already there, which it joined. */
 export type Made = { id: string; number: number; existed: boolean; resolved?: string[]
