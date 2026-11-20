@@ -57,6 +57,20 @@ export function WeekParagraph({ monday, had, onKeep }: { monday: string; had: st
  */
 const WORDS_ROOM = 'overflow-hidden [interpolate-size:allow-keywords] transition-[height] duration-200 ease-(--mf-ease) motion-reduce:transition-none [[data-motion=off]_&]:transition-none'
 
+/**
+ * The page holds its first drawing a moment for this Mac's words (1.2 s at most), so they come in with it, whole, and
+ * nothing under them moves as they open their room. Past that, the held room shows the orb and eases open after.
+ */
+function useWordsWait(waiting: boolean): void {
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    if (!waiting) return
+    const wait = setTimeout(() => setLate(true), 1200)
+    return () => clearTimeout(wait)
+  }, [waiting])
+  useReading(waiting && !late)
+}
+
 /** Under a clue offered for a question: one line on why it may help, written on this Mac. */
 export function WhyLine({ question, note }: { question: string; note: string }): React.JSX.Element | null {
   // Whether this Mac can write it is known before the page shows, so its room is there from the first frame or never.
@@ -71,6 +85,7 @@ export function WhyLine({ question, note }: { question: string; note: string }):
     void window.api.haligtree<Written>('ai:why', question, note).then((one) => live && setSaid(one), (error: Error) => live && setSaid({ error: error.message }))
     return () => void (live = false)
   }, [has, question, note])
+  useWordsWait(has && said === null)
   if (!has) return null
   // Two lines held from the first frame: the orb while this Mac writes, then its words in that room, whole: a longer
   // answer opens the room to its own height, eased, so what is under it moves on smoothly and never jumps (WORDS_ROOM).
@@ -99,6 +114,7 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
     void window.api.haligtree<Written>('ai:answer', question, asked).then((one) => live && setSaid(one), (error: Error) => live && setSaid({ error: error.message }))
     return () => void (live = false)
   }, [has, question, asked.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useWordsWait(has && said === null)
   if (!has) return null
   const from = [...new Set(notes.map((one) => one.title))].slice(0, 3).map((title) => `“${title}”`)
   const named = from.length > 1 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from[0]
