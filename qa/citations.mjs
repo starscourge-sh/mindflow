@@ -34,7 +34,8 @@ const { h, v, errors } = c
 const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const wait = (ms) => h.waitForTimeout(ms)
-const sel = '[data-open] .tiptap'
+// The page's body: the page's one-line editors (is-line, is-plain) are drawn before it, and the first match was one.
+const sel = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 const shot = async (name) => shots && h.screenshot({ path: `${shots}/cite-${name}.png` })
 const film = async (name, count = 8) => { for (let i = 0; i < count; i++) { await shot(`${name}-${String(i).padStart(2, '0')}`); await wait(50) } }
 const p = (text) => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
