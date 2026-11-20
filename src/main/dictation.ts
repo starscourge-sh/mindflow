@@ -65,6 +65,9 @@ function stop(how: 'stop' | 'cancel'): void {
   now.child.stdin?.end(`${how}\n`)
 }
 
+/** Words being said into a note now: the Feed's insights wait while they are. */
+export const dictating = (): boolean => !!listening
+
 export function registerDictation(): void {
   ipcMain.handle('haligtree:dictate:start', (event, locale: unknown) => start(event.sender, typeof locale === 'string' ? locale : undefined))
   ipcMain.handle('haligtree:dictate:stop', () => stop('stop'))

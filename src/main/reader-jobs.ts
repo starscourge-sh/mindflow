@@ -3,6 +3,7 @@ import { bookFinder } from './book-find'
 import { bookOffers, type OffersNeeds } from './book-offers'
 import type { Pictures } from './picture-lines'
 import { bookFeed, type FeedAsk, type Takes } from './book-feed'
+import { bookInsights, type InsightAsk } from './book-insights'
 import { bookHome, type HomeAsk } from './book-home'
 import { bookRepeats } from './book-repeats'
 import { bookMentions } from './book-mentions'
@@ -31,6 +32,7 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
   const finder = bookFinder(db, pictures)
   const offers = bookOffers(db, needs)
   const feed = bookFeed(db)
+  const insights = bookInsights(db)
   const home = bookHome(db)
   const repeats = bookRepeats(db)
   const mentions = bookMentions(db, needs.named)
@@ -74,6 +76,8 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       'feed:goal': (_gone: Gone, takes: Takes) => feed.goal(takes),
       /** The Feed's side column: who and what has gone quiet, and this week's tags. */
       'feed:side': (_gone: Gone, takes: Takes) => feed.side(takes),
+      /** The passages for one of the Feed's insights (book-insights.ts). */
+      'feed:insight': (_gone: Gone, asked: InsightAsk) => insights.pick(asked),
       /** The same idea, caught again and again (book-repeats.ts). */
       repeats: (_gone: Gone, ids: string[]) => repeats(ids),
       /** A note's mentions, both ways (book-mentions.ts). */

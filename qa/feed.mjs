@@ -26,7 +26,7 @@ try {
   await h.waitForTimeout(1500)
   check('⌘K "Feed" opens the Feed', await h.locator('[data-page="feed"] [data-feed]').count() === 1)
 
-  const ids = () => h.locator('[data-feed-post]').evaluateAll((all) => all.map((one) => `${one.dataset.feedPost}:${one.dataset.feedId}`))
+  const ids = () => h.locator('[data-feed-post]:not([data-feed-post="insight"])').evaluateAll((all) => all.map((one) => `${one.dataset.feedPost}:${one.dataset.feedId}`))
   const first = await ids()
   check('15 to 25 posts', first.length >= 15 && first.length <= 25, first.length)
   check('nothing twice', new Set(first).size === first.length)
@@ -56,7 +56,7 @@ try {
 
   const end = h.locator('[data-feed-end]')
   await end.scrollIntoViewIfNeeded()
-  check('the end says "You\'re all caught up"', (await end.innerText()).includes("You're all caught up"))
+  check('the end says "That\'s all for today"', (await end.innerText()).includes("That's all for today"))
   check('the end says when the next set comes', /A new set in \d+ (hour|minute)/.test(await end.innerText()), await end.innerText())
 
   await h.reload()

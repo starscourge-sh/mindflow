@@ -2587,14 +2587,14 @@ function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }
   if (!has) return (
     <div data-mac-needs="ai" data-mac-lacking="">
       <Setting title="Apple Intelligence" keywords="apple intelligence ai"
-        note={`${caps?.ai === 'not-ready' ? 'Still being set up on this Mac' : 'Not on this Mac'}. Where it is on, it checks typed answers by meaning, gives hints, writes cards and names things.`} />
+        note={`${caps?.ai === 'not-ready' ? 'Still being set up on this Mac' : 'Not on this Mac'}. Where it is on, it checks typed answers by meaning, gives hints, writes cards, names things and finds insights in your notes for the Feed. Without it, the Feed still brings your own lines back.`} />
     </div>
   )
   return (
     <div data-mac-needs="ai">
-      <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, and a name for a group or a recording."
-        more="Five cards from a chapter, in the reader. A recording is named after its event, or by what was said in its first minutes, its day and time kept after a dot. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a name is yours to type over, with Undo on its notice."
-        keywords="apple intelligence ai meaning hint cards chapter typed answer check group name recording meeting name foundation model"
+      <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, a name for a group or a recording, and insights in the Feed from your own notes."
+        more="Five cards from a chapter, in the reader. A recording is named after its event, or by what was said in its first minutes, its day and time kept after a dot. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a name is yours to type over, with Undo on its notice. An insight in the Feed is made only from your own notes, names the ones it came from, and becomes a gem only when you keep it."
+        keywords="apple intelligence ai meaning hint cards chapter typed answer check group name recording meeting name foundation model insights feed connect reframe"
         below={on && <RecordingNames on />}>
         <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />
       </Setting>

@@ -12,6 +12,7 @@ import { dayKey, dayjs } from './dates'
 import { LESS, bookFeed, fadedSteps, likedSteps, tableOf, type Row, type Takes } from './book-feed'
 import { ask } from './reader'
 import { named } from './stalls'
+import type { Insight } from './insights'
 
 /**
  * The Feed: about twenty of your own things a day, picked once and kept for
@@ -21,7 +22,7 @@ import { named } from './stalls'
  * a #bit, nothing at all in Safe mode.
  */
 export type FeedPost = {
-  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'poll' | 'quiz' | 'pair'
+  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'poll' | 'quiz' | 'pair' | 'insight'
   id: string
   kind: string
   title: string
@@ -58,6 +59,8 @@ export type FeedPost = {
   quiz?: { prompt: string; answer: string; intervals: Record<number, string>; graded: { grade: number; due: string } | null }
   /** "Two subjects, one thread": two notes with no tag in common, and what they share (feed-pair.ts). */
   pair?: { notes: { type: FeedPost['type']; id: string; kind: string; title: string; text: string; who: string | null; tags: string[] }[]; why: { kind: 'word'; word: string } | { kind: 'source'; source: string } | { kind: 'hour' } }
+  /** An insight drawn from your notes (insights.ts): Resurface, Connect or Reframe, with the notes it came from. */
+  insight?: Insight
   /** Brought in by an importer: shown "From the archives". */
   archive?: boolean
   /** Kept this many months ago and never linked: shown "From the archives", one a Feed at most. */

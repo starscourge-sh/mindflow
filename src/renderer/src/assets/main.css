@@ -287,7 +287,7 @@
   /* title: the title of a task, an article or a review question. */
   --text-title: 1.5rem;
   --text-title--line-height: 1.875rem;
-  /* lead: a Feed moment, such as "You're all caught up". Feed only (set weight 600). */
+  /* lead: a Feed moment, such as "That's all for today". Feed only (set weight 600). */
   --text-lead: 1.25rem;
   --text-lead--line-height: 1.5rem;
   /* reading: words you read rather than scan, Feed posts and quotes. Feed only. */
