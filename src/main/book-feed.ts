@@ -256,6 +256,12 @@ export function bookFeed(db: DatabaseSync) {
         if (voice) voices.set(voice, (voices.get(voice) ?? 0) + 1)
         picked.push(row)
       }
+      // A line you highlighted comes up at least once a day while any is not resting: a few highlights among hundreds of
+      // notes were otherwise left out by the shares on most days (a newcomer's book of imports and 6 highlights, 21 Nov).
+      if (!picked.some((row) => row.type === 'highlight')) {
+        const mark = pickPassages(rows.filter((row) => row.type === 'highlight'), 'resurface', `${today}:feed:mark`, 0, never)?.passages[0]
+        if (mark) picked.splice(Math.min(picked.length, 4), picked.length >= room ? 1 : 0, byId.get(mark.id)!)
+      }
       // A small book whose every note has rested: the rest of the day from those shown longest ago, never one twice today.
       if (picked.length < room) picked.push(...rows.filter((row) => rested.has(row.id) && !taken.has(row.id))
         .sort((a, b) => (lastSeen(a) ?? '').localeCompare(lastSeen(b) ?? '') || a.made.localeCompare(b.made)).slice(0, room - picked.length))
