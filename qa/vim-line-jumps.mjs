@@ -39,20 +39,20 @@ const margin = () => h.evaluate(() => {
   return { words: marks.map((m) => m.textContent), here: marks.findIndex((m) => m.hasAttribute('data-here')) }
 })
 // The caret's place in the open note: its block's words, how far into them, and the top of its row on the screen.
-const caret = (target = h, scope = '[data-open] .tiptap') => target.evaluate((scope) => {
+const caret = (target = h, scope = '[data-open] .tiptap:not(.is-line):not(.is-plain)') => target.evaluate((scope) => {
   const ed = document.querySelector(scope).editor
   const { selection } = ed.state
   const node = selection.node
   if (node) return { text: `[${node.type.name}]`, at: selection.from }
   return { text: selection.$head.parent.textContent.slice(0, 20), at: selection.head, row: Math.round(ed.view.coordsAtPos(selection.head).top) }
 }, scope)
-const caretIn = (text, target = h, scope = '[data-open] .tiptap') => target.evaluate(([text, scope]) => {
+const caretIn = (text, target = h, scope = '[data-open] .tiptap:not(.is-line):not(.is-plain)') => target.evaluate(([text, scope]) => {
   const ed = document.querySelector(scope).editor
   let at = 0
   ed.state.doc.descendants((node, pos) => { if (!at && node.isText && node.text.startsWith(text)) at = pos + 1 })
   ed.chain().focus().setTextSelection(at).run()
 }, [text, scope])
-const normal = async (target = h, scope = '[data-open] .tiptap') => {
+const normal = async (target = h, scope = '[data-open] .tiptap:not(.is-line):not(.is-plain)') => {
   const mode = await target.evaluate((scope) => document.querySelector(scope).getAttribute('data-vim-mode'), scope)
   if (mode !== 'normal') await target.keyboard.press('Escape')
 }
@@ -111,7 +111,7 @@ try {
   await caretIn('rye'); await wait(200); await normal()
   before = await margin()
   await keys(['d', '2', 'j']); got = await margin()
-  const text = () => h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.state.doc.textContent)
+  const text = () => h.evaluate(() => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.state.doc.textContent)
   let words = await text()
   check('d2j from rye takes exactly three numbered lines (rye, spelt, cheese)', got.words.length === LINES - 3 && !/rye|spelt|cheese/.test(words) && /bread/.test(words) && /first said/.test(words), `${got.words.length} lines; ${words.slice(0, 160)}`)
   await keys(['u']); got = await margin(); words = await text()
@@ -121,14 +121,14 @@ try {
   await keys(['d', '1', 'j']); got = await margin(); words = await text()
   check('d1j from apples takes apples and bread, and keeps bread\'s sub-bullets rye and spelt', got.words.length === LINES - 2 && !/apples|bread/.test(words) && /rye.*spelt.*cheese/.test(words), `${got.words.length} lines; ${words.slice(400, 460)}`)
   await keys(['u']); got = await margin()
-  const breadHolds = await h.evaluate(() => { const bread = document.querySelector('[data-open] .tiptap').editor.state.doc.child(2).child(1); return bread.textContent === 'breadryespelt' && bread.childCount === 2 })
+  const breadHolds = await h.evaluate(() => { const bread = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.state.doc.child(2).child(1); return bread.textContent === 'breadryespelt' && bread.childCount === 2 })
   check('u puts them back as they were, rye and spelt under bread', got.words.length === LINES && breadHolds, `${got.words.length} lines`)
   // >2j from two (2) reaches bread (4): apples cannot go in (first of its list), bread goes in under it, its own
   // sub-bullets with it; walked by rows, two rows down from two's first row stay in two and nothing moved.
   await caretIn('Paragraph two'); await wait(200); await normal()
   await keys(['Shift+>', '2', 'j'])
   const nested = () => h.evaluate(() => {
-    const list = document.querySelector('[data-open] .tiptap').editor.state.doc.child(2)
+    const list = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.state.doc.child(2)
     return list.firstChild.childCount > 1 && list.firstChild.child(1).firstChild?.textContent.startsWith('bread')
   })
   check('>2j from two reaches the line marked 2 (bread): it goes in under apples', await nested())
@@ -137,7 +137,7 @@ try {
   await caretIn('then said'); await wait(200); await normal()
   await keys(['y', '2', 'k'])
   const yanked = await h.evaluate(() => {
-    const ed = document.querySelector('[data-open] .tiptap').editor
+    const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
     return ed.state.plugins.find((one) => one.key.startsWith('vimMode'))?.getState(ed.state)?.register?.text ?? ''
   })
   check('y2k from then said takes cheese, first said and then said', /^cheese\s+first said\s+then said$/.test(yanked.trim()), JSON.stringify(yanked))
@@ -146,7 +146,7 @@ try {
   await keys(['Shift+V', '3', 'j']); got = await margin()
   check('V3j from first said reaches the line the margin marked 3 (the picture)', got.here === 10, `${got.here}`)
   await keys(['d']); got = await margin(); words = await text()
-  const kinds = await h.evaluate(() => { const out = []; document.querySelector('[data-open] .tiptap').editor.state.doc.forEach((n) => out.push(n.type.name)); return out.join(' ') })
+  const kinds = await h.evaluate(() => { const out = []; document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.state.doc.forEach((n) => out.push(n.type.name)); return out.join(' ') })
   check('V3jd takes exactly those four lines (the quote\'s two, the table, the picture)', got.words.length === LINES - 4 && !/first said|then said|A0/.test(words) && !/table|image/.test(kinds) && /let a = 1/.test(words), `${got.words.length} lines; ${kinds}`)
   await keys(['u']); got = await margin()
   check('u puts the four back', got.words.length === LINES, `${got.words.length} lines`)

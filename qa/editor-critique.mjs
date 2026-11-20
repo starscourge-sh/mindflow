@@ -19,14 +19,14 @@ const c = await sandbox({ width: 1440, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const p = (text) => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
-const ed = () => h.evaluate(() => !!document.querySelector('[data-open] .tiptap')?.editor)
+const ed = () => h.evaluate(() => !!document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)')?.editor)
 const caretAt = (text, end = true) => h.evaluate(([text, end]) => {
-  const e = document.querySelector('[data-open] .tiptap').editor
+  const e = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
   let at = 0
   e.state.doc.descendants((node, pos) => { if (node.isText && node.text.includes(text)) at = pos + node.text.indexOf(text) + (end ? text.length : 0) })
   e.chain().focus().setTextSelection(at).run()
 }, [text, end])
-const docText = () => h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.getText())
+const docText = () => h.evaluate(() => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.getText())
 const FIRST = 'Kepler threw out the circle after six years of numbers'
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
@@ -75,7 +75,7 @@ try {
   await caretAt('tagged'); await h.keyboard.press('Enter'); await h.keyboard.type('/tab', { delay: 40 }); await wait(500)
   const top = await h.evaluate(() => document.querySelector('.tiptap-slash-menu [aria-selected="true"], .tiptap-slash-menu .is-selected, .tiptap-slash-menu button')?.textContent.trim())
   await h.keyboard.press('Enter'); await wait(600)
-  const table = await h.evaluate(() => { let n = 0; document.querySelector('[data-open] .tiptap').editor.state.doc.descendants((node) => void (node.type.name === 'table' && n++)); return n })
+  const table = await h.evaluate(() => { let n = 0; document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.state.doc.descendants((node) => void (node.type.name === 'table' && n++)); return n })
   check('3. "/tab" offers Table first, and Enter makes a table', table === 1, JSON.stringify({ top, table }))
 
   // 4. Tab keeps the caret in the note.
@@ -88,7 +88,7 @@ try {
   check('4. so does ⇧Tab', (await docText()).includes('One two three'), '')
 
   // 5. The selection bar's order.
-  await h.evaluate(() => { const e = document.querySelector('[data-open] .tiptap').editor; let at = 0; e.state.doc.descendants((n, pos) => { if (n.isText && n.text.includes('six years')) at = pos + n.text.indexOf('six years') }); e.chain().focus().setTextSelection({ from: at, to: at + 9 }).run() })
+  await h.evaluate(() => { const e = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; let at = 0; e.state.doc.descendants((n, pos) => { if (n.isText && n.text.includes('six years')) at = pos + n.text.indexOf('six years') }); e.chain().focus().setTextSelection({ from: at, to: at + 9 }).run() })
   await wait(900)
   const bar = await h.evaluate(() => [...document.querySelectorAll('[data-selection-bar] button, [data-selection-bar] [role="separator"], [data-selection-bar] .tiptap-separator, [data-selection-bar] [data-orientation="vertical"]')].filter((b) => b.offsetParent || b.getBoundingClientRect().height).map((b) => b.tagName === 'BUTTON' ? b.getAttribute('aria-label') || b.textContent.trim() : '|'))
   check('5. the bar starts Bold, Italic, Link', bar[0] === 'Bold' && bar[1] === 'Italic' && bar[2] === 'Link', JSON.stringify(bar))
@@ -120,13 +120,13 @@ try {
   await v('item:save', long, { body: { type: 'doc', content: Array.from({ length: 40 }, (_, i) => p(`Line ${i + 1} of a long page about orbits and numbers.`)) } })
   await c.send('article', long); await wait(1800)
   await caretAt('Line 40 of a long page about orbits and numbers.')
-  await h.evaluate(() => { const e = document.querySelector('[data-open] .tiptap').editor; const at = e.view.coordsAtPos(e.state.selection.from); const scroller = document.querySelector('[data-open] .haligtree-editor-content') ?? document.scrollingElement; scroller.scrollTop = scroller.scrollHeight })
+  await h.evaluate(() => { const e = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; const at = e.view.coordsAtPos(e.state.selection.from); const scroller = document.querySelector('[data-open] .haligtree-editor-content') ?? document.scrollingElement; scroller.scrollTop = scroller.scrollHeight })
   await wait(400)
   await h.keyboard.press('Enter'); await h.keyboard.type('/', { delay: 40 }); await wait(600)
   const low = await h.evaluate(() => {
     const m = document.querySelector('.tiptap-slash-menu')?.getBoundingClientRect()
     const bar = [...document.querySelectorAll('[data-composer]')].map((b) => b.getBoundingClientRect()).find((r) => r.height && r.top > innerHeight / 2)
-    const e = document.querySelector('[data-open] .tiptap').editor
+    const e = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
     const caret = e.view.coordsAtPos(e.state.selection.from)
     const count = document.querySelector('.tiptap-word-count')
     return { menu: m && { top: m.top, bottom: m.bottom }, bar: bar && bar.top, caret: caret.top, count: count ? getComputedStyle(count).visibility : 'none' }

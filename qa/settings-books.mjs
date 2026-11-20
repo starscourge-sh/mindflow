@@ -7,6 +7,12 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
+// The sandbox hides every book's "…" by design (settings-view.tsx BookRows: none of its names or colours are yours):
+// this runs on a copy of book-master, three books with Caelid (the gate's "settings-books+book").
+if (/--sandbox/.test(process.env.QA_ARGS ?? '')) {
+  console.log('FAIL  run on a copy of book-master, not the sandbox')
+  process.exit(1)
+}
 const s = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, close, errors, v } = s
 const wait = (ms) => h.waitForTimeout(ms)

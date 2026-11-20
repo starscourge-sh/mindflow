@@ -131,7 +131,7 @@ try {
   })
   check('a noted moment shows its line\'s own start, voice and words, as the transcript does', moment.row.startsWith(moment.time) && moment.row.includes(moment.name) && moment.row.endsWith(moment.words), JSON.stringify(moment))
   // One tag: #recording in Properties, never a second chip in the words.
-  const tagged = await h.evaluate(() => ({ property: !!document.querySelector('[data-tag-chip="recording"]'), words: [...document.querySelectorAll('[data-open] .tiptap')].some((one) => one.textContent.includes('#recording')) }))
+  const tagged = await h.evaluate(() => ({ property: !!document.querySelector('[data-tag-chip="recording"]'), words: [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain)')].some((one) => one.textContent.includes('#recording')) }))
   check('#recording shows once, as the property tag', tagged.property && !tagged.words, JSON.stringify(tagged))
 
   // Pointing at every transcript row moves nothing.

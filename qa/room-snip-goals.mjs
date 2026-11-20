@@ -94,7 +94,7 @@ try {
     await v('item:save', id, { title: 'Plates', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
     await c.send('article', id); await wait(1400)
     await h.evaluate((bytes) => {
-      const ed = document.querySelector('[data-open] .tiptap').editor
+      const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
       const data = new DataTransfer()
       data.items.add(new File([new Uint8Array(bytes)], 'plates.pdf', { type: 'application/pdf' }))
       const box = ed.view.dom.getBoundingClientRect()
@@ -175,12 +175,19 @@ try {
     await c.both(`${SHOTS}/goals-hover`, win)
     // Clicking it: the main window answers, no frame over 100 ms, and opens the goal.
     await h.evaluate(() => { window.__gaps = []; let last = performance.now(); const loop = () => { const now = performance.now(); window.__gaps.push(now - last); last = now; if (window.__gaps.length < 400) requestAnimationFrame(loop) }; requestAnimationFrame(loop) })
+    // Where a long frame went, said beside the check when it fails: its script (by function and file) and its style and layout.
+    await h.evaluate(() => {
+      window.__loaf = []
+      new PerformanceObserver((list) => list.getEntries().forEach((e) => e.duration > 50 && window.__loaf.push({ ms: Math.round(e.duration), styleLayout: e.styleAndLayoutStart ? Math.round(e.startTime + e.duration - e.styleAndLayoutStart) : 0,
+        scripts: e.scripts.filter((s) => s.duration > 4).map((s) => `${Math.round(s.duration)}ms ${s.invoker} ${s.sourceFunctionName || '?'}@${String(s.sourceURL).split('/').pop()}:${s.sourceCharPosition} forced ${Math.round(s.forcedStyleAndLayoutDuration)}`) }))).observe({ type: 'long-animation-frame' })
+    })
     const pressed = Date.now()
     await lane.click()
     const answered = await h.evaluate(() => performance.now()).then(() => Date.now() - pressed, () => -1)
     await wait(2500)
     const worst = await h.evaluate(() => Math.round(Math.max(...window.__gaps)))
-    check(`clicking a goal in the sticky: the main window answers (${answered} ms) with no frame over 100 ms (worst ${worst} ms)`, answered >= 0 && answered < 1000 && worst <= 100, `${answered} / ${worst}`)
+    const loaf = await h.evaluate(() => JSON.stringify(window.__loaf.slice(0, 4)))
+    check(`clicking a goal in the sticky: the main window answers (${answered} ms) with no frame over 100 ms (worst ${worst} ms)`, answered >= 0 && answered < 1000 && worst <= 100, `${answered} / ${worst} ${loaf}`)
     check('and the main window shows that goal', await h.evaluate(() => /goal/i.test(document.title + document.body.innerText)))
   }
 } finally {

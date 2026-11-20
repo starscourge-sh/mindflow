@@ -23,7 +23,7 @@ const note = async (title, ...lines) => {
   const id = await v('article:new')
   await v('item:save', id, { title, body: { type: 'doc', content: lines.length ? lines.map(p) : [{ type: 'paragraph' }] } })
   await c.send('article', id)
-  const sel = `[data-open="${id}"] .tiptap`
+  const sel = `[data-open="${id}"] .tiptap:not(.is-line):not(.is-plain)`
   await h.waitForSelector(sel, { timeout: 20000 })
   await wait(700)
   await h.evaluate((sel) => document.querySelector(sel).editor.commands.focus('end'), sel)

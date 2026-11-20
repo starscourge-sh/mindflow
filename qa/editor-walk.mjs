@@ -18,7 +18,7 @@ const c = await sandbox({ width: 1280, height: 900 })
 const { h, v } = c
 const shots = process.env.QA_SHOTS
 const wait = (ms) => h.waitForTimeout(ms)
-const sel = '[data-open] .tiptap'
+const sel = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 const shot = async (name) => shots && h.screenshot({ path: `${shots}/walk-${name}.png` })
 const p = (text) => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
 const fresh = async (first) => {

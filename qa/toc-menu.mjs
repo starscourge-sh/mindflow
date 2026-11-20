@@ -33,7 +33,7 @@ try {
     if (SHOT) await h.screenshot({ path: `${SHOT}/toc-${theme}-menu.png` })
     await h.keyboard.press('Escape'); await wait(250)
     // The caret into the third heading, so it is the one you are under.
-    await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap').editor; let at = 0, n = 0; ed.state.doc.descendants((node, pos) => { if (node.type.name === 'heading' && ++n === 3) at = pos + 1 }); ed.commands.setTextSelection(at) })
+    await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; let at = 0, n = 0; ed.state.doc.descendants((node, pos) => { if (node.type.name === 'heading' && ++n === 3) at = pos + 1 }); ed.commands.setTextSelection(at) })
     await wait(300)
     const strip = h.locator('.tiptap-toc').first()
     const box = await strip.boundingBox()

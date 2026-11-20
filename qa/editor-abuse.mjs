@@ -27,7 +27,7 @@ const numbered = (value) => doc({ type: 'orderedList', content: [item(value)] })
 const checks_ = (value) => doc({ type: 'taskList', content: [task(value)] })
 
 const read = () => h.evaluate(() => {
-  const ed = document.querySelector('[data-open] .tiptap')?.editor
+  const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)')?.editor
   if (!ed) return { tree: 'NO EDITOR', bad: ['no editor'], vim: '', text: '' }
   const lines = []
   const bad = []
@@ -72,7 +72,7 @@ const open = async (body) => {
   return id
 }
 const caret = (word) => h.evaluate((word) => {
-  const ed = document.querySelector('[data-open] .tiptap').editor
+  const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
   let at = 0
   ed.state.doc.descendants((node, pos) => {
     if (!at && node.isText && node.text === word) at = pos
@@ -80,7 +80,7 @@ const caret = (word) => h.evaluate((word) => {
   ed.chain().focus().setTextSelection(at + 1).run()
 }, word)
 const atStart = (word) => h.evaluate((word) => {
-  const ed = document.querySelector('[data-open] .tiptap').editor
+  const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
   let at = 0
   ed.state.doc.descendants((node, pos) => {
     if (!at && node.isText && node.text === word) at = pos
@@ -193,7 +193,7 @@ try {
   const typeAt = async (body, word, keys, whole = false) => {
     await open(body)
     await h.evaluate(({ word, keys, whole }) => {
-      const ed = document.querySelector('[data-open] .tiptap').editor
+      const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
       let at = 1
       if (word) {
         ed.state.doc.descendants((node, pos) => {
@@ -233,7 +233,7 @@ try {
 
   const put = async (keys) => {
     await h.evaluate((keys) => {
-      const view = document.querySelector('[data-open] .tiptap').editor.view
+      const view = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.view
       for (const ch of keys) {
         const { from, to } = view.state.selection
         const handled = view.someProp('handleTextInput', (fn) => fn(view, from, to, ch, () => {}))
@@ -242,7 +242,7 @@ try {
     }, keys)
   }
   await open(doc(para('')))
-  await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.commands.focus('end'))
+  await h.evaluate(() => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.commands.focus('end'))
   await put('/')
   await wait(200)
   await put('heading')
@@ -258,7 +258,7 @@ try {
   check('slash Heading 1 is a heading, not a list', want(headed, { text: 'Milk', has: ['heading:1'], lacks: ['listItem'], clean: true }), headed.tree)
 
   await open(doc(para('')))
-  await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.commands.focus('end'))
+  await h.evaluate(() => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.commands.focus('end'))
   await put('/')
   await wait(200)
   await put('bullet')
@@ -299,7 +299,7 @@ try {
   if (await italic.count()) await italic.click()
   await wait(100)
   const marks = await h.evaluate(() => {
-    const ed = document.querySelector('[data-open] .tiptap').editor
+    const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
     const found = []
     ed.state.doc.descendants((node) => {
       if (node.isText) found.push(...node.marks.map((mark) => mark.type.name))

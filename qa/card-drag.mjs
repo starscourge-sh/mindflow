@@ -48,12 +48,12 @@ try {
   ] } })
   await c.send('article', id); await wait(1800)
   const order = () => h.evaluate(() => {
-    const doc = document.querySelector('[data-open] .tiptap')?.editor?.getJSON()
+    const doc = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)')?.editor?.getJSON()
     return (doc?.content ?? []).map((one) => one.type === 'paragraph' ? one.content?.[0]?.text ?? '' : one.attrs?.name ?? one.attrs?.alt ?? one.type)
   })
   const start = await order()
 
-  for (const [kind, sel] of [['voice note', '.tiptap-attachment.is-audio'], ['PDF', '.tiptap-attachment.is-pdf'], ['file', '.tiptap-attachment:not(.is-audio):not(.is-pdf)'], ['picture', '[data-open] .tiptap img[alt="Map"]']]) {
+  for (const [kind, sel] of [['voice note', '.tiptap-attachment.is-audio'], ['PDF', '.tiptap-attachment.is-pdf'], ['file', '.tiptap-attachment:not(.is-audio):not(.is-pdf)'], ['picture', '[data-open] .tiptap:not(.is-line):not(.is-plain) img[alt="Map"]']]) {
     // --- The body: carried out, and over its own note the carry's room, never the editor's drop line ---------------
     const ok = await h.evaluate((sel) => {
       const card = document.querySelector(sel)
@@ -64,7 +64,7 @@ try {
       // The drag starts on the node view's own draggable wrapper, as a real press-and-move does.
       const begun = (card.closest('[draggable=true]') ?? card).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data, ...at }))
       // Over the note, at the foot of its last line (a new place for every block here), as the system drag would pass.
-      const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Last line.')
+      const target = [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) p')].find((one) => one.textContent === 'Last line.')
       const below = target.getBoundingClientRect()
       // Well inside the line's words: its first 20px would put it beside the line, as a row of two (lib/block-carry.tsx NEAR_LEFT).
       const over = { bubbles: true, cancelable: true, dataTransfer: data, clientX: below.left + 80, clientY: below.bottom - 4 }
@@ -81,7 +81,7 @@ try {
     // Let go outside the note, as a drop in Finder would be.
     await h.evaluate(() => {
       const { data, over } = window.carriedOut
-      const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Last line.')
+      const target = [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) p')].find((one) => one.textContent === 'Last line.')
       target.dispatchEvent(new DragEvent('dragleave', { ...over, relatedTarget: document.body }))
       document.body.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: data }))
     })
@@ -115,17 +115,17 @@ try {
 
   // --- Let go over its own note: the picture moves where the line was, once; ⌘Z puts it back ------------------------
   await h.evaluate(() => {
-    const picture = document.querySelector('[data-open] .tiptap img[alt="Map"]')
+    const picture = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain) img[alt="Map"]')
     const data = new DataTransfer()
     const from = picture.getBoundingClientRect()
     picture.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data, clientX: from.left + 20, clientY: from.top + from.height / 2 }))
-    const first = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'First line.')
+    const first = [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) p')].find((one) => one.textContent === 'First line.')
     const box = first.getBoundingClientRect()
     window.landing = { bubbles: true, cancelable: true, dataTransfer: data, clientX: box.left + 80, clientY: box.top + box.height * 0.85 }
     first.dispatchEvent(new DragEvent('dragover', window.landing))
   })
   await wait(350)
-  await h.evaluate(() => [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'First line.').dispatchEvent(new DragEvent('drop', window.landing)))
+  await h.evaluate(() => [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) p')].find((one) => one.textContent === 'First line.').dispatchEvent(new DragEvent('drop', window.landing)))
   await wait(400)
   const dropped = await order()
   check('the picture let go over its own note moves where the line was, once, and nothing is added', dropped[1] === 'Map' && dropped.filter((one) => one === 'Map').length === 1 && dropped.length === start.length, JSON.stringify(dropped))
@@ -161,7 +161,7 @@ try {
   await h.mouse.move(cb.x + 30, cb.y + cb.height / 2); await wait(400)
   const grip = h.locator('.tiptap-drag-handle-grip').first()
   const gb = await grip.boundingBox().catch(() => null)
-  const last = await h.locator('[data-open] .tiptap p').last().boundingBox()
+  const last = await h.locator('[data-open] .tiptap:not(.is-line):not(.is-plain) p').last().boundingBox()
   if (gb && last) {
     // A real pointer, as a person carries it (lib/block-carry.tsx: the grip's carry is the pointer's own, never the
     // browser's drag): down on the grip, move in steps, up below the last line.
@@ -184,11 +184,11 @@ try {
   const task = (text) => ({ type: 'taskItem', attrs: { checked: false }, content: [para(text)] })
   await v('item:save', tid, { title: 'Tasks carried', body: { type: 'doc', content: [{ type: 'taskList', content: [task('Write the essay'), task('Find three sources'), task('Book the room')] }, para('After the tasks')] } })
   await c.send('article', tid); await wait(1500)
-  const taskLine = (text) => h.locator('[data-open] .tiptap li p', { hasText: text }).first()
+  const taskLine = (text) => h.locator('[data-open] .tiptap:not(.is-line):not(.is-plain) li p', { hasText: text }).first()
   // Read off what a person sees there, not only what is marked: a task drawn again kept its old marks off screen and passed before.
   const held = () => h.evaluate(() => {
     const seenAt = (text) => {
-      const box = [...document.querySelectorAll('[data-open] .tiptap li p')].find((one) => one.textContent === text)?.getBoundingClientRect()
+      const box = [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) li p')].find((one) => one.textContent === text)?.getBoundingClientRect()
       return box ? document.elementFromPoint(box.left + 12, box.top + box.height / 2) : null
     }
     return {
@@ -201,7 +201,7 @@ try {
       lines: document.querySelectorAll('[data-drop-line]').length,
     }
   })
-  const steps = () => h.evaluate(() => (document.querySelector('[data-open] .tiptap')?.editor?.getJSON().content ?? []).map((one) => JSON.stringify(one).match(/"text":"[^"]+"/g)?.join('+') ?? one.type).join(' / '))
+  const steps = () => h.evaluate(() => (document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)')?.editor?.getJSON().content ?? []).map((one) => JSON.stringify(one).match(/"text":"[^"]+"/g)?.join('+') ?? one.type).join(' / '))
   const tasksBefore = await steps()
   await h.mouse.move(5, 5)
   await taskLine('Book the room').hover(); await wait(400)
@@ -211,7 +211,7 @@ try {
     await h.mouse.move(tgrip.x + tgrip.width / 2, tgrip.y + tgrip.height / 2); await wait(120)
     await h.mouse.down()
     // First down past “After the tasks”: a move, the task out of sight in the hand, the room's one line.
-    const after = await h.locator('[data-open] .tiptap > p', { hasText: 'After the tasks' }).first().boundingBox()
+    const after = await h.locator('[data-open] .tiptap:not(.is-line):not(.is-plain) > p', { hasText: 'After the tasks' }).first().boundingBox()
     await h.mouse.move(after.x + 60, after.y + after.height * 0.8, { steps: 8 }); await wait(450)
     const moving = await held()
     check('a task carried by its grip: out of sight in the hand (its own place the band, nothing of it showing there), the room\'s one line where it lands', moving.hidden.length === 1 && moving.hidden[0] === 'hidden' && !moving.carriedSeen && moving.lines === 1, JSON.stringify(moving))
@@ -221,7 +221,7 @@ try {
     check('rested on another task, that task lights where it shows and the card says “Make it a step of …”, the carried one still out of sight', resting.lit === 1 && resting.litSeen && resting.words === 'Make it a step of “Write the essay”' && resting.hidden[0] === 'hidden' && !resting.carriedSeen, JSON.stringify(resting))
     await h.screenshot({ path: `${shots}/card-drag-task-step.png` })
     await h.mouse.up(); await wait(400)
-    check('let go, it is that task\'s step, and nothing stays lit or out of sight', (await held()).lit === 0 && (await held()).hidden.length === 0 && (await h.evaluate(() => document.querySelector('[data-open] .tiptap li li p')?.textContent)) === 'Book the room', await steps())
+    check('let go, it is that task\'s step, and nothing stays lit or out of sight', (await held()).lit === 0 && (await held()).hidden.length === 0 && (await h.evaluate(() => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain) li li p')?.textContent)) === 'Book the room', await steps())
     await h.keyboard.press('Meta+z'); await wait(300)
     check('⌘Z takes the step back out in one step', (await steps()) === tasksBefore, `${await steps()} vs ${tasksBefore}`)
   } else check('the grip shows beside a task', false, JSON.stringify({ tgrip, onto }))

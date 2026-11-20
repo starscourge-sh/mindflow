@@ -83,7 +83,7 @@ try {
   ] } })
   await c.send('article', note); await wait(1400)
   const noteType = await h.evaluate(() => {
-    const p = document.querySelector('[data-open] .tiptap p')
+    const p = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain) p')
     const s = p && getComputedStyle(p)
     return s ? { family: s.fontFamily, size: s.fontSize } : null
   })
@@ -251,9 +251,9 @@ try {
   // Offline, the gem's link opens the kept article with the highlight lit.
   await net({ blocked: true, hits: 0 })
   await c.send('article', note); await wait(1200)
-  await h.evaluate((href) => document.querySelector('[data-open] .tiptap').editor.chain().focus('end').insertContent(`<p><a href="${href}">back to the essay</a></p>`).run(), `haligtree://article?href=${encodeURIComponent(`${SITE}/article`)}&mark=${marks[0]?.id}`)
+  await h.evaluate((href) => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.chain().focus('end').insertContent(`<p><a href="${href}">back to the essay</a></p>`).run(), `haligtree://article?href=${encodeURIComponent(`${SITE}/article`)}&mark=${marks[0]?.id}`)
   await wait(400)
-  const linkBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[data-open] .tiptap a')].find((one) => one.textContent === 'back to the essay').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
+  const linkBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) a')].find((one) => one.textContent === 'back to the essay').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
   await h.keyboard.down('Meta'); await h.mouse.click(linkBox.x, linkBox.y); await h.keyboard.up('Meta')
   await h.waitForSelector('.web-reader-body p', { timeout: 10000 }).catch(() => {})
   await wait(500)

@@ -15,7 +15,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 820, at: CALM_HOUR })
 const { page, h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const EDITOR = '[data-open] .tiptap'
+const EDITOR = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 const rect = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height } }
 const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
 const save = (target, b64, name) => target.evaluate(([b64, name]) => window.api.saveFile(name, Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0))), [b64, name])
@@ -189,7 +189,7 @@ try {
   const tile = await h.$('[data-media="audio"] [data-wave]')
   const tb = await tile.boundingBox()
   await h.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height / 2); await wait(600)
-  const stayed = await h.evaluate(() => !document.querySelector('[data-open] .tiptap') && !!document.querySelector('[data-media="audio"]'))
+  const stayed = await h.evaluate(() => !document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)') && !!document.querySelector('[data-media="audio"]'))
   const mediaAt = await playerState(h, '[data-media="audio"] [data-sound-player]')
   check('clicking a tile\'s waveform seeks there and does not open the note', stayed && Math.abs(mediaAt.time / mediaAt.duration - 0.5) < 0.05, JSON.stringify({ stayed, time: mediaAt?.time }))
 

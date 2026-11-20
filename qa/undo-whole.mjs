@@ -17,7 +17,7 @@ process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const c = await sandbox({ width: 1440, height: 900 })
 const { h, v } = c
-const ED = '[data-open] .tiptap'
+const ED = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 const TRACE = !!process.env.QA_TRACE
 
 /** In the page: a log of every change, with who made it, and the note as JSON to compare. */
