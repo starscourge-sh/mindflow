@@ -1,8 +1,11 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { app, ipcMain, shell } from 'electron'
 import helper from '../../resources/understand?asset&asarUnpack'
 import { meets, standIn, type Caps } from './needs'
 import { answerInNote, flat, givesAway, type QuestionDraft } from './note-questions'
+import { VOICES, leadFor, standLine, wrapInstructions, wrapPrompt, wrapSchema, type Voice, type WrapPage } from './wrap-lines'
 
 /**
  * What this Mac can do, and the small helper (native/understand.swift) that
@@ -246,6 +249,8 @@ export function registerStudyAi(on: () => boolean): void {
     const cards = (said as Answer).cards
     return Array.isArray(cards) && cards.length ? { cards } : { error: 'Apple Intelligence filled no card from these pages: they may hold too few words it could read (a scan or code alone).' }
   })
+  ipcMain.handle('haligtree:ai:wrap', (_event, id: unknown, pages: unknown, keptOnly: unknown, voice: unknown) =>
+    wrapLeads(String(id ?? ''), pages, keptOnly === true, typeof voice === 'string' && voice in VOICES ? (voice as Voice) : 'warm', on))
   ipcMain.handle('haligtree:ai:phrase', (_event, drafts: unknown) => phraseDrafts(Array.isArray(drafts) ? drafts.slice(0, 5) : [], on))
   // A new group's first name, offered in its name field. Never an error: no answer simply leaves the name it has.
   ipcMain.handle('haligtree:ai:group-name', async (_event, titles: unknown): Promise<string | null> => {
@@ -260,6 +265,60 @@ export function registerStudyAi(on: () => boolean): void {
     const answer = await said
     return 'name' in answer && typeof answer.name === 'string' && answer.name.trim() ? answer.name.trim() : null
   })
+}
+
+/** Wrapped's lead-ins already written, by story ("month:2026-10") and voice, with the statements they say again: kept between runs. */
+type KeptWrap = Record<string, { facts: string; leads: Partial<Record<Voice, Record<string, string>>> }>
+const wrapFile = (): string => join(app.getPath('userData'), 'wrap-leads.json')
+let keptWraps: KeptWrap | null = null
+const readWraps = (): KeptWrap => {
+  if (keptWraps) return keptWraps
+  try {
+    keptWraps = JSON.parse(readFileSync(wrapFile(), 'utf8')) as KeptWrap
+  } catch {
+    keptWraps = {}
+  }
+  return keptWraps
+}
+/** One request at a time for the same statements and voice (a story opened again while its lead-ins are still being written). */
+const writingWraps = new Map<string, Promise<{ leads: Record<string, string> } | { error: string }>>()
+
+/**
+ * A Wrapped story's lead-ins, one a page: each page's plain statement (wrap-story.tsx `wrapSays`) said again by Apple
+ * Intelligence in the story's voice, a small request for each page, all at once; each checked (wrap-lines.ts
+ * `whyDropped`: no number, a few words, the same direction and names, nothing added), any that fails or does not come
+ * replaced by its plain statement. Kept per story and voice while its statements stand, so opening it again shows the
+ * same. `keptOnly`: answer at once with the kept lead-ins or none, so the story never waits on the model before its
+ * first card. 20 seconds at most for them all.
+ */
+async function wrapLeads(id: string, given: unknown, keptOnly: boolean, voice: Voice, on: () => boolean): Promise<{ leads: Record<string, string> | null } | { error: string }> {
+  if (!meets(await caps(), 'ai')) return { error: 'Needs Apple Intelligence' }
+  if (!on()) return { error: 'Apple Intelligence is turned off in Settings' }
+  const pages = (Array.isArray(given) ? given : []).filter((one): one is WrapPage => !!one && typeof one.page === 'string' && typeof one.says === 'string' && Array.isArray(one.names) && one.names.every((name: unknown) => typeof name === 'string') && (one.span === 'week' || one.span === 'month') && ['up', 'down', 'same', null].includes(one.lean)).slice(0, 16)
+  if (!/^(week|month):[\d-]+$/.test(id) || !pages.length) return { error: 'No pages to write for' }
+  const facts = JSON.stringify(pages)
+  const kept = readWraps()[id]
+  if (kept?.facts === facts && kept.leads[voice]) return { leads: kept.leads[voice] }
+  if (keptOnly) return { leads: null }
+  const key = `${voice}:${facts}`
+  const writing = writingWraps.get(key) ?? (async (): Promise<{ leads: Record<string, string> } | { error: string }> => {
+    // Small requests beat one for the whole story: given one statement, the model has nothing else to mix in.
+    const said = await Promise.all(pages.map((page, n) => shaped<{ line?: unknown }>(wrapInstructions(voice), wrapPrompt(page), wrapSchema, () => standLine(page, n), 20_000)))
+    if (said.every((one) => 'error' in one)) return { error: String((said[0] as { error: string }).error) }
+    const leads = Object.fromEntries(pages.map((page, n) => { const one = said[n]; return [page.page, leadFor('error' in one ? null : one.line, page)] }))
+    // The newest thirty stories kept: a year of months and some weeks.
+    const now = readWraps()[id]
+    const rest = Object.entries(readWraps()).filter(([one]) => one !== id).slice(-29)
+    keptWraps = Object.fromEntries([...rest, [id, { facts, leads: { ...(now?.facts === facts ? now.leads : {}), [voice]: leads } }]])
+    try {
+      writeFileSync(wrapFile(), JSON.stringify(keptWraps))
+    } catch {
+      // Not kept: the next open asks again.
+    }
+    return { leads }
+  })().finally(() => writingWraps.delete(key))
+  writingWraps.set(key, writing)
+  return writing
 }
 
 /**
