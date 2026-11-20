@@ -89,7 +89,7 @@ export function SandboxPill(): React.JSX.Element | null {
   )
   return (
     <span data-sandbox-pill role="group" aria-label="Sandbox" style={NO_DRAG}
-      className="group/sb ml-2 flex h-7 shrink-0 items-center gap-0.5 overflow-hidden rounded-full border p-0.5 text-control">
+      className="group/sb mb-[3px] ml-2 flex h-6 shrink-0 items-center gap-0.5 self-end overflow-hidden rounded-full border p-0.5 text-[0.8125rem]">
       {/* The same hairline pill as "New" and Back and Forward; only the flask keeps the sandbox's colour, so it is told apart at a glance. */}
       <span className="flex h-full cursor-default items-center rounded-full px-2 font-semibold text-foreground/90">
         <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} style={{ color: TAPE.color }} />

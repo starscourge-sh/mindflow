@@ -2853,7 +2853,7 @@ export function Home(): React.JSX.Element {
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <TopTitle on={settings?.topTitle !== false} />
         </span>}
-        tail={<span data-on-frame className="mb-[2px] mr-1 flex shrink-0 items-center">
+        tail={<span data-on-frame className="mb-[3px] mr-1 flex shrink-0 items-center">
         {/* The window's own setting, quiet: what you hear. How much screen it takes is the green button's (and ⌃⇧F's),
             so the room here goes to the note's own "Read" (note-extras.tsx). */}
         <span className="flex shrink-0 items-center">
@@ -2863,10 +2863,10 @@ export function Home(): React.JSX.Element {
         <Tip label={keyed(inFolderRef.current ? 'A new note in this folder' : newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
           <button type="button" data-new={inFolderRef.current ? 'folder' : newPage ? 'page' : 'capture'} onClick={makeNew}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className={`${PILL} ml-1.5 shrink-0 gap-1.5 pr-1.5 pl-3 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
+            className={`${PILL} ml-1.5 h-6 shrink-0 gap-1.5 pr-1 pl-2.5 text-[0.8125rem] font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
             <AliveIcon icon={PenIcon} size={14} />
             New
-            {!newPage && !inFolderRef.current && <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />}
+            {!newPage && !inFolderRef.current && <Pressed keys="C" className="ml-1 h-4 min-w-4 rounded-[4px]" />}
           </button>
         </Tip>
         </span>}
