@@ -233,7 +233,7 @@ try {
   const area = await box(h.locator('[data-split-area]'))
   const lone = now[0].tabs.find((one) => one !== now[0].on) ?? now[0].tabs[0]
   await drag(await mid(tab(now[0].key, lone)), { x: area.x + area.width - 40, y: area.y + area.height / 2 }, 10)
-  check('off the rows, over the page, the places come up', (await h.locator('[data-split-zone]').count()) >= 2)
+  check('off the rows, at the window\'s right edge, the right half is outlined "Open on the right"', (await h.locator('[data-split-half="right"]').count()) === 1 && /Open on the right/.test(await h.locator('[data-split-half]').innerText()))
   await shot('tab-over-edge-light')
   await h.mouse.up(); await wait(700)
   s = await state()

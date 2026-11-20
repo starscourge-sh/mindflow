@@ -12,7 +12,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { still } from '@/lib/motion'
 import { refuse } from './ui'
 import { CarriedCard, swallowClick, swallowRelease, titleOf } from './carry'
-import { carriedPinned, gapIn, setCarry } from './tab-row'
+import { TAB_AIR, gapIn, setCarry } from './tab-row'
 import '@/lib/carry-cursor'
 
 /**
@@ -164,6 +164,10 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
   const [hot, setHot] = useState<string | null>(null)
   // The other pane's page it would open in, drawn as a place like the edges'.
   const [takeBox, setTakeBox] = useState<DOMRect | null>(null)
+  // A tab carried: over a row of tabs the tab itself is in the hand and the card is put away; over a page, the half of
+  // a pane it would open in.
+  const [inRow, setInRow] = useState(false)
+  const [half, setHalf] = useState<Zone | null>(null)
   const dropRef = useRef({ onDrop, onRow })
   dropRef.current = { onDrop, onRow }
   // The pointer, and where the card is drawn toward.
@@ -186,9 +190,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     let active = false
     let shown: Zone[] = []
     let over: Zone | null = null
-    // Every place a carried tab could make a new pane, and where its row is at.
-    let places: Zone[] = []
+    // Where a carried tab's row gap is at.
     let gapped: { pane: string; at: number } | null = null
+    // A carried tab's lifted copy, the tab itself in the hand (Chrome's, Safari's, Dia's): where it was, how wide its
+    // gap is, how far down its top row it stands, and the glide home when it is let go nowhere.
+    let lift: { node: HTMLElement; rect: DOMRect; width: number; down: number; hold: number } | null = null
+    let liftShown = false
+    let home: Animation | null = null
     // Where on the thing it was taken hold of: the card keeps that side under the pointer (scaled to the card, which is smaller), never jumping to its middle.
     let grab = { x: 0, y: 0 }
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
@@ -229,7 +237,116 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     /** The gap in a row of tabs shown no more. */
     const letGap = (): void => {
       gapped = null
-      setCarry({ from: down?.source.carried.tab?.key ?? null, gap: null })
+      setCarry({ from: down?.source.carried.tab?.key ?? null, width: lift?.width ?? 0, gap: null })
+    }
+    /**
+     * The row of tabs a carried tab is over: anywhere on a top row and a little above and below it (no aiming at a thin
+     * strip), and over the row's own arrows or "+" it is the nearest row of that bar, so it is never dropped short.
+     */
+    const rowAt = (px: number, py: number): HTMLElement | null => {
+      for (const bar of document.querySelectorAll<HTMLElement>('[data-tabs]')) {
+        const box = bar.getBoundingClientRect()
+        if (py < box.top - 16 || py > box.bottom + 16 || px < box.left || px > box.right) continue
+        let best: HTMLElement | null = null
+        let far = Infinity
+        for (const row of bar.querySelectorAll<HTMLElement>('[data-tab-row]')) {
+          const edge = row.getBoundingClientRect()
+          const off = Math.max(edge.left - px, 0, px - edge.right)
+          if (off < far) (far = off), (best = row)
+        }
+        return best
+      }
+      return null
+    }
+    /**
+     * Over a page, the half of a pane a carried tab would open in, as a new pane on that side: either half of its own
+     * pane (a one-pane window's whole page is two places), the outer thirds of another pane (its middle third opens it
+     * there as a tab, "Open here"), and the window's very edges always. A pane's only tab offers nothing that would
+     * leave the layout as it is.
+     */
+    const halfAt = (px: number, py: number): Zone | null => {
+      const tab = down?.source.carried.tab
+      const box = area()
+      if (!tab || !box || px < box.left || px > box.right || py < box.top || py > box.bottom) return null
+      const panes = [...document.querySelectorAll<HTMLElement>('[data-split-area] [data-pane]')]
+      const own = panes.findIndex((one) => one.dataset.pane === tab.pane)
+      const alone = own >= 0 && document.querySelectorAll(`[data-tab-row="${CSS.escape(tab.pane)}"] [data-tab]`).length === 1
+      const edge = px < box.left + EDGE ? 0 : px > box.right - EDGE ? panes.length - 1 : -1
+      const at = edge >= 0 ? edge : panes.findIndex((one) => { const its = one.getBoundingClientRect(); return px >= its.left && px <= its.right })
+      if (at < 0) return null
+      const page = (panes[at].querySelector('[data-pane-card]') ?? panes[at]).getBoundingClientRect()
+      const part = (px - page.left) / page.width
+      const side: 'left' | 'right' | null = edge >= 0 ? (edge === 0 && px < box.left + EDGE ? 'left' : 'right') : at === own ? (part < 0.5 ? 'left' : 'right') : part < 1 / 3 ? 'left' : part > 2 / 3 ? 'right' : null
+      if (!side) return null
+      const to = side === 'left' ? at : at + 1
+      if (alone && (to === own || to === own + 1)) return null
+      const left = side === 'left' ? page.left : page.left + page.width / 2
+      return { key: `half${to}`, side, at: to, left, top: page.top, width: page.width / 2, height: page.height, reach: { left, right: left + page.width / 2, top: page.top, bottom: page.bottom } }
+    }
+    /** The tab taken up: a copy of it, as it looks on its row, laid over the window to follow the pointer. */
+    const liftUp = (node: HTMLElement): void => {
+      const rect = node.getBoundingClientRect()
+      const copy = node.cloneNode(true) as HTMLElement
+      // Never counted as a tab, nor opened as one.
+      for (const one of [copy, ...copy.querySelectorAll<HTMLElement>('*')]) for (const name of ['data-tab', 'data-tab-open', 'data-drag-title', 'data-tab-close', 'data-no-split', 'id']) one.removeAttribute(name)
+      Object.assign(copy.style, { width: `${rect.width}px`, height: `${rect.height}px`, margin: '0', transform: 'none', minWidth: '0', maxWidth: 'none', opacity: '1' })
+      // A tab not open is a see-through pill on its row: lifted, it is solid, as a thing picked up is.
+      const pill = copy.querySelector<HTMLElement>('[role="tab"]')
+      if (pill && !node.hasAttribute('data-tab-on')) pill.style.backgroundColor = 'var(--popover)'
+      const look = getComputedStyle(node)
+      const holder = document.createElement('div')
+      holder.dataset.tabLifted = ''
+      holder.setAttribute('aria-hidden', 'true')
+      // The row's own colours, read where it stands: the copy is drawn outside it.
+      for (const name of ['--mf-tab', '--mf-tab-line', '--mf-tab-edge']) holder.style.setProperty(name, look.getPropertyValue(name))
+      Object.assign(holder.style, { position: 'fixed', left: '0', top: '0', zIndex: '81', pointerEvents: 'none', display: 'flex', alignItems: 'stretch', width: `${rect.width}px`, height: `${rect.height}px`, opacity: '0', willChange: 'transform',
+        color: look.color, filter: 'drop-shadow(0 6px 14px color-mix(in oklab, var(--mf-shadow-ink) 28%, transparent))' })
+      holder.append(copy)
+      document.body.append(holder)
+      const bar = node.closest('[data-tabs]')?.getBoundingClientRect()
+      lift = { node: holder, rect, width: rect.width + TAB_AIR, down: rect.top - (bar?.top ?? rect.top), hold: (down?.x ?? rect.left) - rect.left }
+      liftShown = false
+    }
+    const showLift = (on: boolean): void => {
+      if (!lift || on === liftShown) return
+      liftShown = on
+      lift.node.style.opacity = on ? '1' : '0'
+      setInRow(on)
+    }
+    const unlift = (): void => {
+      home?.cancel()
+      home = null
+      lift?.node.remove()
+      lift = null
+      liftShown = false
+      setInRow(false)
+      setHalf(null)
+    }
+    /** Let go nowhere it can land, or Esc: the tab glides back to its own place, its gap there open until it arrives. */
+    const glideHome = (): void => {
+      const tab = down?.source.carried.tab
+      const place = tab && document.querySelector<HTMLElement>(`[data-tab-row="${CSS.escape(tab.pane)}"] [data-tab="${CSS.escape(tab.key)}"]`)
+      const row = place?.closest<HTMLElement>('[data-tab-row]')
+      if (!tab || !lift || !place || !row || quiet) return reset()
+      const at = [...row.querySelectorAll<HTMLElement>('[data-tab]')].indexOf(place)
+      // Where the copy is now: on its row, or where the card is over the page.
+      const now = liftShown ? new DOMMatrix(getComputedStyle(lift.node).transform) : null
+      const from = now ? { x: now.m41, y: now.m42 } : { x: card.x.get() - lift.rect.width / 2, y: card.y.get() - lift.rect.height / 2 }
+      active = false
+      over = null
+      gapped = null
+      letTake()
+      if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
+      queued = null
+      setHalf(null)
+      setHot(null)
+      setCarry({ from: tab.key, width: lift.width, gap: { pane: tab.pane, at } })
+      showLift(true)
+      const to = place.getBoundingClientRect()
+      const holder = lift.node
+      holder.style.transform = `translate(${to.left}px, ${to.top}px)`
+      home = holder.animate([{ transform: `translate(${from.x}px, ${from.y}px)` }, { transform: `translate(${to.left}px, ${to.top}px)` }], { duration: 220, easing: 'cubic-bezier(0.2, 0, 0, 1)' })
+      home.onfinish = () => reset()
     }
 
     let quiet = still()
@@ -242,7 +359,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       gapped = null
-      setCarry({ from: null, gap: null })
+      setCarry({ from: null, width: 0, gap: null })
+      unlift()
       delete document.documentElement.dataset.splitDrag
       delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
@@ -259,7 +377,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       gapped = null
-      setCarry({ from: null, gap: null })
+      setCarry({ from: null, width: 0, gap: null })
+      unlift()
       delete document.documentElement.dataset.splitDrag
       delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
@@ -270,7 +389,32 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     const follow = (px: number, py: number): void => {
       x.set(px)
       y.set(py)
-      let target: Zone | null = null
+      const tab = down?.source.carried.tab
+      const tabRow = tab && lift ? rowAt(px, py) : null
+      if (tab && lift && tabRow) {
+        // Over a row of tabs: the tab itself rides along it at its own height, kept to the row, and the others make
+        // way for it where it would land; nothing over the page is lit.
+        const box = tabRow.getBoundingClientRect()
+        const { at, left } = gapIn(tabRow, Math.max(box.left, Math.min(box.right, px)), tab.key)
+        gapped = { pane: tabRow.dataset.tabRow!, at }
+        setCarry({ from: tab.key, width: lift.width, gap: { ...gapped, left: left - box.left + tabRow.scrollLeft } })
+        tabRow.scrollLeft += px < box.left + 24 ? -12 : px > box.right - 24 ? 12 : 0
+        const top = (tabRow.closest('[data-tabs]')?.getBoundingClientRect().top ?? lift.rect.top) + lift.down
+        lift.node.style.transform = `translate(${Math.max(box.left - 4, Math.min(box.right - lift.rect.width + 4, px - lift.hold))}px, ${top}px)`
+        showLift(true)
+        if (over) (over = null), setHot(null), setHalf(null)
+        letTake()
+        if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo), (queued = null)
+        return
+      }
+      if (tab && liftShown) {
+        // Off the row, down over the page: the card takes over from the tab, where the pointer is.
+        showLift(false)
+        card.x.jump(px - grab.x)
+        card.y.jump(py - grab.y)
+      }
+      // A tab over a page: the half of a pane it would open in. Anything else: the places at the page's edges.
+      let target: Zone | null = tab ? halfAt(px, py) : null
       let toX = px - grab.x
       let toY = py - grab.y
       for (const zone of shown) {
@@ -296,18 +440,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       // Over a row of tabs: the gap it would land in opens there, and the row scrolls on when pressed against its end.
       const row = queue?.dataset.tabRow ? queue : null
       if (row && down) {
-        const from = down.source.carried.tab?.key ?? null
-        const at = gapIn(row, px, from)
+        // Something else carried over a row of tabs (a list's row, a link): a gap a tab's usual width opens where it would land.
+        const { at, left } = gapIn(row, px, null)
         const box = row.getBoundingClientRect()
-        row.scrollLeft += px < box.left + 24 ? -12 : px > box.right - 24 ? 12 : 0
         gapped = { pane: row.dataset.tabRow!, at }
-        setCarry({ from, gap: { ...gapped, width: carriedPinned(from) ? 40 : Math.min(120, Math.max(44, box.width / (row.querySelectorAll('[data-tab]').length + 1))) } })
+        setCarry({ from: null, width: Math.min(120, Math.max(44, box.width / (row.querySelectorAll('[data-tab]').length + 1))) + TAB_AIR, gap: { ...gapped, left: left - box.left + row.scrollLeft } })
+        row.scrollLeft += px < box.left + 24 ? -12 : px > box.right - 24 ? 12 : 0
       } else if (gapped) letGap()
-      // A tab's places come up once it is off the rows, down over the page; a lone tab of a lone pane has none to go to.
-      if (down?.source.carried.tab) {
-        const want = py > (area()?.top ?? 0) + 8 ? places : []
-        if (want.length !== shown.length) (shown = want), setZones(want)
-      }
       if (queue !== queued) {
         if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
         // A folder of the other list takes no note: it stays unlit, and says why on letting go.
@@ -350,10 +489,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         setTakeBox((was) => (was && Math.abs(was.left - box.left) < 1 && Math.abs(was.width - box.width) < 1 && Math.abs(was.top - box.top) < 1 ? was : box))
       }
       shrink.set(target || queue || take ? 0.86 : 1)
-      if (target !== over) {
-        over = target
-        setHot((target as Zone | null)?.key ?? null)
-        if (target && !down?.source.carried.tab) click('tick')
+      // Read by key: a tab's half is worked out afresh on each move.
+      const was = (over as Zone | null)?.key ?? null
+      over = target
+      if ((target?.key ?? null) !== was) {
+        setHot(target?.key ?? null)
+        if (tab) setHalf(target)
+        else if (target) click('tick')
       }
     }
     const begin = (px: number, py: number): void => {
@@ -364,15 +506,11 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       shown = zonesIn(box, dividers(), down.source.column ? down.column : undefined, !!down.source.edgeOnly)
       const tabbed = down.source.carried.tab
       if (tabbed) {
-        // A pane's only tab: a new pane beside its own (its own two edges) would rebuild the layout it already has
-        // ("but im moving the only tab causing the 2 splits in the first place"). Only what changes something is
-        // offered: the other pane's tabs or page (merging the two), or the far side (the panes swap).
-        const panes = [...document.querySelectorAll<HTMLElement>('[data-split-area] [data-pane]')]
-        const own = panes.findIndex((one) => one.dataset.pane === tabbed.pane)
-        const alone = own >= 0 && panes[own].querySelectorAll('[data-tab]').length === 1
-        places = alone ? shown.filter((zone) => zone.at !== own && zone.at !== own + 1) : shown
+        // A tab is taken up as itself (liftUp); over the page its places are the halves of the panes (halfAt), never
+        // the edges' cards.
         shown = []
-        setCarry({ from: tabbed.key, gap: null })
+        liftUp(down.source.node)
+        setCarry({ from: tabbed.key, width: lift!.width, gap: null })
       }
       // Up only at an edge, only that edge's place: the other side's would sit over the list for nothing.
       if (down.source.edgeOnly) shown = shown.filter((zone) => zone.side === (px < box.left + box.width / 2 ? 'left' : 'right'))
@@ -408,12 +546,14 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       if (over) (card.x.jump(cardX.get()), card.y.jump(cardY.get()), cardScale.jump(shrink.get()))
     }
     const onDown = (event: PointerEvent): void => {
+      // A tab still gliding home is home at once: the next press is never kept waiting on it.
+      if (home) reset()
       if (event.button !== 0 || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return
       const source = sourceOf(event.target)
       down = source && { x: event.clientX, y: event.clientY, source, column: source.node.getBoundingClientRect() }
     }
     const onMove = (event: PointerEvent): void => {
-      if (!down) return
+      if (!down || home) return
       if (!(event.buttons & 1)) return reset()
       if (Math.hypot(event.clientX - down.x, event.clientY - down.y) < START) return
       if (down.source.column) {
@@ -505,6 +645,12 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         // once for the pane, where doing both in one go laid it out about eight times over.
         const at = side.at
         requestAnimationFrame(() => dropRef.current.onDrop(what, at))
+      } else if (what.tab) {
+        // A tab let go where nothing takes it: it glides back to where it was, and nothing changes.
+        event.preventDefault()
+        swallowClick()
+        chime('stay')
+        return glideHome()
       }
       reset()
     }
@@ -517,6 +663,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       swallowRelease()
       dropListDrag()
       chime('stay')
+      // A tab glides back to its place; the press still held carries nothing more (onMove waits on the glide, then `down` is gone).
+      if (down?.source.carried.tab) return glideHome()
       reset()
     }
     // Links and pictures would start the browser's own drag instead.
@@ -561,28 +709,39 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
           transition={{ duration: 0.12 }}
         >
           <AnimatePresence>
-            {takeBox && (
-              <motion.div key="take" data-pane-take-box="" aria-label="Open here" className="absolute flex items-start justify-center pt-10"
-                style={{ left: takeBox.left, top: takeBox.top, width: takeBox.width, height: takeBox.height }}
-                initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }}
-                transition={{ type: 'spring', duration: 0.22, bounce: 0 }}>
-                <span aria-hidden className="absolute inset-2 rounded-[15px] border-2 border-dashed border-[var(--tt-brand-color-400)] bg-[color-mix(in_oklab,var(--tt-brand-color-400)_6%,transparent)]" />
-                <span className="relative flex items-center gap-2 rounded-full border bg-popover px-3.5 py-2 font-medium text-control text-foreground shadow-(--mf-panel-shadow)">
-                  <AppWindow className="size-4 text-[var(--tt-brand-color-400)]" />Open here
-                </span>
-              </motion.div>
-            )}
+            {takeBox && <PlaceBox key="take" attrs={{ 'data-pane-take-box': '' }} box={takeBox} label="Open here" icon={<AppWindow />} />}
+            {/* A tab over a page: the half of the pane it would open in, outlined, with what letting go there does. */}
+            {half && <PlaceBox key={half.key} attrs={{ 'data-split-half': half.side }} box={half} label={`Open on the ${half.side}`} icon={<SplitMark side={half.side} />} />}
           </AnimatePresence>
           {zones.map((zone) => (
             <ZoneBox key={zone.key} zone={zone} hot={hot === zone.key} lean={zone.side === 'between' ? undefined : leanS[zone.side]} grow={zone.side === 'between' ? undefined : growS[zone.side]} />
           ))}
-          <motion.div className="absolute top-0 left-0" style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%', maxWidth: strip ? strip.width - 16 : '14rem' }}>
+          {/* Put away while the tab itself is in the hand, over its row (liftUp). */}
+          <motion.div className="absolute top-0 left-0" style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%', maxWidth: strip ? strip.width - 16 : '14rem', opacity: inRow ? 0 : 1 }}>
             <CarriedCard attrs={{ 'data-split-card': '' }} words={said} tint="var(--tt-color-text-brown)" className={strip ? 'w-full max-w-full' : undefined} title={carried.title} icon={kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />} />
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>,
     document.body
+  )
+}
+
+/**
+ * A pane's page, or a half of one, outlined where letting go opens what is carried: a dashed edge in the accent, a
+ * faint wash of it, and its words in a pill near its top ("Open here", "Open on the right").
+ */
+function PlaceBox({ box, label, icon, attrs }: { box: { left: number; top: number; width: number; height: number }; label: string; icon: React.ReactNode; attrs: Record<string, string> }): React.JSX.Element {
+  return (
+    <motion.div {...attrs} aria-label={label} className="absolute flex items-start justify-center pt-10"
+      style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
+      initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }}
+      transition={{ type: 'spring', duration: 0.22, bounce: 0 }}>
+      <span aria-hidden className="absolute inset-2 rounded-[15px] border-2 border-dashed border-[var(--tt-brand-color-400)] bg-[color-mix(in_oklab,var(--tt-brand-color-400)_6%,transparent)]" />
+      <span className="relative flex items-center gap-2 rounded-full border bg-popover px-3.5 py-2 font-medium text-control text-foreground shadow-(--mf-panel-shadow) [&_svg]:size-4 [&_svg]:text-[var(--tt-brand-color-400)]">
+        {icon}{label}
+      </span>
+    </motion.div>
   )
 }
 

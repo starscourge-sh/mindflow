@@ -70,9 +70,10 @@ try {
     // 1. Down over the page: only what changes something; no split that rebuilds these two panes.
     await drag(await mid(rightTab), { x: area.x + area.width * 0.75, y: area.y + area.height / 2 })
     await h.waitForTimeout(300)
-    const zones = await h.evaluate(() => [...document.querySelectorAll('[data-split-zone]')].map((one) => one.getAttribute('data-split-zone')))
-    check('a pane\'s only tab carried over the page offers no split beside its own pane (no "between", no "right")', !zones.includes('between') && !zones.includes('right'), JSON.stringify(zones))
-    check('the far side is still offered, to swap the panes', zones.length === 1 && zones[0] === 'left', JSON.stringify(zones))
+    const halves = () => h.evaluate(() => [...document.querySelectorAll('[data-split-half]')].map((one) => one.getAttribute('data-split-half')))
+    check('a pane\'s only tab carried over its own page offers no split beside its own pane', (await halves()).length === 0, JSON.stringify(await halves()))
+    await h.mouse.move(area.x + 30, area.y + area.height / 2); await h.waitForTimeout(300)
+    check('the far side is still offered, to swap the panes', JSON.stringify(await halves()) === '["left"]', JSON.stringify(await halves()))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/q4b-only-tab-over-page.png` })
     await h.keyboard.press('Escape'); await h.waitForTimeout(200); await h.mouse.up(); await h.waitForTimeout(500)
     // 2. Over the left pane's row of tabs: a room opens with the one drop line, the card rides under the row.
@@ -83,11 +84,12 @@ try {
     const over = await h.evaluate((pane) => {
       const gap = document.querySelector(`[data-tab-row="${pane}"] [data-tab-gap]`)
       const row = document.querySelector(`[data-tab-row="${pane}"]`)?.getBoundingClientRect()
-      const card = document.querySelector('[data-split-card]')?.getBoundingClientRect()
-      return { gap: !!gap, line: !!gap?.querySelector('[data-drop-line]'), room: !!gap?.querySelector('[data-drop-room]'), zones: document.querySelectorAll('[data-split-zone]').length, cardTop: card && Math.round(card.top), rowBottom: row && Math.round(row.bottom) }
+      const card = document.querySelector('[data-split-card]')
+      const lifted = document.querySelector('[data-tab-lifted]')?.getBoundingClientRect()
+      return { gap: !!gap, line: !!gap?.querySelector('[data-drop-line]'), room: !!gap?.querySelector('[data-drop-room]'), halves: document.querySelectorAll('[data-split-half]').length, card: !!card && Number(getComputedStyle(card.parentElement).opacity) > 0.5, liftedTop: lifted && Math.round(lifted.top), rowTop: row && Math.round(row.top), rowBottom: row && Math.round(row.bottom) }
     }, left.key)
-    check('over the other pane\'s tabs, a room opens there with the app\'s one drop line', over.gap && over.line && over.room && over.zones === 0, JSON.stringify(over))
-    check('the card rides under the row, never over the room', over.cardTop >= over.rowBottom, JSON.stringify(over))
+    check('over the other pane\'s tabs, a room opens there with the app\'s one drop line', over.gap && over.line && over.room && over.halves === 0, JSON.stringify(over))
+    check('the tab itself rides in that row, the card put away', !over.card && over.liftedTop >= over.rowTop - 6 && over.liftedTop < over.rowBottom, JSON.stringify(over))
     if (SHOTS) for (const look of ['light', 'dark']) (await c.look(look), await h.waitForTimeout(250), await h.screenshot({ path: `${SHOTS}/q4b-tab-room-${look}.png` }))
     await c.look('light')
     await h.mouse.up(); await h.waitForTimeout(800)

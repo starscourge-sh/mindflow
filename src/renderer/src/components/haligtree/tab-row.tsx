@@ -27,29 +27,38 @@ export type TabActions = {
 /** How long Back or Forward is held before its menu opens, as a browser's does (and the swipe's list, swipe-back.tsx). */
 const HOLD = 450
 
-// What a carried tab or row is over, said by split-drop.tsx and drawn here:
-// the tab being carried, and the gap it would land in.
-type Carry = { from: string | null; gap: { pane: string; at: number; width: number } | null }
-let carry: Carry = { from: null, gap: null }
+// What a carried tab or row is over, said by split-drop.tsx and drawn here: the tab in the hand (its place kept, unseen,
+// while the pointer carries a lifted copy of it), its width with its margins, and the gap it would land in. `left`: where
+// the gap starts in the row's own scrolled content, for its room; none while it glides home, where nothing is drawn.
+type Carry = { from: string | null; width: number; gap: { pane: string; at: number; left?: number } | null }
+let carry: Carry = { from: null, width: 0, gap: null }
 const told = new Set<() => void>()
 const follow = (tell: () => void): (() => void) => (told.add(tell), () => void told.delete(tell))
 export function setCarry(next: Carry): void {
-  if (next.from === carry.from && next.gap?.pane === carry.gap?.pane && next.gap?.at === carry.gap?.at) return
+  if (next.from === carry.from && next.width === carry.width && next.gap?.pane === carry.gap?.pane && next.gap?.at === carry.gap?.at && next.gap?.left === carry.gap?.left) return
   carry = next
   told.forEach((tell) => tell())
 }
+/** A tab's margins, either side (`mx-0.5`): the gap it leaves is its width and these. */
+export const TAB_AIR = 4
 /**
  * Which gap of a row the pointer is nearest, counted without the tab in the hand: a pinned tab's among the pinned
- * ones, anything else's after them, so the line only shows where it can land.
+ * ones, anything else's after them, so the gap only opens where it can land. Read from the row's layout (offsetLeft),
+ * never from the tabs as drawn: they slide aside by a transform while carrying, and reading them would move the gap
+ * with them. `left`: where that gap starts, on the screen.
  */
-export const gapIn = (row: Element, x: number, from: string | null): number => {
-  const tabs = [...row.querySelectorAll<HTMLElement>('[data-tab]')].filter((one) => one.dataset.tab !== from)
-  const at = tabs.filter((one) => {
-    const box = one.getBoundingClientRect()
-    return box.left + box.width / 2 < x
-  }).length
-  const pinned = tabs.filter((one) => one.dataset.tabPinned !== undefined).length
-  return carriedPinned(from) ? Math.min(at, pinned) : Math.max(at, pinned)
+export const gapIn = (row: HTMLElement, x: number, from: string | null): { at: number; left: number } => {
+  const all = [...row.querySelectorAll<HTMLElement>('[data-tab]')]
+  const origin = row.getBoundingClientRect().left - row.scrollLeft
+  const own = all.findIndex((one) => one.dataset.tab === from)
+  const hole = own >= 0 ? all[own].offsetWidth + TAB_AIR : 0
+  // Each other tab where it stands with the one in the hand out of the row.
+  const tabs = all.flatMap((one, index) => (index === own ? [] : [{ one, left: origin + one.offsetLeft - (own >= 0 && index > own ? hole : 0), width: one.offsetWidth }]))
+  const near = tabs.filter((one) => one.left + one.width / 2 < x).length
+  const pinned = tabs.filter((one) => one.one.dataset.tabPinned !== undefined).length
+  const at = carriedPinned(from) ? Math.min(near, pinned) : Math.max(near, pinned)
+  const last = tabs[tabs.length - 1]
+  return { at, left: at < tabs.length ? tabs[at].left - TAB_AIR / 2 : last ? last.left + last.width + TAB_AIR / 2 : origin + 16 }
 }
 /** Whether the tab in the hand is a pinned one: the gap it opens is a pinned tab's width. */
 // Read while the tab is still drawn and kept for the carry: once its gap opens the row stops drawing it, and a pinned
@@ -91,7 +100,12 @@ export const TabShape = (): React.JSX.Element => (
   </span>
 )
 
-function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup; actions: TabActions; faint: boolean }): React.JSX.Element {
+/**
+ * `lifted`: the tab in the hand, its place kept but unseen (the pointer carries a copy of it, split-drop.tsx). `shift`:
+ * while a tab is carried, how far this one slides aside to open its gap, on one clock with the rest of the row;
+ * undefined otherwise, so a drop lands with no second slide.
+ */
+function OneTab({ tab, group, actions, lifted, shift }: { tab: TabShown; group: TabGroup; actions: TabActions; lifted: boolean; shift?: number }): React.JSX.Element {
   const on = tab.key === group.active
   const strong = on && group.front
   const Icon = tab.icon
@@ -108,10 +122,12 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
         onMouseDown={(event) => event.button === 1 && event.preventDefault()}
         // Never narrower than its name, up to about ten letters' room (or its icon alone, open, beside it): a short
         // name reads whole and a long one keeps enough to know it; past that the row scrolls (10 Nov).
-        style={pinned ? undefined : { minWidth: Math.min(54 + [...tab.label].length * 7, 124) }}
+        style={{ minWidth: pinned ? undefined : Math.min(54 + [...tab.label].length * 7, 124), transform: shift ? `translateX(${shift}px)` : undefined }}
         // The open tab stands on the page, 4px under the bar's top (its shape joins the page); the others are pills the
         // arrows' and "+"'s height, on the bar's middle line with them, never low against the page (20 Nov).
-        className={`group/tab relative mx-0.5 flex items-stretch ${pinned ? 'w-10 shrink-0' : 'max-w-52 flex-[1_1_0]'} ${on ? 'z-10 mt-1 py-[3px]' : 'h-6 self-center'} ${faint ? 'opacity-40' : ''}`}>
+        className={`group/tab relative mx-0.5 flex items-stretch ${pinned ? 'w-10 shrink-0' : 'max-w-52 flex-[1_1_0]'} ${on ? 'z-10 mt-1 py-[3px]' : 'h-6 self-center'} ${lifted ? 'opacity-0' : ''} ${
+          // Carrying: no hover lights, and the row makes way together (Chrome's and Safari's tabs).
+          shift === undefined ? '' : 'pointer-events-none transition-transform duration-[160ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none'}`}>
         {on && <TabShape />}
         <Tip label={pinned ? tab.label : cut ? tab.label : ''}>
           <button type="button" role="tab" aria-selected={on} aria-label={pinned ? `${tab.label}, pinned` : undefined} onClick={() => actions.select(group.pane, tab.key)}
@@ -156,10 +172,17 @@ function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): Rea
     })
   }, [group.active, group.tabs.length])
   const gap = now.gap?.pane === group.pane ? now.gap : null
-  const shown = now.gap ? group.tabs.filter((one) => one.key !== now.from) : group.tabs
-  const parts = shown.map((tab) => <OneTab key={tab.key} tab={tab} group={group} actions={actions} faint={tab.key === now.from} />)
+  const carrying = now.from !== null || now.gap !== null
+  const own = carrying ? group.tabs.findIndex((one) => one.key === now.from) : -1
+  // Every tab keeps its place and its size: the one in the hand leaves its gap, those after it close it, and those
+  // from the gap it would land in on make room again, each by the carried tab's width.
+  const parts = group.tabs.map((tab, index) => {
+    const counted = own >= 0 && index > own ? index - 1 : index
+    const shift = index === own ? 0 : (own >= 0 && index > own ? -now.width : 0) + (gap && counted >= gap.at ? now.width : 0)
+    return <OneTab key={tab.key} tab={tab} group={group} actions={actions} lifted={index === own} shift={carrying ? shift : undefined} />
+  })
   // The gap it would land in: the app's one room and drop line (carry.tsx), in this row or another pane's.
-  if (gap) parts.splice(gap.at, 0, <span key="gap" data-tab-gap aria-hidden className="relative mx-0.5 my-1 shrink-0" style={{ flexBasis: gap.width, maxWidth: gap.width, flexGrow: 0 }}><RoomAcross how={`${gap.pane}:${gap.at}`} /></span>)
+  if (gap?.left !== undefined) parts.push(<span key="gap" data-tab-gap={gap.at} aria-hidden className="pointer-events-none absolute inset-y-1" style={{ left: gap.left + TAB_AIR / 2, width: now.width - TAB_AIR }}><RoomAcross how={`${gap.pane}:${gap.at}`} /></span>)
   return (
     <div ref={box} role="tablist" aria-label="Tabs" data-tab-row={group.pane} style={{ flex: `${Math.max(1, group.tabs.length)} 1 0` }}
       // A tab with the keys: ← → to its neighbours, ⌫ closes it, as a list's row does.
