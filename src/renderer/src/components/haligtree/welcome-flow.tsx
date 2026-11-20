@@ -195,9 +195,11 @@ function Marked({ on, shot, quiet, children }: { on: Pick; shot: FlowShot; quiet
       initial={false} animate={{ backgroundSize: picked && !lit ? '100% 100%' : '0% 100%' }}
       transition={picked && !lit && !quiet ? { duration: CURSOR_MS.drag / 1000, ease: DRAG } : { duration: 0 }}>
       {children}
-      {/* No room kept for the icon before it comes, so the line reads whole: it opens its own room as it arrives. */}
-      <motion.span aria-hidden data-ink={on} className="inline-block overflow-visible align-[-0.08em] whitespace-nowrap" style={{ color: hue.ink }}
-        initial={false} animate={{ opacity: lit ? 1 : 0, scale: lit ? 1 : 0.6, width: lit ? "1.05em" : 0 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE }}>
+      {/* The icon's room kept from the start, the icon itself only fading and growing into it: opening its own room as it
+          came, it pushed the words after it, and a word at a line's end jumped down to the next line under the reader's
+          eyes ("Pride" 25px down as the gem was marked, Write, 20 Nov film, 51.2s). */}
+      <motion.span aria-hidden data-ink={on} className="inline-block w-[1.05em] overflow-visible align-[-0.08em] whitespace-nowrap" style={{ color: hue.ink }}
+        initial={false} animate={{ opacity: lit ? 1 : 0, scale: lit ? 1 : 0.6 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE }}>
         <Icon className="ml-[0.2em] size-[0.85em]" />
       </motion.span>
     </motion.span>
@@ -393,8 +395,10 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
               </Landed>
               <Landed id="gem" on={shot.shown >= 5} quiet={quiet} className="border-t border-foreground/10 px-3.5 pt-1.5 pb-2">
                 <GemRow on="gem" words={words.gem} />
-                {/* The whole question kept in place unseen, so the box never grows as it is typed (a second line pushed the cards down mid-way). */}
-                <p data-question className="mt-1.5 grid min-h-7 items-center rounded-md border border-foreground/10 px-2 text-[0.875rem] leading-snug text-foreground">
+                {/* The whole question kept in place unseen, so the box never grows as it is typed (a second line pushed the cards down mid-way).
+                    The typed words stand at its top, where they will end: centred in the room of the whole question, they rose
+                    10px as they wrapped to a second line (Write, 20 Nov film, 54.9s). The hint alone is centred in the box. */}
+                <p data-question className="mt-1.5 grid min-h-7 items-start rounded-md py-1 border border-foreground/10 px-2 text-[0.875rem] leading-snug text-foreground">
                   <span aria-hidden className="invisible [grid-area:1/1]">{words.question}</span>
                   <span className="[grid-area:1/1]">
                     {shot.question || <span className="text-muted-foreground">The question it answers, for review</span>}

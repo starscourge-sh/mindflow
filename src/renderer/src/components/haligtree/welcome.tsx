@@ -1794,6 +1794,9 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
   useReport(report, true, () => undefined)
   const shelf = useShelf()
   const [drawn] = useState(() => drawBookName())
+  // The book comes once the page's words have been glanced at (as Catch's keys press, Write's demo starts).
+  const [bookBeats] = useState(() => [{ at: 0, to: { up: false } }, { at: 1, to: { up: true } }])
+  const booked = useScript<{ up: boolean }>({ up: !play }, bookBeats, play, 1, glance(`Name your book. ${NAME_LINE}`))
   const [rise, setRise] = useState<'wait' | 'go' | undefined>(play ? 'wait' : undefined)
   const [typed, setTyped] = useState<string | null>(null)
   // A drawn name tried on: in the field, never saved unless you go on with it.
@@ -1854,8 +1857,9 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
               : value.trim() ? <span>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</span> : <span>Left empty, it is called {quoted(drawn, 80)}.</span>}
           </p>
         </motion.div>
-        {/* The book stands up into its pose once it can be seen, not while the page is still coming in. */}
-        <motion.div className="shrink-0" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: ENTER, delay: 0.2 }}
+        {/* The book stands up into its pose once the words over it have been read, never while they are: it came in and
+            rose under the headline as it was read (welcome-read, Name it, 976ms), the one thing moving on the stage. */}
+        <motion.div className="shrink-0" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={booked.state.up ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96 }} transition={{ duration: 0.4, ease: ENTER }}
           onUpdate={(at) => void (rise === 'wait' && Number(at.opacity) > 0.15 && setRise('go'))}>
           <ReaderCard seed={seed} named={shown} bare arrive={rise} watching />
         </motion.div>
