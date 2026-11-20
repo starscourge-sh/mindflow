@@ -1530,6 +1530,13 @@ export function Toaster(): React.JSX.Element | null {
     chime('gather')
     toast(count === 1 ? 'Sticky tidied to the right of your screen' : `${num(count)} stickies tidied down the right of your screen`, undefined, 'success', { label: 'Put them back', key: 'B', run: () => (chime('back'), window.api.untidyStickies()) })
   }), [])
+  // A name the app gave in the background (a recording named by what was said, a long name made short): it rolls in
+  // where it is shown, and a recording's is said in a quiet notice whose Undo puts the old name back (long-names.ts).
+  useEffect(() => window.api.onRenamed(({ id, from, to, was, quiet }) => {
+    namedByApp(id, to)
+    if (quiet) return
+    news(`Named ${quoted(to, 60)} by what was said`, () => (namedByApp(id, from), void call('names:undo', was).then(() => chime('undo'))))
+  }), [])
   // A sticky taken down from its own X or ⌘W, said in the window in sight, with the way back.
   useEffect(() => window.api.onStickyTaken((title) => {
     toast(title ? `${quoted(title, 40)} taken off the desktop` : 'Taken off the desktop', undefined, 'success', { label: 'Put it back', key: 'B', run: () => (chime('stick'), window.api.putStickyBack()) })
@@ -2768,10 +2775,13 @@ const watchView = (el: Element): (() => void) => {
  * window: then it simply takes its new value. A change in the middle of a
  * roll starts a fresh one from the value it was heading for.
  */
-export function Rolling({ text, className = '', by = 'character', eager = false, up: said }: {
+export function Rolling({ text, className = '', by = 'character', eager = false, up: said, quiet = false, ...rest }: {
   text: string | number
   className?: string
   by?: 'character' | 'word'
+  /** This change simply takes its value (a name you typed: only one the app gave rolls in, `AppNamed`). */
+  quiet?: boolean
+  'data-app-named'?: string
   /** Rolls from its first change, for a number shown only while you drag it. */
   eager?: boolean
   /** Which way it rolls, for words that count up or down (a time dragged earlier rolls down). */
@@ -2791,7 +2801,7 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
   if (roll.now !== words) {
     const span = el.current
     // Nothing shown before is an arrival, not a change: it simply takes its value.
-    const calm = still() || !roll.now.trim() || (!eager && !(performance.now() - born >= 1000)) || document.hidden || !span || !inView.get(span)
+    const calm = quiet || still() || !roll.now.trim() || (!eager && !(performance.now() - born >= 1000)) || document.hidden || !span || !inView.get(span)
     const up = said ?? (typeof text === 'number' && typeof roll.last === 'number' ? text >= roll.last : true)
     setRoll({ now: words, was: calm ? null : roll.now, up, n: roll.n + 1, last: text })
   }
@@ -2802,11 +2812,29 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
     if ((event.target as HTMLElement).hasAttribute('data-roll-last')) setRoll((at) => (at.n === n ? { ...at, was: null } : at))
   }
   return (
-    <span role="img" ref={el} data-roll="" className={cn('mf-roll', className)} aria-label={now} onAnimationEnd={was === null ? undefined : settled}>
+    <span role="img" ref={el} data-roll="" {...rest} data-rolling={was === null ? undefined : ''} className={cn('mf-roll', className)} aria-label={now} onAnimationEnd={was === null ? undefined : settled}>
       {was === null ? now : by === 'word' ? wordCells(was, now, up, n) : charCells(was, now, up, n)}
     </span>
   )
 }
+
+/** Names the app gave, by what it renamed (a note, a task, a group): the name, so only that change rolls in. */
+const appNames = new Map<string, string>()
+/** Said just before the app renames something, so its name rolls in over the old one wherever it is shown. */
+export const namedByApp = (id: string, name: string): void => {
+  appNames.delete(id)
+  appNames.set(id, name)
+  if (appNames.size > 500) appNames.delete(appNames.keys().next().value!)
+}
+
+/**
+ * A name in a list: one the app changed (a group named by Apple Intelligence, a recording named by what was said, a
+ * long name made short) rolls in word by word over the old one; one you changed simply changes. Still with Motion off
+ * or Reduce motion (`Rolling`); the row around it never moves.
+ */
+export const AppNamed = ({ id, text }: { id: string; text: string }): React.JSX.Element => (
+  <Rolling text={text} by="word" quiet={appNames.get(id) !== text} data-app-named={id} />
+)
 
 /** A count's characters line up from the right (12 to 9 turns the last digit), other text's from the left. */
 const numeric = (text: string): boolean => /^[\d\s.,:%+−-]*$/.test(text)

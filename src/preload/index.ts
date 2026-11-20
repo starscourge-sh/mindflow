@@ -382,6 +382,12 @@ const api = {
     heard.on('stickies:tidied', relay)
     return () => heard.off('stickies:tidied', relay)
   },
+  /** A note renamed by the app in the background (a recording named by what was said, long-names.ts): for its notice with Undo. */
+  onRenamed: (listen: (renamed: { id: string; from: string; to: string; was: unknown[]; quiet?: boolean }) => void): (() => void) => {
+    const relay = (_event: unknown, renamed: { id: string; from: string; to: string; was: unknown[]; quiet?: boolean }): void => listen(renamed)
+    heard.on('names:renamed', relay)
+    return () => heard.off('names:renamed', relay)
+  },
   /** How many stickies are out on the screen, so Tidy stickies is offered only when there is something to tidy. */
   stickiesOut: (): Promise<number> => ipcRenderer.invoke('stickies:out'),
   onStickiesOut: (listen: (count: number) => void): (() => void) => {

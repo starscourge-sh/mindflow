@@ -11,6 +11,7 @@ import { caps, understand } from './understand'
 import { meets } from './needs'
 import { foundActions, writtenActions, type MeetingLine } from './meeting-doc'
 import { readTake } from './meeting-take'
+import { nameRecording, recordingName } from './long-names'
 import { FEW_SECONDS, PCM_BYTES_A_SECOND, heardTwice, keptFor, linesFrom, offerWords, type Line } from './meeting-left'
 
 /**
@@ -364,8 +365,7 @@ async function keep(from: string, noted: Noted, saved: Saved, found: Record<stri
   await writeFile(join(assetsDir(), `${peaks}.peaks`), JSON.stringify({ peaks: saved.peaks, seconds: saved.seconds }))
   // What was written as it was said: one record of the words, whether it stopped or crashed.
   const lines = linesFrom(await readFile(join(from, 'words.jsonl'), 'utf8').catch(() => ''))
-  const at = new Date(noted.startedAt)
-  const title = noted.event?.title || `Recording, ${at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
+  const title = noted.event?.title || recordingName(noted.startedAt)
   const speakers = [...new Set(lines.filter((one) => one.speaker !== 'you').map((one) => one.speaker))]
   // A moment is the line being said when it was noted: that line's own start and voice, so it plays from where the line begins.
   const moments = marks.map((one) => {
@@ -399,7 +399,10 @@ async function keep(from: string, noted: Noted, saved: Saved, found: Record<stri
   // The meeting block carries the #recording tag itself (haligtree.ts, plain): every meeting under the one tag, shown once.
   // The paragraph after it is the person's own notes about the meeting.
   const body = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: text(title) }, meeting, { type: 'paragraph' }] }
-  return keepMeeting(title, body)
+  const id = keepMeeting(title, body)
+  // Its words are all in: named by what was said, where Apple Intelligence is on (long-names.ts).
+  void nameRecording(id)
+  return id
 }
 
 /** How many seconds of sound a folder holds, the longer side: 0 for none. */

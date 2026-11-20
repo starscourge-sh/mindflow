@@ -2048,6 +2048,8 @@ html[data-card-focus] [data-cursor] {
    below (down) and slides by its own height. Words fade and slide a little.
    Transform and opacity only, nothing measured. */
 .mf-roll { font-variant-numeric: tabular-nums; white-space: pre; }
+/* A name (AppNamed) keeps its own figures and wraps as the text around it does. */
+.mf-roll[data-app-named] { font-variant-numeric: normal; white-space: inherit; }
 .mf-roll-cell { display: inline-block; clip-path: inset(0 -0.3em); }
 .mf-roll-col {
   display: inline-block;

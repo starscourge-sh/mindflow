@@ -5604,7 +5604,7 @@ app.whenReady().then(() => {
   registerPdfText()
   registerUnderstand()
   registerStudyAi(aiStudyOn)
-  registerLongNames(nameLongOn)
+  registerLongNames(nameLongOn, aiStudyOn, () => (home && !home.isDestroyed() ? home : null))
   registerServices()
   registerSpotlight()
   registerDictation()

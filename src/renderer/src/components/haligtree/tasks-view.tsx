@@ -31,7 +31,7 @@ import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPriority, useKept } from './task-input'
 import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
 import { Display, arrange, openDisplay, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
@@ -1579,7 +1579,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
+                            <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}><AppNamed id={task.id} text={taskName(task.title).text} /></span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
                             {/* Narrow, with no margin to stand in, the day's number follows the title instead of going: every title keeps one left edge.
