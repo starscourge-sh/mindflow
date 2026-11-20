@@ -17,6 +17,8 @@ import isoWeek from 'dayjs/plugin/isoWeek.js'
 import { TAG } from '../../../../main/tag-words'
 import { APP_NAME } from '../../../../main/name'
 import { quoted } from '../../../../main/clip'
+import { readTask } from '../../../../main/task-words'
+import { when } from '@/lib/clock'
 
 dayjs.extend(isoWeek)
 
@@ -2322,7 +2324,125 @@ const FinderDemo: Demo = ({ live }) => {
   )
 }
 
+// ---------------------------------------------------------------- The welcome's Out of the box tiles
+
+/** Quick capture's words read as a task: the day and time lit as the box lights them, then a task with that day (task-words.ts reads it, as the box does). */
+const TASK_WORDS = 'call Sam tomorrow 3pm'
+const TASK_WHEN = 'tomorrow 3pm'
+const TaskWordsDemo: Demo = ({ live }) => {
+  const at = useSteps([600, typeMs(TASK_WORDS), 900, 900, 2600], live, 4)
+  const text = useTyped(TASK_WORDS, at === 1)
+  const read = readTask(TASK_WORDS)
+  const day = read.due ? when(read.due, read.allDay) : ''
+  const shown = at === 1 ? text : at === 0 ? '' : TASK_WORDS
+  const lit = at >= 2 && shown.endsWith(TASK_WHEN)
+  return (
+    <div className="relative h-[8.5rem] w-full max-w-[17rem]">
+      <motion.div className="absolute inset-x-0 top-1" initial={false} animate={{ opacity: at === 4 ? 0 : 1, transform: at === 4 ? 'translateY(-4px)' : 'translateY(0px)' }} transition={{ duration: 0.3, ease: EASE }}>
+        <div className="w-full rounded-xl border bg-popover px-3 pt-2 pb-1.5 text-control leading-snug text-foreground shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]">
+          {shown ? (lit ? <>{shown.slice(0, -TASK_WHEN.length)}<span className="tiptap-token" data-token-color="yellow">{TASK_WHEN}</span></> : shown) : <span className="text-muted-foreground">Write anything…</span>}
+          <Caret key={shown.length} on={at <= 1} />
+          <div className="mt-1.5 flex gap-1">
+            <Chip>Note</Chip>
+            <span className="transition-[filter] duration-200"><Chip tint={at >= 3 ? 'green' : undefined}><Check className="size-3" strokeWidth={3} />Task</Chip></span>
+          </div>
+        </div>
+      </motion.div>
+      <motion.div className="absolute inset-x-0 top-6 rounded-xl border bg-background px-3 py-2" initial={false}
+        animate={{ opacity: at === 4 ? 1 : 0, transform: at === 4 ? 'translateY(0px)' : 'translateY(6px)' }} transition={{ duration: 0.35, ease: EASE, delay: at === 4 ? 0.15 : 0 }}>
+        <div className="mb-1 text-meta text-muted-foreground">Tasks</div>
+        <Row className="px-0"><Dot on={false} /><span className="min-w-0 flex-1 truncate">{read.title}</span>{day && <Chip tint="yellow">{day}</Chip>}</Row>
+      </motion.div>
+    </div>
+  )
+}
+
+/** A PDF's picked words made a card: the words picked, "Make a card" (C) in the reader's menu, and the card, its answer the words and the page it came from. */
+const PDF_BEFORE = 'I beheld the wretch, '
+const PDF_PICK = 'the miserable monster'
+const PDF_AFTER = ' whom I had created.'
+const PdfCardDemo: Demo = ({ live }) => {
+  const at = useSteps([700, 800, 1100, 2600], live, 3)
+  return (
+    <div className="relative h-[8.5rem] w-full max-w-[17rem]">
+      <div className="absolute inset-y-0 left-0 w-[62%] overflow-hidden rounded-[4px] border bg-background px-2.5 py-2">
+        <div className="flex flex-col gap-1.5"><Line w="90%" /><Line w="76%" /></div>
+        <p className="my-1.5 font-heading text-[0.6875rem] leading-snug text-foreground">
+          {PDF_BEFORE}
+          <span className="rounded-[2px] bg-no-repeat transition-[background-size,background-color] duration-500" style={{ backgroundImage: 'linear-gradient(color-mix(in oklab, var(--primary) 30%, transparent), color-mix(in oklab, var(--primary) 30%, transparent))', backgroundSize: at >= 1 && at < 3 ? '100% 100%' : '0% 100%', backgroundColor: at === 3 ? 'var(--tt-color-highlight-yellow)' : 'transparent' }}>{PDF_PICK}</span>
+          {PDF_AFTER}
+        </p>
+        <div className="flex flex-col gap-1.5"><Line w="84%" /><Line w="58%" /></div>
+        <span className="absolute right-2 bottom-1.5 text-[0.5625rem] text-muted-foreground tabular-nums">58</span>
+      </div>
+      <AnimatePresence>
+        {at === 2 && (
+          <motion.div key="menu" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }} transition={{ duration: 0.15, ease: EASE }}
+            className={`absolute top-12 left-[30%] z-10 rounded-[10px] border bg-popover p-1 text-control ${POP}`}>
+            <div className="flex h-6 items-center gap-3 rounded-md px-2 whitespace-nowrap text-muted-foreground">Keep as a gem<Kbd className="ml-auto h-4 min-w-4 text-[0.5625rem]">K</Kbd></div>
+            <div className="flex h-6 items-center gap-3 rounded-md bg-accent px-2 whitespace-nowrap text-foreground">Make a card<Kbd className="ml-auto h-4 min-w-4 text-[0.5625rem]">C</Kbd></div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.div className="absolute top-3 right-0 w-[46%] rounded-[6px] border bg-popover px-2 py-1.5 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_22%,transparent)]" initial={false}
+        animate={{ opacity: at === 3 ? 1 : 0, transform: at === 3 ? 'translateY(0px) rotate(1.5deg)' : 'translateY(8px) rotate(0deg)' }} transition={{ duration: 0.4, ease: EASE }}>
+        <div className="text-[0.625rem] text-muted-foreground">Card · p. 58</div>
+        <div className="mt-0.5 rounded-[4px] border border-dashed px-1 py-0.5 text-[0.625rem] leading-snug text-muted-foreground">Its question, in your words</div>
+        <div className="mt-1 text-[0.6875rem] leading-snug font-medium text-foreground">{PDF_PICK}</div>
+        <div className="mt-0.5 text-[0.5625rem] text-muted-foreground italic">Frankenstein</div>
+      </motion.div>
+    </div>
+  )
+}
+
+/** The Feed: the day's own things as posts, a quote signed by its author and a note of yours from a year ago, then the day's end. */
+const FEED_POSTS = [
+  { who: 'Mary Shelley', said: 'Nothing is so painful to the human mind as a great and sudden change.', when: 'Quote' },
+  { who: 'You', said: 'Walks fix more than they should. Try one before every hard call.', when: 'A year ago' }
+]
+const FeedDemo: Demo = ({ live }) => {
+  const at = useSteps([500, 1300, 1300, 2400], live, 3)
+  return (
+    <div className="relative flex h-[8.5rem] w-full max-w-[17rem] flex-col gap-1.5 overflow-hidden">
+      {FEED_POSTS.map((post, i) => (
+        <motion.div key={post.who} className="rounded-lg border bg-background px-2.5 py-1.5" initial={false}
+          animate={{ opacity: at >= i + 1 ? 1 : 0, transform: at >= i + 1 ? 'translateY(0px)' : 'translateY(8px)' }} transition={{ duration: 0.35, ease: EASE }}>
+          <div className="flex items-center gap-1.5 text-meta"><span className="size-3.5 shrink-0 rounded-full bg-foreground/15" /><span className="font-medium text-foreground">{post.who}</span><span className="text-muted-foreground">· {post.when}</span></div>
+          <div className="mt-0.5 line-clamp-2 text-control leading-snug text-foreground">{post.said}</div>
+        </motion.div>
+      ))}
+      <motion.div className="mt-auto flex items-center justify-center gap-1.5 text-meta text-muted-foreground" initial={false} animate={{ opacity: at === 3 ? 1 : 0 }} transition={{ duration: 0.3, ease: EASE }}>
+        <Check className="size-3" strokeWidth={3} />That's all for today
+      </motion.div>
+    </div>
+  )
+}
+
+/** ⌘K: your own notes first, then "Look it up" in Wikipedia and Wiktionary (lib/free-sites.ts), for the same words. */
+const LOOK_WORDS = 'stoicism'
+const LookItUpDemo: Demo = ({ live }) => {
+  const at = useSteps([500, typeMs(LOOK_WORDS, 70), 900, 2600], live, 3)
+  const typed = useTyped(LOOK_WORDS, at === 1, 70)
+  const words = at === 0 ? '' : at === 1 ? typed : LOOK_WORDS
+  return (
+    <div className="w-full max-w-[17rem] rounded-xl border bg-popover p-1.5 text-control">
+      <p className="flex h-6 items-center gap-1.5 px-1 text-foreground"><Kbd>⌘K</Kbd>{words}<Caret key={words.length} on={at <= 1} /></p>
+      <div className="mt-1 border-t pt-1">
+        <motion.div initial={false} animate={{ opacity: at >= 2 ? 1 : 0 }} transition={{ duration: 0.25, ease: EASE }}>
+          <div className="px-2 pt-0.5 text-meta text-muted-foreground">Notes</div>
+          <Row className={`transition-colors duration-200 ${at === 2 ? 'bg-accent' : ''}`}><FileText className="size-3.5 text-muted-foreground" />Lecture 4: the Stoics</Row>
+        </motion.div>
+        <motion.div initial={false} animate={{ opacity: at === 3 ? 1 : 0 }} transition={{ duration: 0.3, ease: EASE }}>
+          <div className="px-2 pt-0.5 text-meta text-muted-foreground">Look it up</div>
+          <Row className={`transition-colors duration-200 ${at === 3 ? 'bg-accent' : ''}`}><span className="w-3.5 text-center font-heading text-[0.75rem] font-semibold text-muted-foreground">W</span>Stoicism<span className="ml-auto text-meta text-muted-foreground">Wikipedia</span></Row>
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
+  taskwords: TaskWordsDemo, pdfcard: PdfCardDemo, feed: FeedDemo, lookitup: LookItUpDemo,
   calls: CallsDemo, cluewhy: ClueWhyDemo, untitled: UntitledDemo, writinghelp: WritingHelpDemo, faces: FacesDemo, reminders: RemindersDemo, away: AwayDemo, meaning: MeaningDemo,
   hint: HintDemo, chaptercards: ChapterCardsDemo, anotherway: AnotherWayDemo, weekparagraph: WeekParagraphDemo, sun: SunDemo, split: SplitDemo, finder: FinderDemo,
   offers: OffersDemo,

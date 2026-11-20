@@ -193,7 +193,7 @@ try {
     if (!works) failed++
   }
   // Every chapter to the last, Ready, as a newcomer walks it (17 Nov: "the welcome screens are still broken").
-  const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Name it', 'Ready']
+  const steps = ['Why', 'You', 'Catch', 'Out of the box', 'Permissions', 'Make it yours', 'Name it', 'Plan', 'Your notes', 'Ready']
   let total = 0
   const holdRows = []
   for (let at = 0; at < steps.length; at++) {
@@ -329,18 +329,11 @@ try {
     overs += over.size
     // Ready is the end: its press opens the book, not another chapter.
     if (at === steps.length - 1) {
-      // Its two cards' keys count from 1, as they are pressed ("Open my book" is ↵): they said 2 and 3 with no 1 (17 Nov).
+      // Its one card's key is 1, as it is pressed ("Open my book" is ↵); bringing notes in has its own step before it.
       const keys = await h.evaluate(() => [...document.querySelectorAll('[data-start-choices] [data-choice]')].map((one) => one.lastElementChild?.textContent?.trim()))
-      const keysOk = keys.join(',') === '1,2'
+      const keysOk = keys.join(',') === '1'
       if (!keysOk) failed++
-      console.log(`${keysOk ? 'PASS' : 'FAIL'} Ready's choices are keyed 1 and 2  (${keys.join(', ')})`)
-      // Pressed for real: 2 opens "Bring my notes" in place (its map of sources takes the cards' room), ↵ opens the book.
-      // (1 opens the example book, whose seeding is the heaviest thing a run does: its key is the same handler, one less.)
-      await h.keyboard.press('2'); await h.waitForTimeout(600)
-      const bring = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-start-choices]').length, still: !!document.querySelector('.mf-welcome'), words: document.querySelector('.mf-welcome main')?.textContent ?? '' }))
-      const bringOk = bring.cards === 0 && bring.still && /Obsidian|Apple Notes/.test(bring.words)
-      if (!bringOk) failed++
-      console.log(`${bringOk ? 'PASS' : 'FAIL'} on Ready, 2 opens “Bring my notes” in place  (${JSON.stringify({ cards: bring.cards, still: bring.still })})`)
+      console.log(`${keysOk ? 'PASS' : 'FAIL'} Ready's one choice is keyed 1  (${keys.join(', ')})`)
       await h.keyboard.press('Enter'); await h.waitForTimeout(1500)
       const opened = await h.evaluate(() => !document.querySelector('.mf-welcome'))
       if (!opened) failed++
@@ -352,7 +345,7 @@ try {
     const was = await chapter()
     const skip = await h.$('footer button:has-text("Skip trying it")')
     if (skip) await skip.click()
-    else await h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
+    else await h.click('footer button:has-text("Continue"), footer button:has-text("Get started")')
     await h.waitForTimeout(700)
     // A page told in parts that waited for the press: the same step again, its next part.
     if ((await chapter()) === was) at--
