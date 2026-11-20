@@ -744,7 +744,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Writing, Gems and Questions list every one of their kind, filed or not (the user, 19 Nov: Gems is "a kind of
   // premium list of things already in my folders"): one in a folder says which, quietly, after its date.
   const placed = (entry: Entry, one: Item): Entry => {
-    const home = folderById.get(folderOfItem[one.id] ?? '')
+    // On the folder's own page every row is in it: saying so on each row only repeats the page's name.
+    const home = inFolder ? undefined : folderById.get(folderOfItem[one.id] ?? '')
     return home ? { ...entry, sub: <>{entry.sub}{entry.sub ? <span className="whitespace-nowrap"> · <FolderCue home={home} /></span> : <FolderCue home={home} />}</> } : entry
   }
   const sourced = (entry: Entry, one: Item): Entry => {
