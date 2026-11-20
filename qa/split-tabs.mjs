@@ -284,13 +284,21 @@ try {
     await editor.click(); await h.keyboard.press('Meta+ArrowDown')
     const mark = `${tag}-${Date.now()}`
     await h.keyboard.type(` ${mark}`)
+    // What shows over or in the page as the key goes, and where the keys are: said beside a failure, so it names what held the key.
+    const showing = await h.evaluate(() => [...document.querySelectorAll('[cmdk-root], [role=menu], [role=listbox], [role=dialog], [role=alertdialog], .tiptap-suggestion-popup, [data-radix-popper-content-wrapper]')]
+      .filter((one) => one.checkVisibility() && one.getBoundingClientRect().width > 0)
+      .map((one) => `${one.tagName.toLowerCase()}[role=${one.getAttribute('role')}]${one.className && typeof one.className === 'string' ? '.' + one.className.split(' ').slice(0, 3).join('.') : ''} "${(one.textContent ?? '').trim().slice(0, 40)}"`)
+      .concat(`keys in: ${document.activeElement?.tagName.toLowerCase()}.${String(document.activeElement?.className ?? '').split(' ').slice(0, 2).join('.')}`))
+    const tabsBefore = (await state()).map((one) => one.tabs.length).join()
     await leave()
     await wait(1000)
     const body = await v('item', b.id).catch(() => null)
+    typedSaw = `${tag}: tabs ${tabsBefore} then ${(await state()).map((one) => one.tabs.length).join()}; showing ${JSON.stringify(showing)}`
     return JSON.stringify(body ?? await v('items', 'article')).includes(mark)
   }
+  let typedSaw = ''
   check('words typed, a tab switched at once: kept', await typed(() => h.keyboard.press('Control+Tab'), 'switch'))
-  check('words typed, the tab closed at once (⌃W): kept', await typed(() => h.keyboard.press('Control+w'), 'close'))
+  check('words typed, the tab closed at once (⌃W): kept', await typed(() => h.keyboard.press('Control+w'), 'close'), typedSaw)
   check('words typed, ⌘W at once: kept', await typed(() => closeFront(), 'cmdw'))
   check('words typed, its pane gone at once: kept', await typed(async () => {
     await h.keyboard.press('Meta+Backslash'); await h.keyboard.press('Control+w'); await h.keyboard.press('Control+w')
@@ -399,11 +407,25 @@ try {
   s = await state()
   const listed = h.locator(`[data-pane="${s[0].key}"] [data-row][data-id]`).first()
   if (await listed.count()) {
-    await drag(await mid(listed), await mid(h.locator(`[data-tab-row="${s[1].key}"]`)), 12)
+    const aim = await mid(h.locator(`[data-tab-row="${s[1].key}"]`))
+    await drag(await mid(listed), aim, 12)
     await shot('row-over-tab-row-light')
+    // What the window has at the drop point just before letting go: said beside a failure, so the cause is read, not guessed.
+    const atDrop = await h.evaluate(({ x, y, pane }) => {
+      const r = (one) => one && (({ left, top, right, bottom }) => [left, top, right, bottom].map(Math.round))(one.getBoundingClientRect())
+      return {
+        aim: [Math.round(x), Math.round(y)],
+        row: r(document.querySelector(`[data-tab-row="${pane}"]`)),
+        bar: r(document.querySelector(`[data-tabs="${pane}"]`)),
+        hit: document.elementsFromPoint(x, y).slice(0, 6).map((one) => `${one.tagName.toLowerCase()}${[...one.attributes].filter((a) => a.name.startsWith('data-') || a.name === 'role').map((a) => `[${a.name}]`).join('')}`),
+        gap: document.querySelector('[data-tab-gap]')?.getAttribute('data-tab-gap') ?? null,
+        carrying: document.documentElement.hasAttribute('data-split-drag'),
+        card: r(document.querySelector('[data-split-card]'))
+      }
+    }, { ...aim, pane: s[1].key })
     await h.mouse.up(); await wait(900)
     const landed = await state()
-    check('a list row dropped on a row of tabs: a new tab there, open', landed[1].tabs.length === 2 && landed[1].page === 'articles', JSON.stringify(landed))
+    check('a list row dropped on a row of tabs: a new tab there, open', landed[1].tabs.length === 2 && landed[1].page === 'articles', JSON.stringify({ landed, atDrop }))
   } else check('a list row to drag', false)
 
   // --- at scale

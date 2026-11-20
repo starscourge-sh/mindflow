@@ -84,8 +84,17 @@ try {
 
   // Never fetched and offline: nothing but a quiet way to write one; filled once back online.
   await make({ kind: 'quote', body: doc('Late is still on time'), attribution: 'Bo Later' })
+  // Every role=status shown, with its words and what it is: the app's notices are one kind, but the Vim mode line is
+  // role=status too and is no error. So the check is: no notice came up for opening this
+  // page offline (one shown before it, from an earlier step, is not this page's), and each one is named on a failure.
+  const statuses = () => h.evaluate(() => [...document.querySelectorAll('[role="status"]')].filter((one) => one.checkVisibility() && one.getBoundingClientRect().width > 0)
+    .map((one) => `${(one.textContent ?? '').trim().slice(0, 80)} {${[...one.attributes].filter((a) => a.name.startsWith('data-')).map((a) => a.name).join(' ') || one.className.toString().split(' ')[0]}}`))
+  const statusBefore = await statuses()
   await openPage('attribution', 'Bo Later')
-  check('16. offline and never fetched: no error, a quiet "Add a line about them"', await h.locator('[data-bio-add]').isVisible() && (await h.locator('[data-bio-add]').textContent()) === 'Add a line about them' && await h.locator('[role="status"]').count() === 0)
+  const statusAfter = await statuses()
+  const newNotice = statusAfter.filter((one) => !statusBefore.includes(one) && !/\{data-vim-status\}/.test(one))
+  const add = await h.locator('[data-bio-add]').isVisible() ? await h.locator('[data-bio-add]').textContent() : null
+  check('16. offline and never fetched: no error, a quiet "Add a line about them"', add === 'Add a line about them' && newNotice.length === 0, JSON.stringify({ add, before: statusBefore, after: statusAfter }))
   check('17. the offline ask was made', asked > before)
   offline = false; await mac(true)
   await h.evaluate(() => window.dispatchEvent(new Event('online')))
