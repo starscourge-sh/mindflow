@@ -712,7 +712,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
 
   return (
     <div ref={root} className="pdf-reader web-reader">
-      <style>{MARK_COLORS.map((one) => (one.id === "later" ? `::highlight(${markName(names, one.id)}) { text-decoration: underline dashed var(--tt-brand-color-500, #c08a2e) 2px; text-underline-offset: 3px }` : tint(markName(names, one.id), 28, one.css))).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
+      <style>{MARK_COLORS.map((one) => (one.id === "later" ? `${HIGHLIGHT}(${markName(names, one.id)}) { text-decoration: underline dashed var(--tt-brand-color-500, #c08a2e) 2px; text-underline-offset: 3px }` : tint(markName(names, one.id), 28, one.css))).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
         {/* As the PDF reader's bar: the title takes the free room, so the tools never move as it changes, and the
             section you are in stands beside it as a PDF's chapter does. */}
@@ -1034,11 +1034,19 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
 /**
  * A highlight's colour: the theme's own brand colour, this much of it, as the
  * PDF reader's marks are on light pages. On a dark theme the same share is
- * lost against the background, so it is half as strong again.
+ * lost against the background, so it is half as strong again. Set on the
+ * article's body alone (HIGHLIGHT): every element in it takes it from there.
  */
 const tint = (name: string, percent: number, color = 'var(--tt-brand-color-500, #c08a2e)'): string =>
-  `::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${Math.round(percent * 1.6)}%, transparent) }` +
-  `:root:is(.light, .paper, [data-light]) ::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${percent}%, transparent) }`
+  `${HIGHLIGHT}(${name}) { background-color: color-mix(in srgb, ${color} ${Math.round(percent * 1.6)}%, transparent) }` +
+  `:root:is(.light, .paper, [data-light]) ${HIGHLIGHT}(${name}) { background-color: color-mix(in srgb, ${color} ${percent}%, transparent) }`
+
+/**
+ * Where a mark's look is set: on the article's body, and every element in it inherits it (a highlight's look passes
+ * down to the elements inside, every property of it). Set on every element (a bare `::highlight()`), each of a long
+ * article's 5,000 elements worked out its nine marks' looks again whenever anything above it changed: 600ms a time.
+ */
+const HIGHLIGHT = '.web-reader-body::highlight'
 
 /**
  * Minutes to read an article: its own words (each run between spaces with a letter or a digit in it, the HTML's tags
