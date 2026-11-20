@@ -132,7 +132,7 @@ const api = {
     ipcRenderer.invoke('save-file', name, bytes),
   /** A PDF on the web, kept in the book's files once: where it is kept now, and its name. Null when it is not a PDF or cannot be fetched. */
   fetchPdf: (href: string): Promise<{ src: string; name: string } | null> => ipcRenderer.invoke('pdf-fetch', href),
-  fetchArticle: (href: string, again?: boolean): Promise<{ article: { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }; reading?: string; error?: string } | { error: string } | { stopped: true }> => ipcRenderer.invoke('article-fetch', href, again),
+  fetchArticle: (href: string, again?: boolean): Promise<{ article: { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }; reading?: string; error?: string; stale?: true } | { error: string } | { stopped: true }> => ipcRenderer.invoke('article-fetch', href, again),
 
   /** Write text to a file the user picks. */
   exportText: (name: string, text: string): Promise<boolean> =>

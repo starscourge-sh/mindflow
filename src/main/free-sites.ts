@@ -84,61 +84,6 @@ async function sep(typed: string): Promise<Hit[]> {
     .slice(0, HITS)
 }
 
-/** A page of Wikipedia or Wiktionary, read the wiki's own way below. */
-export const isWiki = (at: URL): boolean => /\.(wikipedia|wiktionary)\.org$/.test(at.hostname)
-
-/**
- * A wiki's page before Readability reads it: its "[edit]" marks, skip links
- * and navigation boxes gone. Each heading stood in a box beside its edit
- * link, which Readability took for a box of links and dropped: a page of eight
- * sections kept two, and every one left an "[edit]" line in the column. The
- * wiki's tagline over the words ("From Wikipedia, the free encyclopedia", in
- * #siteSub) and the marks beside the title go too: Readability kept the
- * tagline as the article's first paragraph, under its big first letter. An
- * infobox is marked, so the reader sets it as a box of its own (pdf.css).
- */
-export function wikiChrome(page: ReturnType<typeof parseHTML>['document']): void {
-  for (const one of [...page.querySelectorAll('.mw-editsection, .mw-jump-link, .navbox, #siteSub, #contentSub, #contentSub2, .mw-indicators, .vector-body-before-content')]) one.remove()
-  for (const one of page.querySelectorAll('table.infobox')) one.setAttribute('data-infobox', '')
-}
-
-/** The file a Commons picture's address names: `…/commons/thumb/0/00/Name.png/250px-Name.png` is Name.png. */
-const commonsFile = (src: string): string | null => /\/wikipedia\/commons\/(?:thumb\/)?[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)/.exec(src)?.[1] ?? null
-
-/**
- * A Wikipedia or Wiktionary page's pictures as the reader keeps them: only
- * those on Wikimedia Commons (freely licensed), each credited to its page
- * there, which names who made it and its licence. One held under fair use (an
- * English-only file) goes, and so does the link round a picture to its page on
- * the wiki. A formula drawn by Wikipedia's maths renderer stays as it is.
- */
-export function creditCommons(page: ReturnType<typeof parseHTML>['document'], base: URL): void {
-  for (const picture of [...page.querySelectorAll('img')]) {
-    const src = URL.parse(picture.getAttribute('src') ?? '', base)?.href ?? ''
-    if (/^https:\/\/wikimedia\.org\/api\/rest_v1\/media\/math\//.test(src)) continue
-    const file = commonsFile(src)
-    const link = picture.parentElement?.closest('a')
-    const bare = !!link && !link.textContent?.trim()
-    // Drawn under 48px (a flag, a logo, a sister project's mark): decoration, not a picture to credit.
-    const small = [picture.getAttribute('width'), picture.getAttribute('height')].some((one) => one && Number(one) < 48)
-    if (!file || small) {
-      // With its caption, which would say nothing without it.
-      ;(picture.closest('figure') ?? (bare ? link : picture)).remove()
-      continue
-    }
-    if (bare) link.replaceWith(picture)
-    const credit = page.createElement('span')
-    credit.setAttribute('data-credit', '')
-    const to = page.createElement('a')
-    to.setAttribute('href', `https://commons.wikimedia.org/wiki/File:${file}`)
-    to.textContent = 'Picture: Wikimedia Commons'
-    credit.append(to)
-    const caption = picture.closest('figure')?.querySelector('figcaption')
-    if (caption) caption.append(credit)
-    else picture.after(credit)
-  }
-}
-
 const SEARCH: Record<Site, (typed: string) => Promise<Hit[]>> = {
   wikipedia: (typed) => mediaWiki('en.wikipedia.org', typed),
   wiktionary: (typed) => mediaWiki('en.wiktionary.org', typed),

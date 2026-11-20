@@ -1,16 +1,15 @@
 import { ipcMain, app, net, type WebContents } from 'electron'
 import { randomUUID } from 'crypto'
 import { join } from 'path'
-import { Readability } from '@mozilla/readability'
-import { parseHTML } from 'linkedom'
+import { Worker } from 'node:worker_threads'
 import { imageSizeFromFile } from 'image-size/fromFile'
 import { database } from './captures'
 import { fetchOutside } from './outside'
 import { begin, end } from './jobs'
 import { WEB_ARTICLES as TABLE } from './find-files'
-import { articleNames } from './article-names'
-import { creditCommons, isWiki, wikiChrome } from './free-sites'
-import { beforeReading, cleanInParts, type Kept, type Missed } from './article-clean'
+import type { Kept, Missed } from './article-clean'
+import type { NoArticle, Read } from './article-read'
+import threadFile from './article-worker?modulePath'
 import { assetsDir } from './pictures'
 
 /** An article kept from the web: its words and pictures, read offline in the reader. */
@@ -52,13 +51,48 @@ const WHY = {
 /** A picture being brought, told to the reader that asked: its place's new HTML, or how many are settled of how many. */
 type Told = (what: 'article:picture' | 'article:pictures', ...args: unknown[]) => void
 
+/** A wait that ends when `stop` does, whatever it waits on (a name looked up, a page's last bytes): none waits forever. */
+const until = <T,>(wait: Promise<T>, stop: AbortSignal): Promise<T> =>
+  stop.aborted
+    ? Promise.reject(stop.reason)
+    : new Promise<T>((done, fail) => {
+        const quit = (): void => fail(stop.reason)
+        stop.addEventListener('abort', quit, { once: true })
+        wait.then(done, fail).finally(() => stop.removeEventListener('abort', quit))
+      })
+
 /**
- * Reading a page into an article: fetched through the same guard as a card's
- * picture (never this machine or its network), cleaned by Mozilla's
- * Readability, its pictures kept with your notes as a card's are. The words
- * come back as soon as they are read; the pictures come after, each told to
- * the reader as it is settled, and the article is kept whole once they all are.
+ * The page read into an article on a thread of its own (article-worker.ts): a page of hours to read held main for
+ * seconds, and every window with it. The thread keeps the article's parts until its pictures are settled: `ask`
+ * judges a picture's place or finishes the whole, each answered in the order asked.
  */
+function readInThread(page: string, href: string, url: string, stop: AbortSignal): Promise<{ error: NoArticle } | { read: Read; ask: (one: { at: number; got: Kept | Missed } | { finish: true }) => Promise<string>; end: () => void }> {
+  const thread = new Worker(threadFile, { workerData: { page, href, url }, name: 'haligtree-article' })
+  const waiting: { done: (html: string) => void; fail: (why: Error) => void }[] = []
+  let first: ((said: { error: NoArticle } | { read: Read }) => void) | null = null
+  let lost: (why: Error) => void = () => undefined
+  // Ended or lost, it is asked nothing more: an ask then would wait for an answer that never comes.
+  let dead: Error | null = null
+  const end = (): void => void ((dead ??= new Error('The reading thread was ended')), thread.terminate())
+  const gone = (why: Error): void => ((dead ??= why), lost(why), waiting.splice(0).forEach((one) => one.fail(why)))
+  thread.on('message', (said: { error: NoArticle } | { read: Read } | { html: string }) => {
+    if ('html' in said) return waiting.shift()?.done(said.html)
+    first?.(said)
+  })
+  thread.on('error', gone)
+  thread.on('exit', () => gone(new Error('The reading thread ended')))
+  const ask = (one: { at: number; got: Kept | Missed } | { finish: true }): Promise<string> =>
+    dead ? Promise.reject(dead) : new Promise((done, fail) => (waiting.push({ done, fail }), thread.postMessage(one)))
+  // Stop while the page is parsed ends the thread there; once read, Stop is the pictures' to answer (each said not brought).
+  return until(
+    new Promise<{ error: NoArticle } | { read: Read }>((done, fail) => ((first = done), (lost = fail))),
+    stop
+  ).then(
+    (said) => ('error' in said ? (end(), said) : { read: said.read, ask, end }),
+    (why) => (end(), Promise.reject(why))
+  )
+}
+
 export function registerWebArticles(keep: (src: string, stop: AbortSignal) => Promise<string | Missed>): void {
   const db = database()
   db.exec(TABLE)
@@ -66,19 +100,21 @@ export function registerWebArticles(keep: (src: string, stop: AbortSignal) => Pr
     void db.prepare('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(one.id, one.href, one.title, one.byline, one.site, one.published, one.html, one.savedAt)
 
   /** Pages whose pictures are coming: what they read as now, so a reader opened on one meanwhile shows it and hears the rest. */
-  const coming = new Map<string, { article: Article; now: () => string; told: Set<WebContents>; reading: string }>()
+  const coming = new Map<string, { article: Article; now: () => Promise<string>; told: Set<WebContents>; reading: string }>()
 
-  const read = async (href: string, stop: AbortSignal): Promise<{ article: Article; now: () => string; pictures: (tell: Told) => Promise<void> } | { error: string } | { stopped: true }> => {
+  const read = async (href: string, stop: AbortSignal): Promise<{ article: Article; now: () => Promise<string>; pictures: (tell: Told) => Promise<void> } | { error: string } | { stopped: true }> => {
+    // One wait for the whole page, its name looked up and its last bytes too: the site's 15 seconds, or Stop.
+    const wait = AbortSignal.any([AbortSignal.timeout(PAGE_WAIT * 1000), stop])
+    const slow = (error: unknown): { error: string } | { stopped: true } | null =>
+      stop.aborted ? { stopped: true } : (error as Error)?.name === 'TimeoutError' ? { error: WHY.slow(URL.parse(href)?.hostname ?? 'The site') } : null
     let response: Response
     try {
-      response = await fetchOutside(href, { headers: { 'user-agent': app.userAgentFallback }, signal: AbortSignal.any([AbortSignal.timeout(PAGE_WAIT * 1000), stop]) })
+      response = await until(fetchOutside(href, { headers: { 'user-agent': app.userAgentFallback }, signal: wait }), wait)
     } catch (error) {
-      if (stop.aborted) return { stopped: true }
-      if ((error as Error)?.name === 'TimeoutError') return { error: WHY.slow(URL.parse(href)?.hostname ?? 'The site') }
-      return { error: net.isOnline() ? WHY.gone : WHY.offline }
+      return slow(error) ?? { error: net.isOnline() ? WHY.gone : WHY.offline }
     }
     if (response.status === 401 || response.status === 403) {
-      const said = await response.text().catch(() => '')
+      const said = await until(response.text(), wait).catch(() => '')
       return { error: /challenge-platform|cf-chl|cf_chl|<title>Just a moment/i.test(said) ? WHY.check : WHY.signIn }
     }
     if (response.status === 402) return { error: WHY.paid }
@@ -88,70 +124,34 @@ export function registerWebArticles(keep: (src: string, stop: AbortSignal) => Pr
     if (!/text\/html|application\/xhtml/i.test(response.headers.get('content-type') ?? '')) return { error: WHY.notPage }
     let page: string
     try {
-      page = await response.text()
+      page = await until(response.text(), wait)
     } catch (error) {
-      if (stop.aborted) return { stopped: true }
-      return { error: (error as Error)?.name === 'TimeoutError' ? WHY.slow(URL.parse(href)?.hostname ?? 'The site') : WHY.gone }
+      return slow(error) ?? { error: WHY.gone }
     }
-    const base = new URL(response.url || href)
-    const { document } = parseHTML(page)
-    // A wiki's own marks out of the way first, so every section keeps its heading (free-sites.ts): any MediaWiki's,
-    // Fandom's too, whose "[edit]" stood in every heading and its contents; pictures that load as they scroll given
-    // their real addresses, and a Fandom infobox kept (article-clean.ts).
-    wikiChrome(document)
-    beforeReading(document)
-    const meta = (name: string): string => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content')?.trim() ?? ''
-    // The page's first heading, read before Readability takes the page apart: a name when its titles say only "Home".
-    const heading = document.querySelector('h1')?.textContent ?? ''
-    const paywalled = /"isAccessibleForFree"\s*:\s*(false|"False")/i.test(page)
-    // Its classes kept for now: they say which of a picture's versions a wide window shows, and which links are buttons.
-    const found = new Readability(document as unknown as Document, { charThreshold: 300, keepClasses: true }).parse()
-    const words = found?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-    if (!found?.content || words.length < 300) {
-      if (paywalled) return { error: WHY.paid }
-      if (/type=["']password["']|sign in to continue|log in to continue/i.test(page)) return { error: WHY.signIn }
-      return { error: WHY.script }
+    let thread: Awaited<ReturnType<typeof readInThread>>
+    try {
+      thread = await readInThread(page, href, response.url || href, stop)
+    } catch {
+      return stop.aborted ? { stopped: true } : { error: WHY.script }
     }
-
-    // Wikipedia's and Wiktionary's pictures: Commons' alone, each credited (free-sites.ts), read from the page as it
-    // came (each picture's own size marks), before the cleaning chooses and measures what is left.
-    let content = found.content
-    if (isWiki(base)) {
-      const { document: wiki } = parseHTML(`<!doctype html><html><body>${content}</body></html>`)
-      creditCommons(wiki, base)
-      content = wiki.body.innerHTML
-    }
-    // Its title without the site's name it trails, the first of its names that is not only "Home", and the site's own name (article-names.ts).
-    const names = articleNames({ titles: [meta('og:title'), found.title ?? '', heading], siteName: meta('og:site_name'), publisher: found.siteName ?? '', hostname: base.hostname })
-    // The cleaned article (article-clean.ts): only what reads, every link whole, and no heading that only repeats its
-    // title; its pictures stand-ins until each is kept here and measured.
-    const site = meta('og:site_name') || base.hostname.replace(/^www\./, '').split('.')[0]
-    const parts = cleanInParts(content, base, site, names.title)
+    if ('error' in thread) return { error: WHY[thread.error] }
+    const { read: found, ask, end } = thread
     const known = (db.prepare('select id from web_articles where href = ?').get(href) as { id: string } | undefined)?.id
-    const article: Article = {
-      id: known ?? randomUUID(),
-      href,
-      title: names.title,
-      byline: (found.byline ?? '').trim(),
-      site: names.site,
-      published: (found.publishedTime || meta('article:published_time') || '').trim(),
-      html: parts.html,
-      savedAt: new Date().toISOString()
-    }
+    const article: Article = { id: known ?? randomUUID(), href, title: found.title, byline: found.byline, site: found.site, published: found.published, html: found.html, savedAt: new Date().toISOString() }
     // A first reading is kept at once, without the cleaning's mark: closed before its pictures come, it is read again.
     if (!known) save(article)
     return {
       article,
-      now: () => parts.finish(),
+      now: () => ask({ finish: true }),
       pictures: async (tell) => {
-        const total = parts.pictures.length
+        const total = found.pictures.length
         let asked = 0
         let settled = 0
         let slow = 0
         const one = async (at: number): Promise<Kept | Missed> => {
           if (stop.aborted) return { why: 'stopped' }
           if (slow >= SLOW_RUN) return { why: 'slow' }
-          const kept = await keep(parts.pictures[at], stop)
+          const kept = await keep(found.pictures[at], stop)
           if (typeof kept !== 'string') return (slow = kept.why === 'slow' ? slow + 1 : 0), kept
           slow = 0
           const size = kept.startsWith('haligtree:') ? await imageSizeFromFile(join(assetsDir(), kept.replace(/^haligtree:\/\/assets\//, ''))).catch(() => null) : null
@@ -160,13 +160,19 @@ export function registerWebArticles(keep: (src: string, stop: AbortSignal) => Pr
         // Asked in reading order, each settled the moment it arrives: one slow picture holds up none after it.
         const asker = async (): Promise<void> => {
           for (let at = asked++; at < total; at = asked++) {
-            tell('article:picture', href, at, parts.judge(at, await one(at)))
+            tell('article:picture', href, at, await ask({ at, got: await one(at) }))
             tell('article:pictures', href, ++settled, total)
           }
         }
-        tell('article:pictures', href, 0, total)
-        await Promise.all(Array.from({ length: Math.min(AT_ONCE, total) }, asker))
-        save({ ...article, html: CLEANING + parts.finish() })
+        try {
+          tell('article:pictures', href, 0, total)
+          await Promise.all(Array.from({ length: Math.min(AT_ONCE, total) }, asker))
+          save({ ...article, html: CLEANING + (await ask({ finish: true })) })
+        } finally {
+          // Its thread lost midway, the reader's "Bringing the pictures…" line is still taken away: no wait is left turning.
+          if (settled < total) tell('article:pictures', href, total, total)
+          end()
+        }
       }
     }
   }
@@ -197,10 +203,12 @@ export function registerWebArticles(keep: (src: string, stop: AbortSignal) => Pr
     const known = kept(href)
     const name = `article:${href}`
     const now = coming.get(href)
-    if (!again && now) return now.told.add(event.sender), { article: { ...now.article, html: now.now() }, reading: now.reading }
-    if (!again && known?.html.startsWith(CLEANING)) return { article: known }
+    if (!again && now) return now.told.add(event.sender), { article: { ...now.article, html: await now.now().catch(() => now.article.html) }, reading: now.reading }
+    // A copy kept shows at once, whatever cleaning kept it: one kept by an earlier reader is said `stale`, and the
+    // reader asks for it again behind its words (web-reader.tsx), keeping these if the site will not give it.
+    if (!again && known) return { article: known, ...(known.html.startsWith(CLEANING) ? {} : { stale: true }) }
     // “Stop” beside “Reading the page…” and beside the pictures coming (main/jobs.ts): every fetch ends, nothing more is asked.
-    // One kept by an earlier reader is read again, as this one keeps a page; offline, it reads as it was kept.
+    // Asked `again` (Read again, or the reader renewing a stale copy): failing, the copy kept stays, with why.
     const stop = begin(name)
     try {
       const done = await read(href, stop)

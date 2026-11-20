@@ -479,6 +479,14 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     let live = true
     const fresh = again.current
     again.current = false
+    const show = (got: { article: Article; reading?: string }): void => {
+      titles.set(href, got.article.title)
+      window.dispatchEvent(new CustomEvent('haligtree:pdf-title'))
+      reading.current = got.reading ?? null
+      heard.current = new Map(got.reading && heard.current.has(got.reading) ? [[got.reading, heard.current.get(got.reading)!]] : [])
+      setComing(null)
+      setArticle(got.article)
+    }
     void host()
       .fetchArticle?.(href, fresh)
       .then((got) => {
@@ -487,13 +495,21 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
         if (!('article' in got)) return setFailed(got.error)
         // Read again and the site would not give it: the copy kept shows, and why it is not new.
         if (got.error) said(`Not read again: ${got.error} This is the copy kept ${dayOf(got.article.savedAt)}.`)
-        titles.set(href, got.article.title)
-        window.dispatchEvent(new CustomEvent('haligtree:pdf-title'))
-        reading.current = got.reading ?? null
-        heard.current = new Map(got.reading && heard.current.has(got.reading) ? [[got.reading, heard.current.get(got.reading)!]] : [])
-        setComing(null)
-        setArticle(got.article)
+        show(got)
+        if (!('stale' in got && got.stale)) return
+        // Kept by an earlier reader: its words stay in front while the page is read again behind them (main/web-articles.ts),
+        // the new reading put in their place when it comes (where you were kept), the copy kept if the site will not give it.
+        void host()
+          .fetchArticle?.(href, true)
+          .then((again) => {
+            if (!live || !('article' in again)) return
+            if (again.reading) return show(again)
+            if (again.error) said(`Showing the copy kept ${dayOf(again.article.savedAt)}: ${again.error}`)
+          })
+          .catch(() => undefined)
       })
+      // Main could not answer at all: said in words, never the loader left turning.
+      .catch((error: unknown) => live && setFailed(`The reader could not read this page: ${error instanceof Error ? error.message : String(error)}`))
     return () => {
       live = false
     }

@@ -60,6 +60,7 @@ import { APP_NAME } from '../../main/name'
 import { toasters, whyFailed } from './components/haligtree/ui'
 import { chime } from './lib/sound'
 import { wearSavedFonts } from './lib/editor-setup'
+import { setHost } from './lib/host'
 
 // `npm run dev` only (React's development build; the built app has none of this). For its own warnings to name the
 // component that made an element, that build records where each element was made, an Error and a console task
@@ -73,6 +74,10 @@ import { wearSavedFonts } from './lib/editor-setup'
   if (internals && 'recentlyCreatedOwnerStacks' in internals && localStorage.getItem('haligtree:owner-stacks') !== 'on') Object.defineProperty(internals, 'recentlyCreatedOwnerStacks', { configurable: true, get: () => 1e9, set: () => undefined })
 }
 
+// The app as the page's host before anything renders, not first when an editor draws (haligtree-editor.tsx): a
+// reader restored as the front tab after a restart asked the browser's host, which has no `fetchArticle`, and sat on
+// "Reading the page…" for good with nothing asked of main (20 Nov 2026). A PDF from the web (`fetchPdf`) the same.
+setHost(window.api)
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
 applyTheme(currentTheme())

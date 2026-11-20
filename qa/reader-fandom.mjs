@@ -34,7 +34,8 @@ const look = () => h.evaluate(() => {
     coming: document.querySelector('[data-web-coming]')?.textContent ?? '',
     reading: document.querySelector('.web-reader-reading')?.textContent ?? '',
     failed: document.querySelector('.web-reader-failed-lead')?.textContent ?? '',
-    lines: [...(body?.querySelectorAll('a') ?? [])].map((one) => one.textContent).filter((one) => /^Picture/.test(one))
+    // A picture not brought is a quiet line of the app's own where it stood (article-clean.ts MISSED), its caption kept under it.
+    lines: [...(body?.querySelectorAll('[data-missed]') ?? [])].map((one) => `${one.textContent}${one.closest('figure')?.querySelector('figcaption') ? ` / ${one.closest('figure').querySelector('figcaption').textContent}` : ''}`)
   }
 })
 /** Looked at every 50ms until `test` holds; with `film`, each look's frame kept too, to read by eye. */
@@ -107,7 +108,7 @@ try {
   check("the infobox's picture opens the article, captioned with its name", read.firstWide === 268 && read.firstCaption === 'Harry James Potter', JSON.stringify(read))
   check("the infobox's facts are kept as a table", ['Born', 'Blood status', 'Marital status', 'Nationality'].every((one) => read.facts.includes(one)), JSON.stringify(read.facts))
   check('the lazy pictures are kept with the notes: "Harry as an infant" is a picture, not a link', /^haligtree:\/\/assets\//.test(read.infant) && read.imgs === 59 && read.broken === 0, JSON.stringify(read))
-  check('the picture the site refused, and the one it never sent, each say so plainly, and nothing else is a line', settled.lines.length === 2 && settled.lines.includes('Picture the site would not send: A scene from part 2, picture 5') && settled.lines.includes('Picture the site was too slow to send: A scene from part 3, picture 8'), JSON.stringify(settled.lines))
+  check('the picture the site refused, and the one it never sent, each say so plainly, and nothing else is a line', settled.lines.length === 2 && settled.lines.includes('Picture the site would not send / A scene from part 2, picture 5') && settled.lines.includes('Picture the site was too slow to send / A scene from part 3, picture 8'), JSON.stringify(settled.lines))
   for (const one of ['light', 'dark']) {
     await theme(one); await wait(500)
     await h.screenshot({ path: `${shots}/fandom-read-${one}.png` })
@@ -153,7 +154,7 @@ try {
   const stopTook = Date.now() - stopAt
   const asks = await pageHits()
   await wait(1500)
-  check('Stop ends the pictures at once: each one not brought says so, and nothing more is asked', stopped.waiting === 0 && !stopped.coming && stopTook < 1500 && stopped.lines.length > 0 && stopped.lines.every((one) => /^Picture not brought, as the reading was stopped: /.test(one) || /would not send|too slow/.test(one)) && (await pageHits()) === asks, JSON.stringify({ stopTook, lines: stopped.lines.slice(0, 2), n: stopped.lines.length }))
+  check('Stop ends the pictures at once: each one not brought says so, and nothing more is asked', stopped.waiting === 0 && !stopped.coming && stopTook < 1500 && stopped.lines.length > 0 && stopped.lines.every((one) => /^Picture not brought, as the reading was stopped\b/.test(one) || /would not send|too slow/.test(one)) && (await pageHits()) === asks, JSON.stringify({ stopTook, lines: stopped.lines.slice(0, 2), n: stopped.lines.length }))
   await net({ hang: false })
 
   // 4. A page that never answers: Stop stops it, and left alone it says so in words after 15 seconds.
