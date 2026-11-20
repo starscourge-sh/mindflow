@@ -1,4 +1,5 @@
 import { isMorning } from '../../../../main/day-parts'
+import { TaskSite } from './task-site'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { byKeys } from '@/lib/motion'
@@ -421,6 +422,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now, time, room = fals
       {room && <span className="-mx-1 mt-[5px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
       <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
         <span className="flex min-w-0 items-center gap-2">
+        <TaskSite task={task} />
         <span data-task-title className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
           {done ? <Struck seed={task.id} draw={pen}>{name.text}</Struck> : name.text}
         </span>

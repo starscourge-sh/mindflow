@@ -19,6 +19,7 @@ import { tagTint } from './tag-icon'
 
 import { HaligtreeEditor } from '../haligtree'
 import { chime, step } from '@/lib/sound'
+import { TaskAddress, TaskSite } from './task-site'
 import { typeSaid } from '@/lib/capture-links'
 import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { useOpened } from '@/lib/nav'
@@ -1367,10 +1368,14 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
           }}
           onSubmit={(event) => {
             event.preventDefault()
-            if (!draft.trim()) return
-            const text = draft
-            const plain = keptIn(kept.list, text)
-            const withIt = extra
+            if (!draft.trim() && !extra.links.length) return
+            // A link pasted in names the task as a bookmark (main/task-links.ts): its page's title, or the words typed
+            // beside it; any more links go to its description.
+            const typed = draft
+            const text = [draft.trim() && draft, extra.links[0]?.href].filter(Boolean).join(' ')
+            const plain = keptIn(kept.list, typed)
+            const was = extra
+            const withIt = { ...extra, links: extra.links.slice(1) }
             setDraft('')
             kept.set([])
             setExtra(NO_EXTRA)
@@ -1378,9 +1383,9 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             setDrafts((n) => n + 1)
             // Taken back, the words are in the line again, ahead of anything typed since, and what went with them.
             void makeTask({ text, today: mode === 'today', plain }, (made) => landed(made, mode), { onUndo: () => {
-              setDraft((now) => (now.trim() ? `${text} ${now}` : text))
-              setExtra({ ...withIt, open: false })
-              requestAnimationFrame(() => (addRef.current?.focus(), addRef.current?.setSelectionRange(text.length, text.length)))
+              setDraft((now) => (now.trim() ? `${typed} ${now}` : typed))
+              setExtra({ ...was, open: false })
+              requestAnimationFrame(() => (addRef.current?.focus(), addRef.current?.setSelectionRange(typed.length, typed.length)))
             } }).then((made) => {
               const notes = notesOf(withIt)
               if (made && !made.existed && notes) void haligtree.saveTask(made.id, { notes })
@@ -1579,6 +1584,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
+                            <TaskSite task={task} />
                             <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}><AppNamed id={task.id} text={taskName(task.title).text} /></span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
@@ -1586,8 +1592,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                                 A task open beside the list leaves the list no margin either: there the numbers stood against the pane's edge (16 Nov). */}
                             {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline ${beside ? 'inline' : 'hidden'}`} />}
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id)) && (
-                            <span data-task-meta className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || task.link) && (
+                            <span data-task-meta className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               <TaskWhen task={task} />
                               {carried(task) > 0 && !task.recurrence && (
                                 <Tip label="Times it was carried over: left undone past its day, or moved later">
@@ -1610,6 +1616,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                               {task.blocker && (freed(task)
                                 ? <span data-freed className="truncate" style={{ color: 'var(--tt-color-text-green)' }}>Free now: {taskName(task.blockedByTitle ?? task.blocker).text} is done</span>
                                 : <span className="truncate">Blocked: {task.blockedByTitle ? taskName(task.blockedByTitle).text : task.blocker}</span>)}
+                              {/* A bookmark task's address, kept under its name (task-site.tsx). */}
+                              <TaskAddress task={task} className="max-w-full" />
                               {/* The time spent on it so far, last: it wraps to a line of its own before it pushes anything. */}
                               <TaskSpent task={task} time={time} />
                             </span>
@@ -1801,6 +1809,12 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           placeholder=""
           onSave={(name) => void rename(name)}
         />
+        {/* Named by a link: the address under the name, its site's icon opening it. */}
+        {task.link && (
+          <p data-task-link-row className="page-narrow mx-auto -mt-1 mb-1 flex w-full min-w-0 items-center gap-1.5 px-12 text-meta text-muted-foreground">
+            <TaskSite task={task} /><TaskAddress task={task} />
+          </p>
+        )}
         {/* A #tag typed with the task is kept here, as a tag, never left in its name. */}
         <div data-task-tags className="page-narrow mx-auto w-full px-12">
           <TagRow tags={named.tags} field={tagField} onAdd={(tag) => void saveName(title.current?.value ?? named.text, [...named.tags, tag])}

@@ -1,4 +1,5 @@
 import { ContinueReading } from '@/components/pdf/pdf-library'
+import { TaskSite } from './task-site'
 import { showMediaKind } from './media-view'
 import { useResumeCards, WelcomeBack } from './resume-cards'
 import { useReadsIn } from '@/lib/reads-in'
@@ -499,6 +500,7 @@ function TaskRow({ task, actions, room = false, time }: { task: Task; actions: A
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><TaskPriority task={task} room /></span>}
         {/* The time spent on it: in its name's tip, the row having no small line. */}
+        {task.link && <span className="mt-[0.2rem] flex"><TaskSite task={task} /></span>}
         <SpentTip task={task} time={time}><span data-task-title className={`line-clamp-2 hyphens-auto [overflow-wrap:break-word] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span></SpentTip>
         {/* The tags give way before the name does: a tag with no room joins the "+N", which never gives way. */}
         <span className="mt-[0.2rem] flex max-w-[40%] shrink-[4]"><Tags tags={taskName(task.title).tags} alone /></span>

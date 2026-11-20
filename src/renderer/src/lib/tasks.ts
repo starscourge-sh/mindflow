@@ -3,7 +3,7 @@ import { unquoted } from '../../../main/clip'
 import { binned, seeTheBin } from './to-bin'
 import { binFlight } from './fly-home'
 import { expectBack } from './room'
-import { splitTags, taskSaid, haligtree, type Made, type Task } from './haligtree'
+import { askTaskLinks, splitTags, taskSaid, haligtree, type Made, type Task } from './haligtree'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/haligtree/ui'
 import { PRIORITY_NAMES, bucketOf, monthKey, readTask, readySaid } from '../../../main/task-words'
@@ -63,6 +63,8 @@ export async function makeTask(
     return null
   }
   const made = got
+  // Made from a capture or a note: one named by a link has its page asked too.
+  if (made) void askTaskLinks()
   if (!made) {
     if ('capture' in from) refuse('That capture no longer exists, so it cannot become a task')
     return null

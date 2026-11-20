@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { tagColors } from '@/extensions/tokens'
 import type { BlockColor } from '@/extensions/block-color'
 import { MotionGlobalConfig } from 'motion/react'
+import { offline, whenOnline } from './offline'
 import { chime, installTicks, setPack, setVolume, soundOn } from './sound'
 import { useEditorSetup } from './editor-setup'
 import { watchBands } from './video-bands'
@@ -183,6 +184,9 @@ export type Task = {
   fromId?: string | null
   fromTitle?: string | null
   subtasks?: Subtask[]
+  /** Named by a link: its address (kept out of the name), and the site's icon once its page was asked. */
+  link?: string | null
+  linkIcon?: string | null
 }
 type Subtask = { text: string; done: boolean }
 /** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */
@@ -255,6 +259,26 @@ export type Stats = {
   year: { captured: number; nuggets: number; articles: number; month: string | null }
   stopped: number
   unprocessed: { now: number; weekAgo: number }
+}
+
+/**
+ * Tasks named by a link, each page asked once with the app's link preview (main/index.ts lookUp; YouTube by oEmbed):
+ * its title names the task while the name is still the site and path, and its icon shows in the task's row. Asked by
+ * the window that made or renamed one, and at launch for any still waiting. Offline, asked again once back.
+ */
+const askingLinks = new Set<string>()
+export async function askTaskLinks(): Promise<void> {
+  const waiting = await call<{ id: string; href: string }[]>('task:links:waiting').catch(() => [])
+  for (const { id, href } of waiting) {
+    if (askingLinks.has(id) || !window.api.fetchLinkMetadata) continue
+    askingLinks.add(id)
+    void window.api.fetchLinkMetadata(href).catch(() => null).then(async (page) => {
+      const named = !!page?.title && page.title !== href
+      // Not reached while offline: kept waiting, and asked when the connection is back.
+      if (!named && offline()) return void whenOnline(() => (askingLinks.delete(id), void askTaskLinks()))
+      await call('task:link:fill', id, href, named ? page!.title : '', page?.icon ?? '')
+    }).finally(() => offline() || askingLinks.delete(id))
+  }
 }
 
 /** What a task's save may change. */
@@ -406,9 +430,9 @@ export const haligtree = {
   taskSources: () => call<{ task: string; capture: string; binned: number }[]>('tasks:sources'),
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
-  addTask: (text: string, origin?: string, today = false, plain?: { from: number; to: number }[]) => call<Made>('task:add', text, origin, today, plain),
+  addTask: (text: string, origin?: string, today = false, plain?: { from: number; to: number }[]) => call<Made>('task:add', text, origin, today, plain).then((made) => (void askTaskLinks(), made)),
   saveTask: (id: string, patch: TaskPatch) =>
-    call<TaskWas | true>('task:save', id, patch),
+    call<TaskWas | true>('task:save', id, patch).then((was) => (patch.title !== undefined && void askTaskLinks(), was)),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),
   /** A routine passed over this time: on to its next date, nothing counted done. */

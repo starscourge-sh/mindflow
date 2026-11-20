@@ -1,4 +1,5 @@
 import { memo, startTransition, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { TaskSite } from './task-site'
 import { CardAt, CarriedCard, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { motion } from 'motion/react'
@@ -861,6 +862,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                         }}
                         className={`flex h-8 w-full touch-none items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground transition-[scale] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none ${task.id === picked ? 'bg-accent' : ''} ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
                         <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: task.priority && task.priority < 4 ? tickOf(task) : ACCENT }} />
+                        <TaskSite task={task} tip={false} />
                         <span dir="auto" className="min-w-0 flex-1 truncate">{taskName(task.title).text}</span>
                       </button>
                       </Tip>
@@ -1612,6 +1614,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
         </Tip>
         <span className={`flex min-w-0 flex-1 px-1.5 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-[3px]'}`}>
           <span className={`flex min-w-0 items-center gap-1 ${short ? '' : 'shrink-0'}`}>
+            <TaskSite task={task} tip={false} className="size-3" />
             <span dir="auto" data-cal-block-name className={`truncate font-semibold ${finished ? 'line-through' : ''}`}>{name}</span>
             {repeats && <RepeatIcon role="img" aria-label="Repeats" className="size-3 shrink-0 opacity-75" />}
           </span>
@@ -1643,6 +1646,7 @@ function Untimed({ task, due, carry, start, onPick, taskNow, landed }: { task: T
         className={`flex h-6 min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1 pl-1.5 text-left text-control text-foreground transition-colors duration-150 motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}
         style={{ background: `color-mix(in oklab, ${color} 14%, var(--background))` }}>
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
+        <TaskSite task={task} tip={false} className="size-3" />
         <span dir="auto" className="truncate">{due && <span className="font-semibold">Due: </span>}{name}</span>
       </button>
       </Tip>

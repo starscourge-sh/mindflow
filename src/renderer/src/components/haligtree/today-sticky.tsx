@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { TaskSite } from './task-site'
 import { AnimatePresence, motion } from 'motion/react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
@@ -212,6 +213,7 @@ export function TodaySticky(): React.JSX.Element {
                       <span className="flex min-w-0 flex-1 items-start gap-2">
                       {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
                       {/* The time spent on it: said in its name's tip, the row having no small line. */}
+                      {task.link && <span className="flex pt-[0.2rem]"><TaskSite task={task} /></span>}
                       <SpentTip task={task} time={time}>
                       <button type="button" data-task-title data-sticky-task={task.id} onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
                         onContextMenu={(event) => (event.preventDefault(), void stickyMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow }), { x: event.clientX, y: event.clientY }))}

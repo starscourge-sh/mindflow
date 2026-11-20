@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TaskSite } from './task-site'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import type { Task } from '@/lib/haligtree'
@@ -84,6 +85,7 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
                   </Tip>
                   <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
                     <span className="flex min-w-0 items-center gap-2">
+                      <TaskSite task={task} />
                       <span data-task-title className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 ${ticked ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
                         {ticked ? <Struck seed={task.id} draw={pen(task)}>{name.text}</Struck> : name.text}
                       </span>
