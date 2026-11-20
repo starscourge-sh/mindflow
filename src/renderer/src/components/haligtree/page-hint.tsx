@@ -267,14 +267,14 @@ function Line({ name, children, onDone, done, learned = false }: { name: string;
     // and a clip or a scale would leave the room and close it with a jump.
     // A short window keeps its height for the page: the line is two lines at most, and below 480px tall
     // it waits for a taller window (shown again there, not put away), so the page is never squeezed for it.
-    <motion.div className="shrink-0 overflow-hidden [@media(max-height:480px)]:hidden" exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.12, ease: EASE }, height: { duration: 0.2, delay: 0.06, ease: EASE } } }}>
+    <motion.div className="shrink-0 overflow-hidden px-1 pt-2 pb-2 [@media(max-height:480px)]:hidden" exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.12, ease: EASE }, height: { duration: 0.2, delay: 0.06, ease: EASE } } }}>
     <motion.div role="note" data-hint-line={name}
       initial={enter ? { opacity: 0, transform: shift(first ? 'translateY(-4px)' : 'translateY(0px)') } : false}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
       transition={{ duration: 0.2, ease: EASE }}
-      className="flex shrink-0 items-start gap-3 overflow-hidden rounded-xl border border-foreground/[0.07] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] py-2 pr-1.5 pl-3.5 text-control text-muted-foreground">
+      className="flex shrink-0 items-start gap-3 overflow-hidden rounded-xl border border-foreground/[0.07] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] py-1.5 pr-1.5 pl-3 text-control text-muted-foreground">
       <Lightbulb aria-hidden className="mt-[0.4rem] size-3.5 shrink-0 text-primary" strokeWidth={2} />
-      <p className="mf-prose min-w-0 flex-1 py-px text-[0.9375rem] [@media(max-height:720px)]:line-clamp-2">{children}</p>
+      <p className="mf-prose min-w-0 flex-1 py-px text-[0.875rem] [@media(max-height:720px)]:line-clamp-2">{children}</p>
       {learned ? <span aria-hidden className="h-7" /> : (
       <button type="button" onClick={onDone} className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 font-medium text-foreground/85 transition-colors hover:bg-foreground/[0.07] hover:text-foreground">
         {done}
