@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Sparkles } from "lucide-react"
-import { BookOpen, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, Search, SquareStack, X } from "lucide-react"
+import { BookOpen, Check, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, Search, SquareStack, X, ZoomIn } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
@@ -30,7 +30,7 @@ import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, 
 import { pressAway } from "./reader-select"
 import { FitActions, listEnd } from "@/components/haligtree/ui"
 import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
 import { PageLabel, usePageLabels } from "./pdf-labels"
 import { cleanTitle } from "@/lib/clean-title"
@@ -1027,6 +1027,68 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const hereAt = chapterAt(outline, page)
   const chapter = hereAt >= 0 ? outline[hereAt].title : ""
 
+  // How the pages lie and how they look: one set of rows, in the bar's View menu and under "View" in its "…" menu.
+  const viewItems = (
+    <>
+      <DropdownMenuLabel>Layout</DropdownMenuLabel>
+      <DropdownMenuRadioGroup value={layout} onValueChange={(to) => (chime("tap"), setLayout(to as PageLayout))}>
+        {LAYOUTS.map((one) => (
+          <DropdownMenuRadioItem key={one.id} value={one.id} data-layout-choice={one.id}>
+            {one.label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel>Page colour</DropdownMenuLabel>
+      <DropdownMenuRadioGroup value={look} onValueChange={(to) => (chime("tap"), setLook(to as PageLook))}>
+        {LOOKS.map((one) => (
+          <DropdownMenuRadioItem key={one.id} value={one.id} data-look-choice={one.id} data-dark-pages={one.id === "dark" ? "" : undefined}>
+            {one.label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      <DropdownMenuSeparator />
+      {/* The rail's other pages in grey, the one you are on in colour: a switch, kept for every book (paper.ts). */}
+      <DropdownMenuLabel>Thumbnails</DropdownMenuLabel>
+      <DropdownMenuCheckboxItem checked={oneInColour} data-one-in-colour-choice onSelect={(event) => event.preventDefault()} onCheckedChange={(on) => (chime("tap"), setOneInColour(on))}>
+        Only this page in colour
+      </DropdownMenuCheckboxItem>
+    </>
+  )
+  const zoomWords = zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}%`
+  // The bar's tools as a menu's rows (icon, words, keys), grouped as the bar is, for a pane too narrow for the bar:
+  // the note's "…" menu is the reference (note-extras.tsx). Zoom is one row, − its size + inline, as the bar has it.
+  const moreMenu = (
+    <>
+      <DropdownMenuItem data-tool="Sidebar" onSelect={toggleRail}><PanelLeft />Pages and outline{railShown && <MenuCheck />}</DropdownMenuItem>
+      <DropdownMenuItem data-tool="Details" disabled={!detailsFit} onSelect={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (chime(detailsOut ? "fold" : "slide"), setChaptering(false), showDetails(!detailsOut, pane)))}>
+        <PanelRight />Details{detailsOut && detailsFit && !chaptering && <MenuCheck />}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      {marks.some((one) => one.color === "later") && (
+        <DropdownMenuItem data-tool="Make your marked cards" onSelect={() => (setWalking(1), walkTo(marks.find((one) => one.color === "later"), 0))}>
+          <SquareStack />Make your marked cards<DropdownMenuShortcut>{marks.filter((one) => one.color === "later").length}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      )}
+      {ai && <DropdownMenuItem data-tool="Five cards from this chapter" data-mac-needs="ai" onSelect={chapterCards}><Sparkles />{outline.length ? "Five cards from this chapter" : "Five cards from these pages"}{chaptering && <MenuCheck />}</DropdownMenuItem>}
+      <DropdownMenuItem data-tool="Keep a figure" onSelect={() => (setSnipping(!snipping), setSnip(null), setSnipped(null))}><Scissors />Keep a figure{snipping && <MenuCheck />}</DropdownMenuItem>
+      <DropdownMenuItem data-tool="Find" onSelect={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}><Search />Find<DropdownMenuShortcut>⌘F</DropdownMenuShortcut></DropdownMenuItem>
+      <DropdownMenuSeparator />
+      {/* Not a line that closes the menu: each press steps the size, the menu staying open to step again. */}
+      <div data-more-row role="group" aria-label="Zoom" className="flex min-h-7 items-center gap-2 px-2 py-1 text-control">
+        <ZoomIn aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="flex-1">Zoom</span>
+        <button type="button" aria-label="Smaller" title="Smaller  ⌘−" className="flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => step(-1)}><Minus className="size-3.5" /></button>
+        <button type="button" aria-label="Fit width" title="Fit width  ⌘0" className="min-w-11 cursor-pointer rounded-sm px-1 text-center tabular-nums hover:bg-accent" onClick={() => zoomTo(1)}><Roll text={zoomWords} /></button>
+        <button type="button" aria-label="Larger" title="Larger  ⌘+" className="flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => step(1)}><Plus className="size-3.5" /></button>
+      </div>
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger><BookOpen />View</DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="w-56" data-page-layout-menu>{viewItems}</DropdownMenuSubContent>
+      </DropdownMenuSub>
+    </>
+  )
+
   return (
     <div className={`pdf-reader${paper && !dark ? " is-paper" : ""}${dark ? " is-dark" : ""}`} data-zoom={zoom} data-layout={layout}>
       <div className="pdf-reader-bar">
@@ -1044,7 +1106,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           )}
         </span>
         {/* The title wins the room: in a narrow pane the tools wait behind "More", in the same order. */}
-        <FitActions room={doc?.numPages}>
+        <FitActions room={doc?.numPages} menu={moreMenu}>
           <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={railShown ? "on" : "off"} onClick={toggleRail}>
             <PanelLeft className="tiptap-button-icon" />
           </Button>
@@ -1072,7 +1134,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             <Minus className="tiptap-button-icon" />
           </Button>
           <Button data-style="ghost" aria-label="Fit width" title="Fit width  ⌘0" onClick={() => zoomTo(1)}>
-            <span className="tiptap-button-text"><Roll text={zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}%`} /></span>
+            <span className="tiptap-button-text"><Roll text={zoomWords} /></span>
           </Button>
           <Button data-style="ghost" aria-label="Larger" title="Larger  ⌘+" onClick={() => step(1)}>
             <Plus className="tiptap-button-icon" />
@@ -1085,29 +1147,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56" data-page-layout-menu>
-              <DropdownMenuLabel>Layout</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={layout} onValueChange={(to) => (chime("tap"), setLayout(to as PageLayout))}>
-                {LAYOUTS.map((one) => (
-                  <DropdownMenuRadioItem key={one.id} value={one.id} data-layout-choice={one.id}>
-                    {one.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Page colour</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={look} onValueChange={(to) => (chime("tap"), setLook(to as PageLook))}>
-                {LOOKS.map((one) => (
-                  <DropdownMenuRadioItem key={one.id} value={one.id} data-look-choice={one.id} data-dark-pages={one.id === "dark" ? "" : undefined}>
-                    {one.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              {/* The rail's other pages in grey, the one you are on in colour: a switch, kept for every book (paper.ts). */}
-              <DropdownMenuLabel>Thumbnails</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem checked={oneInColour} data-one-in-colour-choice onSelect={(event) => event.preventDefault()} onCheckedChange={(on) => (chime("tap"), setOneInColour(on))}>
-                Only this page in colour
-              </DropdownMenuCheckboxItem>
+              {viewItems}
             </DropdownMenuContent>
           </DropdownMenu>
         </FitActions>
@@ -1283,3 +1323,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     </div>
   )
 }
+
+/** A menu row's mark that it is on, at the row's end. */
+const MenuCheck = (): React.JSX.Element => <Check aria-hidden className="ml-auto size-3.5" />
