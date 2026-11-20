@@ -370,7 +370,13 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
   const foot = useLight([0, 1, 0], pitched, turned, lit)
   // Its shadow on the table: narrower as it turns edge on (a book is wide but thin), and off to the left, away from
   // the light, a little further as the spine comes round.
-  const shadowWide = useTransform(() => Math.max(0.22, (Math.abs(Math.cos((turned.get() * Math.PI) / 180)) * WIDE_BOOK + Math.abs(Math.sin((turned.get() * Math.PI) / 180)) * THICK) / WIDE_BOOK))
+  // Its width keeps to its resting pose while the book only sways (its arrival, the pointer it watches, the tilt under
+  // the hand): only a throw that spins it round narrows it. Following every sway, its width wavered while the page's
+  // words were read (welcome-read, Name it, 964ms); it slides with the sway instead (shadowAt).
+  const shadowWide = useTransform(() => {
+    const angle = ((REST_TURN + spinY.get()) * Math.PI) / 180
+    return Math.max(0.22, (Math.abs(Math.cos(angle)) * WIDE_BOOK + Math.abs(Math.sin(angle)) * THICK) / WIDE_BOOK)
+  })
   const shadowAt = useTransform(() => -10 + Math.sin((turned.get() * Math.PI) / 180) * 14)
   const letGo = (): void => {
     if (!grab.current) return

@@ -393,13 +393,15 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
               drawn left to right (its clip reaches past the letters, so no swash shows early), and
               where it is from wraps under it when the line is full ("in Pride and Prejudice", which reads on either line where a dot would be left starting one). */}
           <p className="mt-1 flex min-h-[1.6em] flex-wrap items-baseline gap-x-1.5 text-meta text-(--mf-wl-quiet) [&_.mf-signature]:overflow-visible [&_.mf-signature]:text-clip">
-            {signed && (
-              <motion.span className="inline-flex shrink-0" initial={{ clipPath: 'inset(-40% 100% -40% -20%)' }} animate={{ clipPath: 'inset(-40% -20% -40% -20%)' }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1], delay: inked }}>
-                <Signed who={who} />
-              </motion.span>
-            )}
+            {/* Both laid out from the start, unseen until signed: "in Pride and Prejudice" wraps to a line of its own, and
+                coming only when signed it made the card a line taller, the forgetting curve under it dropping 19px
+                (Remember, 19 Nov film, 69.5s). */}
+            <motion.span aria-hidden={!signed || undefined} className="inline-flex shrink-0" initial={false}
+              animate={{ clipPath: signed ? 'inset(-40% -20% -40% -20%)' : 'inset(-40% 100% -40% -20%)' }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1], delay: signed ? inked : 0 }}>
+              <Signed who={who} />
+            </motion.span>
             {/* Where it is from comes last, once the name is signed: one thing at a time, the words, the name, the book. */}
-            {where && signed && <motion.span className="min-w-0" initial={write ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE, delay: inked + 0.75 }}>in {where}</motion.span>}
+            {where && <motion.span aria-hidden={!signed || undefined} className="min-w-0" initial={false} animate={{ opacity: signed ? 1 : 0 }} transition={{ duration: 0.3, ease: EASE, delay: signed ? inked + 0.75 : 0 }}>in {where}</motion.span>}
           </p>
         </MemoryPostcard>
       </div>

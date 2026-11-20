@@ -1486,7 +1486,11 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
           </>
         )}
       </Words>
-      <div className="relative flex min-h-0 flex-1 flex-wrap content-center-safe items-center gap-x-[clamp(1.5rem,4vw,3.5rem)] gap-y-[clamp(0.75rem,2.5vh,1.5rem)] pb-2">
+      {/* From the top of its room, under the words, the box and its column level at their tops: centred, the stage moved
+          each time anything in it changed height, the box opening out of the keys 12px above where the keys had been
+          (Catch, 19 Nov film, 22.1s). The keys and the box now share one top-left corner, so the one turns into the other
+          in place and grows only down and across. */}
+      <div className="relative flex min-h-0 flex-1 flex-wrap content-start items-start gap-x-[clamp(1.5rem,4vw,3.5rem)] gap-y-[clamp(0.75rem,2.5vh,1.5rem)] pb-2">
         <div ref={frame} data-frame="box" className="relative w-[min(40rem,100%)] shrink-0 @min-[880px]:w-[min(40rem,56%)]">
           {s.keys && (
             <>
