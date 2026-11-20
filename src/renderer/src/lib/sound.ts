@@ -723,7 +723,7 @@ const hear = (name: string): void => void (heard.push(name), heard.length > 50 &
  * every other sound. Resolves to what is playing, so a loop can be stopped,
  * or to null when nothing could be (sounds off, or the file would not load).
  */
-function recording(url: string, level: number, name: string, options: { loop?: boolean; at?: number; rate?: number; /** Seconds in: from here it fades out over a quarter second, and stops. */ fadeAt?: number } = {}): Promise<AudioBufferSourceNode | null> {
+function recording(url: string, level: number, name: string, options: { loop?: boolean; at?: number; rate?: number; /** Seconds in: from here it fades out (over `fadeOut`, a quarter second unless said), and stops. */ fadeAt?: number; fadeOut?: number; /** Seconds it takes to rise from silence. */ fadeIn?: number } = {}): Promise<AudioBufferSourceNode | null> {
   if (!enabled || !volume) return Promise.resolve(null)
   const context = audio()
   if (!context) return Promise.resolve(null)
@@ -739,12 +739,18 @@ function recording(url: string, level: number, name: string, options: { loop?: b
     // A recording is louder than the drawn sounds: brought down to sit with them.
     gain.gain.value = level * volume
     source.connect(gain).connect(context.destination)
-    source.start(context.currentTime + (options.at ?? 0))
+    const start = context.currentTime + (options.at ?? 0)
+    source.start(start)
+    if (options.fadeIn) {
+      gain.gain.setValueAtTime(0, start)
+      gain.gain.linearRampToValueAtTime(level * volume, start + options.fadeIn)
+    }
     if (options.fadeAt !== undefined) {
-      const from = context.currentTime + (options.at ?? 0) + options.fadeAt
+      const from = start + options.fadeAt
+      const out = options.fadeOut ?? 0.25
       gain.gain.setValueAtTime(level * volume, from)
-      gain.gain.linearRampToValueAtTime(0, from + 0.25)
-      source.stop(from + 0.3)
+      gain.gain.linearRampToValueAtTime(0, from + out)
+      source.stop(from + out + 0.05)
     }
     hear(name)
     return source
@@ -914,11 +920,10 @@ export function sessionClock({ running, left, tick, level, sound }: Clock): void
   ticking = { key, source: recording(kind === 'tense' ? tenseUrl : tickOf(sound), (kind === 'tense' ? 0.5 : 0.35) * level, kind === 'tense' ? 'clock-tense' : `clock-tick ${sound ?? 'wall'}`, { loop: true, at }) }
 }
 let sample: Promise<AudioBufferSourceNode | null> | null = null
-/** A tick picked in Settings, heard for a second and a half at the ticking volume, so you know it before a session. */
+/** A sound picked in Settings, heard for five seconds at the session's volume, rising in and dying away, so you know it before a session. */
 export function tickSample(sound: TickSound, level: number): void {
   void sample?.then((source) => source?.stop())
-  const playing = (sample = recording(tickOf(sound), 0.35 * level, `tick-sample ${sound}`, { loop: true }))
-  setTimeout(() => void playing.then((source) => source?.stop()), 1500)
+  sample = recording(tickOf(sound), 0.35 * level, `tick-sample ${sound}`, { loop: true, fadeIn: 0.6, fadeAt: 4.2, fadeOut: 0.8 })
 }
 /** Time up: the alarm clock, short; the drawn bell if it cannot load. */
 export function alarm(): void {
