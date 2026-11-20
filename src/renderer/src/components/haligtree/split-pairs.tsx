@@ -78,7 +78,7 @@ export function PinnedSplit({ names, narrow, onOpen, onUnpin }: { names: PaneNam
   const both = names.map((one) => shownName(one.title)).join(' | ')
   // The unpin ✕ pointed at: the names beside it dim (a row's own state; a :has() rule restyled the whole page on every change).
   const [unpinHot, setUnpinHot] = useState(false)
-  const items: RowItem[] = [{ label: 'Open this split', run: () => onOpen(0) }, 'separator', { label: 'Unpin this split', run: onUnpin }]
+  const items: RowItem[] = [{ label: 'Open this split', run: () => onOpen(0) }, 'separator', { label: 'Remove this split from Favorites', run: onUnpin }]
   const art = (): React.ReactNode => (
     <div data-pair-card className="flex h-full gap-1.5">
       {names.map((one, index) => (
@@ -93,7 +93,7 @@ export function PinnedSplit({ names, narrow, onOpen, onUnpin }: { names: PaneNam
       ))}
     </div>
   )
-  const text = narrow ? `**${both}.** A pinned split. Click to open it. Right-click for more.` : '**A pinned split.** Click a name to open it with that side in front. Right-click for more.'
+  const text = narrow ? `**${both}.** A favorite split. Click to open it. Right-click for more.` : '**A favorite split.** Click a name to open it with that side in front. Right-click for more.'
   if (narrow) {
     return (
       <RowMenu items={items}>
@@ -121,7 +121,7 @@ export function PinnedSplit({ names, narrow, onOpen, onUnpin }: { names: PaneNam
                   <span data-pair-title className={`private-text min-w-0 flex-1 truncate ${index === names.length - 1 ? 'group-hover/pair:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]' : ''}`}>{one.title}</span>
                 </button>
                 {index === names.length - 1 && (
-                  <button type="button" data-pair-x-all aria-label={`Unpin this split, ${both}`} onClick={onUnpin}
+                  <button type="button" data-pair-x-all aria-label={`Remove this split from Favorites, ${both}`} onClick={onUnpin}
                     onPointerEnter={() => setUnpinHot(true)} onPointerLeave={() => setUnpinHot(false)}
                     className="absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground opacity-0 transition-[opacity,scale] duration-[120ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/pair:opacity-100 group-focus-within/pair:opacity-100 hover:bg-foreground/[0.07] hover:text-foreground focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97]">
                     <X aria-hidden className="size-3.5" />

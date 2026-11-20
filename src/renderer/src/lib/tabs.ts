@@ -8,7 +8,8 @@ import type { PaneWidth } from './split'
  * Plain functions over plain data: home.tsx says when, these say what.
  */
 export type Trail = { views: Step[]; at: number }
-export type Tab = { key: string; trail: Trail }
+/** `pinned`: a tab that stays, drawn small at the left of its row, kept through restarts (Safari's and Chrome's pinned tabs). */
+export type Tab = { key: string; trail: Trail; pinned?: true }
 export type Pane = { key: string; tabs: Tab[]; active: string; width?: PaneWidth }
 export type Split = { panes: Pane[]; front: string; sizes: number[] }
 
@@ -50,7 +51,23 @@ export function removePane(split: Split, key: string): Split {
   }
 }
 
-const changePane = (split: Split, key: string, change: (pane: Pane) => Pane): Split => ({ ...split, panes: split.panes.map((one) => (one.key === key ? change(one) : one)) })
+/** Pinned tabs first, each run in its own order: a tab placed or carried anywhere lands on its own side of them. */
+const pinnedFirst = (pane: Pane): Pane => {
+  const at = pane.tabs.findIndex((one) => !one.pinned)
+  return at < 0 || pane.tabs.slice(at).every((one) => !one.pinned) ? pane : { ...pane, tabs: [...pane.tabs.filter((one) => one.pinned), ...pane.tabs.filter((one) => !one.pinned)] }
+}
+const changePane = (split: Split, key: string, change: (pane: Pane) => Pane): Split => ({ ...split, panes: split.panes.map((one) => (one.key === key ? pinnedFirst(change(one)) : one)) })
+
+/** A tab pinned, at the end of its pane's pinned ones, or let go, just after them. */
+export const pinTab = (split: Split, key: string, tab: string, on: boolean): Split =>
+  changePane(split, key, (pane) => {
+    const one = pane.tabs.find((each) => each.key === tab)
+    if (!one) return pane
+    const rest = pane.tabs.filter((each) => each !== one)
+    const at = rest.filter((each) => each.pinned).length
+    const moved: Tab = on ? { ...one, pinned: true } : { key: one.key, trail: one.trail }
+    return { ...pane, tabs: [...rest.slice(0, at), moved, ...rest.slice(at)] }
+  })
 
 /** A tab placed in a pane (just after the open one unless said), open and in front. */
 export const addTab = (split: Split, key: string, tab: Tab, at?: number): Split => ({
@@ -127,7 +144,7 @@ export function readSplit(kept: unknown, step: (one: Step) => Step): Split | nul
     if (typeof one?.key !== 'string') return null
     const tabs: Tab[] = fineTrail(one.trail) ? [{ key: newKey('t'), trail: one.trail }] : Array.isArray(one.tabs) ? one.tabs : []
     if (!tabs.length || !tabs.every((tab) => typeof tab?.key === 'string' && fineTrail(tab.trail))) return null
-    panes.push({ key: one.key, width: one.width, active: tabs.some((tab) => tab.key === one.active) ? one.active : tabs[0].key, tabs: tabs.map((tab) => ({ ...tab, trail: { ...tab.trail, views: tab.trail.views.map(step) } })) })
+    panes.push(pinnedFirst({ key: one.key, width: one.width, active: tabs.some((tab) => tab.key === one.active) ? one.active : tabs[0].key, tabs: tabs.map((tab) => ({ key: tab.key, ...(tab.pinned === true && { pinned: true as const }), trail: { ...tab.trail, views: tab.trail.views.map(step) } })) }))
   }
   const sizes = raw.sizes as number[]
   return {
@@ -142,9 +159,9 @@ export const bareSplit = (split: Split): Split => ({
   ...split,
   panes: split.panes.map((pane) => ({
     ...pane,
-    tabs: pane.tabs.map(({ key, trail }) => {
+    tabs: pane.tabs.map(({ key, trail, pinned }) => {
       const from = Math.max(0, Math.min(trail.at, trail.views.length - 50))
-      return { key, trail: { views: trail.views.slice(from).map(({ id, focus, tab, folder }) => ({ id, focus, tab, folder })), at: trail.at - from } }
+      return { key, ...(pinned && { pinned }), trail: { views: trail.views.slice(from).map(({ id, focus, tab, folder }) => ({ id, focus, tab, folder })), at: trail.at - from } }
     })
   }))
 })

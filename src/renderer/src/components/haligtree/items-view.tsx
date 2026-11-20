@@ -187,7 +187,7 @@ const rowOf = (item: Item): Entry => {
         {item.supersededBy && <Tip label="Replaced by a corrected gem: out of Review, kept beside what is true"><span className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Replaced</span></Tip>}
         {/* Said in words, as "Replaced" is: a bare orange triangle gave no reason (its tip never showed on the icon). */}
         {item.lapses >= 4 && <Tip label={`Forgotten ${num(item.lapses)} times in Review: rewording it, or splitting it in two, often helps`}><span data-often-forgotten="" className="shrink-0 text-xs text-[var(--tt-color-text-orange)]">Often forgotten</span></Tip>}
-        {item.pinnedAt && <Tip label="Pinned: at the top of the sidebar and in quick capture"><Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Pinned" /></Tip>}
+        {item.pinnedAt && <Tip label="In Favorites: in the sidebar and in quick capture"><Pin className="size-3 shrink-0 text-muted-foreground" aria-label="In Favorites" /></Tip>}
         {item.private ? <Tip label="Private: never comes up unasked in quiet hours or safe mode"><EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /></Tip> : null}
       </>
     ),
@@ -687,7 +687,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   ] : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
-    { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+    { label: item.pinnedAt ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     item.unsorted ? { label: 'Mark as sorted', hint: 'Kept where it is', run: () => markSorted([item.id], true) } : null,
     { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(item.id) },
@@ -1021,7 +1021,7 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
 export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   { label: 'Open', keys: '↵', run: open },
   'separator',
-  { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
+  { label: item.pinnedAt ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin('nuggets', item.id, !item.pinnedAt) },
   { label: 'Keep in folder…', run: () => askFolder([{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]) },
   ...itemMenu(item),
   'separator',
@@ -1419,7 +1419,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             {item.private ? 'Private' : 'Not private'}
           </Prop>
           <Prop icon={Pin} active={!!item.pinnedAt} onClick={() => pin('nuggets', item.id, !item.pinnedAt)}>
-            {item.pinnedAt ? 'Pinned to the sidebar and quick capture' : 'Pin to the sidebar and quick capture'}
+            {item.pinnedAt ? 'In Favorites, in the sidebar and quick capture' : 'Add to Favorites, in the sidebar and quick capture'}
           </Prop>
           <RemindMe table="nuggets" id={item.id} at={item.remindAt} />
           <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)} tip={item.archivedAt ? 'Bring it back' : 'Kept, out of sight'}>
@@ -1639,7 +1639,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
     // The reminder it had, back with Undo: a cleared or moved date is never lost to a slip.
     const was = at
     void haligtree.remind(table, id, date ? date.toISOString() : null).then(() =>
-      (chime(date ? 'pin' : 'off'), toast(date ? `Pins itself in quick capture's Inbox ${whenInLine(date.toISOString(), false)}, with a “waiting” chip at the top of quick capture` : 'Reminder cleared', () => void haligtree.remind(table, id, was))))
+      (chime(date ? 'pin' : 'off'), toast(date ? `Joins your Favorites ${whenInLine(date.toISOString(), false)}, with a “waiting” chip at the top of quick capture` : 'Reminder cleared', () => void haligtree.remind(table, id, was))))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1834,7 +1834,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.filter((type) => all.some((one) => one.kind === type.id)).map(({ id, label, icon, tint }) => ({ id, label, icon, tint })), test: (one, kind) => one.kind === kind },
     { key: 'when', label: 'Saved', options: AGES, test: (one, when) => inAge(one.createdAt, when) },
     { key: 'tested', label: 'Review', options: [{ id: 'tested', label: 'Tested' }, { id: 'not', label: 'Not tested' }, { id: 'leech', label: 'Forgotten often' }], test: (one, how) => (how === 'leech' ? one.lapses >= 4 : !!one.prompt === (how === 'tested')) },
-    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') },
+    { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Favorites' }, { id: 'private', label: 'Private' }, { id: 'pushed', label: 'Note to self' }, { id: 'archived', label: 'Archived' }], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'private' ? !!one.private : flag === 'archived' ? !!one.archivedAt : one.mode === 'pushed') },
     // The view before 19 Nov, for anyone who wants it: only what has no folder yet.
     { key: 'folder', label: 'Folder', options: [{ id: 'unfiled', label: 'Only ones not in a folder' }], test: (one) => !folderOf[one.id] }
   ]

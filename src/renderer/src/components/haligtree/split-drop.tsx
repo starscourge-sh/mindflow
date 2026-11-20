@@ -12,7 +12,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { still } from '@/lib/motion'
 import { refuse } from './ui'
 import { CarriedCard, swallowClick, swallowRelease, titleOf } from './carry'
-import { gapIn, setCarry } from './tab-row'
+import { carriedPinned, gapIn, setCarry } from './tab-row'
 import '@/lib/carry-cursor'
 
 /**
@@ -301,7 +301,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         const box = row.getBoundingClientRect()
         row.scrollLeft += px < box.left + 24 ? -12 : px > box.right - 24 ? 12 : 0
         gapped = { pane: row.dataset.tabRow!, at }
-        setCarry({ from, gap: { ...gapped, width: Math.min(120, Math.max(44, box.width / (row.querySelectorAll('[data-tab]').length + 1))) } })
+        setCarry({ from, gap: { ...gapped, width: carriedPinned(from) ? 40 : Math.min(120, Math.max(44, box.width / (row.querySelectorAll('[data-tab]').length + 1))) } })
       } else if (gapped) letGap()
       // A tab's places come up once it is off the rows, down over the page; a lone tab of a lone pane has none to go to.
       if (down?.source.carried.tab) {

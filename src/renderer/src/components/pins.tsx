@@ -55,12 +55,12 @@ export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: s
               <RowMenu items={[
                 { label: 'Open', run: () => onOpen(pin.type, pin.id) },
                 // Folded to a chip, its "Still relevant?" question is asked here instead.
-                compact && stale && { label: 'Keep it pinned', hint: 'Still relevant', run: () => void haligtree.pin(table, pin.id, true) },
+                compact && stale && { label: 'Keep in Favorites', hint: 'Still relevant', run: () => void haligtree.pin(table, pin.id, true) },
                 pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void haligtree.pin(table, pin.id, true) }).then((made) => made && haligtree.pin(table, pin.id, false)) },
                 'separator',
-                ...orderItems({ setting: 'pinOrder', usual: usual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: every.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'New note' }, custom),
+                ...orderItems({ setting: 'pinOrder', usual: usual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: every.map((one) => `${one.type}:${one.id}`), what: 'Favorites', name: pin.title || 'New note' }, custom),
                 'separator',
-                { label: 'Unpin', run: () => unpin(table, pin.id, false) }
+                { label: 'Remove from Favorites', run: () => unpin(table, pin.id, false) }
               ]}>
                 <button type="button" data-private={pin.private ? '' : undefined} className="-my-1 min-w-0 flex-1 py-1 text-left hover:underline" onClick={() => onOpen(pin.type, pin.id)}>
                   {/* Cut inside the blurred words, so the "…" is blurred with them. */}
@@ -76,10 +76,10 @@ export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: s
                   )}
                 </span>
               )}
-              <Tip label="Unpin">
+              <Tip label="Remove from Favorites">
               <button
                 type="button"
-                aria-label="Unpin"
+                aria-label="Remove from Favorites"
                 className="relative rounded p-0.5 text-muted-foreground opacity-0 transition-opacity after:absolute after:-inset-1 after:rounded group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                 onClick={() => unpin(table, pin.id, false)}
               >

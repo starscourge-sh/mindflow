@@ -215,13 +215,13 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                     by it); else, in "Lately", when it was last written. */}
                 {!chosen && (recent > 0 && recent < count ? <span data-tag-recent className="shrink-0 text-xs text-muted-foreground tabular-nums">+{num(recent)} this month</span>
                   : order === 'recent' && last ? <span className="shrink-0 text-xs text-muted-foreground">{ago(last)}</span> : null)}
-                {/* A star, on pointing, to make it a favourite (kept in the sidebar); a favourite keeps it filled. */}
+                {/* A star, on pointing, to star it (kept in the sidebar); a starred one keeps it filled. */}
                 {!example && (() => {
                   const fav = (sideSaved ?? []).includes(tag)
                   // Reached by Tab too, shown while it or its row has the keys; Enter or Space stars it, not the row under it.
                   return (
-                    <Tip label={fav ? 'Remove from favourites' : 'Add to favourites'}>
-                      <span role="button" tabIndex={0} aria-label={fav ? `Remove #${tag} from favourites` : `Add #${tag} to favourites`} aria-pressed={fav} data-tag-fav={tag}
+                    <Tip label={fav ? 'Unstar this tag' : 'Star this tag, in the sidebar'}>
+                      <span role="button" tabIndex={0} aria-label={fav ? `Unstar #${tag}` : `Star #${tag}, in the sidebar`} aria-pressed={fav} data-tag-fav={tag}
                         onClick={(event) => (event.stopPropagation(), void toggleSideTag(tag, real.map((one) => one.tag)))}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter' && event.key !== ' ') return

@@ -1,5 +1,5 @@
 import { type ComponentType, type CSSProperties, type RefAttributes } from 'react'
-import { Archive, Images, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, Images, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, ListVideo, Newspaper, Bookmark, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -107,7 +107,7 @@ export const JOURNAL_SCALES: Place[] = [
 ]
 
 /**
- * The sidebar's two lists of notes, not pages: Pinned (what you pinned) and
+ * The sidebar's two lists of notes, not pages: Favorites (what you added) and
  * Recent (the last few you opened), under the first run of pages. Each has a
  * switch beside the pages', kept apart as the ones switched off
  * (`sidebarGroupsOff`), so every book shows both until one is switched off.
@@ -115,7 +115,7 @@ export const JOURNAL_SCALES: Place[] = [
  * notes are gone from the sidebar. They sit where the sidebar draws them, so they do not drag.
  */
 export const SIDE_GROUPS: Place[] = [
-  { id: 'pinned', emoji: '📌', label: 'Pinned', icon: Pin, tint: 'yellow' },
+  { id: 'pinned', emoji: '🔖', label: 'Favorites', icon: Bookmark, tint: 'yellow' },
   { id: 'recent', emoji: '🕰️', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
 ]
 const isGroup = (id: string): boolean => SIDE_GROUPS.some((one) => one.id === id)

@@ -46,7 +46,7 @@ try {
   const read = await v('tag:read', 'countz')
   check('the page reads the same notes the count counts', read.length === SHOWN + LATER && read.filter((one) => !one.later).length === SHOWN, `${read.length} read, ${read.filter((one) => !one.later).length} shown`)
 
-  // The sidebar: made a favourite (settings' sideTags, as "Add to favourites" does) so it is listed whatever else the
+  // The sidebar: made a favourite (settings' sideTags, as "Star this tag" does) so it is listed whatever else the
   // sandbox holds. The old way, a 'tags:pinned' list in localStorage, is no longer read, so this failed on main too.
   await v('settings:set', { sideTags: ['countz'] })
   const shownIn = (await v('settings')).sidebarShown

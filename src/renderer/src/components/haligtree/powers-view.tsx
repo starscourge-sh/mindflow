@@ -140,11 +140,11 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
                   <LearnOffer className="-ml-2 mt-3" />
                 </>
               )}
-              {/* Unpinned from the sidebar's Pinned: one way to put it back, where it is missed. */}
+              {/* Taken out of the sidebar's Favorites: one way to put it back, where it is missed. */}
               {pinned === false && (
                 <button type="button" data-powers-repin className="mt-3 flex items-center gap-1.5 text-control font-medium text-(--mf-muted-strong) underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
                   onClick={() => (chime('tap'), void haligtree.setSettings({ powersPinned: true }))}>
-                  Pin this page to the sidebar
+                  Add this page to Favorites
                 </button>
               )}
               {!focusTools && tab === 'Tasks and time' && !searching && (

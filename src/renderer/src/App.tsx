@@ -2380,7 +2380,7 @@ export default function App(): React.JSX.Element {
               const was = !!appSettings?.sounds
               toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void haligtree.setSettings({ sounds: was })))
             } },
-            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', hint: appSettings?.safeMode ? 'Hints, pins, sticky notes and goal cards come back' : 'Nothing comes up unasked, for sharing your screen', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => {
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', hint: appSettings?.safeMode ? 'Hints, favorites, sticky notes and goal cards come back' : 'Nothing comes up unasked, for sharing your screen', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => {
               const on = !appSettings?.safeMode
               sayNow(haligtree.setSettings({ safeMode: on }), on ? 'Safe mode on' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on }))
             } },
@@ -2453,14 +2453,14 @@ export default function App(): React.JSX.Element {
         startOver()
       }} title={SMALL ? (editing ? first || 'Untitled' : topTitle) : appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
-      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints or pinned notes come up  ⌥⌘S"><span className={`flex items-center ${HEADER_SHAPE} px-2.5 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]`}>Safe</span></Tip>
+      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints or favorites come up  ⌥⌘S"><span className={`flex items-center ${HEADER_SHAPE} px-2.5 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]`}>Safe</span></Tip>
         // Pinned notes live in the side panel's Inbox; with the panel shut, a
         // chip up here says they are there, and opens it on them. Kept with
         // the panel open too, so it never pops out as the panel slides in.
         : pinned.length > 0 && !lesson && !SMALL && !unloaded(pinned) ? (
           // Its name says what pressing it does, for the bar's word when Tab chooses it. From the pill too: the pill grows
           // into the box with the panel open on them.
-          <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : `Your ${plural(Math.min(BOX_PINS, pinned.length), 'pinned note')}, in the side panel  ⌘\\`}>
+          <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : `Your ${plural(Math.min(BOX_PINS, pinned.length), 'favorite')}, in the side panel  ⌘\\`}>
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
@@ -2471,7 +2471,7 @@ export default function App(): React.JSX.Element {
                 if (!panel) setPanel(true)
               }}
               className={`group/waiting flex items-center gap-1 ${HEADER_SHAPE} pr-1.5 pl-2.5 text-key leading-none text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground`}>
-              <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> pinned</span>
+              <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> {Math.min(BOX_PINS, pinned.length) === 1 ? 'favorite' : 'favorites'}</span>
               {/* Says it opens something: a chevron that leans on hover. */}
               <ChevronRight aria-hidden className="size-3 transition-transform group-hover/waiting:translate-x-0.5" />
             </button>

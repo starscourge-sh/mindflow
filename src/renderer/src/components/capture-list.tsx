@@ -249,7 +249,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   // Out of the Inbox, into a place: Folders' one picker (lib/folders.ts).
   capture.status !== 'discarded' && { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: 'capture', id: capture.id }]) },
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },
-  { label: capture.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('captures', capture.id, !capture.pinnedAt) },
+  { label: capture.pinnedAt ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin('captures', capture.id, !capture.pinnedAt) },
   { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
@@ -300,7 +300,7 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     marks: (
       <>
         {capture.pinnedAt && (
-          <Tip label="Pinned: at the top of the sidebar, and in quick capture">
+          <Tip label="In Favorites: in the sidebar, and in quick capture">
             <Pin className="size-3 shrink-0 text-muted-foreground" />
           </Tip>
         )}

@@ -83,7 +83,7 @@ const state = () => h.evaluate(() => ({
   card: document.querySelector('[data-split-card]')?.textContent ?? null,
   lit: [...document.querySelectorAll('[data-queue-hot]')].map((one) => one.getAttribute('data-side-drop') ?? one.getAttribute('data-queue-drop') ?? 'queue'),
   dragging: document.documentElement.hasAttribute('data-split-drag'),
-  dropToPin: [...document.querySelectorAll('[data-side-drop="pinned"]')].some((one) => one.offsetParent && one.textContent.includes('Drop here to pin')),
+  dropToPin: [...document.querySelectorAll('[data-side-drop="pinned"]')].some((one) => one.offsetParent && one.textContent.includes('Drop here to add to Favorites')),
   panes: [...document.querySelectorAll('[data-pane]')].length,
   heads: [...document.querySelectorAll('[data-tab-on]')].map((one) => one.getAttribute('data-drag-title')),
   open: [...document.querySelectorAll('[data-pane] [data-open][data-task-row] [data-task-title]')].map((one) => one.textContent)
@@ -169,17 +169,17 @@ after = await state()
 check('task open: let go on the right opens the task carried, not the open one', after.panes === 2 && after.heads.filter(Boolean).join('|') === 'analyse claims|admin forms', JSON.stringify(after))
 await single()
 
-// 5. Over the sidebar's Pinned: a task is not taken there, so it does not light.
+// 5. Over the sidebar's Favorites: a task is not taken there, so it does not light.
 await go('today')
 const pinned = await rect('[data-side-drop="pinned"]')
 r = await row('write the report')
 if (pinned) {
   seen = await carry('write the report', [[pinned.x, pinned.y]])
   check('over Pinned: it does not light for a task', !seen.lit.includes('pinned'), JSON.stringify(seen))
-} else check('Pinned shows in the sidebar (skipped: none)', true)
+} else check('Favorites shows in the sidebar (skipped: none)', true)
 const nav = await rect('aside nav')
 seen = await carry('write the report', [[nav.x, nav.bottom - 40]])
-check('over the sidebar (nothing there takes a task): nothing lights, no “Drop here to pin”, nothing left', seen.lit.length === 0 && !seen.dropToPin && (await clean()), JSON.stringify(seen))
+check('over the sidebar (nothing there takes a task): nothing lights, no “Drop here to add to Favorites”, nothing left', seen.lit.length === 0 && !seen.dropToPin && (await clean()), JSON.stringify(seen))
 
 // 6. Let go outside the window, and a quick throw.
 seen = await carry('write the report', [[page0.right + 200, r.y]])

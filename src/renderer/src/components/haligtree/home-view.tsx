@@ -208,7 +208,7 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
     ...(card.type === 'task' ? [] : queueItems(card.id)),
     readable(card) && { label: 'Read it, full screen', run: () => read(list, at) },
     'separator',
-    table && pinned !== undefined && { label: pinned ? 'Unpin' : 'Pin to the sidebar', run: () => pin(table, card.id, !pinned) },
+    table && pinned !== undefined && { label: pinned ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin(table, card.id, !pinned) },
     card.type !== 'task' && copyLinkItem(card.id, nameOf(card)),
     'separator',
     binItem([{ type: card.type, id: card.id }])
@@ -239,7 +239,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
             ? <span className="relative aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]"><Picture src={src} onBroken={() => setBroken(true)} /><LeavingPicture src={leaving} onDone={left} /></span>
             : <span className="relative aspect-square h-full shrink-0 overflow-hidden rounded-l-md"><KindMark card={card} className="size-full" /><LeavingPicture src={leaving} onDone={left} /></span>}
           <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
-          {pinned && <Pin className="absolute right-3 size-3.5 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
+          {pinned && <Pin className="absolute right-3 size-3.5 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="In Favorites" />}
         </button>
         {readable(card) && (
           <RoundRead onRead={() => actions.read([card], 0)}
@@ -1074,7 +1074,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           <div className="flex flex-col gap-4 empty:hidden">
             {/* What the tiles are, said once: a newcomer should not have to guess. Under the
                 chips, so a chip with no tiles never moves the chips under the pointer. */}
-            {shownTiles.length > 0 && <div className="px-5 @[44rem]/page:px-8"><Heading title={pins.length ? 'Pinned, and what you opened lately' : 'What you opened lately'} /></div>}
+            {shownTiles.length > 0 && <div className="px-5 @[44rem]/page:px-8"><Heading title={pins.length ? 'Favorites, and what you opened lately' : 'What you opened lately'} /></div>}
             {shownTiles.length > 0 && (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2 px-5 @[44rem]/page:px-8">
                 {shownTiles.map((card) => <Tile key={card.id} card={card} pinned={pinned.has(card.id)} actions={actions} onHover={(look) => startTransition(() => setHover(look))} />)}
