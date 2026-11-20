@@ -2148,10 +2148,12 @@ const GOLD = '#C9961C'
 const GILT = '#F2C24A'
 const paletteRead = (): string[] => {
   const mix = (share: number, other = 'var(--background)', ink = GOLD): string => resolve(`color-mix(in oklab, ${ink} ${share}%, ${other})`)
-  // Light: the gold no more than half in, its brightest a wash of gilt on white. Dark: bronze deepening from the page up to the gold, its brightest the gilt.
+  // One narrow band of warm gold, so the gradient moves in tone, never from the bare page at one side to deep gold at
+  // the other: that spread read as "mud on the right" (the user, 15 Nov), and on a dark theme as black beside bronze.
+  // Light: parchment washed with gold. Dark: bronze leather, its brightest a soft gilt.
   const colours = lightNow()
-    ? [resolve('var(--background)'), mix(12), mix(26), mix(42), mix(24, 'white', GILT)]
-    : [resolve('var(--background)'), mix(28), mix(60), resolve(GOLD), mix(80, 'var(--background)', GILT)]
+    ? [mix(10), mix(15), mix(20), mix(26), mix(18, 'white', GILT)]
+    : [mix(20), mix(26), mix(32), mix(38), mix(30, 'var(--background)', GILT)]
   return colours
 }
 /** The same list until the theme changes, so a render reads nothing and the gradient is handed the same colours. */
