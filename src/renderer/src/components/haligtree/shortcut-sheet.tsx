@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { CirclePlus, Keyboard } from 'lucide-react'
 import { chime, click } from '@/lib/sound'
+import { capsNow, meets } from '@/lib/needs'
 import { SHORTCUTS, findShortcuts, grouped, whereSaid, type Shortcut } from '@/lib/shortcuts'
 import { clashes, comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { Button } from '@/components/ui/button'
@@ -26,7 +27,7 @@ export const Keys = ({ keys, className }: { keys: string; className?: string }):
 function ShortcutList({ query, columns = false, quiet = false }: { query: string; columns?: boolean; quiet?: boolean }): React.JSX.Element | null {
   useKeyChanges()
   // As you press them now; one you cleared is not a shortcut any more.
-  const found = findShortcuts(query, keyFor).filter((one) => keyFor(one.keys))
+  const found = findShortcuts(query, keyFor).filter((one) => keyFor(one.keys) && (!one.ai || meets(capsNow(), 'ai')))
   // Quiet: nothing at all, so a Settings search hides the whole island.
   if (!found.length && quiet) return null
   if (!found.length) return <p className="px-4 py-3 text-meta text-muted-foreground"><Typed text="No shortcut matches. Try what it does, like “search” or “task”." /></p>
@@ -128,7 +129,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
   }, [finding, recording])
 
   const query = search || (finding ? '' : words)
-  const all = findShortcuts(query, keyFor)
+  const all = findShortcuts(query, keyFor).filter((one) => !one.ai || meets(capsNow(), 'ai'))
   const counts = {
     changed: SHORTCUTS.filter((one) => one.keys in changes).length,
     conflicts: SHORTCUTS.filter((one) => toneOf(one)).length,

@@ -95,8 +95,8 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
     if (!ai) {
       await pick('Teh lecture'); await wait(500)
       await h.keyboard.press('Control+Meta+w'); await wait(600)
-      const said = await h.evaluate(() => document.body.innerText.includes('Writing help needs Apple Intelligence'))
-      check('macos26: ⌃⌘W says what Writing help needs, never nothing', said)
+      const said = await h.evaluate(() => /Writing help|Apple Intelligence/.test(document.body.innerText))
+      check('macos26: ⌃⌘W is not Writing help\'s on a Mac without it: nothing about it is said', !said)
     }
     if (ai) {
       const ready = async () => { for (let t = 0; t < 10000 && (await card())?.state === 'working'; t += 150) await wait(150) }
@@ -312,10 +312,10 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       }
     }
     await h.keyboard.press('Escape'); await wait(300)
-    // What Haligtree can do: the card is there on every Mac, saying what it needs where the Mac lacks it.
+    // What Haligtree can do: the card only on a Mac with Apple Intelligence (the user, 20 Nov).
     await c.go('powers'); await wait(1200)
     const power = await h.evaluate(() => { const one = document.querySelector('[data-power="writinghelp"]'); return one && { lacking: one.hasAttribute('data-mac-lacking'), says: /Needs Apple Intelligence/.test(one.textContent) } })
-    check(`${level}: What Haligtree can do lists Writing help ${ai ? 'as working here' : 'as needing Apple Intelligence'}`, !!power && (ai ? !power.lacking : power.lacking && power.says), JSON.stringify(power))
+    check(`${level}: What Haligtree can do ${ai ? 'lists Writing help as working here' : 'does not list Writing help'}`, ai ? !!power && !power.lacking : !power, JSON.stringify(power))
     check(`${level}: no page errors`, !c.errors.length, c.errors.slice(0, 3).join(' | '))
   } finally {
     await c.close()

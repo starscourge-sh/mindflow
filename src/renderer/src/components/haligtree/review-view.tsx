@@ -55,6 +55,7 @@ import { CoveredPicture } from './picture-cards'
 import { occlusionOf, type Occlusion } from '../../../../main/occlusion'
 import { Orb } from './orb'
 import { VERDICT_SAID, cutWords, hint as askHint, hintedTimes, judge, meaningGrade, useStudyAi, wordsOf, type Judged } from '@/lib/study-ai'
+import { useHas } from '@/lib/needs'
 
 /**
  * A way somewhere inside a line of words, its key beside it, as Files' "In" links are drawn: the words underlined
@@ -446,6 +447,8 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
   }
   // Apple Intelligence, where this Mac has it: the typed answer judged by what it means, and a hint before the answer.
   const ai = useStudyAi(useLive(haligtree.settings, null as Settings | null))
+  // The box to type the answer in: only on a Mac with Apple Intelligence (its switch in Settings off, still word for word).
+  const answerBox = useHas('ai')
   const answerWords = card ? wordsOf(answer ?? textOf(card.body)) : ''
   // Hints asked for this card: each a step stronger, the second the last; each schedules the card a step sooner.
   const [hinting, setHinting] = useState<{ id: string; said: string[]; busy: boolean; error?: string } | null>(null)
@@ -885,7 +888,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
 
         {shown ? (
           <>
-            {said.trim() && (
+            {answerBox && said.trim() && (
               <div data-typed={exactly ? 'exact' : judgeKey ? 'meaning' : 'self'} className="-mb-2 flex flex-col gap-1 text-sm">
                 {!verdict && !judging && <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>}
                 {judging || verdict ? (
@@ -978,7 +981,9 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
           </>
         ) : (
           <>
-          <Textarea
+          {/* Typing the answer first is Apple Intelligence's to check: on a Mac without it, Anki's way, the answer is
+              shown and the grade is yours, with no box to type in (the user, 20 Nov). */}
+          {answerBox && <Textarea
             ref={box}
             value={said}
             onChange={(event) => setSaid(event.target.value)}
@@ -994,7 +999,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
             // Ruled lines under the card, written on in the card's serif: a page to answer on, not a grey box.
             className="min-h-0 resize-none rounded-none border-0 bg-transparent px-5 py-0 font-serif text-heading leading-[2.25rem] shadow-none placeholder:font-sans placeholder:text-body placeholder:italic placeholder:text-muted-foreground focus-visible:ring-0 dark:bg-transparent md:text-heading"
             style={{ backgroundImage: 'repeating-linear-gradient(to bottom, transparent 0 calc(2.25rem - 1px), color-mix(in oklab, var(--foreground) 12%, transparent) calc(2.25rem - 1px) 2.25rem)', backgroundAttachment: 'local' }}
-          />
+          />}
           <span className="flex flex-wrap items-center gap-3 self-start">
             <Button size="lg" onClick={reveal} className="cursor-pointer" data-show-answer>
               {sides ? `Show the ${sides[1]}` : 'Show the answer'}
