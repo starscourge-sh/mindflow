@@ -1,108 +1,81 @@
-/* Your books on a shelf (books.tsx BookShelf): spines in a row on a ledge, the one pointed at pulled out and turned to
-   its face. Unlayered, so it wins over the menu row's own utilities that the item hands its spine. */
+/* Your books on a shelf (books.tsx BookShelf): the welcome's 3D book (book-box.tsx) standing spine out in a row on a
+   ledge, the one pointed at pulled out and turned to its cover, named under the shelf. Unlayered, so it wins over the
+   menu row's own utilities that the item hands its book. */
 .mf-shelf {
   /* As wide as the menu, never widening it: 30 books scroll inside it rather than stretch it across the window. */
   contain: inline-size;
   display: flex;
   align-items: flex-end;
-  gap: 3px;
-  height: 118px;
-  margin: 2px 0 6px;
-  padding: 10px 8px 0;
+  gap: 4px;
+  height: 124px;
+  margin: 2px 0 0;
+  padding: 14px 8px 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  /* The ledge they stand on: a hairline and a soft shadow under the spines. */
+  /* The ledge they stand on: a hairline and a soft shadow under the books. */
   border-bottom: 1px solid var(--border);
   box-shadow: inset 0 -4px 0 color-mix(in oklab, var(--foreground) 5%, transparent);
 }
 .mf-shelf::-webkit-scrollbar { display: none; }
+/* A book's room on the shelf: its width and lift are the book's own spring (books.tsx ShelfBook); the book stands in it. */
 .mf-shelf .mf-spine {
   position: relative;
   flex: none;
   display: block;
-  width: 26px;
   min-height: 0;
-  height: var(--tall, 96px);
   margin-bottom: 4px;
   padding: 0;
-  overflow: hidden;
-  border-radius: 3px 3px 2px 2px;
+  border-radius: 3px;
+  background: none;
   cursor: pointer;
-  color: var(--foreground);
-  background:
-    linear-gradient(90deg, color-mix(in oklab, var(--foreground) 10%, transparent), transparent 22%, transparent 78%, color-mix(in oklab, var(--foreground) 12%, transparent)),
-    color-mix(in oklab, var(--spine) 42%, var(--popover));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--spine) 40%, var(--border)), 0 2px 3px -2px color-mix(in oklab, var(--foreground) 35%, transparent);
-  transition: width 220ms var(--mf-ease, cubic-bezier(0.16, 1, 0.3, 1)), translate 220ms var(--mf-ease, cubic-bezier(0.16, 1, 0.3, 1));
   outline: none;
 }
-/* Two gilt bands across the spine, top and foot, as a bound book has. */
-.mf-shelf .mf-spine::before,
-.mf-shelf .mf-spine::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: color-mix(in oklab, var(--spine) 70%, var(--foreground));
-  opacity: 0.5;
-}
-.mf-shelf .mf-spine::before { top: 7px; }
-.mf-shelf .mf-spine::after { bottom: 7px; }
-.mf-spine-side {
-  position: absolute;
-  inset: 12px 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  writing-mode: vertical-rl;
-  overflow: hidden;
-  font-family: var(--font-heading);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 26px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  /* Back on a spine, its name comes once the face has gone: never the two names over each other. */
-  transition: opacity 100ms ease-out 80ms;
-}
+.mf-shelf .mf-spine:active { scale: 0.97; }
+.mf-shelf .mf-spine * { cursor: pointer; }
+/* The menu inks a lit row's words in its own colour: a book keeps its own, the cover's name in its ink, the spine's in gold foil. */
+.mf-shelf .mf-spine .mf-spine-face * { color: inherit; }
+.mf-shelf .mf-spine [data-reader-spine-face] span { color: transparent; }
+/* Its cover: cream washed with the book's colour, a tooled frame in its ink, the name set in from the hinge. */
 .mf-spine-face {
-  position: absolute;
-  inset: 0;
-  width: 88px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 4px;
-  padding: 13px 9px 12px;
-  opacity: 0;
-  transition: opacity 60ms ease-out;
+  padding: 11px 9px 10px 13px;
+  background: color-mix(in oklab, var(--mf-card-a) 45%, #fffbea);
+}
+.mf-spine-face::before {
+  content: '';
+  position: absolute;
+  inset: 4px 4px 4px 9px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  opacity: 0.18;
+  pointer-events: none;
 }
 .mf-spine-name {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   overflow: hidden;
-  font-family: var(--font-heading);
+  font-family: 'Fraunces Variable', Georgia, serif;
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.15;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  /* Wrapped, never cut on one line: the menu row it sits in keeps its words on one. */
   white-space: normal;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
-.mf-spine-said { flex-shrink: 0; font-size: 11px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--mf-muted-strong); }
-/* Pulled out and turned: the one the pointer or the keys are on, else the open book, so one always stands turned. */
-.mf-shelf .mf-spine[data-highlighted],
-.mf-shelf:not(:has([data-highlighted])) .mf-spine[aria-current] { width: 88px; translate: 0 -5px; }
-.mf-shelf .mf-spine[data-highlighted] .mf-spine-side,
-.mf-shelf:not(:has([data-highlighted])) .mf-spine[aria-current] .mf-spine-side { opacity: 0; transition: opacity 60ms ease-out; }
-.mf-shelf .mf-spine[data-highlighted] .mf-spine-face,
-.mf-shelf:not(:has([data-highlighted])) .mf-spine[aria-current] .mf-spine-face { opacity: 1; transition: opacity 120ms ease-out 70ms; }
-.mf-shelf .mf-spine:active { scale: 0.97; }
-@media (prefers-reduced-motion: reduce) {
-  .mf-shelf .mf-spine, .mf-spine-side, .mf-spine-face { transition: none; }
+/* The turned book named under the shelf: one line for its name, one for when you were in it, the same height whichever book. */
+.mf-shelf-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin: 0 0 6px;
+  padding: 6px 10px 0;
+  text-align: center;
 }
-:root[data-motion='off'] :is(.mf-shelf .mf-spine, .mf-spine-side, .mf-spine-face),
-.mf-shelf[data-keyed] :is(.mf-spine, .mf-spine-side, .mf-spine-face) { transition: none !important; }
+.mf-spine-said-name { max-width: 100%; font-family: var(--font-heading); font-size: 13px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mf-spine-said { max-width: 100%; font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--mf-muted-strong); }

@@ -1,6 +1,7 @@
-// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book a spine in its colour, the open
-// one turned to its face, the one pointed at pulled out and turned instead, the shelf one width throughout; a press on
-// another book opens it. Real pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
+// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the welcome's 3D book standing
+// spine out in its colour, the open one turned to its cover, the one pointed at (or reached by the keys) pulled out and
+// turned instead and named under the shelf, the shelf one width throughout; a press on another book opens it. Real
+// pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
 // QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 node qa/book-shelf.mjs
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
@@ -22,9 +23,12 @@ const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const wait = (ms) => h.waitForTimeout(ms)
 const film = async (name, n) => { if (!shots) return; for (let i = 0; i < n; i++) { await h.screenshot({ path: `${shots}/${name}-${String(i).padStart(2, '0')}.png` }); await wait(50) } }
-const spines = () => h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => ({ id: one.getAttribute('data-book'), open: one.getAttribute('aria-current') === 'true', w: Math.round(one.getBoundingClientRect().width), x: Math.round(one.getBoundingClientRect().x), lit: one.hasAttribute('data-highlighted'), face: getComputedStyle(one.querySelector('.mf-spine-face')).opacity, cursor: getComputedStyle(one).cursor })))
+const spines = () => h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => ({ id: one.getAttribute('data-book'), open: one.getAttribute('aria-current') === 'true', w: Math.round(one.getBoundingClientRect().width), x: Math.round(one.getBoundingClientRect().x), lit: one.hasAttribute('data-highlighted'), face: new DOMMatrix(getComputedStyle(one.querySelector('.mf-book')).transform).m11, cursor: getComputedStyle(one).cursor })))
+// face: how square the book's cover stands to you (the cosine of its turn): 1 facing you, 0 its spine to you.
 const floating = () => h.evaluate(() => [...document.querySelectorAll('[data-radix-popper-content-wrapper], [role="tooltip"], [data-menu-peek]')].filter((one) => { const r = one.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(one).visibility !== 'hidden' }).length)
 try {
+  // QA_THEME=light|dark: filmed in that look.
+  if (process.env.QA_THEME) await s.look(process.env.QA_THEME)
   const books = await s.v('books:list')
   check('the shelf holds 30 books', books.books.length === 30, books.books.map((one) => one.name).join(', '))
   // An effect that hands React a promise (this Chromium's scrollIntoView answers with one) stopped the whole window as the
@@ -62,6 +66,18 @@ try {
   check('one floating thing: the menu, no card or tip beside it', (await floating()) === 1, String(await floating()))
   const name = await h.locator(`[data-book-shelf] [data-book="${other.id}"] .mf-spine-name`).textContent()
   check('its face says its whole name', name === books.books.find((one) => one.id === other.id)?.name, name)
+  const caption = await h.locator('[data-book-caption]').textContent()
+  check('and the shelf names it underneath, with when you were in it', caption?.startsWith(name) && /Open now|In it last|Opened|Not opened yet/.test(caption), caption)
+  // The keys: the next book turns at once (no swing), the shelf the same width.
+  await h.keyboard.press('ArrowDown'); await wait(60)
+  const keyed = await spines()
+  const next = keyed.find((one) => one.lit)
+  check('a key moves to the next book, turned at once', next && next.id !== other.id && next.w >= 80 && Number(next.face) > 0.9 && keyed.filter((one) => Number(one.face) > 0.5).length === 1, JSON.stringify(next))
+  check('and the shelf keeps one width under the keys', Math.abs(width(keyed) - width(at)) <= 2, `${width(at)} then ${width(keyed)}`)
+  await film('keyed', 2)
+  // And back up to the book pointed at, which turns out again under the pointer.
+  await h.keyboard.press('ArrowUp'); await wait(60)
+  check('the key back turns the book before it out again', (await spines()).find((one) => one.id === other.id)?.w >= 80)
   // A press opens it: the restart is caught, not made.
   await electron.evaluate(({ app }) => {
     globalThis.__relaunched = null
