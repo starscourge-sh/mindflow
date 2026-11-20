@@ -1,5 +1,5 @@
 import type { CaptureMeta } from '@/components/capture-list'
-import type { Item, Stats, Task } from './haligtree'
+import type { Item, Task } from './haligtree'
 import type { Day, NoteMap } from './notes'
 import type { QueueRow } from './reading-queue'
 
@@ -174,30 +174,6 @@ export const exampleTags = (): { tag: string; count: number; later: number; last
   { tag: 'dune', count: 3, later: 0, last: null, recent: 0, color: 'orange', action: false, examAt: null },
   { tag: 'fix', count: 2, later: 0, last: null, recent: 0, color: 'red', action: true, examAt: null }
 ]
-
-export const exampleStats = (): Stats => ({
-  exits: [{ status: 'promoted', n: 18 }, { status: 'resolved', n: 31 }, { status: 'discarded', n: 9 }, { status: 'open', n: 7 }],
-  kinds: [{ kind: 'note', n: 24 }, { kind: 'quote', n: 12 }, { kind: 'todo', n: 15 }, { kind: 'word', n: 6 }, { kind: 'link', n: 8 }],
-  week: 23, lastWeek: 19, nuggets: 18, articles: 3, recall: 12,
-  days: Array.from({ length: 84 }, (_, n) => dayKey(-n)).filter((_, n) => n % 3 !== 1 && n % 7 !== 5),
-  opens: Array.from({ length: 84 }, (_, n) => ({ day: dayKey(-n), n: 1 + (n % 5) })).filter((_, n) => n % 3 !== 1 && n % 7 !== 5),
-  hints: { shown: 40, up: 12, down: 3 },
-  reviews: { n: 64, recalled: 55 },
-  hours: Array.from({ length: 24 }, (_, hour) => ({ hour, n: hour >= 7 && hour <= 22 ? Math.round(6 * Math.exp(-((hour - 9) ** 2) / 6) + 3 * Math.exp(-((hour - 21) ** 2) / 4)) : 0 })),
-  // In days, as the real figure is: an average wait before a capture is first opened or dealt with.
-  firstUse: 2.4,
-  tasksDone: 11,
-  sessions: { n: 5, minutes: 140 },
-  tagsWeek: { book: 6, hamlet: 3, writing: 2 },
-  retention: 0.9,
-  estimates: { estimated: 120, spent: 150 },
-  lead: { exits: 58, glosses: 14, reviewDays: 21, articles: 3 },
-  leeches: [],
-  day: { captured: 4, exits: 3, tasks: 2, reviews: 9 },
-  year: { captured: 210, nuggets: 18, articles: 3, month: null },
-  stopped: 14,
-  unprocessed: { now: 7, weekAgo: 12 }
-})
 
 export const exampleMap = (): NoteMap => {
   const node = (id: string, title: string, kind: string, type = 'capture'): NoteMap['nodes'][number] => ({ type, id: `${EXAMPLE}${id}`, title, kind, links: 0 })

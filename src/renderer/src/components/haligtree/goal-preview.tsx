@@ -58,7 +58,7 @@ const saying = new Set<string>()
  * is ready, with a chime, and its sidebar row comes on if it was off, with Undo.
  * Null while it is still being read. `say` false only reads (Home's card): the moment is the page's.
  */
-export function useReady(id: 'feed' | 'stats', met: boolean | null, say = true): { real: boolean | null; moment: boolean } {
+export function useReady(id: 'feed', met: boolean | null, say = true): { real: boolean | null; moment: boolean } {
   const [shown, setShown] = useState<boolean | null>(null)
   const [moment, setMoment] = useState(false)
   useEffect(() => void haligtree.settings().then((now) => setShown((now.readyShown ?? []).includes(id))), [id])

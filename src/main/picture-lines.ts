@@ -25,5 +25,18 @@ export function pictureHolding(words: Map<string, string>, line: string): string
   return undefined
 }
 
+/**
+ * Whether what Vision read in a picture is words a person wrote, not the shapes of a painting's windows: Vision
+ * reads "AR ARALL" in Bruegel's Tower of Babel at half confidence, where a page, a cover or a caption reads at
+ * full. A picture has words when one line it is sure of (0.8 or more) holds a word of three letters or more, or
+ * when lines it half believes hold three such words between them. A picture the Mac calls art needs two sure
+ * words. Lines read before confidence was kept have none, and count as unsure.
+ */
+const WORD = /\p{L}{3,}/gu
+export function hasWords(lines: { text: string; confidence?: number }[], art = false): boolean {
+  const words = (min: number): number => lines.filter((line) => (line.confidence ?? 0) >= min).reduce((sum, line) => sum + (line.text.match(WORD)?.length ?? 0), 0)
+  return art ? words(0.8) >= 2 : words(0.8) >= 1 || words(0.5) >= 3
+}
+
 /** What the reading of a book needs to know of its pictures: one's words for search, and every picture's words by file name. */
 export type Pictures = { wordsOf: (src: unknown) => string; known: () => Map<string, string> }

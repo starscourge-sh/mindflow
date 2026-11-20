@@ -3,7 +3,7 @@
 // Built by native/build-labels.sh.
 //   labels <picture>          each label with its box, as JSON lines
 //   labels --text <picture>   the words in a photo, a screenshot or a page of handwriting, read in order, one line:
-//                             {"text":"...","lines":12}   (language correction on, the language found by itself)
+//                             {"text":"...","lines":12,"sure":[1,0.5,..]}   (language correction on, the language found by itself)
 // Each line is one of:
 //   {"label":{"text":"Nucleus","x":0.12,"y":0.30,"w":0.10,"h":0.04}}   a label, its box a share of the picture, from the top left
 //   {"done":{"labels":7,"width":1200,"height":800}}                    the whole of it, last
@@ -151,6 +151,8 @@ func lines(_ path: String) -> Never {
     var all = share(line)
     all["text"] = text.trimmingCharacters(in: .whitespaces)
     all["words"] = words
+    // How sure Vision is of the line, for the app to tell words from the shapes in a painting (picture-words.ts `realLines`).
+    all["confidence"] = (Double(best.confidence) * 100).rounded() / 100
     return (line, all)
   }.sorted { a, b in abs(a.0.midY - b.0.midY) < min(a.0.height, b.0.height) / 2 ? a.0.minX < b.0.minX : a.0.midY > b.0.midY }
   // The size it is seen at: a turned photo's sides swap.
@@ -237,10 +239,14 @@ func readPDF(_ input: String, _ output: String) -> Never {
       picture.drawPDFPage(page)
       if let image = picture.makeImage() {
         try? VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
-        lines = (request.results ?? []).compactMap { one in
-          guard let text = one.topCandidates(1).first?.string.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
-          return (one.boundingBox, text)
-        }.sorted { a, b in abs(a.0.midY - b.0.midY) < min(a.0.height, b.0.height) / 2 ? a.0.minX < b.0.minX : a.0.midY > b.0.midY }
+        let read = (request.results ?? []).compactMap { one -> (CGRect, String, Float)? in
+          guard let best = one.topCandidates(1).first else { return nil }
+          let text = best.string.trimmingCharacters(in: .whitespacesAndNewlines)
+          return text.isEmpty ? nil : (one.boundingBox, text, best.confidence)
+        }
+        // A page that is a painting or a plate gets no words laid over its shapes (the rule of picture-lines.ts `hasWords`).
+        let words = { (least: Float) in read.filter { $0.2 >= least }.reduce(0) { $0 + $1.1.split(whereSeparator: { !$0.isLetter }).filter { $0.count >= 3 }.count } }
+        lines = words(0.8) >= 1 || words(0.5) >= 3 ? read.map { ($0.0, $0.1) }.sorted { a, b in abs(a.0.midY - b.0.midY) < min(a.0.height, b.0.height) / 2 ? a.0.minX < b.0.minX : a.0.midY > b.0.midY } : []
       }
     }
     var media = frame
@@ -293,11 +299,13 @@ if reading {
     fail("failed", "The words could not be made out: \(error.localizedDescription)")
   }
   // Read top to bottom, and left to right along a line.
-  let lines = (request.results ?? []).compactMap { one -> (CGRect, String)? in
-    guard let text = one.topCandidates(1).first?.string.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
-    return (one.boundingBox, text)
+  let lines = (request.results ?? []).compactMap { one -> (CGRect, String, Double)? in
+    guard let best = one.topCandidates(1).first else { return nil }
+    let text = best.string.trimmingCharacters(in: .whitespacesAndNewlines)
+    return text.isEmpty ? nil : (one.boundingBox, text, (Double(best.confidence) * 100).rounded() / 100)
   }.sorted { a, b in abs(a.0.midY - b.0.midY) < min(a.0.height, b.0.height) / 2 ? a.0.minX < b.0.minX : a.0.midY > b.0.midY }
-  say(["text": lines.map { $0.1 }.joined(separator: "\n"), "lines": lines.count])
+  // `sure`: how sure Vision is of each line, for the app to tell words from shapes (picture-lines.ts `hasWords`).
+  say(["text": lines.map { $0.1 }.joined(separator: "\n"), "lines": lines.count, "sure": lines.map { $0.2 }])
   exit(0)
 }
 // Labels are names, often Latin or made-up words: corrected to dictionary words they would be wrong.
