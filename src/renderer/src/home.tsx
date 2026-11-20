@@ -1537,6 +1537,8 @@ export function Home(): React.JSX.Element {
     return () => (window.removeEventListener('haligtree:pdf-title', read), off())
   }, [view.focus])
   const open = (type: string, id: string, key = frontRef.current, folder?: string): void => {
+    // Opened from anywhere but its Pinned or Recent row (those mark it after this), its list's row keeps the light.
+    openedFrom.current = null
     // Which way it goes is read from the click itself, before any wait.
     const how = takeClick()
     // A task opens in the list that holds it (Today, Routines, Later), so its row is there beside it; Upcoming when it is not known yet.
@@ -2570,7 +2572,7 @@ export function Home(): React.JSX.Element {
                         // The one open now says so, in full ink, as the page you are on does above.
                         data-open={light === `pin:${pin.id}` || undefined}
                         aria-current={light === `pin:${pin.id}` ? 'page' : undefined}
-                        onClick={() => ((openedFrom.current = { id: pin.id, where: 'pin' }), open(pin.type, pin.id))}
+                        onClick={() => (open(pin.type, pin.id), (openedFrom.current = { id: pin.id, where: 'pin' }))}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
                         className={`flex min-w-0 items-start gap-2.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? `${NARROW_ICON} items-center` : 'flex-1 rounded-md px-2 py-1.5'}`}
@@ -2603,7 +2605,7 @@ export function Home(): React.JSX.Element {
                     <Unfold open={recentOpen}><Branches className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
-                          onClick={() => ((openedFrom.current = { id: one.id, where: 'recent' }), open(one.type, one.id))}
+                          onClick={() => (open(one.type, one.id), (openedFrom.current = { id: one.id, where: 'recent' }))}
                           // Past, so quieter than the places above: the muted ink (never see-through), the row's full ink when pointed at or open.
                           className="group/recent flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors duration-80 hover:text-foreground aria-[current=page]:text-foreground">
                           <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground group-hover/recent:text-(--mf-muted-strong)" /></span>
