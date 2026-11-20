@@ -4114,7 +4114,10 @@ textarea[data-talking]::selection {
 
 /* Review's Stats in the Decks tab's look: one surface (satin, 5px corners), so the three tabs read as one page. */
 [data-review-stats] [data-mono-card], [data-review-stats] .mf-island { border-radius: 6px; background: var(--mf-metal-bg); border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent); box-shadow: var(--mf-metal-shadow); }
-[data-review-stats] > :first-child, [data-review-stats] > :first-child > :first-child { margin-top: 0; }
+/* Its heading named (a section's h2, stats-view.tsx), never ":first-child > :first-child": a first-child asked of any
+   element on the way had the app's root restyled whole, 42,000 elements and 300ms in a dark look, whenever a menu put its
+   focus guard first in the body (20 Nov 2026). */
+[data-review-stats] > :first-child, [data-review-stats] > section:first-child > h2 { margin-top: 0; }
 /* Listening (talk.tsx, data-talking): an empty line's placeholder goes the moment dictation starts, so the words
    heard never come in over "Write a thought…". */
 :root[data-talking] .tiptap.ProseMirror .is-empty::before {
