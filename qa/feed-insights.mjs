@@ -105,6 +105,9 @@ try {
 s = await sandbox({ width: 1400, height: 900 })
 try {
   const { h, v, go } = s
+  // Home asks for the Feed on launch; that look, still being read, kept the old book's set as today's after the clearing below.
+  // Waiting for it first means the clearing is the last word.
+  await v('feed')
   const now = new Date().toISOString()
   await sql(s, 'update nuggets set binned_at = ? where binned_at is null', now)
   await sql(s, "update captures set status = 'discarded' where kind in ('quote', 'decision', 'checkback')")
@@ -116,8 +119,10 @@ try {
     await sql(s, "insert into pdf_highlights (id, src, page, quote, start, end, created_at) values (?, 'haligtree://assets/qa-reading.pdf', ?, ?, 0, 40, ?)",
       `qa-mark-${at}`, at + 3, `A line worth keeping from the reading, number ${at + 1}, about how memory fades without use.`, new Date(Date.now() - at * 9 * 86_400_000).toISOString())
   }
+  // Read once afresh here, so the page opens on this book's set, not on what Home was told at launch.
+  await v('feed')
   await go('feed')
-  await h.waitForTimeout(2500)
+  await h.locator('[data-feed-post="highlight"]').first().waitFor({ timeout: 15_000 }).catch(() => {})
   check('no goal screen: the newcomer has a Feed on day one', (await h.locator('[data-page="feed"] [data-feed] li[data-feed-post]').count()) > 0 && (await h.getByText('Your Feed starts once').count()) === 0)
   const posts = h.locator('[data-feed-post]:not([data-feed-post="insight"])')
   check('a full Feed from imported notes and highlights, without AI', (await posts.count()) >= 15, await posts.count())
