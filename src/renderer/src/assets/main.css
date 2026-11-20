@@ -3661,7 +3661,7 @@ html[data-pill-open='left'] #root { right: 0; }
    by a scale, so the strip sits beside what is there, never over it. A scale and not padding: the pages keep their
    width, so nothing in them lays itself out again during a drag.
    The side it steps back from stays set after the drag, so the page eases back from the same side. */
-[data-split-area] { transition: transform 220ms var(--mf-ease); transform-origin: var(--mf-split-from, center); }
+[data-split-area] { transition: transform 220ms var(--mf-ease); transform-origin: var(--mf-split-from, center top); }
 :root[data-split-room] [data-split-area] { transform: scale(var(--mf-split-room, 1)); }
 @media (prefers-reduced-motion: reduce) { [data-split-area] { transition: none; } }
 

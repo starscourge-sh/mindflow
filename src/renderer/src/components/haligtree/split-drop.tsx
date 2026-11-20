@@ -521,12 +521,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       // Narrow strips at the edge: the pages step back from a side where a strip would lie over a place to drop, by a
       // scale (main.css), so the strip sits beside what is there. A scale, not narrower pages: their layout holds still
       // (a narrower page laid itself out again, and the Calendar's header jumped between two shapes).
+      // From the top: scaled about its middle the window's top row (every pane's tabs) dropped about 34 px under a carried row.
       const drops = [...document.querySelectorAll('[data-pane] :is([data-row][data-id], [data-quadrant])')].map((one) => one.getBoundingClientRect())
       const crowded = (zone: Zone): boolean => !!down?.source.edgeOnly || drops.some((one) => one.width && one.left < zone.left + zone.width && one.right > zone.left)
       const room = shown.every((zone) => zone.width <= NARROW) ? shown.filter(crowded).map((zone) => zone.side) : []
       if (room.length) {
         document.documentElement.style.setProperty('--mf-split-room', String(Math.max(0.5, (box.width - ROOM * room.length) / box.width)))
-        document.documentElement.style.setProperty('--mf-split-from', room.length > 1 ? 'center' : room[0] === 'left' ? 'right center' : 'left center')
+        document.documentElement.style.setProperty('--mf-split-from', room.length > 1 ? 'center top' : room[0] === 'left' ? 'right top' : 'left top')
         document.documentElement.dataset.splitRoom = room.join(' ')
       }
       // Pinned's "Drop here to pin" comes up only for what it takes (home.tsx).
