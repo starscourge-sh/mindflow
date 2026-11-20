@@ -709,10 +709,13 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const folder = folderById.get(folderOfItem[one.id] ?? '')
     const thing = { type: (one.tier === 'question' ? 'question' : tier === 'article' ? 'article' : 'nugget') as FolderKind, id: one.id }
     return (
-      <PlaceChip label={folder?.name ?? section.label} tip="Keep in folder"
-        icon={folder ? <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /> : <section.icon aria-hidden className="size-3.5 shrink-0" style={{ color: `var(--mf-icon-tint, var(--tt-color-text-${section.tint}))` }} />}
+      // The chip names the list ↓ ↑ step through: the folder on its own page, else Writing or Gems; where it is kept is said
+      // in its menu (one chip naming a folder while stepping through all of Writing read as a contradiction, 20 Nov).
+      <PlaceChip label={inFolder && folder ? folder.name : section.label} tip={folder ? `In ${folder.name}` : 'Keep in folder'}
+        icon={inFolder && folder ? <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /> : <section.icon aria-hidden className="size-3.5 shrink-0" style={{ color: `var(--mf-icon-tint, var(--tt-color-text-${section.tint}))` }} />}
         items={[
-          { label: 'Keep in folder…', run: () => askFolder([thing]) },
+          folder && !inFolder && { heading: `Kept in ${folder.name}` },
+          { label: folder ? 'Move to another folder…' : 'Keep in folder…', run: () => askFolder([thing]) },
           folder && { label: `Take out of ${folder.name}`, hint: tier === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([thing], null) }
         ]} />
     )
