@@ -109,7 +109,7 @@ export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: 
   }
 
   return (
-    <section data-tour="started" aria-label="Getting started" className="relative mx-5 flex flex-col gap-3 rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] px-4 pt-3.5 pb-3 @[44rem]/page:mx-8">
+    <section data-tour="started" aria-label="Getting started" className="relative flex flex-col gap-3 rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] px-4 pt-3.5 pb-3">
       <header className="flex items-center gap-3">
         <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{all ? 'Done.' : 'Getting started'}</h2>
         <span className="text-control text-muted-foreground tabular-nums"><Rolling text={count} /> of {STEPS.length}</span>

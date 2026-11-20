@@ -1019,7 +1019,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* Once a week, the oldest question still held: an old question should not look like a new one. */}
       <div data-now={4.5} className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><StillWondering onOpen={onOpen} /></div>
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
-      <div className="page-column relative w-full px-3 pt-4 empty:hidden @[44rem]/page:px-6"><GettingStarted onOpen={onOpen} onView={onView} /></div>
+      <div className="page-column relative w-full px-5 pt-4 empty:hidden @[44rem]/page:px-8"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       <div data-now={6} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><PowersLine onView={onView} /></div>
       {/* A practice at its time: asked here while this window is in front, and waiting here once the corner's card has let it go. */}
       <div data-now={0.5} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><PracticeNow /></div>
