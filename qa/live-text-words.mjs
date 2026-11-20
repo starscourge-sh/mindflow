@@ -1,6 +1,7 @@
 // Live Text offers only real words: in Files, Bruegel's "The Tower of Babel" (a painting Vision reads "AR ARALL" in,
 // at half confidence, over the tower's windows) opens with no "Select text" pill and no words laid over it, and
-// "Copy text from image" finds none; the 1890 Lippincott's cover and a cartoon's caption still offer theirs. Every
+// "Copy text from image" finds none (a reading kept from before, with no confidence, is read again); the 1890
+// Lippincott's cover, opened from its note, still offers its words. Every
 // picture in the sandbox is read: only those with words a person wrote offer them.
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=dir] node qa/live-text-words.mjs
 import { join } from 'node:path'
@@ -46,14 +47,30 @@ try {
   await close()
   check('"Copy text from image" finds no words in it either', (await h.evaluate((src) => window.api.imageText(src), babel.src)) === '')
 
-  const cover = await look(COVER)
-  check('the Lippincott\'s cover: "Select text" and its words', cover.pill === 1 && cover.layer > 40 && cover.read?.lines.some((one) => one.text === "LIPPINCOTT'S"), `${cover.pill} pill, ${cover.layer} words`)
+  // The cover is a note's picture (Files offers "Open note" for it): opened as a person does, a double-click in the note.
+  const notes = await h.evaluate(() => window.api.captures.list())
+  await c.send('capture', notes.find((one) => /^The Picture of Dorian Gray/.test(one.label ?? '')).id)
+  await h.waitForTimeout(1800)
+  const at = await h.evaluate(async (hash) => {
+    const img = [...document.querySelectorAll('.tiptap img')].find((one) => one.currentSrc.includes(hash))
+    if (!img) return null
+    img.scrollIntoView({ block: 'center' })
+    await new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)))
+    const b = img.getBoundingClientRect()
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2, src: img.currentSrc }
+  }, COVER)
+  await h.mouse.dblclick(at.x, at.y)
+  await h.locator('.mf-look').waitFor({ timeout: 8000 })
+  const read = await h.evaluate((src) => window.api.imageLines(src), at.src)
+  await h.locator('.mf-look-text-pill').waitFor({ timeout: 8000 }).catch(() => undefined)
+  const pill = await h.locator('.mf-look-text-pill').count()
+  const layer = await h.locator('.mf-look-text [data-word]').count()
+  check('the Lippincott\'s cover: "Select text" and its words', pill === 1 && layer > 40 && read?.lines.some((one) => one.text === "LIPPINCOTT'S"), `${pill} pill, ${layer} words`)
   if (process.env.QA_SHOTS) await c.both(join(process.env.QA_SHOTS, 'live-text-cover'))
   await close()
-
-  const caption = await look(CAPTION)
-  check('a cartoon\'s caption: "Select text"', caption.pill === 1 && caption.layer > 3, `${caption.pill} pill, ${caption.layer} words`)
-  await close()
+  await c.go('media')
+  await h.getByText('Images', { exact: true }).first().click()
+  await h.waitForTimeout(900)
 
   // Every picture in the sandbox: only the cover and the two cartoons' captions hold words.
   const all = await h.$$eval('[data-media-grid] [data-media][data-src]', (tiles) => tiles.map((one) => one.getAttribute('data-src')).filter((src) => /assets\/[a-f0-9]{64}\./.test(src)))
