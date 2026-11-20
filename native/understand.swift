@@ -226,9 +226,16 @@ func standInAnswer(_ op: String, _ request: [String: Any]) -> [String: Any] {
 }
 
 #if canImport(FoundationModels)
+/// Every request here reworks words the person gave (their notes, a page, a transcript), so the gentler guardrails Apple
+/// made for that are used: the default ones refused notes about a war, a drug or a crime as if they were asked for.
+@available(macOS 26, *)
+func session(_ instructions: String) -> LanguageModelSession {
+  LanguageModelSession(model: SystemLanguageModel(guardrails: .permissiveContentTransformations), instructions: instructions)
+}
+
 @available(macOS 26, *)
 func ask(_ instructions: String, _ prompt: String) async throws -> String {
-  let session = LanguageModelSession(instructions: instructions)
+  let session = session(instructions)
   return try await session.respond(to: prompt, options: GenerationOptions(temperature: 0.3)).content
 }
 
@@ -263,7 +270,7 @@ func study(_ op: String, _ request: [String: Any]) async throws -> [String: Any]
     let deck = DynamicGenerationSchema(name: "Deck", properties: [
       .init(name: "cards", description: "The flashcards, one per important idea", schema: DynamicGenerationSchema(arrayOf: card, minimumElements: 1, maximumElements: count))
     ])
-    let session = LanguageModelSession(instructions: "You write study flashcards from part of a book, in the book's own language. Make \(count) cards on the most important ideas, preferring the reader's highlights and the headings. Use only what the text says.")
+    let session = session("You write study flashcards from part of a book, in the book's own language. Make \(count) cards on the most important ideas, preferring the reader's highlights and the headings. Use only what the text says.")
     let said = try await session.respond(to: "From: \(title)\n\n\(text)", schema: try GenerationSchema(root: deck, dependencies: []), options: GenerationOptions(temperature: 0.3)).content
     var cards: [[String: Any]] = []
     for one in try said.value([GeneratedContent].self, forProperty: "cards").prefix(count) {
@@ -305,7 +312,7 @@ func shape(_ spec: [String: Any], _ name: String) -> DynamicGenerationSchema {
 @available(macOS 26, *)
 func shaped(_ request: [String: Any]) async throws -> [String: Any] {
   let schema = try GenerationSchema(root: shape(request["schema"] as? [String: Any] ?? [:], "Answer"), dependencies: [])
-  let session = LanguageModelSession(instructions: request["instructions"] as? String ?? "")
+  let session = session(request["instructions"] as? String ?? "")
   let said = try await session.respond(to: request["prompt"] as? String ?? "", schema: schema, options: GenerationOptions(temperature: 0.3)).content
   return ["content": try JSONSerialization.jsonObject(with: Data(said.jsonString.utf8))]
 }
@@ -357,7 +364,7 @@ while let text = readLine(strippingNewline: true) {
       Task.detached {
         defer { group.leave() }
         do {
-          answer(id, free ? ["text": try await LanguageModelSession(instructions: instructions).respond(to: prompt).content] : try await shaped(request))
+          answer(id, free ? ["text": try await session(instructions).respond(to: prompt).content] : try await shaped(request))
         } catch {
           refuse(id, "failed", "Apple Intelligence could not write it: \(why(error))")
         }
