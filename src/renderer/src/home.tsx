@@ -59,7 +59,7 @@ import { RailFolders, SideFolders } from './components/haligtree/side-folders'
 import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
 import { askFolder, folders, useFolderOf, useFolders, type FolderKind } from '@/lib/folders'
 import { FolderOpen } from 'lucide-react'
-import { FoldersView } from './components/haligtree/folder-view'
+import { FoldersView, tabOfKind } from './components/haligtree/folder-view'
 import { FolderPicker } from './components/haligtree/folder-picker'
 import { hoverNote } from './components/haligtree/note-preview'
 import { groups, isFolder, useGroups } from '@/lib/groups'
@@ -281,8 +281,6 @@ const stepOf = (type: string, id: string): View =>
   // A work found in ⌘K: its page among the sources.
   : type === 'work' ? { id: 'source', focus: `medium:${id}` }
   : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
-/** A folder page's tab for each kind it holds (folder-view.tsx `KIND_TABS`). */
-const FOLDER_TAB: Record<string, string> = { article: 'pages', capture: 'notes', nugget: 'gems', question: 'questions', task: 'tasks' }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
 const atNow = (view: View): boolean => {
@@ -1545,7 +1543,7 @@ export function Home(): React.JSX.Element {
     // Opened from under its folder in the sidebar: in that folder's page, so ↓↑ step through what it holds, as a press
     // on its row there does (a gem went to Gems and stepped through all 122).
     const step = (): View => {
-      if (folder) return { id: 'folders', folder, focus: id, tab: FOLDER_TAB[type] }
+      if (folder) return { id: 'folders', folder, focus: id, tab: tabOfKind(type) }
       const task = type === 'task' ? peekRead<Task>('task', id) : undefined
       const list = !task || task.status !== 'open' ? null : onToday(task) ? 'today' : task.recurrence ? 'routines' : bucket(task) && !task.deadline ? 'later' : null
       return list ? { id: list, focus: id } : stepOf(type, id)
