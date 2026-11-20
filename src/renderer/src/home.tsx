@@ -199,8 +199,6 @@ function Folding({ kept, held, here, head, children }: { kept: string; held: boo
 
 /** The top bar's buttons, one size and one look, each named with its key on hover. */
 const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground [&_svg]:size-4'
-/** Joined buttons, and the one button that matters, wear an edge: a hairline pill the height of the rest. */
-const PILL = 'flex h-7 items-center overflow-hidden rounded-full border'
 const keyed = (label: string, keys: string): React.JSX.Element => <span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>
 
 /** Whether the window is under 760px wide, followed as it is resized. */
