@@ -1741,12 +1741,14 @@ export function Home(): React.JSX.Element {
   const wanted = (() => {
     // A folder's page, "Not in a folder" or every folder: the one row of the Folders section that is lit (one light
     // at a time: with no key of its own, the light stayed on the last folder when "All folders…" was opened).
-    if (view.id === 'folders') return `folders:${view.folder ?? 'all'}`
+    // A note open on it is the one lit instead: its row under its folder (`kept:` below).
+    if (view.id === 'folders' && !(keptFolder && noteNow)) return `folders:${view.folder ?? 'all'}`
     if (noteList && homeFolder && foldersOn(noteList)) return `note:${noteNow!.id}`
-    // A page, with Writing unfolded: its row under Writing, lit (side-writing.tsx), unless it was opened from a pin or Recent.
-    if (noteList === 'article' && articleKept && foldersOn('article') && !quiet && from !== 'pin' && from !== 'recent') return `wpage:${noteNow!.id}`
-    // A note kept in one of Folders' folders: its row under that folder (the section lights its heading when folded).
+    // A note kept in one of Folders' folders: its row under that folder (the section lights its heading when folded),
+    // wherever it was opened from: ahead of Writing's own fold, which lists it too.
     if (keptFolder && !narrow && !quiet) return `kept:${noteNow!.id}`
+    // A page in no folder, with Writing unfolded: its row under Writing, lit (side-writing.tsx), unless it was opened from a pin or Recent.
+    if (noteList === 'article' && articleKept && foldersOn('article') && !quiet && from !== 'pin' && from !== 'recent') return `wpage:${noteNow!.id}`
     if (noteNow && noteNow.type !== 'task' && pinsOn && pins.some((one) => one.id === noteNow.id) && (from === 'pin' || !placeShown)) return `pin:${noteNow.id}`
     if (inRecent && recentOn && (from === 'recent' || !placeShown)) return `recent:${view.focus}`
     if (narrow) return `place:${litRow(view.id, shown)}`

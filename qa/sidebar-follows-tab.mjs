@@ -14,12 +14,13 @@ const { h, v, go, send } = c
 const wait = (ms = 500) => h.waitForTimeout(ms)
 const lit = () => h.evaluate(() => [...document.querySelectorAll('aside [data-side-row][aria-current]:not([inert] *)')].map((el) => ({
   current: el.getAttribute('aria-current'),
-  kind: el.hasAttribute('data-side-note') ? 'note' : el.hasAttribute('data-side-folder') ? 'folder' : el.hasAttribute('data-side-recent-row') ? 'recent' : el.hasAttribute('data-drag-open') ? 'pin' : el.hasAttribute('data-side-tag') ? 'tag' : 'place',
+  // A thing row (side-folder-section.tsx ThingRow) is a note under its folder, or under Writing's own fold (side-writing.tsx).
+  kind: el.hasAttribute('data-side-note') ? 'note' : el.hasAttribute('data-side-thing') ? (el.closest('[data-side-folders-section]') ? 'note' : 'writing') : el.hasAttribute('data-side-folder') ? 'folder' : el.hasAttribute('data-side-recent-row') ? 'recent' : el.hasAttribute('data-drag-open') ? 'pin' : el.hasAttribute('data-side-tag') ? 'tag' : 'place',
   text: (el.getAttribute('aria-label') || el.innerText || '').trim().split('\n')[0].slice(0, 50)
 })))
 const one = async (name, want) => {
   const all = await lit()
-  check(`${name}: one light${want ? `, on ${want.kind ?? ''} ${want.text ?? ''}` : ''}`, all.length === 1 && all[0].current === 'page' && (!want?.kind || all[0].kind === want.kind) && (!want?.text || all[0].text.startsWith(want.text)), JSON.stringify(all))
+  check(`${name}: one light${want ? `, on ${want.kind ?? ''} ${want.text ?? ''}` : ''}`, all.length === 1 && all[0].current === 'page' && ((want?.writing && all[0].kind === 'writing' && all[0].text.startsWith(want.writing)) || ((!want?.kind || all[0].kind === want.kind) && (!want?.text || all[0].text.startsWith(want.text)))), JSON.stringify(all))
 }
 const row = (name) => h.locator('[data-side-row][aria-label="' + name + '"]').first()
 const clean = async () => {
@@ -94,7 +95,7 @@ try {
 
   // A note in no folder, opened in Writing: Writing keeps the light, never its row in Recent (the user, 20 Nov).
   await send('article', loose.id); await wait(1200)
-  await one('a page in no folder, opened in Writing: Writing', { kind: 'place', text: 'Writing' })
+  await one('a page in no folder, opened in Writing: Writing', { kind: 'place', text: 'Writing', writing: loose.title.slice(0, 10) })
   await h.screenshot({ path: `${shots}/writing-row-light.png` })
   await c.look('dark'); await wait(300); await h.screenshot({ path: `${shots}/writing-row-dark.png` }); await c.look('light'); await wait(200)
   // Opened from its row under Recent: that row.
@@ -103,13 +104,13 @@ try {
   await h.screenshot({ path: `${shots}/recent-row-light.png` })
   // Then the same page opened again from Writing (no other page between): Writing takes the light back from Recent.
   await send('article', loose.id); await wait(1000)
-  await one('then opened again in Writing: Writing, not Recent', { kind: 'place', text: 'Writing' })
+  await one('then opened again in Writing: Writing, not Recent', { kind: 'place', text: 'Writing', writing: loose.title.slice(0, 10) })
   // Pinned while open in Writing: still Writing; opened from its pin: the pin.
   await go('calendar')
   await send('article', loose.id); await wait(1200)
   await h.evaluate((id) => window.api.haligtree('pin', 'nuggets', id, true), loose.id).catch(() => {})
   await wait(800)
-  await one('pinned, opened in Writing: still Writing', { kind: 'place', text: 'Writing' })
+  await one('pinned, opened in Writing: still Writing', { kind: 'place', text: 'Writing', writing: loose.title.slice(0, 10) })
   await h.locator(`aside [data-drag-open="article:${loose.id}"]`).first().click(); await wait(1000)
   await one('opened from Pinned: its row in Pinned', { kind: 'pin', text: loose.title.slice(0, 10) })
   const pinCurrent = await h.evaluate(() => document.querySelector('aside [data-drag-open][aria-current]')?.getAttribute('aria-current'))
