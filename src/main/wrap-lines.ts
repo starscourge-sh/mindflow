@@ -19,11 +19,13 @@ export type WrapPage = { page: string; says: string; lean: Lean; names: string[]
 
 export const LEAD_MOST = 8
 
-/** The voices a story can speak in, one for each Wrapped look (wrap-worlds.ts), all original types. */
+/** The voices a story can speak in, all original types; every look speaks in pulp (wrap-story.tsx VOICE). */
 export const VOICES = {
   warm: 'a warm, plain-spoken friend',
   librarian: 'a wry librarian, dry and bookish',
-  noir: 'a hard-boiled detective narrating a case, terse and dark'
+  noir: 'a hard-boiled detective narrating a case, terse and dark',
+  // Every look's voice since 21 Nov (the user's pick): an original type, never a named director or film.
+  pulp: 'a cocky pulp-paperback narrator with swagger: snappy, punchy, deadpan, darkly funny understatement, like the voice-over of a stylish heist film (e.g. "Bigger haul than last week. Nobody is complaining.")'
 } as const
 export type Voice = keyof typeof VOICES
 

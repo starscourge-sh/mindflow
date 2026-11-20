@@ -526,8 +526,8 @@ const thinkingHour = (hours: number[]): number | null => {
 }
 const hourSaid = (hour: number): string => `${hour}:00`
 
-/** The voice each look speaks in (main/wrap-lines.ts VOICES): the paper of Files, a dry librarian; Night, a detective. */
-const VOICE: Record<World, Voice> = { files: 'librarian', night: 'noir' }
+/** The voice each look speaks in (main/wrap-lines.ts VOICES): pulp crime for every look, the user's pick (21 Nov). */
+const VOICE: Record<World, Voice> = { files: 'pulp', night: 'pulp' }
 
 /**
  * Each page's lead-in as a plain statement, written here from its facts, never a number (the page's sentence says
