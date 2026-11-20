@@ -30,6 +30,8 @@ export function markRoom(holder: ParentNode): void {
     const before = one.previousElementSibling?.tagName ?? ""
     one.classList.remove("mf-after-p", "mf-after-h", "mf-under-widget")
     if (one.tagName === "P" && /^(?:P|H[1-4])$/.test(before)) one.classList.add(before === "P" ? "mf-after-p" : "mf-after-h")
+    // Any block under a heading (a quote, a picture, a list): the web reader sets it close to its heading (pdf.css).
+    else if (/^H[1-6]$/.test(before)) one.classList.add("mf-after-h")
   }
 }
 

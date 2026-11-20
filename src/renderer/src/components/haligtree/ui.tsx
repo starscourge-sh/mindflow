@@ -44,6 +44,7 @@ import { HashField, asTag, isTag } from './hash-field'
 import { brief, num } from '../../../../main/dates'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
 import { SaveTroubleLine } from './save-trouble'
@@ -181,7 +182,7 @@ function useListWidth(): [string, React.JSX.Element] {
  * than they need: then they wait behind one ⋯ button, in the same order.
  * Measured on the line itself, so it follows the pane, not the window.
  */
-export function FitActions({ children, keep, room }: { children: ReactNode; /** Never folded behind ⋯: a list's search, a box to type in, not a menu line. */ keep?: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
+export function FitActions({ children, menu, keep, room }: { children: ReactNode; /** The same actions as a menu's rows (icon, words, keys), shown behind ⋯ when they fold: never the bar's bare icons in a column. Without it (a list page's actions, which carry their words), the actions themselves wait in a panel. */ menu?: ReactNode; /** Never folded behind ⋯: a list's search, a box to type in, not a menu line. */ keep?: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
   const line = useRef<HTMLDivElement>(null)
   // The width they took the last time they were all on the line.
   const need = useRef(0)
@@ -219,7 +220,7 @@ export function FitActions({ children, keep, room }: { children: ReactNode; /** 
       {/* Folded, the line gives up its count's last letters before any of the ⋯: cut by the line's edge, it was one dot. */}
       <div className={cn('ml-auto flex items-center gap-1', folded ? 'min-w-0' : 'shrink-0')}>
       {keep && (folded ? <span className="flex min-w-0 items-center gap-1 overflow-hidden">{keep}</span> : keep)}
-      {folded ? (
+      {folded && !menu ? (
         <Popover open={open} onOpenChange={setOpen}>
           <Tip label="More">
             <PopoverTrigger asChild>
@@ -235,6 +236,25 @@ export function FitActions({ children, keep, room }: { children: ReactNode; /** 
               F opens Display (as a sheet, its button out of sight) beside an open note too. */}
           {!open && <div hidden>{children}</div>}
         </Popover>
+      ) : folded ? (
+        // A menu as the note's ⋯ is (note-extras.tsx): rows of icon, words and keys, grouped. The bar's own buttons
+        // stay mounted unseen, never moved into it, so opening it builds only its rows: moving them in made every
+        // button, tip and menu of the bar anew on each opening, and their keys (F, ⌘F) still answer while it is shut.
+        <>
+          <DropdownMenu modal={false}>
+            <Tip label="More">
+              <DropdownMenuTrigger asChild>
+                <button type="button" aria-label="More" className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground data-[state=open]:bg-accent/60 data-[state=open]:text-foreground">
+                  <AliveIcon icon={DotsHorizontalIcon} size={16} />
+                </button>
+              </DropdownMenuTrigger>
+            </Tip>
+            <DropdownMenuContent align="end" className="w-64" data-fit-menu>
+              {menu}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div hidden>{children}</div>
+        </>
       ) : children}
       </div>
     </div>

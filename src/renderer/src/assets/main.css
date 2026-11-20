@@ -140,6 +140,9 @@
      step smaller, 4px. Parts of --radius, so a square style squares them. */
   --mf-float-radius: calc(var(--radius) * 0.6);
   --mf-tip-radius: calc(var(--radius) * 0.4);
+  /* How far in from its pane's edge a reader's page starts: a PDF's sheet and a web article's words, one inset, so two
+     readers side by side in a split start at the same distance in (pdf.css .pdf-reader-scroll, .web-reader-column). */
+  --mf-reader-inset: 1.5rem;
   /* Code's own face (DESIGN.md, Code Font): inline code and code blocks only. */
   --mf-mono: "JetBrains Mono NL", ui-monospace, monospace;
   --background: oklch(1 0 0);

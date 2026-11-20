@@ -18,7 +18,11 @@ export function useReadTime(href: string, scroller: RefObject<HTMLElement | null
     let last = 0
     let owed = 0
     let end = false
-    const seen = (): boolean => document.hasFocus() && document.visibilityState === 'visible' && box.offsetParent !== null
+    // In view, as the browser reports it after its own layout: never asked of the page in an event (a press, a key, a
+    // move), where reading the layout made the browser lay out a 300-minute article again first (580ms to 2s, the
+    // first press into a pane in a split, 20 Nov).
+    let shown = false
+    const seen = (): boolean => shown && document.hasFocus() && document.visibilityState === 'visible'
     const tell = (): void => {
       if (owed < 1000 && !end) return
       void call('read:add', href, words, owed, end)
@@ -30,11 +34,21 @@ export function useReadTime(href: string, scroller: RefObject<HTMLElement | null
       if (!seen()) return void (last = 0)
       upTo(now)
       last = now
-      // Its end in view: the last of its words above the reader's foot (an article shorter than the window, at once).
-      const reached = box.scrollTop + box.clientHeight >= box.scrollHeight - 8
-      if (reached && !end) return void ((end = true), tell())
       if (owed >= TELL_MS) tell()
     }
+    // Its end in view: the last of its words above the reader's foot. Read on a scroll and as it comes into view (an
+    // article shorter than the window, at once), when the browser has just laid the page out, so it costs nothing.
+    const atEnd = (): void => {
+      if (end || !seen() || box.scrollTop + box.clientHeight < box.scrollHeight - 8) return
+      end = true
+      tell()
+    }
+    const scrolled = (): void => (act(), atEnd())
+    const watch = new IntersectionObserver(([one]) => {
+      shown = one.isIntersecting
+      if (shown) (act(), atEnd())
+    })
+    watch.observe(box)
     // Away (another app, another tab, the window hidden): the time up to now counts, then nothing until it is back.
     const away = (): void => {
       upTo(performance.now())
@@ -42,17 +56,17 @@ export function useReadTime(href: string, scroller: RefObject<HTMLElement | null
       tell()
     }
     const hidden = (): void => void (document.visibilityState === 'hidden' && away())
-    box.addEventListener('scroll', act, { passive: true })
+    box.addEventListener('scroll', scrolled, { passive: true })
     box.addEventListener('pointermove', act, { passive: true })
     box.addEventListener('pointerdown', act)
     window.addEventListener('keydown', act)
     window.addEventListener('blur', away)
     window.addEventListener('pagehide', away)
     document.addEventListener('visibilitychange', hidden)
-    act()
     return () => {
       away()
-      box.removeEventListener('scroll', act)
+      watch.disconnect()
+      box.removeEventListener('scroll', scrolled)
       box.removeEventListener('pointermove', act)
       box.removeEventListener('pointerdown', act)
       window.removeEventListener('keydown', act)

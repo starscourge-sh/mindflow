@@ -70,11 +70,13 @@ const wait = (ms) => h.waitForTimeout(ms)
 const tool = async (label) => {
   const shown = h.locator(`.pdf-reader .pdf-reader-bar button[aria-label="${label}"]:visible`).first()
   if (await shown.count()) return shown.click()
-  // "More" stays open after a pick, as a menu of buttons does: opened only when it is shut.
-  if (!(await h.locator(`[data-radix-popper-content-wrapper] button[aria-label="${label}"]`).count())) {
+  // "More" shuts after a row is picked (its zoom buttons keep it open): opened only when it is shut.
+  // A row of the menu (its words), or one of the zoom row's buttons, which leave it open.
+  const row = `[data-fit-menu] :is([data-tool="${label}"], button[aria-label="${label}"])`
+  if (!(await h.locator(row).count())) {
     await h.click('.pdf-reader .pdf-reader-bar button[aria-label="More"]'); await wait(300)
   }
-  await h.click(`[data-radix-popper-content-wrapper] button[aria-label="${label}"]`)
+  await h.click(row)
 }
 /** The page's words a floating field covers: none, when it is placed right. */
 const hiddenWords = (selector = '.pdf-reader .pdf-why') => h.evaluate((selector) => {

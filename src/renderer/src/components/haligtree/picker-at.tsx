@@ -9,12 +9,23 @@ import { PEEK_SURFACE } from './peek'
  * first rule), never a wide box under a row (the user, 19 Nov: "does not feel like same app"). Where it is asked
  * from is read as the press happens (`pressedAt`), since a menu's line is gone by the time its choice runs.
  */
-let pressed: { el: Element; box: DOMRect; x: number | null } | null = null
+let pressed: { el: Element; box: DOMRect | null; x: number | null } | null = null
+/**
+ * Where what was pressed stands, as the browser reports it after its next layout: never read in the press itself,
+ * where it made the browser lay out the whole window first on every press (a freeze beside a 300-minute article,
+ * 20 Nov). Wanted only if it is gone by the time a picker asks; while it is there, its place is read then.
+ */
+const where = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((seen) => {
+  for (const one of seen) if (pressed?.el === one.target) pressed.box = one.boundingClientRect
+  where?.disconnect()
+})
 const note = (event: Event): void => {
   const el = (event.target as Element | null)?.closest?.('[data-row], [data-side-row], [data-place-chip], [data-folder-item], [data-all-folder], [data-folder-open], button, [role="button"]')
   // A line of a menu goes as its choice runs: what opened the menu stays the place.
   if (!el || el.closest('[role="menu"], [data-slot="dropdown-menu-content"], [data-slot="context-menu-content"]')) return
-  pressed = { el, box: el.getBoundingClientRect(), x: event instanceof MouseEvent ? event.clientX : null }
+  pressed = { el, box: null, x: event instanceof MouseEvent ? event.clientX : null }
+  where?.disconnect()
+  where?.observe(el)
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('pointerdown', note, true)
@@ -30,7 +41,7 @@ export function placeFor(given?: Element | null): DOMRect {
   const el = given ?? (pressed?.el.isConnected ? pressed.el : null)
   const x = el && el === pressed?.el ? pressed.x : null
   if (el?.isConnected) return besideOf(el.getBoundingClientRect(), x)
-  if (pressed) return besideOf(pressed.box, pressed.x)
+  if (pressed?.box) return besideOf(pressed.box, pressed.x)
   const chip = document.querySelector('[data-place-chip]')
   if (chip) return chip.getBoundingClientRect()
   return new DOMRect(innerWidth / 2 - 136, 96, 1, 1)

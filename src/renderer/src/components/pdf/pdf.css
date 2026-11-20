@@ -362,7 +362,7 @@
   overflow: auto;
   /* Room for the scrollbar kept from the start: its coming and going never resizes the pages. */
   scrollbar-gutter: stable;
-  padding: 1.5rem;
+  padding: var(--mf-reader-inset);
   background-color: var(--mf-surface);
   /* The desk the pages lie on, in both readers: squared paper in the theme's own ink under a fine grain (the user, 15
      Nov 2026: "can we make the backgrop a grid of boxes and grainy"). Still while the pages scroll over it, so it is
@@ -705,7 +705,7 @@
   width: 100%;
   max-width: calc(var(--web-measure) + 2 * var(--web-margin) + 2px);
   margin: 0 auto;
-  padding: 3rem max(1.5rem, var(--web-margin)) 4rem;
+  padding: 3rem max(var(--mf-reader-inset), var(--web-margin)) 4rem;
   border-inline: 1px solid transparent;
   /* The page itself, clean on the desk (.pdf-reader-scroll). */
   background-color: var(--background);
@@ -718,14 +718,15 @@
 
 /* A pane with no room for the margins (under 43em of the article's size, where a margin would be under 2.1em and
    the room outside a line under 1.4em: 731px at the usual size, 1,170px at 160%): the lines go before the words are
-   squeezed, and the words keep the pane with 1.5rem either side. */
+   squeezed, and the words start as far in from the pane's edge as a PDF's sheet does beside it (--mf-reader-inset,
+   main.css), the lines' own pixel gone too: "not consistent with the padding on PDFs" (20 Nov). */
 @container web-page (width < 43em) {
   .web-reader-column,
   .web-reader-column[data-read] {
     --web-margin: 0px;
-    max-width: calc(var(--web-measure) + 3rem + 2px);
-    padding-inline: 1.5rem;
-    border-inline-color: transparent;
+    max-width: calc(var(--web-measure) + 2 * var(--mf-reader-inset));
+    padding-inline: var(--mf-reader-inset);
+    border-inline-width: 0;
   }
 }
 
@@ -935,8 +936,73 @@
 }
 
 /* A section reached from the contents stands clear of the top edge. */
-.web-reader-body :is(h2, h3, h4) {
+.web-reader-body :is(h2, h3, h4, h5, h6) {
   scroll-margin-top: 1.5rem;
+}
+
+/* Every heading level in the reader's own rhythm, as an encyclopedia sets them: more room above than below, each
+   level a step down in size but all above the words, wherever the site nested them (a Fandom h3 inside its section
+   sat 1.125em high, tight on the words above). The block under a heading sits close to it, whatever it is: a quote
+   or a picture's own room above it had made the heading float off its section (web-reader.tsx marks it). */
+.pdf-reader.web-reader .web-reader-body.tiptap.ProseMirror.haligtree-editor {
+  :is(h2, h3, h4, h5, h6) {
+    margin-bottom: 0.4em;
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+  h3 {
+    margin-top: 1.6em;
+    font-size: 1.2em;
+  }
+  :is(h4, h5, h6) {
+    margin-top: 1.5em;
+    font-size: 1.05em;
+    font-weight: 600;
+  }
+  > .mf-after-h {
+    margin-top: 0.35em;
+  }
+  > :is(h2, h3, h4, h5, h6):first-child {
+    margin-top: 0;
+  }
+}
+
+/* A quote's attribution ("— Albus Dumbledore…", article-clean.ts): its own line in the quote, upright and quiet,
+   and the quote clear of what follows. */
+.pdf-reader.web-reader .web-reader-body.tiptap.ProseMirror.haligtree-editor > blockquote {
+  margin-bottom: 1.6em;
+}
+
+.web-reader-body blockquote > cite {
+  display: block;
+  margin-top: 0.5em;
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+  font-style: normal;
+  line-height: 1.5;
+}
+
+/* A picture the site would not send (article-clean.ts): a line the app wrote, not the site, so it looks the app's:
+   a quiet panel in muted ink where the picture stood, its caption once under it. In a line of words, muted words. */
+.web-reader-body [data-missed] {
+  color: var(--muted-foreground);
+  font-size: 0.8125em;
+  line-height: 1.5;
+}
+
+.web-reader-body p[data-missed] {
+  margin: 1.75em 0 0;
+  padding: 0.9em 1em;
+  border: 1px dashed color-mix(in oklab, var(--foreground) 14%, transparent);
+  border-radius: var(--mf-float-radius);
+  background-color: color-mix(in oklab, var(--foreground) 3%, transparent);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.web-reader-body p[data-missed]:only-child,
+.web-reader-body figure > p[data-missed] {
+  margin-top: 0;
 }
 
 .web-reader-reading,

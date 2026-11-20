@@ -143,6 +143,40 @@ export function beforeReading(page: ReturnType<typeof parseHTML>['document']): v
     }
     box.replaceWith(kept)
   }
+  // A wiki's quote (Fandom's Template:Quote, a div or a table of class "quote"): its words and, on a line of their
+  // own, who said them. Read as loose lines, the attribution ("—Albus Dumbledore…") stood as a paragraph of the
+  // article; set as a quote with its attribution in it, the reader draws both as one (pdf.css).
+  for (const box of [...page.querySelectorAll('div.quote, table.quote, div.pull-quote')]) quoted(page, box)
+}
+
+/** A quote's lines (its innermost blocks with words), the last one its attribution when it starts with a dash or follows the words. */
+function quoted(page: ReturnType<typeof parseHTML>['document'], box: Element): void {
+  const lines = [...box.querySelectorAll('dd, dt, p, td, div')].filter((one) => !one.querySelector('dd, dt, p, td, div') && wordsOf(one))
+  if (!lines.length) return
+  const quote = page.createElement('blockquote')
+  const last = lines.at(-1)!
+  const by = lines.length > 1 || DASH.test(last.textContent ?? '') ? last : null
+  for (const one of lines) {
+    if (one === by) continue
+    const words = page.createElement('p')
+    words.append(...one.childNodes)
+    quote.append(words)
+  }
+  if (by) quote.append(attribution(page, by))
+  box.replaceWith(quote)
+}
+
+/** A line that starts with a dash: who said a quote, as "— Name" or "―Name". */
+const DASH = /^\s*[—―–]/
+
+/** Who said a quote, as its own line in it: a dash and the words, whatever dash or none the site used. */
+function attribution(page: ReturnType<typeof parseHTML>['document'], line: Element): Element {
+  const cite = page.createElement('cite')
+  cite.append(...line.childNodes)
+  const first = [...cite.childNodes].find((node) => (node.textContent ?? '').trim())
+  if (first?.nodeType === 3) first.textContent = (first.textContent ?? '').replace(/^\s*[—―–-]\s*/, '')
+  cite.prepend('— ')
+  return cite
 }
 
 /** Why a picture was not kept here: the site would not send it, did not answer, was too slow, or the reading was stopped first. */
@@ -231,6 +265,16 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
   const first = clean.querySelector('h1, h2, h3')
   if (words(title) && first && words(first.textContent ?? '') === words(title)) first.remove()
   codeAsWritten(clean)
+  // A quote's attribution set as the paragraph after it, or as its own last paragraph ("— Harry's choice…"): moved
+  // into it as its own line, so it never reads as a line of the article.
+  for (const quote of clean.querySelectorAll('blockquote')) {
+    if ([...quote.children].some((one) => one.tagName === 'CITE')) continue
+    const inside = quote.lastElementChild
+    const after = quote.nextElementSibling
+    const by = inside?.tagName === 'P' && quote.children.length > 1 && DASH.test(inside.textContent ?? '') ? inside
+      : after?.tagName === 'P' && DASH.test(after.textContent ?? '') && (after.textContent ?? '').length < 200 ? after : null
+    if (by) (quote.append(attribution(clean, by)), by.remove())
+  }
   // Of each picture's versions, the one a desktop reader sees, read from its sources and classes before they are stripped:
   // a <picture>'s first source a wide window takes, a srcset's sharpest for the column, and nothing a wide window hides.
   for (const one of clean.querySelectorAll('picture')) {
@@ -286,17 +330,22 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
     const { one, line, link, linkWords } = stood[at]
     one.removeAttribute('data-wait')
     const alt = one.getAttribute('alt')?.trim() ?? ''
-    // One on this machine's network goes (kept as ''); one the site did not send stays a link to it there, said by its words.
+    // One on this machine's network goes (kept as ''); one the site did not send stays as a quiet line the app wrote
+    // (pdf.css [data-missed]): why it is not here, and what it showed unless the caption under it says so already.
+    // Never a link: underlined across the column, it read as the loudest thing on the page, its caption twice.
     if ('why' in got || !got.kept.startsWith('haligtree:')) {
       if (('kept' in got && !got.kept) || !alt) return (one.remove(), null)
-      const away = clean.createElement('a')
-      away.setAttribute('href', pictures[at])
-      away.textContent = `${MISSED['why' in got ? got.why : 'refused']}: ${alt}`
-      // On a line of its own where the picture stood, unless it stood inside a line of words already.
-      if (line) return (one.replaceWith(away), away)
-      const own = clean.createElement('p')
-      own.append(away)
-      return (one.replaceWith(own), own)
+      const why = MISSED['why' in got ? got.why : 'refused']
+      const caption = words(one.closest('figure')?.querySelector('figcaption')?.textContent ?? '')
+      const said = !!caption && (caption.includes(words(alt)) || words(alt).includes(caption))
+      // On a line of its own where the picture stood, unless it stood inside a line of words already. A link that
+      // held only the picture (to its full size) goes with it: the line is the app's words, not the site's link.
+      const away = clean.createElement(line ? 'span' : 'p')
+      away.setAttribute('data-missed', '')
+      away.textContent = said ? why : `${why}: ${alt}`
+      // (The tidying may have unwrapped that link already, its picture standing in its place.)
+      const stood = link?.isConnected && !linkWords && link.contains(one) ? link : one
+      return (stood.replaceWith(away), away)
     }
     const { kept, size } = got
     const name = URL.parse(pictures[at])?.pathname ?? ''
