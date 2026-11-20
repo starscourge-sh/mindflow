@@ -7,7 +7,7 @@ import {
 } from "@/components/suggestion/suggestion-renderer"
 import { FilePlus } from "lucide-react"
 
-import { EMBED_ASK, LINK_ASK, embedPluginKey, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
+import { EMBED_ASK, LINK_ASK, embedPluginKey, saidByPluginKey, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
 import { listDirection, step, revealRow } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
 import { TagIcon } from "@/components/haligtree/tag-icon"
@@ -24,8 +24,8 @@ const typingCode = (query = ""): boolean => /^[a-z]{1,3}-\d/i.test(query.trim())
  * in). Codes stay out of sight unless one is typed, at the row's end, so every
  * title starts at the same left edge.
  */
-export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<NoteSuggestion>, "items" | "command"> & { query?: string; ask?: string; stepIn?: (item: NoteSuggestion) => void }>(
-  function NoteList({ items, command, query, ask, stepIn }, ref) {
+export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<NoteSuggestion>, "items" | "command"> & { query?: string; ask?: string; stepIn?: (item: NoteSuggestion) => void; /** Tab takes the row too, as ↵ does: a name being finished (a quote's "- who"). */ tabPicks?: boolean }>(
+  function NoteList({ items, command, query, ask, stepIn, tabPicks }, ref) {
     const [selected, setSelected] = useState(0)
     // Moving past the fold brings the row with it, as in the / menu.
     const selectedRef = useRef<HTMLButtonElement>(null)
@@ -48,7 +48,7 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
           return true
         }
         // ⌘↵ sends what is written, menu open or not: only a plain Return picks.
-        if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && items[selected]) {
+        if ((event.key === "Enter" || (tabPicks && event.key === "Tab" && !event.shiftKey)) && !event.metaKey && !event.ctrlKey && items[selected]) {
           command(items[selected])
           return true
         }
@@ -109,6 +109,10 @@ const Asking = (ask: string) =>
 
 export const noteLinkRenderer = createSuggestionRenderer(Asking(LINK_ASK), noteLinkPluginKey)
 export const tagRenderer = createSuggestionRenderer(NoteList, tagPluginKey)
+// A quote's "- who, where": the people and works in the book, Tab or ↵ taking the whole name (lib/source-rows.tsx).
+export const saidByRenderer = createSuggestionRenderer(forwardRef<SuggestionListHandle, ListProps>(function SaidByList(props, ref) {
+  return <NoteList ref={ref} items={props.items} command={props.command} query={props.query} tabPicks />
+}), saidByPluginKey)
 export const wikiRenderer = createSuggestionRenderer(Asking(LINK_ASK), wikiPluginKey)
 // "Embed a note": Escape takes the unfinished `[[name` with it, as it would a lone `/`.
 export const embedRenderer = createSuggestionRenderer(Asking(EMBED_ASK), embedPluginKey, { dropOnEscape: true })

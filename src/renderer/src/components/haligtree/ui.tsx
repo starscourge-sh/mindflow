@@ -16,7 +16,10 @@ import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
 import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
-import { UNATTRIBUTED } from '@/lib/sources'
+import { UNATTRIBUTED, openSource, sources, type SourceSummary } from '@/lib/sources'
+import { sourceRows } from '@/lib/source-rows'
+import { NoteList } from '@/components/note-link/note-link-menu'
+import type { SuggestionListHandle } from '@/components/suggestion/suggestion-renderer'
 import { useReading, useReadsIn, useSeen } from '@/lib/reads-in'
 import { useDecoded } from '@/lib/decoded'
 import { chime, quietFor, setVolume, soundOn, type Cue } from '@/lib/sound'
@@ -2123,17 +2126,25 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
   /** Off, nothing is offered from the names used before: the welcome's lesson keeps your history out of it. */
   complete?: boolean
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>): React.JSX.Element {
-  // The names you have used before, most used first: the rest of the nearest
-  // one is written in faint after what you typed, and Tab or → takes it. A
-  // name that is one you know but for its capitals or a slip of a key ("Pink
-  // floyd", "Pnik Floyd") becomes that one as you leave the field.
-  const values = useLive(() => haligtree.values(field), [] as string[])
+  // The people (or works) already in the book, as the box's "- who" offers them (lib/source-rows.tsx): the one
+  // suggestion list under the field while a name is typed, best first, ↑↓ to move, Tab or ↵ to take the whole
+  // name; the rest of the first written in faint after what you typed, which → takes too. A name that is one you
+  // know but for its capitals or a slip of a key ("Pink floyd", "Pnik Floyd") becomes that one as you leave the field.
+  const all = useLive(() => (complete ? sources.list() : Promise.resolve([] as SourceSummary[])), [] as SourceSummary[], [complete])
+  const values = all.filter((one) => one.field === field).map((one) => one.name)
   const typed = complete ? value.trim().toLowerCase() : ''
-  const match = typed ? values.find((one) => one.toLowerCase().startsWith(typed) && one.length > typed.length) : undefined
+  const [focused, setFocused] = useState<'up' | 'down' | false>(false)
+  // A field low in its window (quick capture's foot) opens its list above it.
+  const sideOf = (input: HTMLInputElement): 'up' | 'down' => (input.getBoundingClientRect().top > window.innerHeight / 2 ? 'up' : 'down')
+  const [shut, setShut] = useState<string | null>(null)
+  const rows = focused && shut !== value ? sourceRows(all, field, value) : []
+  const list = useRef<SuggestionListHandle>(null)
+  const match = rows[0]?.label.toLowerCase().startsWith(typed) && rows[0].label.length > typed.length ? rows[0].label : undefined
   const ahead = match ? match.slice(value.length) : ''
-  // A who with a name wears that person's face at its start: a click on it
-  // adds a picture, as does a picture pasted in, or a right click.
+  // A who with a name wears that person's face at its start: a click on it opens their page once they are in the
+  // book, and adds a picture to a new name, as does a picture pasted in, or a right click.
   const person = field === 'attribution' ? value.trim() : ''
+  const linked = !!person && values.includes(person)
   const className = person ? cn(given, 'pl-6') : given
   const known = (): string | undefined => {
     if (!typed) return undefined
@@ -2155,18 +2166,29 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
           void setAvatar(person, picture).then((done) => done || pasteAvatar(person))
         }}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        // Where the field stands read as you type, not as it is focused: quick capture's box may still be growing then.
+        onChange={(event) => (setFocused(sideOf(event.currentTarget)), onChange(event.target.value))}
+        aria-expanded={rows.length > 0}
+        aria-autocomplete="list"
         onKeyDown={(event) => {
           const end = event.currentTarget.selectionStart === value.length
-          if (ahead && end && (event.key === 'Tab' || event.key === 'ArrowRight')) {
+          if (ahead && end && event.key === 'ArrowRight') {
             event.preventDefault()
             chime('tap')
             onChange(match!)
             return
           }
+          if (rows.length && !event.metaKey && !event.altKey && !event.ctrlKey) {
+            // A name typed out whole is kept as typed: ↵ is the field's own then, and Tab still takes the one offered (task-input.tsx).
+            const keys = event.key === 'Tab' && !event.shiftKey ? new KeyboardEvent('keydown', { key: 'Enter' }) : event.key === 'Enter' && values.some((one) => one.toLowerCase() === typed) ? null : event.nativeEvent
+            if (keys && list.current?.onKeyDown({ event: keys } as never)) return (event.preventDefault(), event.stopPropagation(), chime('settled'))
+            if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), setShut(value))
+          }
           onKeyDown?.(event)
         }}
+        onFocus={(event) => (setFocused(sideOf(event.currentTarget)), rest.onFocus?.(event))}
         onBlur={(event) => {
+          setFocused(false)
           const fixed = known()
           if (fixed && fixed !== value.trim()) onChange(fixed)
           onBlur?.(event)
@@ -2184,12 +2206,18 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
         </span>
       )}
       {person && (
-        <Tip label="Add a picture… or paste one in">
-          <button type="button" data-who-avatar tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => void pickAvatar(person)}
+        <Tip label={linked ? `Open ${person}’s page` : 'Add a picture… or paste one in'}>
+          <button type="button" data-who-avatar data-who-linked={linked || undefined} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (linked ? (chime('open'), openSource('attribution', person)) : void pickAvatar(person))}
             className="z-10 ml-1 cursor-pointer self-center justify-self-start rounded-full transition-transform hover:scale-110">
             <Avatar name={person} size={16} />
           </button>
         </Tip>
+      )}
+      {rows.length > 0 && (
+        // The editor's own list (note-link-menu.tsx NoteList), under the field, as a task's # list is (task-input.tsx).
+        <div data-source-offers className={cn('tiptap-suggestion-popup absolute left-0 z-50 self-start justify-self-start', focused === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5')} onMouseDown={(event) => event.preventDefault()}>
+          <NoteList ref={list} items={rows} command={(item) => (chime('settled'), setShut(item.label), onChange(item.label))} />
+        </div>
       )}
     </span>
   )

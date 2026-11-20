@@ -21,7 +21,7 @@ import { convertImports } from './lib/convert-imports'
 import { HaligtreeEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/haligtree'
 import { settleVim } from './lib/vim'
 import { EXITS, exit, exitMany, findCaptures, findHeadings, follow } from './lib/capture-links'
-import { madeByLink } from './extensions/note-link'
+import { madeByLink, saidByPluginKey } from './extensions/note-link'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
 import { CaptureList, inInboxWindow, selectionWays, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
@@ -83,6 +83,8 @@ import { binItem, moveToBin } from './lib/to-bin'
 import TrashIcon from './components/ui/trash-icon'
 import { DayAround, WillDo, TokenHint } from './components/haligtree/will-do'
 import { useHas } from './lib/needs'
+import { saidBySuggestion } from './lib/source-rows'
+import { saidByRenderer } from './components/note-link/note-link-menu'
 import { boxTokensPlugin, boxGuess, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
 import { liftFrom } from './lib/fly-home'
@@ -2616,6 +2618,10 @@ export default function App(): React.JSX.Element {
                     onKept: (token, seq) => latestKept.current(token, seq),
                     onHover: setTokenHover
                   }), (plugin, plugins) => [plugin, ...plugins])
+                // A quote's "- jonatha": the people and works in the book offered, Tab or ↵ writing the whole name (lib/source-rows.tsx).
+                // Ahead of the editor's own keys, which take Tab and ↵ for a list's indent and a new line.
+                if (!saidByPluginKey.getState(editor.state))
+                  editor.registerPlugin(saidBySuggestion({ editor, render: saidByRenderer, allow: () => !boxContext.current.off && (planNow(editor)?.kind ?? boxContext.current.kind) === 'quote' }), (plugin, plugins) => [plugin, ...plugins])
               }}
               tokens={TAGS}
               // A heading in the note already open is gone to here; anywhere else, once it opens.
@@ -2754,7 +2760,7 @@ export default function App(): React.JSX.Element {
                   what this kind asks for, unless it already holds something. */}
               {((started && !editing && asks.who) || attribution || (askSource && (!!asks.who || !asks.where))) && (
                 <ReadFrom tip={readWho ? readTip : ''}>
-                <Remembered field="attribution" data-read-from={readWho || undefined} complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={cn(FIELD, readWho && READ)} onChange={(value) => {
+                <Remembered field="attribution" data-box-who data-read-from={readWho || undefined} complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={cn(FIELD, readWho && READ)} onChange={(value) => {
                   setAskSource(true)
                   setAttribution(value)
                   if (editing) void haligtree.setCapture(editing.id, 'attribution', value.trim() || null)
