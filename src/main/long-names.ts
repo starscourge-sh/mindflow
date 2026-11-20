@@ -195,7 +195,9 @@ export async function nameRecording(id: string): Promise<void> {
 
 /** The meeting notes still under the name they were kept with, newest first, for the backfill. */
 function recordingsToName(): Long[] {
-  const ids = database().prepare("select id from captures where source = 'Meeting' and status != 'discarded' and private = 0 order by captured_at desc limit 2000").all() as { id: string }[]
+  // Only the ones that can still wear the name they were kept with: "Recording, …", or an event's (its title). The
+  // rest (renamed by hand, or by this) are never opened and read.
+  const ids = database().prepare(`select id from captures where source = 'Meeting' and status != 'discarded' and private = 0 and (${LABEL} like 'Recording, %' or body like '%"event":{%') order by captured_at desc limit 2000`).all() as { id: string }[]
   return ids.flatMap(({ id }) => {
     const one = recorded(id)
     return one && (one.said.trim() || one.event) ? [{ kind: 'capture' as const, id, name: one.name }] : []

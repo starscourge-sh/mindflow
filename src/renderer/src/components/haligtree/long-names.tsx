@@ -27,7 +27,7 @@ type Was = { id: string; title: string }
  * changeable or left out, then one notice with Undo. "Rename the long ones I have…" and "Name 12 recordings by what
  * was said" are both this.
  */
-function RenamePreview({ offer, list, ask, done, what }: {
+function RenamePreview({ offer, list, ask, done, what, after }: {
   /** The button that starts it. */
   offer: string
   list: () => Promise<Long[]>
@@ -36,6 +36,8 @@ function RenamePreview({ offer, list, ask, done, what }: {
   done: (count: number) => string
   /** What a row is now, under its new name. */
   what: (one: Long) => string
+  /** Run once names were given, and again once Undo put them back. */
+  after?: () => void
 }): React.JSX.Element {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [asking, setAsking] = useState<{ done: number; of: number } | null>(null)
@@ -62,9 +64,10 @@ function RenamePreview({ offer, list, ask, done, what }: {
     const was = await call<Was[]>('names:apply', picked)
     chime('noted')
     setRows(null)
+    after?.()
     toast(done(was.length), () => {
       for (const one of picked) namedByApp(one.id, one.name)
-      void call('names:undo', was).then(() => chime('undo'))
+      void call('names:undo', was).then(() => (chime('undo'), after?.()))
     })
   }
   const picked = rows?.filter((one) => one.on).length ?? 0
@@ -146,7 +149,7 @@ export function RecordingNames({ on }: { on: boolean }): React.JSX.Element | nul
   return (
     <div data-recording-names>
       <RenamePreview offer={`Name ${plural(count, 'recording')} by what was said…`} list={() => call<Long[]>('names:recordings')} ask={(one) => call<string | null>('names:recording', one.id)}
-        done={(n) => (setSeen((at) => at + 1), `Named ${plural(n, 'recording')} by what was said, their old names kept`)} what={(one) => `Recording, now “${one.name}”`} />
+        done={(n) => `Named ${plural(n, 'recording')} by what was said, their old names kept`} what={(one) => `Recording, now “${one.name}”`} after={() => setSeen((at) => at + 1)} />
     </div>
   )
 }
