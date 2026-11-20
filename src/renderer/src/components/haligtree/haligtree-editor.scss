@@ -600,8 +600,8 @@
 .tiptap-icon-picker {
   border: 1px solid var(--tt-border-color);
   // The right-click menu is the one to match: every menu in the app that is
-  // not the editor's own looks like it. `rounded-lg`, the theme's own token.
-  border-radius: var(--radius-lg, 0.625rem);
+  // not the editor's own looks like it. The one floating corner (main.css, `rounded-float`).
+  border-radius: var(--mf-float-radius);
   // Opaque on purpose. The window behind it is transparent, so a panel with no
   // background of its own shows the document through it, and then the desktop.
   // The right-click menu's own fill (lib/float.ts, bg-popover), so the two never read as two greys.
@@ -1394,11 +1394,11 @@
     align-items: center;
     gap: 0.5rem;
     width: 100%;
-    // `min-h-7 px-2 py-1`, `rounded-md`, `text-control`: a context menu row, to
+    // `min-h-7 px-2 py-1`, `rounded-sm`, `text-control`: a context menu row, to
     // the pixel, as every menu and picker in the app now has it.
     min-height: 1.75rem;
     padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-sm);
     font-size: var(--text-control);
     line-height: var(--text-control--line-height);
     text-align: left;

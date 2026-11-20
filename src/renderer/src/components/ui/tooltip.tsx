@@ -161,7 +161,7 @@ function TooltipContent({
           // its first frame, never faded (it is frosted: fading in, it showed the page sharp through it until the fade ended).
           // The same room at both sides, with a key in it or without: a key was pulled toward the edge (6px against 10 on
           // the words' side), which read as an uneven tip (12 Nov).
-          "mf-pop z-[100] inline-flex w-fit max-w-[min(20rem,calc(100vw-1rem))] [overflow-wrap:anywhere] items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm",
+          "mf-pop z-[100] inline-flex w-fit max-w-[min(20rem,calc(100vw-1rem))] [overflow-wrap:anywhere] items-center gap-1.5 rounded-tip px-2.5 py-1.5 text-xs **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm",
           className
         )}
         {...props}

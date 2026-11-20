@@ -575,7 +575,7 @@ function NewProp({ className, size, names, waiting, onField, onName, onCancel }:
         {count > 0 && (
           // In by `mf-pop` (main.css), as a popover is: grown down from the field by a clip, never faded (it is frosted).
           <div ref={list} role="listbox" data-name-options data-state="open" data-side={room?.up ? 'top' : 'bottom'} style={room ? { maxHeight: room.tall } : undefined}
-            className={`${FLOAT} mf-pop absolute left-0 z-50 flex max-h-80 ${room?.up ? 'bottom-full mb-1' : 'top-full mt-1'} ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-lg p-1`}>
+            className={`${FLOAT} mf-pop absolute left-0 z-50 flex max-h-80 ${room?.up ? 'bottom-full mb-1' : 'top-full mt-1'} ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-float p-1`}>
             {fields.map((one, index) => {
               const KindIcon = ICONS[one.type] ?? Text
               return (

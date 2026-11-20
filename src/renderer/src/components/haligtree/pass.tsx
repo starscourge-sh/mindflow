@@ -582,7 +582,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
       />
       {bare && why && text && <p role="status" data-tag-hint className="basis-full text-control text-muted-foreground">{why}</p>}
       {focused && offered.length > 0 && (
-        <div data-tag-offers className={bare ? 'flex basis-full flex-col' : `absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-lg p-1 text-control ${FLOAT}`}>
+        <div data-tag-offers className={bare ? 'flex basis-full flex-col' : `absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-float p-1 text-control ${FLOAT}`}>
           {offered.map((one, index) => (
             <button key={one.tag} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => keep(one.tag)}
               // One lit row: the pointer chooses once it moves, and at rest under the list it lights nothing of its own.

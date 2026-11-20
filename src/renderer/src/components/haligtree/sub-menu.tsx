@@ -118,7 +118,7 @@ export function BarMenu({ label, lit, icon: Shown, bare, column, text, tip, open
           }}
           role="menu"
           aria-label={label}
-          className={`fixed z-[60] flex gap-0.5 ${column ? "flex-col items-stretch" : ""} ${bare ? "" : "mf-frost rounded-lg border bg-popover p-1 shadow-(--mf-panel-shadow)"}`}
+          className={`fixed z-[60] flex gap-0.5 ${column ? "flex-col items-stretch" : ""} ${bare ? "" : "mf-frost rounded-float border bg-popover p-1 shadow-(--mf-panel-shadow)"}`}
           style={{ left: at?.left ?? -9999, top: at?.top ?? -9999, ...(at?.tall ? { maxHeight: at.tall, overflowY: 'auto' } : {}) }}
           onMouseDown={(event) => event.preventDefault()}
         >

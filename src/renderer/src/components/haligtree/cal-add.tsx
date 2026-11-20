@@ -401,7 +401,7 @@ function Shell({ kind, label, side, opened, head, children, tied, onEscape, onKe
           card: on its edge whatever its height (over or under, the sum goes by widths, the same for both), or (beside a
           tall thing, where the sum moves nothing) no lower than the card reaches. Either way the point is on the side the
           clip shows from its first frame to its last, so it comes and goes with the card. */}
-      <div data-cal-add={kind} data-cal-open={opened} className={`${FLOAT} mf-pop-card pointer-events-auto flex max-h-full min-h-0 w-full flex-col rounded-xl text-control`}>
+      <div data-cal-add={kind} data-cal-open={opened} className={`${FLOAT} mf-pop-card pointer-events-auto flex max-h-full min-h-0 w-full flex-col rounded-float text-control`}>
         {/* On the one left edge the line and the reading under it keep. */}
         <div className="flex shrink-0 items-center px-3 pt-3">{head}</div>
         <Sized face={kind}>{children}</Sized>

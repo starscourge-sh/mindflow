@@ -122,7 +122,7 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
       role="dialog"
       aria-label="Edit link"
       // As wide as its row of buttons needs, never narrower than the address wants.
-      className="mf-frost fixed z-[70] flex w-max min-w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-2 rounded-lg border bg-popover p-2 shadow-(--mf-panel-shadow)"
+      className="mf-frost fixed z-[70] flex w-max min-w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-2 rounded-float border bg-popover p-2 shadow-(--mf-panel-shadow)"
       style={{ left: open.left, top: open.top }}
     >
       <input

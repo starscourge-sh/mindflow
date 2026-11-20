@@ -399,7 +399,7 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
       aria-label={draft.kind === 'nugget' ? 'Reword as a gem' : 'Reword as a capture'}
       {...pop}
       data-side={!spot || spot.origin.endsWith('100%') ? 'top' : 'bottom'}
-      className={`mf-pop ${by ? 'fixed' : 'relative'} z-[56] flex w-[min(360px,calc(100vw-24px))] flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow) data-[state=closed]:pointer-events-none`}
+      className={`mf-pop ${by ? 'fixed' : 'relative'} z-[56] flex w-[min(360px,calc(100vw-24px))] flex-col gap-2 rounded-float border bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow) data-[state=closed]:pointer-events-none`}
       style={spot ? { left: spot.left, top: spot.top } : undefined}
     >
       <div className="flex items-center gap-2">
@@ -455,7 +455,7 @@ function Waiting({ draft }: { draft: Draft }): React.JSX.Element {
       exit={{ opacity: 0, transform: shift('scale(0.96)'), transition: { duration: quick ? 0 : 0.12 } }}
       transition={{ duration: quick ? 0 : 0.16, ease: EASE }}
       data-reword-draft={draft.key}
-      className="group flex h-8 max-w-[min(280px,calc(100vw-32px))] items-center rounded-lg border bg-popover text-control shadow-(--mf-panel-shadow)"
+      className="group flex h-8 max-w-[min(280px,calc(100vw-32px))] items-center rounded-float border bg-popover text-control shadow-(--mf-panel-shadow)"
       style={{ transformOrigin: '0% 100%' }}
     >
       <button type="button" aria-label={`Open the ${label.toLowerCase()} draft`} onClick={() => (chime('open'), drafts.forEach((one) => release(one)), set(drafts.map((one) => ({ ...one, open: one.key === draft.key, anchor: null }))))}

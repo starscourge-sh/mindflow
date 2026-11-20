@@ -3,9 +3,9 @@
  * tooltips, peeks and ⌘K. The popover's own fill, frosted in the main window
  * (mf-frost, main.css: the page blurred under a translucent fill, opaque under
  * Reduce Transparency and in see-through windows), a hairline ring in the ink, and the shared panel shadow,
- * which Brutal turns into its hard one. Corners come from the radius scale,
- * by size: a tooltip is small (rounded-md), a menu medium (rounded-lg), a
- * card or a panel large (rounded-xl).
+ * which Brutal turns into its hard one. Corners come from one token (main.css `--mf-float-radius`): every
+ * menu, submenu, popover, hover card and the Calendar's popovers are `rounded-float` (6px, a card's small corner);
+ * a tooltip is a step smaller, `rounded-tip` (4px). A row inside a menu is `rounded-sm`, inside the menu's corner.
  */
 export const FLOAT = 'mf-frost bg-popover text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10'
 
@@ -16,9 +16,9 @@ export const FLOAT = 'mf-frost bg-popover text-popover-foreground shadow-(--mf-p
  * link shows (note-preview.tsx): a kind line, a bold title, its words, a
  * hairline above a quiet foot. qa/popups-consistent.mjs holds every hover to one of them.
  */
-export const TIP = `${FLOAT} rounded-md px-2.5 py-1.5 text-xs`
-// A card is the same material as a menu (FLOAT's ring, not a border of its own), at a card's corners.
-export const CARD = `${FLOAT} rounded-xl`
+export const TIP = `${FLOAT} rounded-tip px-2.5 py-1.5 text-xs`
+// A card is the same material as a menu (FLOAT's ring, not a border of its own), at the same corners.
+export const CARD = `${FLOAT} rounded-float`
 
 /**
  * The one surface of a pill floating over other apps (the session bubble, the desk's pills): the theme's popover,

@@ -75,7 +75,7 @@ export function useTilt(by: number, lift = 1.03): {
   return { x, y, grow, glow, sheen, lean, flat, onFlat: (then) => void (also.current = then) }
 }
 
-const LABEL = `pointer-events-none fixed top-0 left-0 z-50 rounded-md px-2 py-1 ${FLOAT}`
+const LABEL = `pointer-events-none fixed top-0 left-0 z-50 rounded-tip px-2 py-1 ${FLOAT}`
 // One line cut short for a card's title; up to two lines for a caption, then "…".
 const LINE = 'max-w-60 truncate text-xs'
 // A picture's caption a size down (11px), so it stays a note beside the picture, not a second line of the page.

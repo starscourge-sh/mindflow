@@ -12,8 +12,8 @@
   --padding: 0.375rem;
   --border-width: 1px;
 
-  // A card: 14px, the panel shadow, and its own border as the hairline.
-  border-radius: calc(var(--radius, 0.625rem) * 1.4);
+  // A floating card (the editor's popovers): the one floating corner (main.css), the panel shadow, and its own border as the hairline.
+  border-radius: var(--mf-float-radius);
   box-shadow: var(--mf-panel-shadow);
   background-color: var(--tiptap-card-bg-color);
   border: 1px solid var(--tiptap-card-border-color);
