@@ -990,9 +990,6 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Pages in the Feed" note="Your pages come up in the Feed's Notes, beside your gems and notes." more="Off to start, so the Feed is short things to read in a moment; Reading has your pages either way. The Feed has the same switch at its top." keywords="feed pages writing articles posts notes gems include">
             <Switch checked={settings.feedPages === true} onCheckedChange={(feedPages) => set({ feedPages })} />
           </Setting>
-          <Setting title="Also show notes with pictures" note="Notes with a picture in them, and notes you brought in from elsewhere, come up in the Feed too." more="Off to start: the Feed holds what you chose to keep, your gems, quotes, questions and Journal days. Each post says why it is there." keywords="feed pictures images screenshots imported archives notes posts include">
-            <Switch checked={settings.feedPictures === true} onCheckedChange={(feedPictures) => set({ feedPictures })} />
-          </Setting>
           <Setting title="Hints" note="How often quick capture shows you something you kept." more="Rare is the point: a hint every time is one you learn to ignore.">
             <SettingSlider min={0} max={0.5} step={0.05} rest={0.1} value={settings.hintRate} onSave={(hintRate) => set({ hintRate })} />
             <span className={SLIDER_VALUE}><Rolling text={settings.hintRate ? `1 in ${Math.round(1 / settings.hintRate)}` : 'never'} /></span>

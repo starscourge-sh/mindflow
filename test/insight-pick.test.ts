@@ -1,7 +1,7 @@
 // Run with: node --test test/insight-pick.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { BUDGET, levelOf, lineOf, newFacts, pickPassages, type Lane, type Passage } from '../src/main/insight-pick.ts'
+import { BUDGET, levelOf, newFacts, pickPassages, type Lane, type Passage } from '../src/main/insight-pick.ts'
 
 const NOW = new Date('2026-11-20T12:00:00.000Z')
 const daysAgo = (n: number): string => new Date(NOW.getTime() - n * 86_400_000).toISOString()
@@ -41,15 +41,17 @@ test('Connect gives two notes not linked; every request fits the budget', () => 
   }
 })
 
-test('Resurface is one passage; its line is a whole sentence of the note', () => {
-  const picked = pickPassages(book, 'resurface', '2026-11-20', 0, new Set(), NOW)!
-  assert.equal(picked.passages.length, 1)
-  assert.ok(book.find((one) => one.id === picked.passages[0].id)!.text.includes(lineOf(picked.passages[0].text, 'x')))
+test("The Feed's post (resurface) is one passage; a liked note comes sooner than a faded one", () => {
+  assert.equal(pickPassages(book, 'resurface', '2026-11-20', 0, new Set(), NOW)!.passages.length, 1)
+  // The two at either end of the newest share: one liked four times as much, one faded to a third.
+  const weighed = book.map((one) => (one.id === 'n0' ? { ...one, weight: 4 } : one.id === 'n1' ? { ...one, weight: 0.3 } : one))
+  const picks = Array.from({ length: 400 }, (_, turn) => pickPassages(weighed, 'resurface', '2026-11-20', turn, new Set(), NOW)!.passages[0].id)
+  assert.ok(picks.filter((id) => id === 'n0').length > picks.filter((id) => id === 'n1').length * 3)
 })
 
 test('a dismissed level comes less often', () => {
   const count = (mix: Record<string, number>): number => Array.from({ length: 300 }, (_, turn) => levelOf('2026-11-20', turn, mix)).filter((one) => one === 'reframe').length
-  assert.ok(count({ resurface: 1, connect: 1, reframe: 0.85 ** 4 }) < count({ resurface: 1, connect: 1, reframe: 1 }))
+  assert.ok(count({ connect: 1, reframe: 0.85 ** 4 }) < count({ connect: 1, reframe: 1 }))
 })
 
 test('a name or a number the notes never said is caught', () => {
