@@ -8,7 +8,7 @@ import { EASE, shift, still } from '@/lib/motion'
 import { useSurface } from '@/lib/use-alive'
 import { useLive, haligtree, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/haligtree'
 import { useHas } from '@/lib/needs'
-import type { WrapPage } from '../../../../main/wrap-lines'
+import type { Lean, Voice, WrapPage } from '../../../../main/wrap-lines'
 import { taskName } from '@/lib/tasks'
 import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
@@ -214,28 +214,29 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     }
   }, [data, pictures]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On a Mac with Apple Intelligence, a few words over each page on how it feels against last time, written from the
-  // page's key facts (main/wrap-lines.ts), one request a story; the page's own sentence under it keeps every number.
-  // Lead-ins already written for these facts come at once and the first card waits for that answer only; new ones come
-  // while the cards turn, each page taking its lead-in if it is in when the page first shows, and keeping whatever it
-  // showed. Without them, or past 20 seconds, every page shows its sentence alone.
+  // On a Mac with Apple Intelligence, a few words over each page: the page's plain statement, written here from its
+  // facts (wrapSays), said again by the model in the voice of the story's look (main/wrap-lines.ts); the page's own
+  // sentence under it keeps every number. Lead-ins already written come at once and the first card waits for that answer
+  // only; new ones come while the cards turn. A page shows the plain statement until its own is in, and keeps whatever it
+  // showed first, so nothing changes under the reader.
   const ai = useHas('ai') && !worst
-  const asked = useMemo(() => (facts && ai ? wrapFacts(facts) : null), [facts, ai])
+  const asked = useMemo(() => (facts && ai ? wrapSays(facts) : null), [facts, ai])
+  const voice = VOICE[look.world]
   const [written, setWritten] = useState<{ leads: Record<string, string> | null; done: boolean }>({ leads: null, done: false })
   useEffect(() => {
     if (!asked) return
     let live = true
     type Said = { leads: Record<string, string> | null } | { error: string }
     const said = (one: Said): void => void (live && setWritten({ leads: 'leads' in one ? one.leads : null, done: true }))
-    void window.api.haligtree<Said>('ai:wrap', id, asked, true).then((kept) => {
+    void window.api.haligtree<Said>('ai:wrap', id, asked, true, voice).then((kept) => {
       said(kept)
-      if ('leads' in kept && !kept.leads) void window.api.haligtree<Said>('ai:wrap', id, asked, false).then(said, () => undefined)
+      if ('leads' in kept && !kept.leads) void window.api.haligtree<Said>('ai:wrap', id, asked, false, voice).then(said, () => undefined)
     }, () => said({ leads: null }))
     return () => void (live = false)
-  }, [asked]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [asked, voice]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownLeads = useRef(new Map<Kind, string | undefined>())
   const leadFor = (one: Kind): string | undefined => {
-    if (!shownLeads.current.has(one)) shownLeads.current.set(one, written.leads?.[one])
+    if (!shownLeads.current.has(one)) shownLeads.current.set(one, written.leads?.[one] ?? asked?.find((page) => page.page === one)?.says)
     return shownLeads.current.get(one)
   }
   const ready = !!facts && (!asked || written.done)
@@ -485,37 +486,45 @@ const thinkingHour = (hours: number[]): number | null => {
 }
 const hourSaid = (hour: number): string => `${hour}:00`
 
+/** The voice each look speaks in (main/wrap-lines.ts VOICES): the paper of Files, a dry librarian; Night, a detective. */
+const VOICE: Record<World, Voice> = { files: 'librarian', night: 'noir' }
+
 /**
- * What each page's lead-in may go on (main/wrap-lines.ts): its one to three key facts and the change since last time,
- * all in words, with no numbers (the page's sentence says those). Every page a story could show, whichever this open
- * picks, so the lead-ins are kept per story and not per open. Only pages with something to set against last time or a
- * shape to name (the opening, tags, focus, the busiest day, the hour, the close): on the others (sites, reading, plan,
- * pictures, notes, the run) the model, with nothing to compare, made things up ("Days passed with effort, no pattern
- * found." over a long run, 20 Nov). Never "In your words" (your own lines) or the last card.
+ * Each page's lead-in as a plain statement, written here from its facts, never a number (the page's sentence says
+ * those): "You caught more than last week.", "Tuesday was your busiest day by far." The model only says it again
+ * (main/wrap-lines.ts), keeping its lean and the things it names. Every page a story could show, whichever this open
+ * picks, so the lead-ins are kept per story and not per open. Only pages with a change to state or a thing to name.
  */
-function wrapFacts(f: Facts): WrapPage[] {
+function wrapSays(f: Facts): WrapPage[] {
   const last = `last ${f.period}`
-  const span = f.period === 'month' ? f.name : 'this week'
-  // A change said as a word, never a count: clearly more, clearly fewer, or about the same.
-  const change = (now: number, before: number, what: string): string =>
-    !before ? (now ? `${what}, where ${last} had none` : '') : now > before * 1.3 ? `more ${what} than ${last}` : now < before * 0.77 ? `fewer ${what} than ${last}` : `about as many ${what} as ${last}`
+  const lean = (now: number, before: number): Lean => (!before ? (now ? 'up' : 'same') : now > before * 1.3 ? 'up' : now < before * 0.77 ? 'down' : 'same')
+  const moved: Record<Exclude<Lean, null>, string> = { up: 'more than', down: 'less than', same: 'as much as' }
   const pages: WrapPage[] = []
-  const page = (kind: Kind, facts: (string | false | null | undefined)[]): void => void pages.push({ page: kind, facts: facts.filter((one): one is string => !!one) })
-  const had = new Map(f.before.tags.map((one) => [one.name, one.n]))
-  const rise = (name: string, n: number): string => (!had.has(name) ? `#${name} is new since ${last}` : n > had.get(name)! ? `#${name} came up more than ${last}` : n < had.get(name)! ? `#${name} came up less than ${last}` : `#${name} held steady from ${last}`)
-  if (f.captures || f.minutes) page('intro', [`the story of ${span}`, change(f.captures, f.before.captures, 'things caught'), f.minutes >= 1 && change(f.minutes, f.before.minutes, 'focus'), f.gems > 0 && 'gems kept along the way'])
+  const page = (kind: Kind, says: string, leans: Lean = null, names: string[] = []): void => void pages.push({ page: kind, says, lean: leans, names, span: f.period })
+  const caught = lean(f.captures, f.before.captures)
+  const focused = lean(f.minutes, f.before.minutes)
+  if (f.captures) page('intro', `You caught ${moved[caught!]} ${last}.`, caught)
+  else if (f.minutes >= 1) page('intro', `You focused ${moved[focused!]} ${last}.`, focused)
   if (f.tags.length) {
-    const risen = f.tags.slice(1).find((one) => (had.get(one.name) ?? 0) < one.n)
-    page('tags', [`#${f.tags[0].name} came up most`, rise(f.tags[0].name, f.tags[0].n), risen && rise(risen.name, risen.n)])
-  } else if (f.captures) page('tags', [change(f.captures, f.before.captures, 'things caught'), 'none of them tagged'])
-  if (f.minutes >= 1) page('focus', [change(f.minutes, f.before.minutes, 'focus'), f.focusTasks[0] && `most of it on “${f.focusTasks[0].name}”`, f.focusTasks.length > 1 && 'shared among a few tasks'])
+    const top = f.tags[0].name
+    const had = f.before.tags.find((one) => one.name === top)?.n ?? 0
+    if (!had) page('tags', `#${top} was new this ${f.period}.`, null, [top, 'new'])
+    else if (f.tags[0].n > had * 1.3) page('tags', `#${top} came up more than ${last}.`, 'up', [top])
+    else page('tags', `#${top} came up most this ${f.period}.`, null, [top])
+  } else if (f.captures) page('tags', 'None of it was tagged.')
+  if (f.minutes >= 1) page('focus', `You focused ${moved[focused!]} ${last}.`, focused)
   if (f.busiest) {
     const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
     const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
-    page('busiest', [`the busiest day was a ${dayjs(f.busiest.day).format('dddd')}`, usual > 0 && f.busiest.n >= usual * 2 && 'far busier than a usual day'])
+    const day = dayjs(f.busiest.day).format('dddd')
+    page('busiest', `${day} was your busiest day${usual > 0 && f.busiest.n >= usual * 2 ? ' by far' : ''}.`, null, [day])
   }
-  if (f.hour !== null) page('hours', [`ideas came most in the ${f.hour >= 5 && f.hour < 12 ? 'morning' : f.hour < 17 && f.hour >= 12 ? 'afternoon' : f.hour >= 17 && f.hour < 22 ? 'evening' : 'night'}`])
-  page('outro', [`the end of the story of ${span}`, `in a word, ${f.kind.toLowerCase()}`, change(f.captures, f.before.captures, 'things caught')])
+  if (f.hour !== null) {
+    const time = f.hour >= 5 && f.hour < 12 ? 'morning' : f.hour >= 12 && f.hour < 17 ? 'afternoon' : f.hour >= 17 && f.hour < 22 ? 'evening' : 'night'
+    page('hours', `Your ideas came in the ${time}.`, null, [time])
+  }
+  const kind = f.kind.toLowerCase()
+  page('outro', `This ${f.period}, you were ${kind === 'quiet' ? 'quiet' : `a ${kind}`}.`, null, kind === 'quiet' ? [] : [kind])
   return pages
 }
 
