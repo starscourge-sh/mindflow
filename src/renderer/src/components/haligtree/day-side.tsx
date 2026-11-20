@@ -207,7 +207,15 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
   const name = taskName(read.title).text.trim()
   useEffect(() => onName?.(name), [name]) // eslint-disable-line react-hooks/exhaustive-deps
   const field = useRef<HTMLInputElement>(null)
-  useEffect(() => (requestAnimationFrame(() => (field.current?.focus(), field.current?.setSelectionRange(field.current.value.length, field.current.value.length))), () => void (held.current = null)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => (requestAnimationFrame(() => {
+    // The caret at the end, the name read from its start: a name a few letters too long showed cut at its first letter.
+    const el = field.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+    el.scrollLeft = 0
+    el.dispatchEvent(new Event('scroll'))
+  }), () => void (held.current = null)), []) // eslint-disable-line react-hooks/exhaustive-deps
   const { day, minute } = ask
   const length = minute === null ? 0 : ask.length
   const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')

@@ -642,7 +642,14 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, onPlace, on
   const ownText = useState(one?.title ?? '')
   const [text, setText] = words ?? ownText
   const field = useRef<HTMLInputElement>(null)
-  useEffect(() => (requestAnimationFrame(() => (field.current?.focus(), field.current?.setSelectionRange(field.current.value.length, field.current.value.length))), () => void (held && (held.current = null))), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => (requestAnimationFrame(() => {
+    // The caret at the end, the name read from its start (as the task popover's, day-side.tsx).
+    const el = field.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+    el.scrollLeft = 0
+  }), () => void (held && (held.current = null))), []) // eslint-disable-line react-hooks/exhaustive-deps
   const known = useKnownPeople()
   const calendars = useCalendars()
   const ownCalendar = useState<string | null>(null)

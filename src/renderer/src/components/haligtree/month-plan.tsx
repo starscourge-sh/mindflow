@@ -401,7 +401,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
           if (!over || line.kind === 'back' || line.kind === 'ready') return chime('stay')
           moveToDay(line.task, String(over.id), line.kind)
         }}>
-      <div className={`flex flex-col overflow-hidden rounded-xl border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}>
+      <div className={`flex flex-col overflow-hidden rounded-none border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}>
         <div data-cal-names={bare || undefined} className={COLS} aria-hidden>
           <div className="bg-background px-1 py-1 text-center text-control font-medium text-muted-foreground">Wk</div>
           {days.slice(0, 7).map((day) => (
