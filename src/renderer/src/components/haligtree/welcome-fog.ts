@@ -1,8 +1,8 @@
 /**
  * The welcome's fog (welcome-scene.tsx), drawn by the GPU: two banks of noise warped by noise at two depths drifting
  * past, so it billows and curls rather than sliding; lit from above, with a slow band of light crossing on the slant;
- * a dark trunk passing close and far out of focus; and a storm, slate cloud over a bright horizon, for the window it
- * becomes. Every input is a number of the scene's clock, so the scene window and the main window, each drawing its own,
+ * a warm haze that only ever grows lighter, and a gold dawn behind the mark as it rises (`storm`; `trunk` is no longer
+ * drawn: the dark trunk and the slate storm went on 20 Nov, "a first draft"). Every input is a number of the scene's clock, so the scene window and the main window, each drawing its own,
  * draw the same frame at the same moment (the handover between them is never seen).
  *
  * Drawn at half the canvas's size and stretched: fog has no edges to lose.
@@ -71,33 +71,26 @@ void main() {
   float band = exp(-pow((across - centre) / 0.13, 2.0)) * (0.55 + 0.45 * (1.0 - dense));
   vec3 prism = vec3(0.5) + 0.5 * cos(6.2831 * (across * 2.2 + vec3(0.0, 0.33, 0.67)));
 
-  // Pale: ivory in the light, a cool warm-grey in the folds.
-  vec3 fold = vec3(0.70, 0.695, 0.735);
-  vec3 ivory = vec3(0.955, 0.94, 0.915);
+  // One warm haze from first to last, only ever growing lighter (20 Nov, the user: the grey fog, its dark start, the
+  // trunk and the storm read as a first draft). Parchment in the folds, ivory in the light, the slow band of light gilt.
+  vec3 fold = vec3(0.885, 0.845, 0.785);
+  vec3 ivory = vec3(0.985, 0.968, 0.935);
   vec3 pale = mix(fold, ivory, smoothstep(0.08, 0.92, lit));
-  pale += band * (vec3(0.085, 0.078, 0.066) + 0.025 * (prism - 0.5));
+  pale += band * (vec3(0.060, 0.046, 0.020) + 0.012 * (prism - 0.5));
 
-  // Before the light comes: the same fog, unlit, a soft mid grey.
-  vec3 dim = mix(vec3(0.40, 0.395, 0.405), vec3(0.57, 0.565, 0.57), smoothstep(0.1, 0.9, lit));
+  // Before the light comes: the same haze, a little deeper and warmer, never grey and never dark.
+  vec3 dim = mix(vec3(0.80, 0.755, 0.69), vec3(0.875, 0.835, 0.775), smoothstep(0.1, 0.9, lit));
   vec3 fog = mix(dim, pale, light);
 
-  // The storm: slate cloud above, a bright horizon low down, streaks of light rising from the left.
-  float sky = smoothstep(0.62, -0.18, uv.y);
-  float horizon = exp(-pow((uv.y - 0.15 - 0.05 * (near - 0.5)) / (0.055 + 0.04 * far), 2.0)) * (0.55 + 0.6 * (1.0 - dense));
-  float rise = dot(p, normalize(vec2(-0.42, 1.0)));
-  float rays = (exp(-pow((rise + 0.30 - 0.018 * time) / 0.07, 2.0)) + 0.6 * exp(-pow((rise - 0.12 - 0.012 * time) / 0.11, 2.0))) * smoothstep(0.78, 0.12, uv.y) * 0.32;
-  vec3 slate = mix(vec3(0.17, 0.165, 0.165), vec3(0.42, 0.41, 0.40), smoothstep(0.2, 0.85, 1.0 - dense) * 0.8 + 0.2 * sky);
-  vec3 dark = slate + horizon * vec3(0.66, 0.62, 0.54) + (band * 0.12 + rays * (1.0 - dense)) * vec3(0.75, 0.74, 0.72);
-  fog = mix(fog, dark, storm);
+  // The dawn behind the mark (\`storm\`, the name it had): the haze warms to gold low and in the middle, as the sun rises
+  // in Dia's, the gold the welcome's pages wear after it. Lighter, never darker.
+  float glow = exp(-pow(length((uv - vec2(0.5, 0.40)) * vec2(1.0, 1.35)) / 0.42, 2.0));
+  vec3 gold = vec3(0.965, 0.865, 0.665);
+  fog = mix(fog, mix(fog, gold, 0.55 + 0.35 * (1.0 - dense)), storm * glow);
 
-  // The trunk passing close: far out of focus, a little fog still in front of it.
-  float dx = (uv.x - trunk + 0.012 * (uv.y - 0.5)) / (0.075 + 0.02 * uv.y);
-  float body = exp(-dx * dx * dx * dx * 0.5) * (0.85 - 0.45 * near) * smoothstep(1.05, 0.55, uv.y * 0.4 + 0.6);
-  fog = mix(fog, vec3(0.13, 0.12, 0.115) * (0.75 + 0.5 * light), body * 0.72);
-
-  // A little darker toward the corners.
+  // A breath lighter toward the middle, never dark at the edges.
   float edge = length((uv - 0.5) * vec2(1.0, 1.15));
-  fog *= 1.0 - 0.18 * smoothstep(0.35, 0.85, edge);
+  fog *= 1.0 - 0.05 * smoothstep(0.35, 0.85, edge);
 
   // Rolling in: the thick of it first and from the foot up, until it is whole.
   // Rolling in: first a haze the desktop still shows through, thickest low down, then banks of it from the foot up,

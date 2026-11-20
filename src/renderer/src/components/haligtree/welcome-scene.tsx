@@ -32,9 +32,6 @@ export const SCENE = {
   /** The light comes. */
   lightFrom: 3300,
   lightTo: 5000,
-  /** The trunk passing close, over the whole screen and again inside the window. */
-  trunk: [4300, 6000],
-  trunkAgain: [13300, 14900],
   /** "A commonplace book kept by …", written on in its owner's hand; it steps up to the top as the mark rises below it. */
   handFrom: 5600,
   handTo: 7600,
@@ -70,9 +67,9 @@ export const SCENE = {
 /** The window's corners on screen, as the Mac draws a window's. */
 export const CORNER = 12
 
-/** Where the GPU is not to be had: the fog's two looks as still grounds, never a flat sheet. */
-const PALE = 'radial-gradient(130% 95% at 32% 18%, #f1ece4 0%, #ddd8d0 45%, #bdb8b0 100%)'
-const STORM = 'linear-gradient(to bottom, #2b2927 0%, #3f3c38 52%, #a59d90 79%, #5a5550 86%, #2f2c29 100%)'
+/** Where the GPU is not to be had: the haze and its gold dawn as still grounds, never a flat sheet. */
+const PALE = 'radial-gradient(130% 95% at 32% 18%, #fbf6ee 0%, #efe7da 45%, #e2d6c4 100%)'
+const DAWN = 'radial-gradient(70% 60% at 50% 60%, #f6dfae 0%, #f1e6d3 55%, #e7dccb 100%)'
 
 const clamp = (x: number): number => Math.max(0, Math.min(1, x))
 const span = (t: number, from: number, to: number): number => clamp((t * 1000 - from) / (to - from))
@@ -81,15 +78,6 @@ const out = (x: number): number => 1 - (1 - x) ** 3
 /** The draw-in: quick to start and a long settle, as a window comes to rest. */
 const settle = (x: number): number => 1 - (1 - x) ** 4
 const written = (x: number): number => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2)
-
-/** Where the trunk is (in screen widths) at `t`, or far off when it is not passing. */
-function trunkAt(t: number): number {
-  for (const [from, to] of [SCENE.trunk, SCENE.trunkAgain]) {
-    const k = span(t, from, to)
-    if (k > 0 && k < 1) return 1.25 - 1.5 * ease(k)
-  }
-  return -9
-}
 
 /**
  * The scene at `t0` (Date.now() of its start), at `place`: drawn over the whole screen (`desk`, the scene window) or as
@@ -123,8 +111,9 @@ export function WelcomeScene({ t0, place, mode, name, onHandover }: { t0: number
     const paint = (): void => {
       const t = ((qa.qaSceneNow ?? Date.now()) - t0) / 1000
       const storm = ease(span(t, SCENE.stormFrom, SCENE.stormTo)) * (1 - ease(span(t, SCENE.calmFrom, SCENE.calmTo)))
-      if (fog) fog.draw({ time: t, cover: ease(span(t, SCENE.coverFrom, SCENE.coverTo)), light: ease(span(t, SCENE.lightFrom, SCENE.lightTo)), storm, trunk: trunkAt(t) })
-      else if (stage.current) stage.current.style.background = storm > 0.5 ? STORM : PALE
+      // No trunk passes now (`trunk` far off): a dark blur crossing the haze read as a smudge on the screen.
+      if (fog) fog.draw({ time: t, cover: ease(span(t, SCENE.coverFrom, SCENE.coverTo)), light: ease(span(t, SCENE.lightFrom, SCENE.lightTo)), storm, trunk: -9 })
+      else if (stage.current) stage.current.style.background = storm > 0.5 ? DAWN : PALE
       // The words: the hand writes alone in the pale fog, then steps down under the name as the mark rises with it.
       const handIn = span(t, SCENE.handFrom, SCENE.handTo)
       const rise = out(span(t, SCENE.markFrom, SCENE.markTo))
@@ -134,7 +123,8 @@ export function WelcomeScene({ t0, place, mode, name, onHandover }: { t0: number
         hand.current.style.opacity = String(ease(Math.min(1, handIn * 3)))
         hand.current.style.clipPath = `inset(-60% ${(100 - written(handIn) * 115).toFixed(2)}% -60% -15%)`
         const up = ease(span(t, SCENE.leadFrom, SCENE.markFrom + 900))
-        hand.current.style.transform = `translate(-50%, ${(-0.215 * H * up).toFixed(1)}px) rotate(-3deg) scale(${(1 - 0.22 * up).toFixed(4)})`
+        // It steps up over the mark as the mark rises, at its own size: nothing in the arrival grows and then shrinks.
+        hand.current.style.transform = `translate(-50%, ${(-0.215 * H * up).toFixed(1)}px) rotate(-3deg)`
       }
       if (mark.current) {
         mark.current.style.opacity = String(rise)
@@ -209,10 +199,11 @@ export function WelcomeScene({ t0, place, mode, name, onHandover }: { t0: number
         <canvas ref={canvas} className="absolute inset-0 size-full" />
         {/* Haligtree's grain over the fog, as on the welcome's paper (grain.tsx). */}
         <div className="absolute inset-0 opacity-[0.05] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
-        <div ref={words} className="absolute inset-0 origin-center text-[#fffaf1]" style={{ textShadow: `0 0 ${W * 0.014}px rgba(52, 44, 36, 0.22), 0 1px 2px rgba(52, 44, 36, 0.12)` }}>
-          <img ref={mark} src={markGold} alt="" draggable={false} className="absolute left-1/2 block" style={{ top: 0.315 * H, width: 0.056 * W, opacity: 0, filter: `drop-shadow(0 ${W * 0.003}px ${W * 0.01}px rgba(30, 24, 18, 0.35))` }} />
+        {/* The book's own brown ink on the light haze (Paper's), with a soft halo of the haze itself so it reads on any fold. */}
+        <div ref={words} className="absolute inset-0 origin-center text-[#3b2a18]" style={{ textShadow: `0 0 ${W * 0.012}px rgba(255, 249, 238, 0.55)` }}>
+          <img ref={mark} src={markGold} alt="" draggable={false} className="absolute left-1/2 block" style={{ top: 0.315 * H, width: 0.056 * W, opacity: 0, filter: `drop-shadow(0 ${W * 0.002}px ${W * 0.006}px rgba(90, 60, 20, 0.22))` }} />
           <h1 ref={title} className="absolute left-1/2 m-0 font-heading leading-none font-semibold tracking-[-0.02em] whitespace-nowrap" style={{ top: 0.44 * H, fontSize: 0.07 * W, opacity: 0 }}>Haligtree</h1>
-          <p ref={hand} className="absolute left-1/2 m-0 leading-none whitespace-nowrap [font-family:'Haligtree_Signature',cursive]" style={{ top: 0.46 * H, fontSize: 0.026 * W, opacity: 0 }}>{say}</p>
+          <p ref={hand} className="absolute left-1/2 m-0 leading-none whitespace-nowrap [font-family:'Haligtree_Signature',cursive]" style={{ top: 0.46 * H, fontSize: 0.03 * W, opacity: 0 }}>{say}</p>
         </div>
       </div>
     </div>

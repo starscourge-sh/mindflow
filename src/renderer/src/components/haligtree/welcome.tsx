@@ -403,7 +403,7 @@ export function Welcome(): React.JSX.Element | null {
   useEffect(() => {
     if (!scened?.covered || !scened.t0 || swept || !plate.current) return
     const delay = Math.max(0, scened.t0 + SCENE.sweepFrom - Date.now())
-    const run = plate.current.animate([{ transform: 'translateX(-112%)' }, { transform: 'translateX(0)' }], { duration: SCENE.sweepTo - SCENE.sweepFrom, delay, easing: 'cubic-bezier(0.22, 0.9, 0.24, 1)', fill: 'both' })
+    const run = plate.current.animate([{ transform: 'translateX(calc(-100% - 18rem))' }, { transform: 'translateX(0)' }], { duration: SCENE.sweepTo - SCENE.sweepFrom, delay, easing: 'cubic-bezier(0.22, 0.9, 0.24, 1)', fill: 'both' })
     sweep.current = run
     run.onfinish = () => setSwept(true)
     return () => run.cancel()
@@ -728,17 +728,20 @@ export function Welcome(): React.JSX.Element | null {
       {/* The scene, as the window it has become (welcome-scene.tsx): the same frame the scene window drew last, moving on
           under the page, which comes in over it from the left (the sweep) as the first words come, and stays beside it
           for the whole welcome, cleared to the pale haze, as Dia's onboarding keeps its sky beside its panel. */}
-      {scened && scened.t0 > 0 && scened.covered && (
+      {/* Gone once the page has come in over it: the page covers the whole window from then on. */}
+      {scened && scened.t0 > 0 && scened.covered && !swept && (
         <WelcomeScene t0={scened.t0} place={scened.place} mode="window" name={state?.name ?? ''} />
       )}
-      {/* The window's own page. After a scene it is a panel coming in from the left over the fog: solid under the words,
-          thinning out to the right so the fog moves on beside them (Dia's black panel and its sky), never the old gold
-          gradient over the whole window (the user: "mud on the right"). */}
-      <div ref={plate} data-plate="" className={`absolute inset-0 ${scened ? '' : 'bg-background'}`}
-        style={scened ? { background: SCENE_PANEL, ...(swept ? {} : { transform: 'translateX(-112%)' }) } : undefined}>
-        {scened
-          ? <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
-          : <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={false} held={false} onBloomed={bloom} />}
+      {/* The window's own page, the gold gradient behind every chapter on every path (20 Nov, the user: "missing its
+          previous background … the gold gradient"). After a scene it comes in from the left over the haze and covers the
+          whole window, as on the plain path; no fog beside it any more. Even across the width (Backdrop's even veil), never
+          the dark deep end on the right the user called "mud on the right" (15 Nov). */}
+      <div ref={plate} data-plate="" className="absolute inset-0 bg-background"
+        style={scened && !swept ? { transform: 'translateX(calc(-100% - 18rem))' } : undefined}>
+        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={!scened && mist && veiled && at === WHY} desk={!!scened} held={false} onBloomed={bloom} />
+        {/* Its leading edge feathered into the haze as it comes, never a hard line crossing the window; the feather
+            ends past the window's right edge once the page is in, so nothing pops as it goes. */}
+        {scened && !swept && <div aria-hidden className="pointer-events-none absolute inset-y-0 left-full w-[18rem] bg-[linear-gradient(90deg,var(--background),transparent)]" />}
       </div>
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
@@ -2053,8 +2056,6 @@ function BoxKeys(): React.JSX.Element {
  */
 const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
 
-/** After a scene: the page as a panel over the fog, solid under the words and thinning out to the right (Dia's panel). */
-const SCENE_PANEL = 'linear-gradient(90deg, var(--background) 0%, var(--background) 50%, color-mix(in oklab, var(--background) 80%, transparent) 61%, color-mix(in oklab, var(--background) 42%, transparent) 76%, color-mix(in oklab, var(--background) 12%, transparent) 91%, transparent 100%)'
 
 /**
  * `arrival` counts the arrivals played; `arriving` is true while one is on; `onBloomed` once its gradient is whole.
@@ -2222,8 +2223,10 @@ function GrainBackdrop({ page, arrival, arriving, desk, held, onBloomed }: { pag
       {arriving && !desk && !still() && <IntroSpark key={`spark-${arrival}`} />}
       {/* Its grain creeps a pixel at a time, as sand slides (grainient.tsx), instead of reshuffling every frame, which read as running. */}
       <Grainient key={arrival} ref={grain} intro={arriving && !desk} paused={held} onIntroDone={onBloomed} colors={colours} angle={55} speed={1.32} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
-      {/* The veil toward the words' side: not over the arrival, which fills the whole window as Arc's does, then in as the first words come. */}
-      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_55%,transparent)_0%,color-mix(in_oklab,var(--background)_30%,transparent)_45%,transparent_80%)]`} />
+      {/* One even veil of the page's own colour over the whole width: not over the arrival, which fills the whole window as
+          Arc's does, then in as the first words come. It used to thin out to nothing on the right, where the gradient's
+          deep end showed raw and dark: "mud on the right" (the user, 15 Nov). Now warm and even from edge to edge. */}
+      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} ${light ? 'bg-[color-mix(in_oklab,var(--background)_36%,transparent)]' : 'bg-[color-mix(in_oklab,var(--background)_28%,transparent)]'}`} />
       {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}
       {!light && <div className="pointer-events-none absolute inset-0 bg-[color-mix(in_oklab,var(--background)_20%,transparent)]" />}
     </div>
