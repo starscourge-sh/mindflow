@@ -273,6 +273,10 @@ try {
   // The tree's own drag: a page under Thesis carried onto Reading list goes into it; onto "Not in a folder", out of
   // every folder; ⌘Z puts it back. The app's one carry (split-drop.tsx), as a pin's.
   const drag = async (from, to) => {
+    // The Folders section at the sidebar's top first: with Journal's Week, Month and Year and the rest above it, the
+    // page under Thesis sat under the sidebar's foot, and the press opened the book's menu instead of carrying it.
+    await h.locator('[data-side-section-handle="folders"]').evaluate((el) => el.scrollIntoView({ block: 'start' }))
+    await wait(300)
     const a = await from.boundingBox()
     const b = await to.boundingBox()
     await h.mouse.move(a.x + 30, a.y + a.height / 2)
