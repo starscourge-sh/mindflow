@@ -1,15 +1,18 @@
 // Stats is real from the first day: a person who keeps gems and cards but has written on few days sees their own
 // numbers, never a "Your Stats start once..." goal with a faded sample of made-up ones beside them. A section with
 // too little in it says so in its place, in one quiet line ("Writing: shows after a few days of writing").
-// Run on a copy of the seeded sandbox whose writing days were taken out first:
-//   sqlite3 <copy>/sandbox/haligtree.db 'delete from word_days'
+// Run on a copy of the seeded sandbox; the probe takes the copy's writing days out itself before the app opens:
 //   QA_ARGS=--sandbox QA_DATA=<copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=dir] node qa/stats-from-day-one.mjs
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
+const db = process.env.QA_DATA && join(process.env.QA_DATA, 'sandbox', 'haligtree.db')
+if (db && existsSync(db)) execFileSync('sqlite3', [db, 'delete from word_days'])
 const c = await sandbox({ width: 1280, height: 900 })
 const { h, v } = c
 const shown = () => h.$$eval('section[data-group]', (all) => all.filter((one) => one.checkVisibility()).map((one) => one.dataset.group))

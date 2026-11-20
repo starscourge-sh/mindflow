@@ -52,7 +52,15 @@ export const gapIn = (row: Element, x: number, from: string | null): number => {
   return carriedPinned(from) ? Math.min(at, pinned) : Math.max(at, pinned)
 }
 /** Whether the tab in the hand is a pinned one: the gap it opens is a pinned tab's width. */
-export const carriedPinned = (from: string | null): boolean => !!from && document.querySelector(`[data-tab="${CSS.escape(from)}"]`)?.hasAttribute('data-tab-pinned') === true
+// Read while the tab is still drawn and kept for the carry: once its gap opens the row stops drawing it, and a pinned
+// tab read as unpinned then could only land after the pinned ones.
+let pinnedCarried: { key: string; pinned: boolean } | null = null
+export const carriedPinned = (from: string | null): boolean => {
+  if (!from) return false
+  const tab = document.querySelector(`[data-tab="${CSS.escape(from)}"]`)
+  if (tab) pinnedCarried = { key: from, pinned: tab.hasAttribute('data-tab-pinned') }
+  return pinnedCarried?.key === from && pinnedCarried.pinned
+}
 
 const ROUND = 'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-[color,background-color,scale] duration-[120ms] hover:bg-accent/60 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5'
 
