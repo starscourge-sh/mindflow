@@ -1439,21 +1439,25 @@ export function Home(): React.JSX.Element {
       // ⌃H and ⌃L move between panes as Vim moves between windows, ⌃W closes
       // one. Only while split, and taken before the editor (which keeps none
       // of the three, vim mode included); a menu open over the page keeps them.
+      // Only one that is open over the page, as for ⌘W: a list or a suggestion popup showing in the page answers none
+      // of these keys (its own Ctrl keys are N, P, J and K), and counted, ⌃W did nothing after words typed in a note
+      // while ⌘W closed the tab (20 Nov). A tip is no menu either.
+      const keysHeld = (): boolean => menuShowing('[role=menu], [role=dialog], [role=alertdialog], [data-radix-popper-content-wrapper]:not(:has([role=tooltip]))')
       if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && splitRef.current.panes.length > 1 && ['KeyH', 'KeyL'].includes(event.code)) {
-        if (menuShowing()) return
+        if (keysHeld()) return
         event.preventDefault()
         event.stopPropagation()
         return moveFront(event.code === 'KeyH' ? -1 : 1)
       }
       // ⌃W closes the tab in front. ⌃Tab and ⌃⇧Tab move through the tabs of the pane in front, round and round.
       if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === 'KeyW') {
-        if (menuShowing()) return
+        if (keysHeld()) return
         event.preventDefault()
         event.stopPropagation()
         return closeAsked()
       }
       if (event.ctrlKey && !event.metaKey && !event.altKey && event.key === 'Tab') {
-        if (menuShowing()) return
+        if (keysHeld()) return
         event.preventDefault()
         event.stopPropagation()
         const pane = frontOf(splitRef.current)
