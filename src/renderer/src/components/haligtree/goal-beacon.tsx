@@ -285,6 +285,8 @@ export function GoalsSticky(): React.JSX.Element {
   const [asking, setAsking] = useState(false)
   // The goal focused has ended or gone: all of them again.
   const focused = goals.find((one) => one.id === focus) ?? null
+  // The goal said in the line under the lanes: the one rested on, or the nearest.
+  const told = focused ?? nearest
   const focusNow = useRef(focus)
   focusNow.current = focus
   const takeDown = useRef<() => void>(() => undefined)
@@ -327,13 +329,12 @@ export function GoalsSticky(): React.JSX.Element {
   const x = (day: string): number => Math.min(100, Math.max(0, (daysBetween(start, day) / span) * 100))
   const marksOf = (goal: Goal): Milestone[] => marks.filter((one) => markOf(one) === goal.id)
   const dim = (goal: Goal): number => (focused && focused.id !== goal.id ? 0.18 : 1)
-  // The days marked ahead, for every goal or the one focused. A goal's own day is on its lane already, named
-  // and counted, so it is never said a second time here.
-  const coming: Coming[] = (focused ? [focused] : goals)
+  // The days marked ahead, for every goal; a goal rested on lights its own and sets the rest aside, the list itself
+  // unchanged. A goal's own day is on its lane already, named and counted, so it is never said a second time here.
+  const coming: Coming[] = goals
     .flatMap((goal): Coming[] => marksOf(goal).filter((one) => one.day >= today && one.day <= goal.goalAt!).map((mark) => ({ goal, day: mark.day, title: mark.title, icon: mark.icon, mark })))
     .sort((a, b) => a.day.localeCompare(b.day))
-    // A few: a goal rested on says itself in full above them.
-    .slice(0, focused ? 2 : 3)
+    .slice(0, 3)
   return (
     <Desk shown={shown}>
       <div data-goals-sticky style={{ ...DRAG, backgroundImage: PAPER, backgroundColor: GLASS ? undefined : 'Canvas', boxShadow: SHADOW }} className={CARD}>
@@ -401,11 +402,12 @@ export function GoalsSticky(): React.JSX.Element {
                   className="self-start rounded-md px-1 text-meta font-medium text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground">and {num(more)} more</button>
               )}
             </div>
-            {/* The goal focused, said in full. */}
-            {focused && (
-              <p data-goals-focus={focused.id} className="text-meta">
-                <span className="private-text font-semibold">{focused.title}</span>
-                <span className="text-foreground"> · {leftSaid(daysLeft(focused.goalAt!, today))}, {percent(wayThrough(focused.goalFrom ?? dayKey(focused.createdAt), focused.goalAt!))} of the time gone</span>
+            {/* The goal rested on (the nearest one otherwise), said in one line that always holds its room: resting
+                on a goal changes its words, never the size of the card or where anything below sits. */}
+            {told && (
+              <p data-goals-focus={told.id} data-rested={focused ? '' : undefined} className="flex min-w-0 items-baseline text-meta">
+                <span className="private-text min-w-0 truncate font-semibold">{told.title}</span>
+                <span className="shrink-0 whitespace-pre text-foreground"> · {leftSaid(daysLeft(told.goalAt!, today))}, {percent(wayThrough(told.goalFrom ?? dayKey(told.createdAt), told.goalAt!))} of the time gone</span>
               </p>
             )}
             {/* The days marked ahead, in the lanes' own small type, each with the ring it wears on its lane. */}
@@ -414,7 +416,7 @@ export function GoalsSticky(): React.JSX.Element {
                 <p className="text-meta leading-none font-semibold text-foreground">Coming up</p>
                 <ul className="flex flex-col gap-1">
                   {coming.map((one) => (
-                    <li key={`${one.goal.id}:${one.mark?.id}`} data-goals-item={one.goal.id} data-goals-item-mark={one.mark?.id} className="flex min-w-0 items-baseline gap-1.5 text-meta">
+                    <li key={`${one.goal.id}:${one.mark?.id}`} data-goals-item={one.goal.id} data-goals-item-mark={one.mark?.id} className="flex min-w-0 items-baseline gap-1.5 text-meta transition-opacity duration-200" style={{ opacity: focused && focused.id !== one.goal.id ? 0.35 : 1 }}>
                       <span aria-hidden className="size-2 shrink-0 self-center rounded-full border-2" style={{ borderColor: goalInk(one.goal) }} />
                       <span title={one.title} className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{one.icon ? `${one.icon} ` : ''}{one.title}</span>
                       <span className="shrink-0 text-muted-foreground tabular-nums">{inDays(one.day, today)}</span>
