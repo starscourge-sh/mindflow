@@ -212,7 +212,7 @@ export function TabRow({ groups, actions, pane, lead, tail }: { groups: TabGroup
     // it is pressed as ever.
     <div data-tabs={pane} data-drag-strip="" className="mf-tab-bar relative z-[1] -mb-px flex h-[34px] shrink-0 items-end gap-0.5" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
       {lead}
-      <span data-tab-arrows className="mf-segs mb-[3px] ml-1 flex h-6 shrink-0 items-center overflow-hidden rounded-full border">
+      <span data-tab-arrows className="mf-segs ml-1 flex h-6 self-center shrink-0 items-center overflow-hidden rounded-full border">
         {([[-1, 'Back', '⌘[', ArrowNarrowLeftIcon], [1, 'Forward', '⌘]', ArrowNarrowRightIcon]] as const).map(([by, label, keys, icon]) => (
           <StepButton key={label} by={by} label={label} keys={keys} icon={icon} pane={pane} actions={actions} />
         ))}
@@ -225,7 +225,7 @@ export function TabRow({ groups, actions, pane, lead, tail }: { groups: TabGroup
           </Fragment>
         ))}
       </div>
-      <span className="mb-[3px] mr-1 flex shrink-0 items-center gap-0.5">
+      <span className="mr-1 flex shrink-0 items-center gap-0.5 self-center">
         <Tip label={<span className="flex items-center gap-1.5">New tab <Pressed keys="⌘T" /></span>}>
           <button type="button" data-tab-add aria-label="New tab" onClick={() => actions.add(pane)} className={ROUND}><Plus /></button>
         </Tip>
