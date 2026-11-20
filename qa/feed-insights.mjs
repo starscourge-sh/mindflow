@@ -51,8 +51,8 @@ try {
   check('Keep: the card says "Kept as a gem"', await until(h, async () => (await h.locator(`[data-feed-id="${id}"] [data-insight-kept]`).count()) === 1, 3000))
   const card = (await v('feed:insights')).cards.find((one) => one.id === id)
   const gem = card?.gemId ? await v('item', card.gemId) : null
-  check('Keep makes a gem with its words', !!gem && String(gem.body ?? '').includes(words.slice(0, 40)), words.slice(0, 40))
-  check('the gem links every note it came from', !!gem && card.sources.filter((one) => one.type !== 'highlight').every((one) => String(gem.body ?? '').includes(one.id)))
+  check('Keep makes a gem with its words', !!gem && JSON.stringify(gem.body ?? '').includes(words.slice(0, 40)), words.slice(0, 40))
+  check('the gem links every note it came from', !!gem && card.sources.filter((one) => one.type !== 'highlight').every((one) => JSON.stringify(gem.body ?? '').includes(one.id)))
 
   // Dismiss: the card goes, and its kind comes a little less often.
   const next = cards.nth(1)
