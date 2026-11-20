@@ -59,7 +59,8 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
     if (!items.length) return null
 
     return (
-      <div className="tiptap-slash-menu" data-note-picker={ask ? "" : undefined}>
+      // Says it takes Tab itself (a name finished, a note stepped into), so quick capture leaves Tab to it (windows/box.tsx).
+      <div className="tiptap-slash-menu" data-note-picker={ask ? "" : undefined} data-takes-tab={tabPicks || stepIn ? "" : undefined}>
         <div className="tiptap-slash-menu-list mf-more" data-note-side>
           {ask ? (
             <div className="tiptap-slash-menu-ask flex items-baseline gap-3">

@@ -13,6 +13,7 @@ import { clearRoom } from '../lib/clear-room'
 import { carryOnPress } from '../lib/carry'
 import { followGlass } from '../lib/glass'
 import { applyRoom, roundControls } from '../lib/box-morph'
+import { menuShowing } from '../lib/menu-keys'
 
 start(<App />)
 // Quick capture is a card inside a larger see-through window (main's overhang): the page draws the card inside
@@ -74,9 +75,10 @@ if (window.api.room.left) {
   window.addEventListener('keydown', (event) => {
     const out = picked >= 0
     if (event.key === 'Tab' && !event.metaKey && !event.altKey) {
-      // A list that took Tab already (a quote's "- who", lib/source-rows.tsx; the Who field): the key is spent. A list that
-      // does not take Tab (# tags, @ notes) leaves it to the writing below, so focus never jumps out of the box.
-      if (!out && !event.ctrlKey && event.defaultPrevented) return
+      // Heard before the editor (capture). A list open that takes Tab itself (a quote's "- who", lib/source-rows.tsx;
+      // "Embed a note" stepping in) has it; one that does not (# tags, @ notes) leaves it to the box as ever, so focus
+      // never jumps out of the writing.
+      if (!out && !event.ctrlKey && menuShowing('.tiptap-suggestion-popup [data-takes-tab]')) return
       const toControls = asPill() ? !event.ctrlKey : event.ctrlKey
       if (!toControls) {
         if (asPill() || out) return
