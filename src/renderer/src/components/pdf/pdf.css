@@ -698,12 +698,14 @@
   /* The page's own marks (the site over the title, its rule, the drop cap): the theme's accent, a quarter of the way to
      its ink so the small line reads at 4.5:1 or more on every theme's page (the Dark theme's own accent read 2.6:1). */
   --web-accent: color-mix(in oklab, var(--mf-accent-ink, var(--tt-brand-color-400)) 75%, var(--foreground));
-  --web-margin: min(20em, (100cqi - var(--web-measure)) * 0.3);
+  /* Never below nothing: a pane narrower than the measure (a split, with "As wide as notes" at 72rem) made it negative,
+     and the padding fell to 0, the words against the pane's edges (20 Nov). */
+  --web-margin: max(0px, min(20em, (100cqi - var(--web-measure)) * 0.3));
   flex: 1 0 auto;
   width: 100%;
   max-width: calc(var(--web-measure) + 2 * var(--web-margin) + 2px);
   margin: 0 auto;
-  padding: 3rem var(--web-margin) 4rem;
+  padding: 3rem max(1.5rem, var(--web-margin)) 4rem;
   border-inline: 1px solid transparent;
   /* The page itself, clean on the desk (.pdf-reader-scroll). */
   background-color: var(--background);
