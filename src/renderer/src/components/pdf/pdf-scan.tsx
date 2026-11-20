@@ -21,12 +21,16 @@ type State = { reading: { page: number; of: number } } | { read: boolean }
 
 /** Whether a book's first pages carry no words at all: a scan. */
 export async function isScanned(doc: PDFDocumentProxy): Promise<boolean> {
-  let words = 0
-  for (let n = 1; n <= Math.min(3, doc.numPages); n++) {
+  // Pages spread through the book, not its first three: a cover, a blank and a title page are pictures in most real
+  // books, which called Therapy Nation a scan though every page after holds its words (21 Nov). A scan has none on
+  // most of them.
+  const at = [...new Set([0.1, 0.25, 0.4, 0.55, 0.7, 0.85].map((share) => Math.min(doc.numPages, Math.max(1, Math.round(doc.numPages * share)))))]
+  let bare = 0
+  for (const n of at) {
     const content = await (await doc.getPage(n)).getTextContent()
-    words += content.items.reduce((sum, item) => sum + ("str" in item ? item.str.trim().length : 0), 0)
+    if (content.items.reduce((sum, item) => sum + ("str" in item ? item.str.trim().length : 0), 0) < 8) bare++
   }
-  return words < 8
+  return bare > at.length / 2
 }
 
 const hiddenKey = (src: string): string => `pdf-scan-hidden:${src}`
@@ -120,19 +124,19 @@ export function ScanDetail({ src, doc, onRead }: { src: string; doc: PDFDocument
   if ("reading" in state) return <p data-pdf-scan-detail className="mt-3 text-meta"><Orb label={`Reading page ${num(state.reading.page)} of ${num(state.reading.of)}…`} /></p>
   if (state.read)
     return (
-      <p data-pdf-scan-detail className="mt-3 flex items-center gap-2 text-meta text-muted-foreground">
-        <ScanText className="size-3.5 shrink-0" aria-hidden />
-        <span className="flex-1">A scan, its words read on this Mac so you can search, select and highlight them.</span>
-        <button type="button" data-pdf-scan-forget className="cursor-pointer rounded-sm font-medium text-(--mf-muted-strong) hover:text-foreground hover:underline active:scale-[0.97]"
+      <p data-pdf-scan-detail className="mt-3 grid grid-cols-[auto_1fr] items-start gap-x-2 gap-y-1 text-meta text-muted-foreground">
+        <ScanText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>A scan, its words read on this Mac so you can search, select and highlight them.</span>
+        <button type="button" data-pdf-scan-forget className="col-start-2 justify-self-start cursor-pointer rounded-sm font-medium text-(--mf-muted-strong) hover:text-foreground hover:underline active:scale-[0.97]"
           onClick={() => void call<boolean>("pdf:read-forget", src).then((gone) => gone && (chime("fold"), toast("The words read from this scan are forgotten: it is photos again", () => void readPages(src)), onRead()))}>Forget the words</button>
       </p>
     )
   if (!scanned) return null
   return (
-    <p data-pdf-scan-detail className="mt-3 flex items-center gap-2 text-meta text-muted-foreground">
-      <ScanText className="size-3.5 shrink-0" aria-hidden />
-      <span className="flex-1">A scan: its pages are photos.</span>
-      <button type="button" className="cursor-pointer rounded-sm font-medium text-(--mf-muted-strong) hover:text-foreground hover:underline active:scale-[0.97]" onClick={() => void readPages(src)}>Read the text on these pages</button>
+    <p data-pdf-scan-detail className="mt-3 grid grid-cols-[auto_1fr] items-start gap-x-2 gap-y-1 text-meta text-muted-foreground">
+      <ScanText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>A scan: its pages are photos.</span>
+      <button type="button" className="col-start-2 justify-self-start cursor-pointer rounded-sm font-medium text-(--mf-muted-strong) hover:text-foreground hover:underline active:scale-[0.97]" onClick={() => void readPages(src)}>Read the text on these pages</button>
     </p>
   )
 }
