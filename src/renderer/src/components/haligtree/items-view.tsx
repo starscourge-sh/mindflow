@@ -135,8 +135,8 @@ const NO_GROUPS: NoteGroup[] = []
  */
 function FolderCue({ home }: { home: Folder }): React.JSX.Element {
   return (
-    <span data-row-folder={home.id} className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground">
-      <GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}
+    <span data-row-folder={home.id} className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
+      <GroupIcon icon={home.icon} color={home.color} className="size-3 shrink-0" /><span className="truncate">{home.name}</span>
     </span>
   )
 }
@@ -745,11 +745,12 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   }, [chosen])
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
   // Writing, Gems and Questions list every one of their kind, filed or not (the user, 19 Nov: Gems is "a kind of
-  // premium list of things already in my folders"): one in a folder says which, quietly, after its date.
+  // premium list of things already in my folders"): one in a folder says which, quietly, at the row's right edge,
+  // unless Display's "Show folder" is off for this list.
   const placed = (entry: Entry, one: Item): Entry => {
     // On the folder's own page every row is in it: saying so on each row only repeats the page's name.
-    const home = inFolder ? undefined : folderById.get(folderOfItem[one.id] ?? '')
-    return home ? { ...entry, sub: <>{entry.sub}{entry.sub ? <span className="whitespace-nowrap"> · <FolderCue home={home} /></span> : <FolderCue home={home} />}</> } : entry
+    const home = inFolder || view.folders === false ? undefined : folderById.get(folderOfItem[one.id] ?? '')
+    return home ? { ...entry, end: <FolderCue home={home} /> } : entry
   }
   const sourced = (entry: Entry, one: Item): Entry => {
     const from = sourceSaid(one)
@@ -1941,6 +1942,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sourced ? [{ id: 'source', label: 'Source' }] : []), ...(all.length && all.every((one) => one.kind === 'word') ? [{ id: 'letter', label: 'First letter' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
+      folders
     />
   )
   const chips = <FilterChips view={view} onChange={setView} facets={facets} />

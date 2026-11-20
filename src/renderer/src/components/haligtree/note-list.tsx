@@ -78,6 +78,8 @@ export type Entry = {
   alert?: { text: string; kind: Loud }
   /** The rest of the line under the title: where it came from, who said it. */
   sub?: ReactNode
+  /** Quiet, at the row's right edge, centred on it, one line: where it is kept (its folder). Nothing else moves for it. */
+  end?: ReactNode
   /** Its own line under the title, in reading ink, before the quiet one: a question's answer, or that it has none yet. */
   answer?: ReactNode
   /** Its face in the row's tile in place of a picture or cover: a person's or a source's avatar, as the Feed shows them. */
@@ -704,6 +706,7 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
         <Voice entry={entry} />
         <Age entry={entry} />
       </span>
+      <End entry={entry} />
     </>
   )
 }
@@ -739,9 +742,14 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
         <Under entry={entry} />
         {entry.bar && <span className="mt-1 block pr-2">{entry.bar}</span>}
       </span>
+      <End entry={entry} />
     </>
   )
 }
+
+/** A row's quiet end (`Entry.end`): at its right edge, centred, cut to one line, never wider than a third of the row. */
+const End = ({ entry }: { entry: Entry }): React.JSX.Element | null =>
+  entry.end ? <span data-row-end className="ml-2 flex min-w-0 max-w-[33%] shrink-0 items-center self-center text-xs text-muted-foreground">{entry.end}</span> : null
 
 /** A word's meaning, a quiet line in reading size; still asked, that is said in its place. */
 const Meaning = ({ head, className = '' }: { head: NonNullable<Entry['head']>; className?: string }): React.JSX.Element | null =>
