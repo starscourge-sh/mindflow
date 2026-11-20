@@ -7,6 +7,7 @@ import { NameInPlace } from './name-in-place'
 import { GroupIcon, IconChoice } from './kept-groups'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
+import { useFold, useTreeFolds } from '@/lib/side-folds'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
 import { SortableList, SortableRow } from './sortable'
@@ -45,21 +46,21 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
   /** The folder the note in front lives in, with its one lit row to hang under that folder, and which note it is. */
   noteIn?: string; noteRow?: React.ReactNode; noteKey?: string }): React.JSX.Element {
   const all = useFolders()
-  const [open, setOpen] = useState(() => localStorage.getItem('sidebar:folders') !== 'shut')
-  const fold = (next: boolean): void => (chime(next ? 'slide' : 'fold'), setOpen(next), localStorage.setItem('sidebar:folders', next ? 'open' : 'shut'))
+  // Its fold and its tree's, in the sidebar's one store, so the button beside the search folds them too (lib/side-folds.ts).
+  const [open, setOpen] = useFold('sidebar:folders')
+  const fold = (next: boolean): void => (chime(next ? 'slide' : 'fold'), setOpen(next))
   // Folded by hand, it stays folded until focus next comes to something in a folder: then it opens on it, as Writing's did.
   useEffect(() => void (noteKey && noteIn && setOpen(true)), [noteKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [naming, setNaming] = useState<string | null>(null)
   // Folders unfolded in the tree, Notion's way: what each holds hangs under it. Kept across launches.
-  const [unfolded, setUnfolded] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem('sidebar:folders-open') ?? '[]') as string[]) } catch { return new Set() } })
-  const foldOne = (id: string): void => setUnfolded((was) => {
-    const next = new Set(was)
+  const [unfolded, setUnfolded] = useTreeFolds()
+  const foldOne = (id: string): void => {
+    const next = new Set(unfolded)
     if (next.has(id)) next.delete(id)
     else next.add(id)
     chime(next.has(id) ? 'slide' : 'fold')
-    try { localStorage.setItem('sidebar:folders-open', JSON.stringify([...next])) } catch { /* this run only */ }
-    return next
-  })
+    setUnfolded(next)
+  }
   useEffect(() => {
     const make = (event: Event): void => {
       const { parent } = (event as CustomEvent<{ parent: string | null }>).detail
