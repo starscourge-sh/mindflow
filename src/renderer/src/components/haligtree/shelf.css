@@ -82,17 +82,17 @@
 .mf-spine-name {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   overflow: hidden;
   font-family: var(--font-heading);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.15;
   white-space: normal;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
-.mf-spine-said { font-size: 11px; line-height: 1.2; white-space: normal; color: var(--mf-muted-strong); }
+.mf-spine-said { flex-shrink: 0; font-size: 11px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--mf-muted-strong); }
 /* Pulled out and turned: the one the pointer or the keys are on, else the open book, so one always stands turned. */
 .mf-shelf .mf-spine[data-highlighted],
 .mf-shelf:not(:has([data-highlighted])) .mf-spine[aria-current] { width: 88px; translate: 0 -5px; }

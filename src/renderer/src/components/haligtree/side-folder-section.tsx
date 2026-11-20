@@ -151,10 +151,11 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
         <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
           {/* Folded with the note in front inside it: the heading holds the light, so there is always one. A page or note
               carried onto it leaves its folder (split-drop.tsx `keepDrop` "none"): Folders lists folders only (63dc63cb7). */}
-          <button type="button" data-side-row data-side-section-handle="folders" data-keep-drop="none" aria-expanded={open} aria-current={!open && noteRow && noteIn ? 'page' : undefined} onClick={() => fold(!open)}
+          <button type="button" data-side-row data-side-section-handle="folders" data-keep-drop="none" aria-expanded={rows.length ? open : undefined} aria-current={!open && noteRow && noteIn ? 'page' : undefined} onClick={() => (rows.length ? fold(!open) : onOpen(null))}
             className={`absolute inset-0 flex items-center gap-1 rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground ${here === null ? 'text-foreground' : 'text-muted-foreground'}`}>
             Folders
-            <ChevronRight className={`size-3 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
+            {/* A fold only with something to fold: with no folder in the sidebar the heading opens every folder. */}
+            {rows.length > 0 && <ChevronRight className={`size-3 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />}
           </button>
           <span aria-hidden className="invisible">Folders</span>
           <span className="relative ml-auto flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/head:opacity-100 focus-within:opacity-100">

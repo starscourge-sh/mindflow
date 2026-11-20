@@ -278,7 +278,7 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
       onWheel={(event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) event.currentTarget.scrollLeft += event.deltaY }}
       onKeyDownCapture={(event) => event.currentTarget.setAttribute('data-keyed', '')} onPointerMove={(event) => event.currentTarget.removeAttribute('data-keyed')}>
       {books.map((book, at) => {
-        const said = book.current ? 'Open now' : at === 1 && book.openedAt ? 'You were in it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet'
+        const said = book.current ? 'Open now' : at === 1 && book.openedAt ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet'
         return (
           <DropdownMenuItem key={book.id} asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
             onContextMenu={(event) => onMenu(event, book)} onSelect={() => onPick(book)}>
