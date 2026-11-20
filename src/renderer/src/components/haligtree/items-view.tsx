@@ -745,7 +745,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // premium list of things already in my folders"): one in a folder says which, quietly, after its date.
   const placed = (entry: Entry, one: Item): Entry => {
     const home = folderById.get(folderOfItem[one.id] ?? '')
-    return home ? { ...entry, sub: <>{entry.sub ? <>{entry.sub} · </> : null}<FolderCue home={home} /></> } : entry
+    return home ? { ...entry, sub: <>{entry.sub}{entry.sub ? <span className="whitespace-nowrap"> · <FolderCue home={home} /></span> : <FolderCue home={home} />}</> } : entry
   }
   const sourced = (entry: Entry, one: Item): Entry => {
     const from = sourceSaid(one)
