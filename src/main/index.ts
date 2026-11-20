@@ -4138,6 +4138,8 @@ function createWindow(): void {
   // where the pointer is, not where another app's clicks or keys land, so this is the moment it can act on.
   mainWindow.on('blur', () => stepAside(box, () => !boxAutoHide()))
   mainWindow.once('closed', () => {
+    // Forgotten as it goes, so ⌘. makes a new box rather than reaching for one already destroyed ("Object has been destroyed", 20 Nov).
+    if (prompt === mainWindow) (prompt = null), (promptPainted = false)
     app.off('did-resign-active', toOtherApp)
     app.off('browser-window-focus', toOtherWindow)
   })
