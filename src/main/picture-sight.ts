@@ -115,6 +115,10 @@ function nearCopies(): string[][] {
   return groups
 }
 
+const ART = new Set(['art', 'painting', 'paintings', 'drawing', 'sketch', 'illustrations'])
+/** A picture the Mac has looked at and calls a painting or a drawing (picture-words.ts asks more of the words read in one). */
+export const isArt = (name: string): boolean => !!sights().get(name)?.labels.some((label) => ART.has(label.toLowerCase()))
+
 export function registerPictureSight(): void {
   setInterval(() => void lookSome(), 15_000)
   // Files: every picture's words, and the near copies gathered.

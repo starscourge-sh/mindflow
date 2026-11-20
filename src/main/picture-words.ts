@@ -5,7 +5,8 @@ import { BrowserWindow, ipcMain } from 'electron'
 import helper from '../../resources/labels?asset&asarUnpack'
 import { database } from './captures'
 import { assetsDir } from './pictures'
-import { PICTURE, STORED, pictureLines, pictureNamed, type Pictures } from './picture-lines'
+import { PICTURE, STORED, hasWords, pictureLines, pictureNamed, type Pictures } from './picture-lines'
+import { isArt } from './picture-sight'
 import { meets } from './needs'
 import { caps } from './understand'
 
@@ -46,8 +47,12 @@ export function readPicture(name: string): Promise<string | null> {
     execFile(helper, ['--text', path], { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 }, (error, out) => {
       let text: string | null = null
       try {
-        const said = JSON.parse(String(out).trim().split('\n').pop() ?? '') as { text?: string }
-        if (!error && typeof said.text === 'string') text = said.text
+        const said = JSON.parse(String(out).trim().split('\n').pop() ?? '') as { text?: string; sure?: number[] }
+        if (!error && typeof said.text === 'string') {
+          const lines = said.text.split('\n').map((line, n) => ({ text: line, confidence: said.sure?.[n] }))
+          // A painting's windows read as letters are no words: none kept, so search, "Copy text from image" and "Make it a note" see none.
+          text = hasWords(lines, isArt(name)) ? said.text : ''
+        }
       } catch {
         // Not read: asked again next time.
       }
@@ -62,7 +67,7 @@ export function readPicture(name: string): Promise<string | null> {
 
 /** A word or a line in a picture, its box a share of the picture as it is seen, from the top left. */
 type Box = { text: string; x: number; y: number; w: number; h: number }
-export type PictureLine = Box & { words: Box[] }
+export type PictureLine = Box & { words: Box[]; confidence?: number }
 export type PictureLines = { lines: PictureLine[]; kept: boolean }
 
 /**
@@ -74,13 +79,17 @@ export type PictureLines = { lines: PictureLine[]; kept: boolean }
  * process, so nothing here waits on it.
  */
 const inFlight = new Map<string, Promise<PictureLines | null>>()
+/** The lines to offer for selecting: none in a picture whose letters are only shapes (picture-lines.ts `hasWords`). */
+const judged = (name: string, lines: PictureLine[]): PictureLine[] => (hasWords(lines, isArt(name)) ? lines : [])
 let linesMade = false
 export function readLines(name: string): Promise<PictureLines | null> {
   if (!PICTURE.test(name) || process.platform !== 'darwin') return Promise.resolve(null)
   if (!linesMade) database().exec('create table if not exists picture_lines (name text primary key, lines text not null, read_at text not null)')
   linesMade = true
   const kept = database().prepare('select lines from picture_lines where name = ?').get(name) as { lines: string } | undefined
-  if (kept) return Promise.resolve({ lines: JSON.parse(kept.lines) as PictureLine[], kept: true })
+  const stored = kept ? (JSON.parse(kept.lines) as PictureLine[]) : null
+  // Read before Vision's confidence was kept: read again, once, to tell its words from shapes.
+  if (stored && (!stored.length || stored.every((line) => line.confidence !== undefined))) return Promise.resolve({ lines: judged(name, stored), kept: true })
   const path = join(assetsDir(), name)
   if (!existsSync(path)) return Promise.resolve(null)
   const asked = inFlight.get(name)
@@ -95,16 +104,14 @@ export function readLines(name: string): Promise<PictureLines | null> {
         // Not read: asked again next time.
       }
       inFlight.delete(name)
-      if (lines) {
-        database().prepare('insert or replace into picture_lines (name, lines, read_at) values (?, ?, ?)').run(name, JSON.stringify(lines), new Date().toISOString())
-        // Search's words for it too, if it had none yet: the same reading, not a second one.
-        if (!words().has(name)) {
-          const text = lines.map((line) => line.text).join('\n')
-          words().set(name, text)
-          db().prepare('insert or replace into picture_words (name, text, read_at) values (?, ?, ?)').run(name, text, new Date().toISOString())
-        }
-      }
-      done(lines && { lines, kept: false })
+      if (!lines) return done(null)
+      database().prepare('insert or replace into picture_lines (name, lines, read_at) values (?, ?, ?)').run(name, JSON.stringify(lines), new Date().toISOString())
+      // Search's words for it too, the same reading judged the same way (one read before kept a painting's shapes as words).
+      const offered = judged(name, lines)
+      const text = offered.map((line) => line.text).join('\n')
+      words().set(name, text)
+      db().prepare('insert or replace into picture_words (name, text, read_at) values (?, ?, ?)').run(name, text, new Date().toISOString())
+      done({ lines: offered, kept: false })
     })
   })
   inFlight.set(name, read)
