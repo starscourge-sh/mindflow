@@ -194,9 +194,15 @@ export function MenuPeek({ entries = PEEKS }: { /** Another menu's own cards (th
   useEffect(() => {
     const menu = probe.current?.closest<HTMLElement>('[role="menu"]')
     if (!menu) return
-    const read = (): void => setId(menu.querySelector('[data-highlighted][data-peek]')?.getAttribute('data-peek') ?? null)
+    // One floating thing at a time: a row that opens a submenu ("Make a card") shows the submenu and no card, and
+    // while a submenu is up (open, or still going) no card shows, so the two never stand side by side or over each
+    // other. A submenu is drawn in a portal of its own, a child of the page's body: its coming and going is heard there.
+    const sub = '[data-slot="context-menu-sub-content"], [data-slot="dropdown-menu-sub-content"]'
+    const read = (): void => setId(menu.querySelector('[aria-haspopup="menu"][data-state="open"]') || document.querySelector(sub) ? null
+      : menu.querySelector('[data-highlighted][data-peek]:not([aria-haspopup="menu"])')?.getAttribute('data-peek') ?? null)
     const watch = new MutationObserver(read)
-    watch.observe(menu, { attributes: true, subtree: true, attributeFilter: ['data-highlighted'] })
+    watch.observe(menu, { attributes: true, subtree: true, attributeFilter: ['data-highlighted', 'data-state'] })
+    watch.observe(document.body, { childList: true })
     read()
     return () => watch.disconnect()
   }, [])
