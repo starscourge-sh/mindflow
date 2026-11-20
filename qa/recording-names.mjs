@@ -13,7 +13,10 @@ import { checks } from './harness.mjs'
 import { recorded } from './meeting-flow.mjs'
 
 process.env.HALIGTREE_QA_CAPS ??= 'ai'
-process.env.HALIGTREE_QA_AI_DELAY ??= '4000'
+// Long enough that the note's page and the Inbox are on screen before the name lands, on a busy Mac too: at 4 s the
+// page came up after the model had answered (load 18, 20 Nov), so the kept name and its roll were never seen.
+process.env.HALIGTREE_QA_AI_DELAY ??= '10000'
+const ANSWERED = Number(process.env.HALIGTREE_QA_AI_DELAY) + 2000
 const FRAMES = process.env.FRAMES
 const { check, done } = checks()
 const { c, record, card, made } = await recorded()
@@ -45,7 +48,7 @@ try {
   await c.go('home')
   await c.go('inbox')
   const rolled = []
-  for (let i = 0; i < 80 && KEPT.test((await get(first))?.label ?? ''); i += 1) {
+  for (let i = 0; i < 160 && KEPT.test((await get(first))?.label ?? ''); i += 1) {
     if (FRAMES && i % 2 === 0) await h.screenshot({ path: join(FRAMES, `roll-${String(i).padStart(2, '0')}.png`) })
     await wait(100)
   }
@@ -96,7 +99,7 @@ try {
   // The whole heading picked, as a person picks a line to type over it.
   await title.click({ clickCount: 3 })
   await h.keyboard.type('Budget review')
-  await wait(6000)
+  await wait(ANSWERED)
   const typed = await get(second)
   check('a name typed meanwhile is never written over', heading(typed) === 'Budget review' && !SAID.test(typed?.label ?? ''), `${typed?.label} / ${heading(typed)}`)
   const offered = await v('names:recordings')
