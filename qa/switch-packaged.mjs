@@ -4,13 +4,14 @@
 // Haligtree crash report written during the run. Each run is found by its main process's inspector (--inspect=0,
 // passed on by the relaunch) and asked through the same handler the book switcher calls.
 // The crash was the in-use watcher (native/glass.mm) calling Node after Node had freed what it calls, so this run
-// turns that watcher on (HALIGTREE_QA_INUSE) and plays silence through new processes during each switch: each one
-// is a new sound process the watcher hears. Nothing is heard and nothing shows (HALIGTREE_QA_AWAY).
+// turns that watcher on (HALIGTREE_QA_INUSE). It starts no sound of its own: a flood of silent players to wake the
+// watcher (20 Nov) piled up 1,868 processes, held the Mac's sound service at 99% and froze the user's app.
+// Nothing is heard and nothing shows (HALIGTREE_QA_AWAY).
 //   electron-vite build && electron-builder --mac dir -c.directories.output=dist-switch
 //   node qa/switch-packaged.mjs dist-switch/mac-arm64/Haligtree.app <a copy of a seeded sandbox's data folder> [rounds]
 import { execFileSync, spawn } from 'child_process'
-import { mkdtempSync, readdirSync, statSync, writeFileSync } from 'fs'
-import { homedir, tmpdir } from 'os'
+import { readdirSync, statSync } from 'fs'
+import { homedir } from 'os'
 import { join, resolve } from 'path'
 
 const [appPath, data, roundsArg] = process.argv.slice(2)
@@ -28,13 +29,6 @@ const alive = (pid) => {
   }
 }
 const log = (...said) => console.log(new Date().toISOString().slice(11, 19), ...said)
-
-// A second of silence, played at volume 0.
-const quiet = join(mkdtempSync(join(tmpdir(), 'haligtree-switch-')), 'silence.wav')
-const wav = Buffer.alloc(44 + 32000)
-wav.write('RIFF', 0), wav.writeUInt32LE(36 + 32000, 4), wav.write('WAVEfmt ', 8), wav.writeUInt32LE(16, 16), wav.writeUInt16LE(1, 20), wav.writeUInt16LE(1, 22)
-wav.writeUInt32LE(16000, 24), wav.writeUInt32LE(32000, 28), wav.writeUInt16LE(2, 32), wav.writeUInt16LE(16, 34), wav.write('data', 36), wav.writeUInt32LE(32000, 40)
-writeFileSync(quiet, wav)
 
 async function inspector(pid) {
   for (let i = 0; i < 150; i++) {
@@ -91,7 +85,13 @@ const mains = () => {
   }
 }
 
-const env = { ...process.env, HALIGTREE_USER_DATA: resolve(data), HALIGTREE_QA_AWAY: '1', HALIGTREE_QA_INUSE: '1' }
+// MallocScribble: freed memory is overwritten at once, so a call into something Node already freed fails every time
+// instead of only when the memory happens to have been reused (as it was, switch after switch, on the other Mac).
+// However the probe ends (a throw, Ctrl+C, solo's time limit), every run it started goes with it.
+const endAll = () => mains().forEach((one) => process.kill(one, 'SIGKILL'))
+process.on('exit', endAll)
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => process.exit(1))
+const env = { ...process.env, HALIGTREE_USER_DATA: resolve(data), HALIGTREE_QA_AWAY: '1', HALIGTREE_QA_INUSE: '1', MallocScribble: '1' }
 const first = spawn(bin, ['--inspect=0'], { env, stdio: 'ignore' })
 let pid = first.pid
 let inSandbox = false
@@ -102,8 +102,6 @@ for (let n = 0; n < rounds * 2; n++) {
   await sleep(2500)
   const before = new Set(mains())
   const channel = inSandbox ? 'leave' : 'enter'
-  const noise = setInterval(() => spawn('afplay', ['-v', '0', quiet], { stdio: 'ignore' }), 150)
-  setTimeout(() => clearInterval(noise), 8000)
   await evaluate(url, `${E}.ipcMain._invokeHandlers.get('haligtree:sandbox:${channel}')({ sender: null }, {}).then(String)`)
   let next = null
   for (let i = 0; i < 200 && !next; i++) {
