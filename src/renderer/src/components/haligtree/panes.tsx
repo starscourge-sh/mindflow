@@ -408,10 +408,12 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
         <div ref={pageRef} data-pane-card
           style={kept}
           className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
-          !split ? '' : front
-            // In a dark theme (every theme carries .dark; light ones add data-light) a shadow barely reads, so the key pane's surface is raised a step, as macOS lifts its key window.
-            ? 'border-foreground/12 bg-background shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_5%,transparent),0_6px_18px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)] [:root:not([data-light])_&]:[--background:color-mix(in_srgb,var(--mf-under)_94%,white)]'
-            : 'border-foreground/6 opacity-[0.94] [:root:not([data-light])_&]:opacity-[0.85] [&_header]:text-muted-foreground'}`}>
+          !split ? '' : `isolate after:pointer-events-none after:absolute after:inset-0 after:z-[2147483647] after:bg-white after:opacity-0 after:transition-opacity after:duration-150 ${front
+            // In a dark theme (every theme carries .dark; light ones add data-light) a shadow barely reads, so the key pane's surface is raised a step, as macOS lifts its key window:
+            // a veil of white at 6% over it, the same as its page mixed 6% toward white (the tab's fill, split.css). Not by changing
+            // --background on the card: a variable changed there restyled everything in the pane, a long article's 5,000 elements, 300 to 600ms a press.
+            ? 'border-foreground/12 bg-background shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_5%,transparent),0_6px_18px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)] [:root:not([data-light])_&]:after:opacity-[0.06]'
+            : 'border-foreground/6 opacity-[0.94] [:root:not([data-light])_&]:opacity-[0.85] [&_header]:text-muted-foreground'}`}`}>
           <PaneContext.Provider value={pane.key}>
             <PaneWidthContext.Provider value={split ? width : null}>{pane.node}</PaneWidthContext.Provider>
           </PaneContext.Provider>
