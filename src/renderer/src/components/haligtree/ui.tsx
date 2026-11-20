@@ -1535,7 +1535,9 @@ export function Toaster(): React.JSX.Element | null {
   }), [])
   // A name the app gave in the background (a recording named by what was said, a long name made short): it rolls in
   // where it is shown, and a recording's is said in a quiet notice whose Undo puts the old name back (long-names.ts).
-  useEffect(() => window.api.onRenamed(({ id, from, to, was, quiet }) => {
+  // A window whose preload predates this (a dev run not restarted) has no onRenamed: nothing to listen to, and no cleanup
+  // that is not a function ("destroy is not a function" took the whole window down, 20 Nov).
+  useEffect(() => typeof window.api.onRenamed !== 'function' ? undefined : window.api.onRenamed(({ id, from, to, was, quiet }) => {
     namedByApp(id, to)
     if (quiet) return
     news(`Named ${quoted(to, 60)} by what was said`, () => (namedByApp(id, from), void call('names:undo', was).then(() => chime('undo'))))
