@@ -22,6 +22,7 @@ import { ask as askReader, left as leftReader } from './reader'
 import { named as timed } from './stalls'
 import { docList, tasksSaid } from './day-lines'
 import { advance, dateIn, leadingTag, readTask } from './task-words'
+import { linkName, linkOut, wordsLeft } from './task-links'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder, writeMarkdown } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
@@ -1106,7 +1107,9 @@ export type Made = { id: string; number: number; existed: boolean }
  */
 function taskOf(text: string, plain: { from: number; to: number }[] = []) {
   const db = database()
-  const task = readTask(text, new Date(), plain)
+  // A link in the words is kept beside the task, not in its name (task-links.ts): read without it.
+  const { text: words, href } = linkOut(text)
+  const task = readTask(words, new Date(), plain)
   // A #word at the front that is no tag in use and runs on into the sentence is its first word.
   const inUse = (tag: string): boolean => !!db.prepare(
     `select 1 from tag_meta where tag = ?1 union all select 1 from tasks where lower(title) like ?2
@@ -1114,14 +1117,17 @@ function taskOf(text: string, plain: { from: number; to: number }[] = []) {
   ).get(tag, `%#${tag}%`)
   // A pasted paragraph is no title: its first line (cut near 500 letters)
   // names the task, and the words in full are kept in its notes.
-  const said = leadingTag(task.title || text, inUse)
+  // A link alone is named by its site and path until its page's title comes (fillTaskLink).
+  const said = leadingTag(href ? wordsLeft(task.title) || linkName(href) : task.title || text, inUse)
   const fitted = fittedTitle(said)
   const title = fitted ?? said
   // The same name with no date or repeat of its own is the same task; one
   // that brings a date or a repeat is meant as a new one.
+  // A link is the same task when it is the same link, whatever either is called.
   const twin = task.due || task.recurrence || task.deadline || task.plan || task.snooze ? undefined
+    : href ? (db.prepare("select id, number, title from tasks where status = 'open' and link = ? and (? or lower(trim(title)) = lower(trim(?)))").get(href, wordsLeft(task.title) ? 0 : 1, title) as { id: string; number: number; title: string } | undefined)
     : (db.prepare("select id, number, title from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number; title: string } | undefined)
-  return { task, fitted, title, twin }
+  return { task, fitted, title, twin, href }
 }
 /** Words the box kept as plain text in a capture's name, found where they stand in it now, or wherever they moved to. */
 const keptIn = (title: string, plain?: { from: number; text: string }[]): { from: number; to: number }[] =>
@@ -1138,7 +1144,7 @@ const keptIn = (title: string, plain?: { from: number; text: string }[]): { from
  */
 function addTask(text: string, origin: string | null = null, today = false, plain: { from: number; to: number }[] = []): Made {
   const db = database()
-  const { task, fitted, title, twin } = taskOf(text, plain)
+  const { task, fitted, title, twin, href } = taskOf(text, plain)
   const notes = fitted ? JSON.stringify({ type: 'doc', content: text.trim().split('\n').map((line) => (line.trim() ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' })) }) : null
   if (twin) {
     if (origin) db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(twin.id, origin)
@@ -1163,6 +1169,7 @@ function addTask(text: string, origin: string | null = null, today = false, plai
     .get(id, title, notes, task.due, task.allDay ? 1 : 0, task.recurrence, task.until, origin, now(), task.deadline, task.priority, [1, 2].includes(task.priority) ? 1 : 0, task.plan, task.deadlineTimed ? 1 : 0, task.notify, task.estimate) as { number: number }
   // "show again monday", "get ready 1 week before".
   if (task.snooze || task.getReady) db.prepare('update tasks set snoozed_until = ?, get_ready = ? where id = ?').run(task.snooze, task.getReady, id)
+  if (href) db.prepare('update tasks set link = ? where id = ?').run(href, id)
   return { id, number, existed: false }
 }
 
@@ -1288,6 +1295,16 @@ export function registerHaligtree(): void {
   column('tasks', 'held_at text')
   // The line a task was made a step of: its words live there now, so the Bin never offers a second copy back.
   column('tasks', 'step_of text')
+  // A task named by a link keeps it here, as a bookmark (task-links.ts): its address, the site's icon kept with the
+  // book, and 1 once its page was asked for its title, so it is asked once.
+  column('tasks', 'link text')
+  column('tasks', 'link_icon text')
+  column('tasks', 'link_asked integer not null default 0')
+  // Tasks made before that, named by their address: the address taken out of the name the same way. Safe every start.
+  for (const task of db.prepare("select id, title from tasks where link is null and (title like '%http://%' or title like '%https://%' or title like '%www.%')").all() as { id: string; title: string }[]) {
+    const { text, href } = linkOut(task.title)
+    if (href) db.prepare('update tasks set title = ?, link = ? where id = ?').run(wordsLeft(text) || linkName(href), href, task.id)
+  }
   db.exec('update tasks set priority = 2 where important = 1 and priority = 0')
   // Tasks made before a front "#tag," lost its comma: the same words without it. Safe to run every start.
   for (const task of db.prepare("select id, title from tasks where title like '#%'").all() as { id: string; title: string }[]) {
@@ -4243,7 +4260,7 @@ export function registerHaligtree(): void {
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
     created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
     important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor, snoozed_until as snoozedUntil, get_ready as getReady, rollovers, skips, held_at as heldAt,
-    blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
+    link, link_icon as linkIcon, blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
   const FROM = `coalesce(origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
@@ -4329,6 +4346,14 @@ export function registerHaligtree(): void {
       const was = (db.prepare('select deadline_at from tasks where id = ?').get(id) as { deadline_at: string | null } | undefined)?.deadline_at
       if (clock(was) !== clock(patch.deadline)) db.prepare('update tasks set deadline_timed = 0 where id = ?').run(id)
     }
+    // Renamed to a link, or words with one: the link is kept beside the name, as a task made so keeps it, and asked for its page's title.
+    if (typeof patch.title === 'string') {
+      const { text, href } = linkOut(patch.title)
+      if (href) {
+        patch = { ...patch, title: wordsLeft(text) || linkName(href) }
+        db.prepare('update tasks set link = ?1, link_icon = case when link = ?1 then link_icon end, link_asked = case when link = ?1 then link_asked else 0 end where id = ?2').run(href, id)
+      }
+    }
     // A title past the limit is cut to fit; the words in full go to its notes when it has none.
     if (typeof patch.title === 'string') {
       const fitted = fittedTitle(patch.title)
@@ -4380,6 +4405,16 @@ export function registerHaligtree(): void {
     return write(before ?? true)
   }
   handle('task:save', saveTaskOne)
+  // Tasks named by a link whose page has not been asked yet (lib/task-links.ts asks, with the app's link preview).
+  handle('task:links:waiting', () => db.prepare("select id, link as href from tasks where link is not null and link_asked = 0 and status != 'dropped'").all())
+  // A link's page answered: its icon kept, and its title the task's name while the name is still the site and path, never over your own words.
+  handle('task:link:fill', (id: string, href: string, title: string, icon: string) => {
+    const row = db.prepare('select title, link from tasks where id = ?').get(String(id)) as { title: string; link: string | null } | undefined
+    if (!row || row.link !== href) return false
+    const named = typeof title === 'string' && title.trim() && title.trim() !== href && row.title === linkName(href) ? (fittedTitle(title.trim()) ?? title.trim()) : row.title
+    db.prepare('update tasks set title = ?, link_icon = ?, link_asked = 1 where id = ?').run(named, typeof icon === 'string' && icon ? icon : null, String(id))
+    return write(true)
+  })
   // Many tasks saved at once (a list put in order, a day's tasks moved on, and their Undos): one write for the
   // lot and one change told to the windows, not one per task.
   ipcMain.handle('haligtree:task:save-many', (event, saves: { id: string; patch: Parameters<typeof saveTaskOne>[1] }[]) => {

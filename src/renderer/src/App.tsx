@@ -68,7 +68,7 @@ import { InboxBinned, InboxZero, useJustCleared } from './components/haligtree/i
 import { keepTyped } from './lib/keep-typed'
 import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
-import { haligtree, type Item, type PinnedQuestion, type Settings } from './lib/haligtree'
+import { askTaskLinks, haligtree, type Item, type PinnedQuestion, type Settings } from './lib/haligtree'
 import { wearFinish } from './components/haligtree/review-toolbar'
 import { markFromBox } from './lib/milestones'
 import { makeListTasks, makeTask, makeTasks, oneTask, picked, taskName } from './lib/tasks'
@@ -543,6 +543,8 @@ export default function App(): React.JSX.Element {
   // Once a launch, a little after it: links still bare become cards, and
   // cards whose pictures live on their sites keep a copy.
   useEffect(() => void setTimeout(cardsUp, 5000), [])
+  // Tasks named by a link whose page was not asked yet (made before, or while offline): asked once now.
+  useEffect(() => void askTaskLinks(), [])
   // Notes just imported as Markdown become documents, read once here so
   // opening a long one later is quick. Again whenever an import lands.
   useEffect(() => {

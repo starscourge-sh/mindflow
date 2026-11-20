@@ -47,10 +47,10 @@ try {
   check('a picture pasted shows in the details', !!(await h.$('[data-task-details-box] .ProseMirror img')))
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/q1-task-details`)
   await h.keyboard.press('Meta+Enter'); await h.waitForTimeout(1500)
-  const made = (await sql("select title, notes from tasks where title like 'extract feature requests%' order by created_at desc limit 1"))[0]
+  const made = (await sql("select title, notes, link from tasks where title like 'extract feature requests%' order by created_at desc limit 1"))[0]
   check('⌘↵ adds the task with its words alone as its name', made?.title?.trim() === 'extract feature requests from woday comments', made?.title)
   const notes = String(made?.notes ?? '')
-  check('its description holds the words, the picture and the link', notes.includes('Comments under the thread') && /"type":"image"/.test(notes) && notes.includes(URL_), notes.slice(0, 300))
+  check('its description holds the words and the picture, the link kept as its bookmark', notes.includes('Comments under the thread') && /"type":"image"/.test(notes) && made?.link === URL_, JSON.stringify({ link: made?.link, notes: notes.slice(0, 200) }))
   check('the field is empty again, chips and details gone', !(await h.$('[data-task-link]')) && !(await h.$('[data-task-details-box]')) && !(await h.$eval(ADD, (el) => el.value)))
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } catch (error) {
