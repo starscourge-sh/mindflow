@@ -5,11 +5,11 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { cut } from './clip'
-import { cardForQuiz, cardWords, dueCards, feedTakesPages, feedTakesPictures, gate, plain } from './haligtree'
+import { cardForQuiz, cardWords, dueCards, feedTakesPages, gate, plain } from './haligtree'
 import { LEARN_TAG } from './name'
 import { READING_PACE } from './word-count'
 import { dayKey, dayjs } from './dates'
-import { LESS, bookFeed, fadedSteps, likedSteps, tableOf, type Row, type Takes } from './book-feed'
+import { LESS, bookFeed, fadedSteps, likedSteps, tableOf, type Row, type Table, type Takes } from './book-feed'
 import { ask } from './reader'
 import { named } from './stalls'
 import type { Insight } from './insights'
@@ -17,12 +17,13 @@ import type { Insight } from './insights'
 /**
  * The Feed: about twenty of your own things a day, picked once and kept for
  * the day, so a reload shows the same posts and tomorrow brings a new set.
- * Gems, quotes, questions you hold with their newest clue, and old Journal
- * days, the ones longest since you last saw them first. Never private, never
- * a #bit, nothing at all in Safe mode.
+ * Notes, gems, quotes, questions you hold with their newest clue, old Journal
+ * days and lines you highlighted in a PDF or a web page, picked as the
+ * insights are (insight-pick.ts): new and old by shares, each resting 14 days
+ * once shown. Never private, never a #bit, nothing at all in Safe mode.
  */
 export type FeedPost = {
-  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'poll' | 'quiz' | 'pair' | 'insight'
+  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'highlight' | 'poll' | 'quiz' | 'pair' | 'insight'
   id: string
   kind: string
   title: string
@@ -62,7 +63,7 @@ export type FeedPost = {
   /** An insight drawn from your notes (insights.ts): Resurface, Connect or Reframe, with the notes it came from. */
   insight?: Insight
   /** Brought in by an importer: shown "From the archives". */
-  archive?: boolean
+  archive?: boolean | number
   /** Kept this many months ago and never linked: shown "From the archives", one a Feed at most. */
   unlinked?: number
 }
@@ -160,7 +161,7 @@ export function registerFeed(): void {
   db.exec('create table if not exists feed_changed (id text primary key, new_id text not null, at text not null)')
   const changedOf = db.prepare('select new_id as id, at from feed_changed where id = ? and new_id in (select id from nuggets where binned_at is null)')
   ipcMain.handle('haligtree:feed:changed', (_event, id: string): { id: string; at: string } | null => (changedOf.get(String(id)) as { id: string; at: string } | undefined) ?? null)
-  const modeNow = (): string => `${feedTakesPages() ? 'pages' : ''}|${feedTakesPictures() ? 'pictures' : ''}`
+  const modeNow = (): string => (feedTakesPages() ? 'pages' : '')
 
   // --- polls: a decision made weeks ago, asked about again.
   type Decision = { table: 'captures' | 'nuggets'; id: string; title: string; fields: string; made: string }
@@ -235,10 +236,11 @@ export function registerFeed(): void {
 
   // What the Feed may show and how it reads it: book-feed.ts, the same code the reading thread runs.
   const book = bookFeed(db)
-  const takes = (): Takes => ({ pages: feedTakesPages(), pictures: feedTakesPictures() })
+  const takes = (): Takes => ({ pages: feedTakesPages() })
   const filingTags = (): Set<string> => book.filingTags(takes())
-  const lookUp = (key: string): Row | undefined => book.lookUp(takes(), key)
-  const { words, tagsOfRow, linksOf } = book
+  const { words, tagsOfRow, linksOf, lookUp } = book
+  // A highlight's way back into its PDF or web page, for a post, a quoted one or a Liked one opened by its id.
+  ipcMain.handle('haligtree:feed:highlight', (_event, id: string): string | null => lookUp(`highlight:${String(id)}`)?.href ?? null)
 
   // --- a post as a picture: saved where you choose, or copied for X with its words in X's compose page.
   const pngOf = (data: string): Buffer => Buffer.from(String(data).replace(/^data:image\/png;base64,/, ''), 'base64')
@@ -374,7 +376,7 @@ export function registerFeed(): void {
   // --- reactions: what you mean by it, each changing when it next comes up.
   // One a post a day; choosing another first takes the last one's effect back.
   type Was = { weight?: number; visited?: string | null; day?: string; link?: string }
-  const visitedColumn = (table: 'nuggets' | 'captures'): string => (table === 'nuggets' ? 'last_visited_at' : 'surfaced_at')
+  const visitedColumn = (table: Table): string => (table === 'nuggets' ? 'last_visited_at' : table === 'captures' ? 'surfaced_at' : 'created_at')
   const split = (key: string): [string, string] => [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)]
   const undoReact = (day: string, key: string): void => {
     const row = db.prepare('select was from feed_reacts where day = ? and key = ?').get(day, key) as { was: string | null } | undefined
@@ -405,10 +407,12 @@ export function registerFeed(): void {
         db.prepare(`update ${table} set surfacing_weight = min(?, surfacing_weight * ?) where id = ?`).run(MOST, MORE, id)
       }
       if (reaction === 'use') {
-        const title = (lookUp(key)?.title ?? 'Untitled').replace(/\s+/g, ' ').trim()
+        const row = lookUp(key)
+        const title = (row?.title ?? 'Untitled').replace(/\s+/g, ' ').trim()
         was.day = day
-        was.link = linkId(type, id)
-        putInDay(day, was.link, cut(title || 'Untitled', 80))
+        // A highlight is linked by its way back into its PDF or page; the rest by a note link.
+        was.link = row?.href ?? linkId(type, id)
+        putInDay(day, was.link, cut(title || 'Untitled', 80), !!row?.href)
       }
       db.prepare('insert into feed_reacts (day, key, reaction, was) values (?, ?, ?, ?)').run(day, key, reaction, JSON.stringify(was))
     }
@@ -419,20 +423,15 @@ export function registerFeed(): void {
 
   // --- Liked: every post you hearted, newest like first, a page at a time; the weeks over the last year; what you keep liking.
   /** A liked note by its key, read on its own: the Feed's pool leaves out what has rested or been shown, Liked shows all but the private and binned. */
-  const likedRow = (key: string): Row | undefined => {
-    const [type, id] = split(key)
-    if (type === 'day') return db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, 1 as weight from day_pages where day = ?").get(id) as Row | undefined
-    if (type === 'capture') return db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive from captures where id = ? and private = 0 and status != 'discarded'`).get(id) as Row | undefined
-    if (type === 'nugget' || type === 'question' || type === 'article') return db.prepare(`select ? as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight from nuggets where id = ? and private = 0 and binned_at is null and superseded_by is null`).get(type, id) as Row | undefined
-    return undefined
-  }
+  const likedRow = book.rowOf
   const likedPost = (row: Row, likes: number): FeedPost => {
     const gloss = (db.prepare('select body, created_at as at from glosses where item_id = ? order by created_at desc limit 1').get(row.id) as { body: string; at: string } | undefined) ?? null
     const span = db.prepare('select count(*) as n, min(created_at) as first from glosses where item_id = ?').get(row.id) as { n: number; first: string | null }
     return {
       type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made, seen: null,
       gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null, react: 'like', replies: span.n, firstReply: span.first,
-      seenTimes: 0, faded: 0, liked: Math.max(likes, row.type === 'day' ? 0 : likedSteps(row.weight)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: null, links: linksOf(row.body ?? '')
+      seenTimes: 0, faded: 0, liked: Math.max(likes, row.type === 'day' ? 0 : likedSteps(row.weight)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: null, links: linksOf(row.body ?? ''),
+      ...(row.href ? { from: { name: row.title, page: Number(/[#&]page=(\d+)/.exec(row.href)?.[1]) || null, href: row.href } } : {})
     }
   }
   /** Each liked note once, at its newest like; `n` its likes in all. */
@@ -532,7 +531,7 @@ export function registerFeed(): void {
   })
 
   // Use this: a line on today's Journal page linking to it, where you write today.
-  type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string }
+  type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string; marks?: { type: string; attrs: Record<string, unknown> }[] }
   const dayDoc = (day: string): Node => {
     const page = db.prepare('select body from day_pages where day = ?').get(day) as { body: string | null } | undefined
     let doc = JSON.parse(page?.body ?? 'null') as Node | string | null
@@ -542,17 +541,20 @@ export function registerFeed(): void {
   const saveDay = (day: string, doc: Node): void =>
     void db.prepare(`insert into day_pages (day, body, reviewed, updated_at) values (?, ?, 0, ?)
       on conflict (day) do update set body = excluded.body, updated_at = excluded.updated_at`).run(day, JSON.stringify(doc), new Date().toISOString())
-  const putInDay = (day: string, link: string, label: string): void => {
+  /** A link to a note (`web`: a highlight's link into its PDF or page, as words with a link on them). */
+  const linkNode = (link: string, label: string, web = false): Node => (web ? { type: 'text', text: label, marks: [{ type: 'link', attrs: { href: link } }] } : { type: 'noteLink', attrs: { id: link, label } })
+  const putInDay = (day: string, link: string, label: string, web = false): void => {
     const doc = dayDoc(day)
     const content = doc.content!
     // An empty last line is written over rather than left above it.
     while (content.length && content.at(-1)!.type === 'paragraph' && !content.at(-1)!.content?.length) content.pop()
-    content.push({ type: 'paragraph', content: [{ type: 'noteLink', attrs: { id: link, label } }] })
+    content.push({ type: 'paragraph', content: [linkNode(link, label, web)] })
     saveDay(day, doc)
   }
   const takeOutOfDay = (day: string, link: string): void => {
     const doc = dayDoc(day)
-    const at = doc.content!.findLastIndex((node) => node.type === 'paragraph' && node.content?.length === 1 && node.content[0].type === 'noteLink' && node.content[0].attrs?.id === link)
+    const linksTo = (node: Node): boolean => (node.type === 'noteLink' && node.attrs?.id === link) || (node.type === 'text' && !!node.marks?.some((mark) => mark.type === 'link' && mark.attrs.href === link))
+    const at = doc.content!.findLastIndex((node) => node.type === 'paragraph' && node.content?.length === 1 && linksTo(node.content[0]))
     if (at < 0) return
     doc.content!.splice(at, 1)
     saveDay(day, doc)
@@ -567,7 +569,7 @@ export function registerFeed(): void {
     const at = new Date().toISOString()
     const doc: Node = { type: 'doc', content: [
       ...said.split('\n').filter((line) => line.trim()).map((line): Node => ({ type: 'paragraph', content: [{ type: 'text', text: line }] })),
-      { type: 'paragraph', content: [{ type: 'noteLink', attrs: { id: linkId(old.type, old.id), label: cut(old.title.replace(/\s+/g, ' ').trim() || 'Untitled', 80) } }] }
+      { type: 'paragraph', content: [linkNode(old.href ?? linkId(old.type, old.id), cut(old.title.replace(/\s+/g, ' ').trim() || 'Untitled', 80), !!old.href)] }
     ] }
     db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(id, cut(said.split('\n')[0], 160), JSON.stringify(doc), at, at)
     db.prepare('insert into feed_restacks (id, of_key, made_day) values (?, ?, ?)').run(id, key, dayKey())

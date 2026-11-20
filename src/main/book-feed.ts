@@ -6,12 +6,16 @@ import { linkedAmong } from './links-in'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
 import { findPair, type PairNote } from './feed-pair'
+import { bookInsights, highlightHref, highlightName, type Kept } from './book-insights'
+import { REST_DAYS, pickPassages } from './insight-pick'
 import type { FeedPost, FeedSide, Reaction } from './feed'
 
 /**
  * The Feed as a read of the book and nothing else (no Electron in it): what
  * it may show, when each was last in front of you, the day's set picked and
- * each post as it now reads. It reads every gem, quote and page, and to find
+ * each post as it now reads. What comes back is picked as the insights are
+ * (insight-pick.ts, from book-insights.ts's one pool): one way things come
+ * back, by shares of new and old, each resting 14 days once shown. It reads every gem, quote and page, and to find
  * a pair every note of the book, so it is asked of the reading thread
  * (reader.ts) and never holds main; main (feed.ts) keeps the day's set,
  * marks restacks shown, and makes the day's poll and quiz, which are
@@ -19,9 +23,9 @@ import type { FeedPost, FeedSide, Reaction } from './feed'
  * Feed's smaller lists.
  */
 
-/** What the Feed takes beside gems, quotes, questions and days (Settings, or the switches on the Feed itself). */
-export type Takes = { pages: boolean; pictures: boolean }
-export type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number; archive?: number }
+/** Whether the Feed takes your Pages too (Settings, or the switch on the Feed itself). */
+export type Takes = { pages: boolean }
+export type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number; archive?: number | boolean; href?: string }
 /** One look at the Feed: the day, the day's kept set if it has one, and else the poll and quiz keys main picked for it. */
 export type FeedAsk = { today: string; takes: Takes; kept: string | undefined; asks: string[] }
 /** The Feed as read: the day's set (`picked` when it was picked just now, from `pooled` notes), each post in order
@@ -37,48 +41,50 @@ export const LESS = 1 / 1.5
 export const fadedSteps = (weight: number | null | undefined): number => (weight && weight < 0.99 ? Math.max(1, Math.round(Math.log(weight) / Math.log(LESS))) : 0)
 /** Times liked, from its weight: each like is one step up. */
 export const likedSteps = (weight: number | null | undefined): number => (weight && weight > 1.01 ? Math.max(1, Math.round(Math.log(weight) / Math.log(1.5))) : 0)
-export const tableOf = (type: string): 'nuggets' | 'captures' | null => (type === 'capture' ? 'captures' : type === 'day' ? null : 'nuggets')
+export type Table = 'nuggets' | 'captures' | 'pdf_highlights'
+export const tableOf = (type: string): Table | null => (type === 'capture' ? 'captures' : type === 'day' ? null : type === 'highlight' ? 'pdf_highlights' : 'nuggets')
+/** The note ids a day's key stands for: a pair's two, else the id after its last colon ("poll:captures:id", "lone:nugget:id"). */
+export const keyIds = (key: string): string[] => {
+  if (!key.startsWith('pair:')) return [key.slice(key.lastIndexOf(':') + 1)]
+  try {
+    const { a, b } = JSON.parse(key.slice(5)) as { a: string; b: string }
+    return [a, b].map((one) => one.slice(one.indexOf(':') + 1))
+  } catch {
+    return []
+  }
+}
+/** Every note shown in the Feed or used in an insight from this day on, by id: they rest (REST_DAYS). `before` leaves a day out. */
+export const shownSince = (db: DatabaseSync, from: string, before?: string): Set<string> => {
+  const out = new Set<string>()
+  for (const row of db.prepare(`select keys from feed_days where day >= ?${before ? ' and day < ?' : ''}`).all(...(before ? [from, before] : [from])) as { keys: string }[])
+    for (const key of JSON.parse(row.keys) as string[]) for (const id of keyIds(key)) out.add(id)
+  try {
+    for (const row of db.prepare("select sources from feed_insights where day >= ? and state is not 'failed'").all(from) as { sources: string }[])
+      for (const one of JSON.parse(row.sources) as { id: string }[]) out.add(one.id)
+  } catch {
+    // Before the insights' table: none.
+  }
+  return out
+}
 
 export function bookFeed(db: DatabaseSync) {
-  /** More than half of the book's notes came in by an importer. */
-  const mostlyImported = (): boolean => {
-    const { imported, total } = db.prepare("select count(*) filter (where imported_at is not null) as imported, count(*) as total from captures where status != 'discarded'").get() as { imported: number; total: number }
-    return imported > total / 2
+  const insights = bookInsights(db)
+  /** Everything the Feed may show (book-insights.ts, the insights' own pool): private ones, #bits and lessons are never read; Pages only once asked for. */
+  const pool = (takes: Takes): Kept[] => insights.pool().filter((row) => takes.pages || row.type !== 'article')
+  /** One note by its feed key, read on its own: a restack's old note, a liked one, or "Use this". Private and binned ones never. */
+  const rowOf = (key: string): Row | undefined => {
+    const type = key.slice(0, key.indexOf(':'))
+    const id = key.slice(key.indexOf(':') + 1)
+    if (type === 'day') return db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, 1 as weight from day_pages where day = ?").get(id) as Row | undefined
+    if (type === 'capture') return db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive from captures where id = ? and private = 0 and status != 'discarded'`).get(id) as Row | undefined
+    if (type === 'nugget' || type === 'question' || type === 'article') return db.prepare(`select ? as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight from nuggets where id = ? and private = 0 and binned_at is null and superseded_by is null`).get(type, id) as Row | undefined
+    if (type === 'highlight') {
+      const one = db.prepare('select * from pdf_highlights where id = ?').get(id) as { id: string; src: string; page: number; quote: string; note: string | null; created_at: string; surfacing_weight?: number | null } | undefined
+      if (!one) return undefined
+      return { type: 'highlight', id: one.id, kind: 'highlight', title: highlightName(one.src), body: [one.quote, one.note].filter(Boolean).join('\n'), who: null, made: one.created_at, visited: null, weight: one.surfacing_weight ?? 1, href: highlightHref(one) }
+    }
+    return undefined
   }
-  /** Everything the Feed may show, as rows: private ones and #bits are never read. */
-  const pool = (takes: Takes): Row[] => {
-    const nuggets = db.prepare(`select case when tier = 'question' then 'question' else 'nugget' end as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight, (source != '') as archive
-      from nuggets where tier in ('nugget', 'question') and private = 0 and suspended = 0 and archived_at is null and superseded_by is null and binned_at is null and (tier != 'question' or closed_at is null)`).all() as Row[]
-    // A quote still a capture; one already a gem comes as the gem.
-    const quotes = db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive
-      from captures where kind = 'quote' and private = 0 and status != 'discarded' and archived_at is null
-      and id not in (select capture_id from nuggets where capture_id is not null)`).all() as Row[]
-    // A note or a page of yours with a picture in it: the posts you look at, not only read.
-    const PICTURED = "(body like '%](%.webp)%' or body like '%](%.png)%' or body like '%](%.jp%g)%' or body like '%\"type\":\"image\"%')"
-    // Only once asked for (Settings, "Also show notes with pictures"): by default the Feed holds what you chose to keep,
-    // gems, quotes, held questions and Journal days, never an Inbox note that happens to have a screenshot in it.
-    const loose = takes.pictures
-    const pictured = [
-      ...(!loose ? [] : db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive
-        from captures where kind not in ('quote', 'task') and private = 0 and status != 'discarded' and archived_at is null and ${PICTURED}
-        and id not in (select capture_id from nuggets where capture_id is not null)`).all()),
-      // A book that came mostly from elsewhere: its imported notes come too, from day one, "From the archives".
-      ...(loose && mostlyImported() ? db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, 1 as archive
-        from captures where imported_at is not null and kind not in ('quote', 'task') and private = 0 and status != 'discarded' and archived_at is null and not ${PICTURED}
-        and length(coalesce(body, '')) > 40 and id not in (select capture_id from nuggets where capture_id is not null)`).all() : []),
-      ...db.prepare(`select 'article' as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, null as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
-        from nuggets where tier = 'article' and private = 0 and archived_at is null and superseded_by is null and binned_at is null and ${PICTURED}`).all()
-    ] as Row[]
-    // A Journal day at least a week old with something written on it.
-    // A day liked in the Feed comes back sooner, a step for each like, as a note's heart does (a day page keeps no weight of its own).
-    const days = db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, (select count(*) from feed_reacts r where r.key = 'day:' || day_pages.day and r.reaction = 'like') as weight from day_pages where day < ? and length(coalesce(body, '')) > 40")
-      .all(dayKey(dayjs().subtract(7, 'day'))) as Row[]
-    for (const day of days) day.weight = Math.min(4, 1.5 ** (day.weight ?? 0))
-    // Pages only once asked for: a Feed of gems and notes reads best to start, and Reading has the pages.
-    const pages = takes.pages
-    return [...nuggets, ...quotes, ...pictured, ...days].filter((row) => (pages || row.type !== 'article') && !/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`))
-  }
-
 
   /** When each was last in front of you: an open, a hint, or an earlier day's Feed. */
   const seenOf = (): { seen: Map<string, string>; times: Map<string, number> } => {
@@ -90,9 +96,9 @@ export function bookFeed(db: DatabaseSync) {
     for (const row of db.prepare('select id, at from note_opens').all() as { id: string; at: string }[]) note(row.id, row.at)
     for (const row of db.prepare('select nugget_id as id, max(shown_at) as at from hint_events group by nugget_id').all() as { id: string; at: string }[]) note(row.id, row.at)
     for (const row of db.prepare('select day, keys from feed_days where day < ?').all(dayKey()) as { day: string; keys: string }[])
-      for (const key of JSON.parse(row.keys) as string[]) {
-        note(key.slice(key.indexOf(':') + 1), dayjs(row.day).toISOString())
-        count(key.slice(key.indexOf(':') + 1))
+      for (const key of JSON.parse(row.keys) as string[]) for (const id of keyIds(key)) {
+        note(id, dayjs(row.day).toISOString())
+        count(id)
       }
     return { seen, times }
   }
@@ -158,10 +164,10 @@ export function bookFeed(db: DatabaseSync) {
    * A kind's own name (#quote, #mine) and any tag on notes of most kinds the book has.
    */
   const FILING = new Set(['quote', 'quotes', 'mine', 'note', 'notes', 'gem', 'gems', 'question', 'questions', 'idea', 'ideas', 'page', 'pages', 'link', 'links', 'word', 'words', 'todo', 'inbox'])
-  const filingTags = (takes: Takes): Set<string> => {
+  const filingTags = (takes: Takes, rows: Row[] = pool(takes)): Set<string> => {
     const kinds = new Map<string, Set<string>>()
     const all = new Set<string>()
-    for (const row of pool(takes)) {
+    for (const row of rows) {
       all.add(row.kind)
       for (const tag of tagsOfRow(row)) kinds.set(tag, (kinds.get(tag) ?? new Set()).add(row.kind))
     }
@@ -170,9 +176,8 @@ export function bookFeed(db: DatabaseSync) {
     return out
   }
 
-  /** One note by its feed key, for a restack whose old note is not in the day's set. A Page restacked from Reading may have no picture, so it is read on its own. */
-  const lookUp = (takes: Takes, key: string): Row | undefined => pool(takes).find((row) => `${row.type}:${row.id}` === key) ?? (key.startsWith('article:') ? (db.prepare(`select 'article' as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, null as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
-    from nuggets where id = ? and tier = 'article' and private = 0 and archived_at is null and binned_at is null`).get(key.slice(8)) as Row | undefined) : undefined)
+  /** One note by its feed key, for a restack whose old note is not in the day's set (a Page from Reading too). */
+  const lookUp = (key: string): Row | undefined => rowOf(key)
 
   /**
    * One note from these kept three months or more and linked to nothing, by
@@ -192,23 +197,22 @@ export function bookFeed(db: DatabaseSync) {
 
   // --- "Two subjects, one thread": two notes with no tag in common that share a rare word, a source, or an hour.
   const textOf = (body: string | null): string => { try { return plain(JSON.parse(body ?? '')) } catch { return body ?? '' } }
-  const pairOf = (takes: Takes, rows: Row[], seed: number): string | null => {
+  const pairOf = (filing: Set<string>, rows: Row[], seed: number): string | null => {
     const notes: PairNote[] = rows.filter((row) => row.type !== 'day' && row.type !== 'article').map((row) => ({ key: `${row.type}:${row.id}`, id: row.id, title: row.title, text: textOf(row.body), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG), who: row.who, made: row.made, imported: !!row.archive }))
     // How rare a word is: across every note of the book you could be shown, kept or not.
     const book = [
       ...db.prepare("select title, body from nuggets where private = 0 and binned_at is null and tier not in ('card', 'deck')").all(),
       ...db.prepare(`select ${LABEL} as title, body from captures where private = 0 and status != 'discarded' and id not in (select capture_id from nuggets where capture_id is not null)`).all()
     ].map((one) => `${(one as { title: string }).title} ${textOf((one as { body: string | null }).body)}`)
-    const found = findPair(notes, filingTags(takes), book, seed)
+    const found = findPair(notes, filing, book, seed)
     return found ? `pair:${JSON.stringify({ a: found.a.key, b: found.b.key, why: found.why })}` : null
   }
   /** A pair's post, read now: both notes as they are, each with its tags; gone if either has gone. */
-  const paired = (takes: Takes, key: string): FeedPost[] => {
+  const paired = (byKey: Map<string, Row>, filing: Set<string>, key: string): FeedPost[] => {
     let saved: { a: string; b: string; why: NonNullable<FeedPost['pair']>['why'] }
     try { saved = JSON.parse(key.slice(5)) } catch { return [] }
-    const rows = [saved.a, saved.b].map((one) => pool(takes).find((row) => `${row.type}:${row.id}` === one))
+    const rows = [saved.a, saved.b].map((one) => byKey.get(one))
     if (rows.some((row) => !row)) return []
-    const filing = filingTags(takes)
     const notes = (rows as Row[]).map((row) => ({ type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, tags: tagsOfRow(row).filter((tag) => !filing.has(tag.toLowerCase()) && tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3) }))
     return [{ type: 'pair', id: `${rows[0]!.id}+${rows[1]!.id}`, kind: 'pair', title: '', text: '', who: null, made: [rows[0]!.made, rows[1]!.made].sort().at(-1)!, seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null, pair: { notes, why: saved.why } }]
   }
@@ -216,70 +220,52 @@ export function bookFeed(db: DatabaseSync) {
   const feed = ({ today, takes, kept, asks }: FeedAsk): FeedRead => {
     const rows = pool(takes)
     const pooled = rows.length
-    const byKey = new Map(rows.map((row) => [`${row.type}:${row.id}`, row]))
+    const byKey = new Map<string, Row>(rows.map((row) => [`${row.type}:${row.id}`, row]))
     const { seen, times } = seenOf()
     const lastSeen = (row: Row): string | null => [row.visited, seen.get(row.id)].filter(Boolean).sort().at(-1) ?? null
+    const filing = filingTags(takes, rows)
     let keys = kept
     if (!keys) {
-      // Each kind longest unseen first, then taken in turns so no one kind fills the day.
-      // The hints' rhythm: time since you last saw it, times how often you want it ("Less of this" fades it).
-      // One never seen comes before every one seen, however liked: a heart brings a note back sooner, never ahead of
-      // ones not yet shown (in a new book, a liked quote seen yesterday outranked gems never shown at all, day after day).
-      const NEVER = 10 * 365 * 86_400_000
-      const due = (row: Row): number => { const seenAt = lastSeen(row); return seenAt ? (Date.now() - new Date(seenAt).getTime()) * (row.weight ?? 1) : NEVER + (Date.now() - new Date(row.made).getTime()) }
-      // Seen in the last fortnight: it rests, whatever its hearts, and comes only once nothing else is left. A heart
-      // brings a note back sooner after its rest, never the next day.
-      const rested = dayjs().subtract(14, 'day').toISOString()
-      const resting = (row: Row): number => ((lastSeen(row) ?? '') >= rested ? 1 : 0)
-      const order = (list: Row[]): Row[] => list.sort((a, b) => resting(a) - resting(b) || due(b) - due(a))
-      // A list kept in its order, but taken one per voice in turns, each voice at most `most` times.
-      const spread = (list: Row[], voice: (row: Row) => string, most: number): Row[] => {
-        const voices = new Map<string, Row[]>()
-        for (const row of list) voices.set(voice(row), [...(voices.get(voice(row)) ?? []), row])
-        const out: Row[] = []
-        for (let turn = 0; turn < most; turn++) for (const rows of voices.values()) if (rows[turn]) out.push(rows[turn])
-        return out
-      }
-      const archived = (row: Row): boolean => !!row.archive && row.type === 'capture' && row.kind !== 'quote'
       // A poll and a quiz card or two are part of the twenty, set among the notes rather than at the top: `asks`, picked on main.
       // A note asked as a quiz or a poll is not also shown as itself: once a day, never a quiz and a quote of one gem.
       const askedIds = new Set(asks.map((key) => key.slice(key.lastIndexOf(':') + 1)))
-      for (const one of rows.filter((row) => askedIds.has(row.id))) rows.splice(rows.indexOf(one), 1)
       // Gems you restacked before today come first, once: "You restacked".
       const stacked = (db.prepare('select id from feed_restacks where made_day < ? and (shown_day is null or shown_day = ?) order by made_day').all(today, today) as { id: string }[])
-        .map((one) => byKey.get(`nugget:${one.id}`)).filter((one): one is Row => !!one && !askedIds.has(one.id))
-      for (const one of stacked) rows.splice(rows.indexOf(one), 1)
-      const lanes = [
-        order(rows.filter((row) => row.type === 'nugget' && row.kind !== 'quote')),
-        // Quotes spread across who said them: one each in turn, and no more than two from one person a day. Spread
-        // among the ones not seen this week first, then the rest: spread over all of them, each person's quote from
-        // yesterday came back every day while there were few people to take turns.
-        ...((): Row[][] => {
-          const quotes = order(rows.filter((row) => row.kind === 'quote'))
-          const week = dayjs().subtract(7, 'day').toISOString()
-          const recent = (row: Row): boolean => (lastSeen(row) ?? '') >= week
-          const voice = (row: Row): string => row.who?.trim().toLowerCase() || row.id
-          const taken = new Map<string, number>()
-          return [[...spread(quotes.filter((row) => !recent(row)), voice, 2), ...spread(quotes.filter(recent), voice, 2)]
-            .filter((row) => taken.set(voice(row), (taken.get(voice(row)) ?? 0) + 1).get(voice(row))! <= 2)]
-        })(),
-        order(rows.filter((row) => row.type === 'question')),
-        order(rows.filter((row) => row.type === 'day')),
-        order(rows.filter((row) => (row.type === 'capture' || row.type === 'article') && row.kind !== 'quote' && !archived(row))),
-        // From the archives: the imported notes never seen here first, then the oldest.
-        rows.filter(archived).sort((a, b) => (lastSeen(a) ?? '').localeCompare(lastSeen(b) ?? '') || a.made.localeCompare(b.made))
-      ]
-      // Gems and quotes are the most of it: two each a turn, a question, a day, a picture and an archive one.
-      const share = [2, 2, 1, 1, 1, 1]
-      // One "Two subjects, one thread" a day at most, where an honest pair exists: its room kept among the day's twenty-odd.
-      const pair = pairOf(takes, [...byKey.values()].filter((row) => !askedIds.has(row.id)), Number(today.replace(/\D/g, '')) || 0)
+        .map((one) => byKey.get(`nugget:${one.id}`)).filter((one): one is Kept => !!one && !askedIds.has(one.id))
+      // Shown in the Feed or used in an insight in the last fortnight, today's insights too: it rests (insight-pick.ts).
+      const rested = shownSince(db, dayKey(dayjs(today).subtract(REST_DAYS - 1, 'day')), today)
+      // Never twice in a day: what is asked, restacked, or in one of today's insights is not also a post.
+      const taken = new Set([...askedIds, ...stacked.map((one) => one.id), ...shownSince(db, today, today)])
+      // One "Two subjects, one thread" a day at most, where an honest pair exists, from notes not resting.
+      const pair = pairOf(filing, rows.filter((row) => !taken.has(row.id) && !rested.has(row.id)), Number(today.replace(/\D/g, '')) || 0)
+      for (const id of pair ? keyIds(pair) : []) taken.add(id)
       const room = Math.max(0, SIZE - asks.length - stacked.length - (pair ? 1 : 0))
-      const picked: Row[] = []
-      while (picked.length < room && lanes.some((lane) => lane.length))
-        lanes.forEach((lane, at) => picked.push(...lane.splice(0, share[at]).slice(0, room - picked.length)))
-      const list = [...stacked, ...order(picked)].map((row) => `${row.type}:${row.id}`)
+      // The day's notes, one pick a turn, as the insights pick: by shares of new and old, a heart sooner, never one resting.
+      const byId = new Map(rows.map((row) => [row.id, row]))
+      const never = new Set([...rested, ...taken])
+      const voices = new Map<string, number>()
+      const picked: Kept[] = []
+      for (let turn = 0; picked.length < room && turn < room * 8; turn++) {
+        const one = pickPassages(rows, 'resurface', `${today}:feed`, turn, never)?.passages[0]
+        if (!one) break
+        never.add(one.id)
+        const row = byId.get(one.id)!
+        // Quotes spread across who said them: no more than two from one person a day.
+        const voice = row.kind === 'quote' ? row.who?.trim().toLowerCase() : undefined
+        if (voice && (voices.get(voice) ?? 0) >= 2) continue
+        if (voice) voices.set(voice, (voices.get(voice) ?? 0) + 1)
+        picked.push(row)
+      }
+      // A small book whose every note has rested: the rest of the day from those shown longest ago, never one twice today.
+      if (picked.length < room) picked.push(...rows.filter((row) => rested.has(row.id) && !taken.has(row.id))
+        .sort((a, b) => (lastSeen(a) ?? '').localeCompare(lastSeen(b) ?? '') || a.made.localeCompare(b.made)).slice(0, room - picked.length))
+      const list = [...stacked, ...picked].map((row) => `${row.type}:${row.id}`)
       asks.forEach((key, at) => list.splice(Math.min(list.length, 3 + at * 5), 0, key))
       if (pair) list.splice(Math.min(list.length, 8), 0, pair)
+      // Now and then, one note kept three months or more and never linked, set among the rest: kept with the day, so it rests as the others do.
+      const shownIds = new Set(list.flatMap(keyIds))
+      const lone = unlinkedOne(rows.filter((row) => !shownIds.has(row.id) && !rested.has(row.id)), lastSeen)
+      if (lone) list.push(`lone:${lone.type}:${lone.id}`)
       keys = JSON.stringify(list)
     }
     const changedOf = db.prepare('select new_id as id, at from feed_changed where id = ? and new_id in (select id from nuggets where binned_at is null)')
@@ -290,7 +276,7 @@ export function bookFeed(db: DatabaseSync) {
     const quoted = (row: Row): FeedPost['restack'] => {
       if (row.type !== 'nugget') return null
       const of = (restackOf.get(row.id) as { of_key: string } | undefined)?.of_key
-      const old = of ? (byKey.get(of) ?? lookUp(takes, of)) : undefined
+      const old = of ? (byKey.get(of) ?? lookUp(of)) : undefined
       return old ? { type: old.type, id: old.id, title: old.title, text: words(old), who: old.who?.trim() || null, kind: old.kind } : null
     }
     // Read now, not from the morning's pool: a "Less of this" a moment ago shows at once.
@@ -305,31 +291,34 @@ export function bookFeed(db: DatabaseSync) {
         seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
         react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), liked: likedSteps(row.type === 'day' ? row.weight : weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
         links: linksOf(row.body ?? ''),
-        from: row.kind === 'quote' ? fromOf(row.body) : undefined,
+        from: row.kind === 'quote' ? fromOf(row.body) : row.href ? { name: row.title, page: Number(/[#&]page=(\d+)/.exec(row.href)?.[1]) || null, href: row.href } : undefined,
         archive: !!row.archive,
         changedTo: (changedOf.get(row.id) as { id: string; at: string } | undefined) ?? null
       }
     }
-    const posts = (JSON.parse(keys) as string[]).filter((key) => {
-      if (key.startsWith('pair:')) return true
+    const all = JSON.parse(keys) as string[]
+    const posts = all.filter((key) => {
+      if (key.startsWith('lone:')) return false
+      if (key.startsWith('pair:')) return keyIds(key).every((id) => !shown.has(id) && !!shown.add(id))
       const id = key.slice(key.lastIndexOf(':') + 1)
       return !shown.has(id) && !!shown.add(id)
     }).flatMap((key): FeedRead['posts'] => {
       // A poll or a quiz is made on main, in the place kept for it here.
       if (key.startsWith('poll:') || key.startsWith('quiz:')) return [{ asked: key }]
-      if (key.startsWith('pair:')) return paired(takes, key)
+      if (key.startsWith('pair:')) return paired(byKey, filing, key)
       const row = byKey.get(key)
       return row ? [postOf(row, key)] : []
     })
-    // Now and then, one note kept three months or more and never linked, set among the rest: opening it is the way to link it.
-    const lone = unlinkedOne([...byKey.values()].filter((row) => !shown.has(row.id)), lastSeen)
+    // The day's one note never linked (picked with the day, above): opening it is the way to link it.
+    const loneKey = all.find((key) => key.startsWith('lone:'))?.slice(5)
+    const lone = loneKey && !shown.has(keyIds(loneKey)[0]) ? byKey.get(loneKey) : undefined
     return { keys, picked: !kept, pooled, posts, lone: lone ? { ...postOf(lone, `${lone.type}:${lone.id}`), unlinked: Math.max(3, dayjs().diff(dayjs(lone.made), 'month')) } : null }
   }
 
   /** How near the Feed is to full: the notes it can show (not private, not a #bit, not a learn card), and of them the quotes and pictures. */
   const goal = (takes: Takes): { notes: number; quotes: number } => {
-    const rows = pool(takes).filter((row) => !tagsOfRow(row).includes(LEARN_TAG))
-    return { notes: rows.length, quotes: rows.filter((row) => row.kind === 'quote' || /\]\([^)]*\.(?:webp|png|jpe?g)\)|"type":"image"/i.test(row.body ?? '')).length }
+    const rows = pool(takes)
+    return { notes: rows.length, quotes: rows.filter((row) => row.kind === 'quote' || row.type === 'highlight' || /\]\([^)]*\.(?:webp|png|jpe?g)\)|"type":"image"/i.test(row.body ?? '')).length }
   }
 
   /** Every source and tag gone quiet a month or more, the quietest first. */
@@ -378,5 +367,5 @@ export function bookFeed(db: DatabaseSync) {
     return { quiet, week }
   }
 
-  return { pool, seenOf, words, tagsOfRow, linksOf, filingTags, lookUp, feed, goal, side }
+  return { pool, rowOf, seenOf, words, tagsOfRow, linksOf, filingTags, lookUp, feed, goal, side }
 }

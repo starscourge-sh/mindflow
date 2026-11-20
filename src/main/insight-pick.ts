@@ -1,14 +1,19 @@
 /**
- * What an insight in the Feed is made from: a few of the person's own passages, picked by rule, stable for a day and
- * different the next. No Electron and no database in it, so a unit test runs it as it is (test/insight-pick.test.ts).
+ * The Feed's one way of bringing things back: what comes up, picked by rule, stable for a day and different the next.
+ * The day's posts (book-feed.ts, one passage each, `resurface`) and the insights Apple Intelligence writes (insights.ts,
+ * Connect and Reframe) are both picked here. No Electron and no database in it, so a unit test runs it as it is
+ * (test/insight-pick.test.ts).
  *
- * The person's idea, made the rule: from every note, gem, highlight and capture, by shares of about 40% the newest
- * (the last 30 days), 25% the oldest, 20% the middle, and 15% a note with neighbours (one it links to, one that links
- * to it, or one sharing a tag). Never a private note (the pool leaves those out), never one used in the last 14 days.
+ * The person's idea, made the rule: from every note, gem, page, question, capture, Journal day and highlight, by
+ * shares of about 40% the newest (the last 30 days), 25% the oldest, 20% the middle, and 15% a note with neighbours
+ * (one it links to, one that links to it, or one sharing a tag). Never a private note (the pool leaves those out),
+ * never one shown in the last 14 days. Within a share, a liked note comes sooner and a faded one later (`weight`).
  */
 
 export type Level = 'resurface' | 'connect' | 'reframe'
-export const LEVELS: Level[] = ['resurface', 'connect', 'reframe']
+/** The insight cards, written by Apple Intelligence: Resurface is the Feed's own posts. */
+export type CardLevel = Exclude<Level, 'resurface'>
+export const LEVELS: CardLevel[] = ['connect', 'reframe']
 export type Lane = 'newest' | 'oldest' | 'middle' | 'linked'
 export const SHARES: Record<Lane, number> = { newest: 0.4, oldest: 0.25, middle: 0.2, linked: 0.15 }
 /** Days a note rests after it was in an insight. */
@@ -17,7 +22,7 @@ export const REST_DAYS = 14
 export const BUDGET = 1200
 
 export type Passage = {
-  type: 'capture' | 'nugget' | 'article' | 'question' | 'highlight'
+  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'highlight'
   id: string
   title: string
   text: string
@@ -27,6 +32,8 @@ export type Passage = {
   links: string[]
   /** A highlight's way back into its PDF or page. */
   href?: string
+  /** How much sooner it comes than others in its share: a heart raises it, "Less of this" lowers it. 1 when unset. */
+  weight?: number
 }
 
 /** A small seeded random number source (mulberry32), so the same day and turn always pick the same. */
@@ -94,13 +101,19 @@ export type Picked = { lane: Lane; passages: Passage[] }
  * Null when nothing is left to pick (or no second note for a Connect).
  */
 export function pickPassages(pool: Passage[], level: Level, day: string, turn: number, rested: Set<string>, now = new Date(), shares: Record<Lane, number> = SHARES): Picked | null {
-  const fresh = pool.filter((one) => !rested.has(one.id) && one.text.trim().length >= 20)
+  // An insight needs words enough to read; a post is shown whole, so a short quote comes too.
+  const least = level === 'resurface' ? 1 : 20
+  const fresh = pool.filter((one) => !rested.has(one.id) && one.text.trim().length >= least)
   if (!fresh.length) return null
   const rng = seeded(`${day}:${turn}:${level}`)
   const lanes = lanesOf(fresh, now)
   const lane = weighted(Object.fromEntries((Object.keys(shares) as Lane[]).map((one) => [one, lanes[one].length ? shares[one] : 0])) as Record<Lane, number>, rng)
   if (!lane) return null
-  const first = lanes[lane][Math.floor(rng() * lanes[lane].length)]
+  // By weight inside the share: all at 1, this is the plain even draw, the same number drawn.
+  const list = lanes[lane]
+  const total = list.reduce((sum, one) => sum + (one.weight ?? 1), 0)
+  let at = rng() * total
+  const first = list.find((one) => (at -= one.weight ?? 1) < 0) ?? list.at(-1)!
   const byId = new Map(fresh.map((one) => [one.id, one]))
   const others = fresh.filter((one) => one.id !== first.id)
   const pickOne = (list: Passage[]): Passage | undefined => list[Math.floor(rng() * list.length)]
@@ -123,18 +136,8 @@ export function pickPassages(pool: Passage[], level: Level, day: string, turn: n
   return { lane, passages: passages.map((one) => ({ ...one, text: cutTo(one.text, each) })) }
 }
 
-/**
- * Resurface: one line of the person's own, back to them, picked by rule: a whole sentence of a readable length,
- * seeded by the day. The note's first lines when it has no such sentence.
- */
-export function lineOf(text: string, seed: string): string {
-  const sentences = text.replace(/\n+/g, ' \n ').split(/(?<=[.!?])\s+|\s\n\s/).map((one) => one.trim()).filter((one) => one.length >= 40 && one.length <= 260 && /\p{L}/u.test(one) && !one.endsWith('…'))
-  if (!sentences.length) return cutTo(text.replace(/\s+/g, ' '), 240)
-  return sentences[Math.floor(seeded(seed)() * sentences.length)]
-}
-
 /** The level of the day's turn, by the person's mix (each level's weight; dismissing one lowers it a little). */
-export const levelOf = (day: string, turn: number, mix: Partial<Record<Level, number>>): Level | null => weighted(mix, seeded(`${day}:${turn}:level`))
+export const levelOf = <T extends string>(day: string, turn: number, mix: Partial<Record<T, number>>): T | null => weighted(mix, seeded(`${day}:${turn}:level`))
 
 /**
  * Words the model wrote that the passages never said: a capitalised name or a number not in them. One is enough to

@@ -9,25 +9,26 @@ import { meets } from './needs'
 import { meetingNow } from './meeting'
 import { dictating } from './dictation'
 import { cut } from './clip'
-import { LEVELS, REST_DAYS, levelOf, lineOf, newFacts, type Level, type Passage } from './insight-pick'
+import { LEVELS, REST_DAYS, levelOf, newFacts, type CardLevel, type Passage } from './insight-pick'
+import { shownSince } from './book-feed'
 
 /**
- * Insights in the Feed, drawn from the person's own book: Resurface (a line of theirs back, picked by rule),
- * Connect (two notes not linked, and one sentence on why they belong together) and Reframe (an idea of theirs said
- * from an unexpected angle). Connect and Reframe are written on this Mac by Apple Intelligence (guided generation,
- * understand.ts `shaped`) from the passages alone; without it only Resurface comes.
+ * Insights in the Feed, drawn from the person's own book: Connect (two notes not linked, and one sentence on why they
+ * belong together) and Reframe (an idea of theirs said from an unexpected angle), written on this Mac by Apple
+ * Intelligence (guided generation, understand.ts `shaped`) from the passages alone. Without it none come: the Feed's
+ * own posts are what comes back (book-feed.ts), picked from the same pool by the same rule (insight-pick.ts), and a
+ * note in today's posts or in an insight of the last 14 days is never picked again for another.
  *
  * Made while Haligtree is open (Apple slows a model asked from the background): when the Feed is opened, or the app
  * has been in front and left alone for a minute, up to three, one request at a time, up to the day's nine. Never
  * while the person types, dictates or records. Kept in the book (feed_insights), so a day's cards stay put.
  */
 export type InsightSource = { type: Passage['type']; id: string; title: string; href?: string }
-export type Insight = { id: string; level: Level; words: string; sources: InsightSource[]; made: string; state: 'kept' | null; gemId: string | null }
+export type Insight = { id: string; level: CardLevel; words: string; sources: InsightSource[]; made: string; state: 'kept' | null; gemId: string | null }
 export type Insights = { day: string; cards: Insight[]; done: boolean; ai: boolean }
 
-/** The day's batch. Without Apple Intelligence, Resurface alone, fewer: the Feed already brings notes back. */
+/** The day's batch. */
 const DAY_BATCH = 9
-const DAY_BATCH_RULES = 3
 /** Made at one go. */
 const AT_ONCE = 3
 /** Tries a day at most, failures counted, so a day always ends. */
@@ -48,14 +49,13 @@ export function registerInsights(aiOn: () => boolean): void {
   db.exec(`create table if not exists feed_insights (id text primary key, day text not null, turn integer not null, level text not null, words text not null, sources text not null, made_at text not null, state text, gem_id text);
     create index if not exists feed_insights_by_day on feed_insights(day);
     create table if not exists feed_insight_mix (level text primary key, weight real not null)`)
-  type Row = { id: string; day: string; turn: number; level: Level; words: string; sources: string; made_at: string; state: string | null; gem_id: string | null }
-  const rowsOf = (day: string): Row[] => db.prepare('select * from feed_insights where day = ? order by turn').all(day) as Row[]
-  const weightOf = (level: Level): number => (db.prepare('select weight from feed_insight_mix where level = ?').get(level) as { weight: number } | undefined)?.weight ?? 1
+  type Row = { id: string; day: string; turn: number; level: CardLevel; words: string; sources: string; made_at: string; state: string | null; gem_id: string | null }
+  // Only Connect and Reframe: a Resurface card from before the Feed's posts took its place is not shown.
+  const rowsOf = (day: string): Row[] => (db.prepare('select * from feed_insights where day = ? order by turn').all(day) as Row[]).filter((row) => LEVELS.includes(row.level))
+  const weightOf = (level: CardLevel): number => (db.prepare('select weight from feed_insight_mix where level = ?').get(level) as { weight: number } | undefined)?.weight ?? 1
   const ai = async (): Promise<boolean> => meets(await caps(), 'ai') && aiOn()
-  const batchOf = (withAi: boolean): number => (withAi ? DAY_BATCH : DAY_BATCH_RULES)
-  const shownOf = (rows: Row[], withAi: boolean): Row[] => rows.filter((row) => row.state !== 'failed' && row.state !== 'dismissed' && (withAi || row.level === 'resurface'))
-  const madeOf = (rows: Row[], withAi: boolean): number => rows.filter((row) => row.state !== 'failed' && (withAi || row.level === 'resurface')).length
-  const doneOf = (rows: Row[], withAi: boolean): boolean => madeOf(rows, withAi) >= batchOf(withAi) || rows.length >= TRIES || rows.some((row) => row.state === 'failed' && row.words === 'none left')
+  const shownOf = (rows: Row[], withAi: boolean): Row[] => (withAi ? rows.filter((row) => row.state !== 'failed' && row.state !== 'dismissed') : [])
+  const doneOf = (rows: Row[], withAi: boolean): boolean => !withAi || rows.filter((row) => row.state !== 'failed').length >= DAY_BATCH || rows.length >= TRIES
   // Typing: a key since the making began (the ⌘K search that opened the Feed is not), within the last few seconds.
   const busy = (since: number): boolean => meetingNow() || dictating() || (typedAt > since && Date.now() - typedAt < TYPED * 1000)
 
@@ -71,7 +71,7 @@ export function registerInsights(aiOn: () => boolean): void {
   }
 
   /** Connect and Reframe, asked of Apple Intelligence; null when it said nothing that can be shown. */
-  const write = async (level: Level, passages: Passage[]): Promise<string | null> => {
+  const write = async (level: CardLevel, passages: Passage[]): Promise<string | null> => {
     const given = passages.map((one, at) => `Note ${at + 1}, “${cut(one.title.replace(/\s+/g, ' '), 80)}”:\n${one.text}`).join('\n\n')
     const rules = 'Use only what the notes say. Never add a fact, a name, a date, a number or a quotation from anywhere else. Speak to the person as “you”, plainly, in the language of the notes. No lists, no quotation marks around the whole.'
     let said: string | null = null
@@ -116,28 +116,25 @@ export function registerInsights(aiOn: () => boolean): void {
         const withAi = await ai()
         const rows = rowsOf(day)
         if (doneOf(rows, withAi)) return
-        const turn = rows.length
-        const mix = Object.fromEntries(LEVELS.filter((level) => withAi || level === 'resurface').map((level) => [level, weightOf(level)]))
-        const level = levelOf(day, turn, mix) ?? 'resurface'
-        const from = dayKey(dayjs(day).subtract(REST_DAYS - 1, 'day'))
-        const rested = (db.prepare("select sources from feed_insights where day >= ? and state is not 'failed'").all(from) as { sources: string }[]).flatMap((row) => (JSON.parse(row.sources) as InsightSource[]).map((one) => one.id))
+        // Turns count every row of the day, an old Resurface one too, so a turn is never asked twice.
+        const turn = (db.prepare('select count(*) as n from feed_insights where day = ?').get(day) as { n: number }).n
+        const level = levelOf(day, turn, Object.fromEntries(LEVELS.map((one) => [one, weightOf(one)])) as Record<CardLevel, number>) ?? 'connect'
+        // Resting: what the Feed showed or an insight used in the last 14 days, and today's posts.
+        const rested = [...shownSince(db, dayKey(dayjs(day).subtract(REST_DAYS - 1, 'day')))]
         const picked = await ask('feed:insight', [{ day, turn, level, rested }])
         const id = randomUUID()
         const keep = (words: string, state: string | null, sources: Passage[]): void =>
           void db.prepare('insert into feed_insights (id, day, turn, level, words, sources, made_at, state) values (?, ?, ?, ?, ?, ?, ?, ?)')
             .run(id, day, turn, level, words, JSON.stringify(sources.map((one) => ({ type: one.type, id: one.id, title: cut(one.title.replace(/\s+/g, ' ').trim() || 'Untitled', 80), ...(one.href ? { href: one.href } : {}) }))), new Date().toISOString(), state)
         if (!picked) {
-          // Nothing left to pick for Resurface means nothing left at all today; a Connect may simply lack a second note.
-          keep(level === 'resurface' ? 'none left' : '', 'failed', [])
+          // Nothing left to pick, or a Connect without a second note: a try spent, so the day still ends.
+          keep('', 'failed', [])
           continue
         }
-        if (level === 'resurface') keep(lineOf(picked.passages[0].text, `${day}:${turn}`), null, picked.passages)
-        else {
-          // The person may have started typing while the passages were picked.
-          if (busy(began)) return
-          const words = await write(level, picked.passages)
-          keep(words ?? '', words ? null : 'failed', picked.passages)
-        }
+        // The person may have started typing while the passages were picked.
+        if (busy(began)) return
+        const words = await write(level, picked.passages)
+        keep(words ?? '', words ? null : 'failed', picked.passages)
         changed({ kind: 'item', id: `insight:${id}` })
       }
     } finally {
@@ -156,7 +153,7 @@ export function registerInsights(aiOn: () => boolean): void {
     type Node = { type: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs: Record<string, unknown> }[]; content?: Node[] }
     const linkOf = (one: InsightSource): Node => one.type === 'highlight'
       ? { type: 'text', text: one.title, marks: [{ type: 'link', attrs: { href: one.href } }] }
-      : { type: 'noteLink', attrs: { id: one.type === 'capture' ? one.id : `nugget:${one.id}`, label: one.title } }
+      : { type: 'noteLink', attrs: { id: one.type === 'capture' ? one.id : one.type === 'day' ? `day:${one.id}` : `nugget:${one.id}`, label: one.title } }
     const from: Node[] = sources.flatMap((one, at) => [...(at ? [{ type: 'text', text: ', ' }] : [{ type: 'text', text: 'From ' }]), linkOf(one)])
     const doc: Node = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: row.words }] }, { type: 'paragraph', content: from }] }
     const gem = randomUUID()
@@ -177,7 +174,7 @@ export function registerInsights(aiOn: () => boolean): void {
   // Dismiss: the card goes, and its level comes a little less often for this person. Its weight before is handed
   // back, for Undo.
   ipcMain.handle('haligtree:feed:insight:dismiss', (_event, id: string): number | null => {
-    const row = db.prepare('select level from feed_insights where id = ?').get(String(id)) as { level: Level } | undefined
+    const row = db.prepare('select level from feed_insights where id = ?').get(String(id)) as { level: CardLevel } | undefined
     if (!row) return null
     const was = weightOf(row.level)
     db.prepare('insert or replace into feed_insight_mix (level, weight) values (?, ?)').run(row.level, Math.max(FLOOR, was * LOWER))
@@ -186,7 +183,7 @@ export function registerInsights(aiOn: () => boolean): void {
     return was
   })
   ipcMain.handle('haligtree:feed:insight:undismiss', (_event, id: string, weight: number): boolean => {
-    const row = db.prepare('select level from feed_insights where id = ?').get(String(id)) as { level: Level } | undefined
+    const row = db.prepare('select level from feed_insights where id = ?').get(String(id)) as { level: CardLevel } | undefined
     if (!row) return false
     db.prepare('insert or replace into feed_insight_mix (level, weight) values (?, ?)').run(row.level, Number(weight) || 1)
     db.prepare('update feed_insights set state = null where id = ?').run(String(id))

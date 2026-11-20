@@ -72,6 +72,8 @@ export function registerPdfHighlights(): void {
   for (const name of ['prefix', 'suffix']) if (!columns.includes(name)) db.exec(`alter table pdf_highlights add column ${name} text not null default ''`)
   // A mark's colour (none is the book's own) and a note written on it.
   for (const name of ['color', 'note']) if (!columns.includes(name)) db.exec(`alter table pdf_highlights add column ${name} text`)
+  // How often it comes back in the Feed, as a note's surfacing_weight: a heart raises it, "Less of this" lowers it.
+  if (!columns.includes('surfacing_weight')) db.exec('alter table pdf_highlights add column surfacing_weight real not null default 1')
   ipcMain.handle('haligtree:pdf:highlights', (_event, src: unknown) =>
     db.prepare('select id, page, quote, start, end, prefix, suffix, gem_id as gemId, color, note from pdf_highlights where src = ? order by page, start').all(String(src)))
   ipcMain.handle('haligtree:pdf:highlight', (_event, src: unknown, mark: unknown) => {

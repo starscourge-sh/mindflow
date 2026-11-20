@@ -29,7 +29,9 @@ try {
   const ids = () => h.locator('[data-feed-post]:not([data-feed-post="insight"])').evaluateAll((all) => all.map((one) => `${one.dataset.feedPost}:${one.dataset.feedId}`))
   const first = await ids()
   check('15 to 25 posts', first.length >= 15 && first.length <= 25, first.length)
-  check('nothing twice', new Set(first).size === first.length)
+  // No note twice in a day: a pair's two notes, a poll's or quiz card's, and each post's own, all different.
+  const notes = first.flatMap((key) => key.slice(key.indexOf(':') + 1).split('+').map((id) => id.slice(id.lastIndexOf(':') + 1)))
+  check('no note twice, a pair\'s notes counted too', new Set(notes).size === notes.length, `${notes.length} notes`)
   const kinds = await h.locator('[data-feed-post]').evaluateAll((all) => all.map((one) => one.dataset.feedKind === 'quote' ? 'quote' : one.dataset.feedPost))
   check('a mix of kinds', new Set(kinds).size >= 3, [...new Set(kinds)].join(', '))
   check('no private note', !first.some((key) => privateIds.has(key.slice(key.indexOf(':') + 1))), [...privateIds].length)
@@ -39,11 +41,13 @@ try {
   const account = await quote.locator('[data-feed-account]').innerText().catch(() => '')
   check('a quote card shows its author as the account', !!author && author === account, `${account} / ${author}`)
   check('a gem with no source is "You"', await h.locator('[data-feed-post="nugget"]:not([data-feed-kind="quote"]) [data-feed-account]').first().innerText().catch(() => '') === 'You')
-  const picture = h.locator('[data-feed-picture] img').first()
-  await picture.scrollIntoViewIfNeeded().catch(() => {})
-  await h.waitForTimeout(800)
-  const loaded = await picture.evaluate((img) => img.complete && img.naturalWidth > 0).catch(() => false)
-  check('a picture post shows its picture', loaded, await h.locator('[data-feed-picture]').count())
+  // The day's picks are by shares of new and old, so a day may hold no picture: when one comes, it shows.
+  if (await h.locator('[data-feed-picture]').count()) {
+    const picture = h.locator('[data-feed-picture] img').first()
+    await picture.scrollIntoViewIfNeeded().catch(() => {})
+    await h.waitForTimeout(800)
+    check('a picture post shows its picture', await picture.evaluate((img) => img.complete && img.naturalWidth > 0).catch(() => false))
+  }
 
   // Reply: the gloss line opens under the post, and the thought shows there at once.
   const post = h.locator('[data-feed-post="nugget"]').first()
@@ -74,7 +78,7 @@ try {
     await h.locator('[data-feed-kind="quote"]').first().scrollIntoViewIfNeeded()
     await h.waitForTimeout(400)
     await h.screenshot({ path: `${SHOTS}/feed-${name}-quote.png` })
-    await h.locator('[data-feed-picture]').first().scrollIntoViewIfNeeded()
+    await h.locator('[data-feed-picture]').first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {})
     await h.waitForTimeout(400)
     await h.screenshot({ path: `${SHOTS}/feed-${name}-picture.png` })
     await h.locator('[data-feed-end]').scrollIntoViewIfNeeded()

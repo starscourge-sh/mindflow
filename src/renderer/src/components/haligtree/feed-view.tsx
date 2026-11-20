@@ -51,7 +51,7 @@ import { quoted } from '../../../../main/clip'
 const readFeed = (): Promise<Feed> => call<Feed>('feed')
 const NO_FEED = unread<Feed>({ day: '', posts: [], safe: false })
 const readGoal = (): Promise<{ notes: number; quotes: number } | null> => call('feed:goal')
-/** Today's insights from your notes (insights.ts): Resurface, and with Apple Intelligence, Connect and Reframe. */
+/** Today's insights from your notes (insights.ts): with Apple Intelligence, Connect and Reframe. What comes back as itself is the posts. */
 const readInsights = (): Promise<Insights> => call<Insights>('feed:insights')
 const NO_INSIGHTS = unread<Insights>({ day: '', cards: [], done: true, ai: false })
 /** An insight as a post, so the cursor, search and the day's count take it as any other. */
@@ -89,7 +89,7 @@ const SAMPLE_POSTS: FeedPost[] = ([
 }))
 const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | null> => call<Reaction | null>('feed:react', `${post.type}:${post.id}`, reaction)
 
-const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card', pair: 'Thread', insight: 'Insight' }
+const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', highlight: 'Highlight', poll: 'Poll', quiz: 'Quiz card', pair: 'Thread', insight: 'Insight' }
 export const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
 
 /** A date: "4 Mar", with the year once it is not this year's, or always (`years`) in a thread that spans years. */
@@ -103,8 +103,8 @@ const contextOf = (post: FeedPost): string => {
   if (post.restack) return 'You said it again'
   // Kept long ago and linked to nothing: opened, an @ in it links it.
   if (post.unlinked) return `From the archives: you kept this ${num(post.unlinked)} months ago and never linked it.`
-  // Brought in by an importer: from your archives, whatever its date says (a note, only with the Settings switch).
-  if (post.archive) return post.type === 'capture' && post.kind !== 'quote' ? `From the archives: ${PICTURES_SWITCH}` : 'From the archives'
+  // Brought in by an importer: from your archives, whatever its date says.
+  if (post.archive) return 'From the archives'
   // A thought added lately is hearing from it: only what has been quiet a year is from the archives.
   const last = [post.seen, post.gloss?.at, post.made].filter((one): one is string => !!one).sort().at(-1)!
   const made = dayjs(post.made)
@@ -115,18 +115,17 @@ const contextOf = (post: FeedPost): string => {
 
 /**
  * Why a post is in the Feed at all, in plain words, said over every post that has no other line: what you kept it as,
- * and how long it has been away ("A quote you kept, back after 3 weeks"). A note that came only because of a Settings
- * switch says where that switch is.
+ * and how long it has been away ("A quote you kept, back after 3 weeks").
  */
-const PICTURES_SWITCH = 'Settings › Hints and cards'
 export const whyHere = (post: Pick<FeedPost, 'type' | 'kind' | 'seen' | 'archive'>): string => {
   const what = post.kind === 'quote' ? 'A quote you kept'
     : post.type === 'nugget' ? 'A gem you kept'
     : post.type === 'question' ? 'A question you hold'
     : post.type === 'day' ? 'A Journal day'
     : post.type === 'article' ? 'A page of yours'
-    : null
-  if (!what) return `${post.archive ? 'A note you brought in' : 'A note with a picture'}: ${PICTURES_SWITCH}`
+    : post.type === 'highlight' ? 'A line you highlighted'
+    : post.archive ? 'A note you brought in'
+    : 'A note you kept'
   return `${what}, ${post.seen ? `back after ${quietFor(post.seen)}` : 'its first time in your Feed'}`
 }
 
@@ -277,7 +276,9 @@ export function TodaysFeedCard({ onView }: { onView: (id: string) => void }): Re
 /** Every way to Liked (the heart's menu, ⌘K) says so with this, and the Feed turns to it. */
 export const showLiked = (): void => void window.dispatchEvent(new CustomEvent('haligtree:feed-liked'))
 
-export function FeedView({ onOpen, focus }: { onOpen: (type: string, id: string) => void; /** ":liked" opens on Liked (⌘K). */ focus?: string }): React.JSX.Element {
+export function FeedView({ onOpen: openNote, focus }: { onOpen: (type: string, id: string) => void; /** ":liked" opens on Liked (⌘K). */ focus?: string }): React.JSX.Element {
+  // A highlight opens its PDF or web page at the line, as its link back does; everything else as a note.
+  const onOpen = (type: string, id: string): void => (type === 'highlight' ? void call<string | null>('feed:highlight', id).then((href) => href && followPdfLink(href)) : openNote(type, id))
   const [tab, setTab] = useState<FeedTab>(() => (focus === ':liked' ? 'liked' : keptTab()))
   useEffect(() => void (focus === ':liked' && setTab('liked')), [focus])
   useStepped(tab, setTab)
@@ -435,7 +436,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
       }
       if (post.poll || post.pair) return
       // ⌫: the post's note to the Bin, with the Undo "Move to the Bin" gives; the cursor stays where it was, on the next one.
-      if ((event.key === 'Backspace' || event.key === 'Delete') && post.type !== 'day') return void (event.preventDefault(), node.dispatchEvent(new Event('haligtree:feed-bin')))
+      if ((event.key === 'Backspace' || event.key === 'Delete') && post.type !== 'day' && post.type !== 'highlight') return void (event.preventDefault(), node.dispatchEvent(new Event('haligtree:feed-bin')))
       if (event.code === 'KeyL') press('[data-feed-reaction="like"]')
       else if (event.code === 'KeyR') (event.preventDefault(), openGloss(post.id))
       else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) (event.preventDefault(), open(post.type, post.id))
@@ -472,16 +473,16 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
         ) : feed.safe ? (
           <p data-feed-safe className="py-10 text-body text-foreground"><strong className="font-semibold">Safe mode is on</strong>, so the Feed rests until you turn it off.</p>
         ) : preview ? (
-          <GoalPreview goal="Your Feed starts once you have 20 notes, with a few quotes or pictures among them" heading="What your Feed will look like"
-            counts="To get there, pick out a line as a gem or a question, keep a quote, or add a picture to a note. Journal days count once they are a week old. Private notes and #bits never do."
-            parts={[{ have: goal?.notes ?? 0, need: FEED_NOTES, what: 'notes' }, { have: goal?.quotes ?? 0, need: FEED_QUOTES, what: 'quotes or pictures' }]}>
+          <GoalPreview goal="Your Feed starts once you have 20 notes, with a few quotes, highlights or pictures among them" heading="What your Feed will look like"
+            counts="Every note you write or bring in counts, and so does each line you highlight in a PDF or a web page. Journal days count once they are a week old. Private notes and #bits never do."
+            parts={[{ have: goal?.notes ?? 0, need: FEED_NOTES, what: 'notes' }, { have: goal?.quotes ?? 0, need: FEED_QUOTES, what: 'quotes, highlights or pictures' }]}>
             <ol className="flex flex-col">{SAMPLE_POSTS.map((post) => <Post key={post.id} post={post} preview onOpen={() => {}} onOpenOther={() => {}} />)}</ol>
           </GoalPreview>
         ) : !day.length ? (
-          <p data-feed-empty className="py-10 text-body text-foreground">Nothing to show yet. Keep a gem, a quote or a question, and it comes back to you here.</p>
+          <p data-feed-empty className="py-10 text-body text-foreground">Nothing to show yet. Write a note, keep a quote or highlight a line in a PDF, and it comes back to you here.</p>
         ) : (
           <>
-            {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, longest unseen first. A new set comes every morning." />}
+            {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, new and old together, each resting two weeks once shown. A new set comes every morning." />}
             {searching && !posts.length && (
               <p data-feed-none className="py-10 text-body text-foreground">
                 <strong className="font-semibold">Nothing in today's Feed has “{query.trim()}”.</strong>{' '}
@@ -583,7 +584,10 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
   /** In Liked: the heart takes it out of the list, with Undo. */
   onUnlike?: () => void
 }): React.JSX.Element | null {
-  const quote = post.kind === 'quote'
+  // A line highlighted in a PDF or a web page is a quote too, its link back under it.
+  const quote = post.kind === 'quote' || post.type === 'highlight'
+  // A Journal day and a highlight are not notes: neither goes to the Bin, a Queue or a note link from here.
+  const note = post.type !== 'day' && post.type !== 'highlight'
   const account = (quote && post.who) || 'You'
   // In Liked, nothing over a post says it is old or unwanted: the like is what it is there for.
   const context = onUnlike ? null : contextOf(post)
@@ -621,7 +625,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
   const binItem: MenuItem = { id: 'bin', label: 'Move to the Bin', danger: true, icon: <Trash2 className="size-4" />, run: toBin }
   useEffect(() => {
     const node = self.current
-    if (!node || post.type === 'day' || preview) return
+    if (!node || !note || preview) return
     node.addEventListener('haligtree:feed-bin', toBin)
     return () => node.removeEventListener('haligtree:feed-bin', toBin)
   })
@@ -632,7 +636,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
     post.type !== 'day' && reaction('less'),
     'separator',
     { id: 'open', label: 'Open', icon: <ArrowUpRight className="size-4" />, run: onOpen },
-    copyLinkItem(link, post.type === 'day' ? dayLinkName(post.id) : post.title),
+    post.type !== 'highlight' && copyLinkItem(link, post.type === 'day' ? dayLinkName(post.id) : post.title),
     // The heart's right-click menu's way to Liked, here too, where it can be found.
     !onUnlike && { id: 'see-liked', label: 'See everything you liked', hint: 'Liked, in the Feed', icon: <Heart className="size-4" />, run: () => (chime('page'), showLiked()) },
     // The Feed never shows a private note, so every post here may be a picture.
@@ -640,8 +644,8 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
     { id: 'save-image', label: 'Save as image', hint: 'A picture of this post, in the current theme', icon: <ImageDown className="size-4" />, run: () => void saveImage() },
     { id: 'share-x', label: 'Share to X', hint: 'Its words in X, its picture copied to paste in', icon: <Share className="size-4" />, run: () => void shareX() },
     // Housekeeping last: the note, gem, question or writing behind it to the Bin, the post gone at once and back with Undo. A day is not a thing to bin.
-    post.type !== 'day' && 'separator',
-    post.type !== 'day' && binItem
+    note && 'separator',
+    note && binItem
   ]
   const cardOf = (): CardPost => ({ account, said: `${kindWord(post)} · ${written(post.made, true)}`, title, text: quote ? words : text, quote, who: post.who, picture: broken ? undefined : picture })
   const saveImage = async (): Promise<void> => {
@@ -721,7 +725,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
             {/* Less of this, as X and Substack hide a post: a quiet × at its top right, held in the line's height. */}
             {post.type !== 'day' && !preview && !onUnlike && (
               <span data-feed-hide aria-pressed={chosen === 'less'} className={cn('-my-1.5 -mr-1.5 ml-auto flex shrink-0 self-center', chosen === 'less' && '[&>button]:text-primary')}>
-                <MenuButton small name="hide" label="Less of this, or the Bin" icon={<X className="size-4" />} items={[reaction('less'), binItem]} />
+                <MenuButton small name="hide" label={note ? 'Less of this, or the Bin' : 'Less of this'} icon={<X className="size-4" />} items={note ? [reaction('less'), binItem] : [reaction('less')]} />
               </span>
             )}
           </p>
@@ -823,7 +827,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
                 <Repeat2 className="size-4 shrink-0" /> <span className="hidden @[26rem]/actions:inline">Say it again</span>
               </button>
             </Tip>
-            {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterLabelled id={post.id} wordsClassName="hidden @[26rem]/actions:grid" />}
+            {note && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterLabelled id={post.id} wordsClassName="hidden @[26rem]/actions:grid" />}
             {/* The like, where the thumb looks for it (a Journal day too: liked, it comes back sooner); the rest are in ⋯. Chosen, it fills in red and nothing moves. */}
             {/* Right-clicked, the heart's own menu: like or unlike, and every post you liked. */}
             <RowMenu items={[{ id: 'like', label: chosen === 'like' ? 'Unlike' : 'Like', icon: <Heart className="size-4" />, run: () => (onUnlike ? onUnlike() : choose('like')) }, { id: 'see-liked', label: 'See everything you liked', hint: 'Liked, in the Feed', icon: <ArrowUpRight className="size-4" />, run: () => (chime('page'), showLiked()) }]}>
@@ -895,7 +899,6 @@ const pairSaid = (why: NonNullable<FeedPost['pair']>['why']): React.ReactNode =>
 
 /** Each insight's quiet label, and what its tip says it is. */
 const INSIGHT: Record<Insight['level'], { label: string; tip: string }> = {
-  resurface: { label: 'Resurface', tip: 'A line of your own, back to you: picked by rule, no AI' },
   connect: { label: 'Connect', tip: 'Two of your notes not linked yet, and why they may belong together' },
   reframe: { label: 'Reframe', tip: 'An idea of yours, turned to an unexpected angle' }
 }
@@ -903,13 +906,11 @@ const INSIGHT: Record<Insight['level'], { label: string; tip: string }> = {
 const MADE_BY = 'Made by Apple Intelligence from your notes'
 
 /**
- * An insight drawn from your own notes (insights.ts). Resurface is your own line, in your own type. Connect and
- * Reframe were written on this Mac by Apple Intelligence, so they sit in the quiet panel "Works cited" uses, in muted
- * ink and labelled as made: never as if you wrote them. Every one names the notes it came from, each one opening.
+ * An insight drawn from your own notes (insights.ts): Connect and Reframe, written on this Mac by Apple Intelligence,
+ * so they sit in the quiet panel "Works cited" uses, in muted ink and labelled as made: never as if you wrote them. Every one names the notes it came from, each one opening.
  * Keep makes it a gem, its notes linked under it; dismiss takes it away and brings its kind a little less often.
  */
 function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: string, id: string) => void; mark?: Mark }): React.JSX.Element {
-  const made = card.level !== 'resurface'
   const kept = card.state === 'kept'
   const openSource = (one: Insight['sources'][number]): void => (one.type === 'highlight' ? (chime('open'), void followPdfLink(one.href ?? '')) : onOpen(one.type, one.id))
   const keep = async (): Promise<void> => {
@@ -932,21 +933,15 @@ function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: str
       </Tip>
       <div className="flex gap-3">
         <div className="flex w-9 shrink-0 flex-col items-center">
-          {made ? (
-            <span aria-hidden className="mt-0.5 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_6%,var(--background))] text-(--mf-muted-strong)">
-              {card.level === 'connect' ? <Link2 className="size-4" /> : <Sparkles className="size-4" />}
-            </span>
-          ) : <Avatar name="You" size={36} className="mt-0.5 shrink-0" />}
+          <span aria-hidden className="mt-0.5 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_6%,var(--background))] text-(--mf-muted-strong)">
+            {card.level === 'connect' ? <Link2 className="size-4" /> : <Sparkles className="size-4" />}
+          </span>
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {made ? (
-            <div data-insight-panel className="flex flex-col gap-1 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] px-3.5 py-3">
-              <p data-insight-made className="text-meta font-medium text-muted-foreground">{MADE_BY}</p>
-              <p data-insight-words className="text-body leading-relaxed text-(--mf-muted-strong)">{card.words}</p>
-            </div>
-          ) : (
-            <blockquote data-insight-words className="font-serif text-reading leading-relaxed hyphens-auto [overflow-wrap:break-word] text-foreground">{card.words}</blockquote>
-          )}
+          <div data-insight-panel className="flex flex-col gap-1 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] px-3.5 py-3">
+            <p data-insight-made className="text-meta font-medium text-muted-foreground">{MADE_BY}</p>
+            <p data-insight-words className="text-body leading-relaxed text-(--mf-muted-strong)">{card.words}</p>
+          </div>
           {/* The notes it came from, one a line under "From", each opening its note. */}
           <div data-insight-sources className="flex min-w-0 items-baseline gap-2 text-control text-muted-foreground">
             <span className="shrink-0">From</span>
