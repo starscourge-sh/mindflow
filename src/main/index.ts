@@ -110,6 +110,7 @@ import { registerPeople } from './people'
 import { registerSources } from './sources'
 import { registerCite } from './cite'
 import { registerFeed } from './feed'
+import { noteTyped, registerInsights } from './insights'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
 import { hideGuides, readyGuides, showGuides } from './guides'
@@ -997,6 +998,8 @@ function guard(win: BrowserWindow): void {
       page.send('onboarding:held')
       return
     }
+    // A key typed: the Feed's insights ask nothing of Apple Intelligence while the person writes (insights.ts).
+    if (input.type === 'keyDown' && !input.meta) noteTyped()
     if (input.type !== 'keyDown' || !input.meta || input.control || input.alt) return
     // Cmd+, opens Settings, as in every Mac app: from any window, typing or not.
     if (input.key === ',') {
@@ -5661,6 +5664,7 @@ app.whenReady().then(() => {
   registerSources()
   registerCite()
   registerFeed()
+  registerInsights(aiStudyOn)
   registerDefine()
   registerMacCalendar()
   // Last, once every table is there: what other books sent this one is taken in.

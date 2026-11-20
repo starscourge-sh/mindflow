@@ -3,7 +3,7 @@ import { startTransition, useEffect, useLayoutEffect, useRef, useState } from 'r
 import { useStepped } from '@/lib/nav'
 import { heroAround, heroOpen } from '@/lib/hero'
 import { hoverNote, hoverThought } from './note-preview'
-import { ArrowLeft, ArrowUpRight, Check, FileText, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Check, FileText, Heart, CornerDownRight, EyeOff, ImageDown, Link2, MessageCircle, Repeat2, RefreshCcw, Share, Sparkles, Trash2, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { thumbsRead, useThumb } from '@/lib/notes'
@@ -13,6 +13,7 @@ import { cn } from '@/lib/cn'
 import { TabChips } from './tab-chips'
 import { ago, dayjs, num, plural } from '../../../../main/dates'
 import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../../main/feed'
+import type { Insight, Insights } from '../../../../main/insights'
 import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
@@ -50,6 +51,25 @@ import { quoted } from '../../../../main/clip'
 const readFeed = (): Promise<Feed> => call<Feed>('feed')
 const NO_FEED = unread<Feed>({ day: '', posts: [], safe: false })
 const readGoal = (): Promise<{ notes: number; quotes: number } | null> => call('feed:goal')
+/** Today's insights from your notes (insights.ts): Resurface, and with Apple Intelligence, Connect and Reframe. */
+const readInsights = (): Promise<Insights> => call<Insights>('feed:insights')
+const NO_INSIGHTS = unread<Insights>({ day: '', cards: [], done: true, ai: false })
+/** An insight as a post, so the cursor, search and the day's count take it as any other. */
+const insightPost = (card: Insight): FeedPost => ({
+  type: 'insight', id: card.id, kind: card.level, title: '', text: card.words, who: null, made: card.made, seen: null, gloss: null, clue: null, react: null,
+  replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null, insight: card
+})
+/**
+ * The insights spread through the day's posts: the first after the second post, the rest evenly for a full day's nine,
+ * never two together. The places hang on the day's size, not on how many are made yet, so a card made later never
+ * moves the ones already in sight.
+ */
+const woven = (posts: FeedPost[], cards: Insight[]): FeedPost[] => {
+  const step = Math.max(2, Math.floor((posts.length - 2) / 9))
+  const out = [...posts]
+  cards.forEach((card, at) => out.splice(Math.min(out.length, 2 + at * (step + 1)), 0, insightPost(card)))
+  return out
+}
 /**
  * What the Feed needs before it starts: enough that a day's set (about 24)
  * comes from a real spread of your own things, with a few quotes or pictures
@@ -69,7 +89,7 @@ const SAMPLE_POSTS: FeedPost[] = ([
 }))
 const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | null> => call<Reaction | null>('feed:react', `${post.type}:${post.id}`, reaction)
 
-const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card', pair: 'Thread' }
+const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card', pair: 'Thread', insight: 'Insight' }
 export const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
 
 /** A date: "4 Mar", with the year once it is not this year's, or always (`years`) in a thread that spans years. */
@@ -299,6 +319,11 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
   const { real, moment } = useReady('feed', goal ? goal.notes >= FEED_NOTES && goal.quotes >= FEED_QUOTES : null)
   const preview = real === false && !feed.safe
   const until = useUntilTomorrow()
+  // Today's insights, set among the posts; the Feed opened asks for a few more, made one at a time on this Mac.
+  const insights = useLive(readInsights, NO_INSIGHTS, [], ['item'], 'feed:insights')
+  const ready = real === true && !feed.safe
+  useEffect(() => void (ready && call('feed:insights:make')), [ready])
+  const day = ready && !unloaded(feed) ? woven(feed.posts, unloaded(insights) ? [] : insights.cards) : feed.posts
   const root = useRef<HTMLDivElement>(null)
   const [thread, setThread] = useState<string | null>(null)
   // Where the post opened sat on screen, so back puts it there again.
@@ -348,18 +373,18 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
     return () => watch.disconnect()
   })
   const shown = thread ? feed.posts.find((post) => `${post.type}:${post.id}` === thread) : undefined
-  const counts = feed.posts.reduce<Record<string, number>>((all, post) => ({ ...all, [kindWord(post)]: (all[kindWord(post)] ?? 0) + 1 }), {})
+  const counts = day.reduce<Record<string, number>>((all, post) => ({ ...all, [kindWord(post)]: (all[kindWord(post)] ?? 0) + 1 }), {})
   // The line says what the day holds, the three kinds it has most of: "8 gems, 5 quotes, 4 notes and 7 more".
   const most = Object.entries(counts).sort((a, b) => b[1] - a[1])
   const top = most.slice(0, 3).map(([word, n]) => `${num(n)} ${word === 'Journal' ? (n === 1 ? 'Journal day' : 'Journal days') : n === 1 ? word.toLowerCase() : `${word.toLowerCase()}s`}`)
   const rest = most.slice(3).reduce((sum, [, n]) => sum + n, 0)
   const listed = rest ? `${top.join(', ')} and ${num(rest)} more` : top.length > 1 ? `${top.slice(0, -1).join(', ')} and ${top.at(-1)}` : (top[0] ?? '')
-  const holds = feed.posts.length && !feed.safe && !preview ? listed : null
+  const holds = day.length && !feed.safe && !preview ? listed : null
   // Search, as Writing's and the Inbox's lists have it (ListSearch): the posts that hold every word typed, in their
   // words, who said them, their tags and your thoughts on them; the rest step out, and the line says how many are left.
   const [query, setQuery] = useState('')
   const searching = !!query.trim() && !thread
-  const posts = searching ? feed.posts.filter((post) => matches([post.title, post.text, post.who ?? '', post.tags.join(' '), post.gloss?.body ?? ''].join(' '), query)) : feed.posts
+  const posts = searching ? day.filter((post) => matches([post.title, post.text, post.who ?? '', post.tags.join(' '), post.gloss?.body ?? '', ...(post.insight?.sources.map((one) => one.title) ?? [])].join(' '), query)) : day
   // J and K move a cursor between posts, L likes, R replies, Enter opens; on a quiz card, Space shows the answer and 1 to 4 grade it, as in Review.
   const [cursor, setCursor] = useState(-1)
   // The first time the row is met, one line under the first post says what it is for; never again after.
@@ -370,7 +395,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
       return false
     }
   })
-  const plain = preview || feed.safe ? -1 : posts.findIndex((post) => !post.poll && !post.quiz)
+  const plain = preview || feed.safe ? -1 : posts.findIndex((post) => !post.poll && !post.quiz && !post.insight)
   useEffect(() => {
     if (!explain || plain < 0) return
     try {
@@ -402,6 +427,12 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
         else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) (event.preventDefault(), open('nugget', post.id))
         return
       }
+      // An insight: ⌫ dismisses it, K keeps it as a gem (as its buttons do), Enter opens the note it came from.
+      if (post.insight) {
+        if (event.key === 'Backspace' || event.key === 'Delete') press('[data-insight-dismiss]')
+        else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) press('[data-insight-source]')
+        return
+      }
       if (post.poll || post.pair) return
       // ⌫: the post's note to the Bin, with the Undo "Move to the Bin" gives; the cursor stays where it was, on the next one.
       if ((event.key === 'Backspace' || event.key === 'Delete') && post.type !== 'day') return void (event.preventDefault(), node.dispatchEvent(new Event('haligtree:feed-bin')))
@@ -430,11 +461,11 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
       <span className="flex min-w-0 items-center gap-3">
         <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search today's Feed"
           onStep={(by) => { const next = Math.max(0, Math.min(posts.length - 1, cursor + by)); setCursor(next); root.current?.querySelector(`[data-feed-at="${next}"]`)?.scrollIntoView({ block: 'nearest' }) }} />
-        <FeedSaid data-feed-holds>{searching ? `${num(posts.length)} of ${plural(feed.posts.length, 'post')}` : holds}</FeedSaid>
+        <FeedSaid data-feed-holds>{searching ? `${num(posts.length)} of ${plural(day.length, 'post')}` : holds}</FeedSaid>
       </span>
     ) : undefined}>
       {/* A narrow column of posts with the side column beside it, as a social feed. */}
-      <FeedColumns side={!feed.safe && !preview && feed.posts.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
+      <FeedColumns side={!feed.safe && !preview && day.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
       <div ref={root} data-feed className="flex min-w-0 flex-col px-5 pt-4 pb-16">
         {shown ? (
           <Thread post={shown} onBack={back} onOpen={() => open(shown.type, shown.id)} onOpenOther={open} />
@@ -446,7 +477,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
             parts={[{ have: goal?.notes ?? 0, need: FEED_NOTES, what: 'notes' }, { have: goal?.quotes ?? 0, need: FEED_QUOTES, what: 'quotes or pictures' }]}>
             <ol className="flex flex-col">{SAMPLE_POSTS.map((post) => <Post key={post.id} post={post} preview onOpen={() => {}} onOpenOther={() => {}} />)}</ol>
           </GoalPreview>
-        ) : !feed.posts.length ? (
+        ) : !day.length ? (
           <p data-feed-empty className="py-10 text-body text-foreground">Nothing to show yet. Keep a gem, a quote or a question, and it comes back to you here.</p>
         ) : (
           <>
@@ -461,15 +492,17 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
             <ol className="flex flex-col">
               {posts.map((post, at) => {
                 const mark = { at, cursor: at === cursor, onPoint: () => startTransition(() => setCursor(at)) }
-                return post.pair ? <PairPost key={`pair:${post.id}`} post={post} mark={mark} onOpen={open} />
+                return post.insight ? <InsightPost key={`insight:${post.id}`} card={post.insight} mark={mark} onOpen={open} />
+                  : post.pair ? <PairPost key={`pair:${post.id}`} post={post} mark={mark} onOpen={open} />
                   : post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
                   : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} mark={mark} onOpen={() => open('nugget', post.id)} />
                   : <Post key={`${post.type}:${post.id}`} post={post} mark={mark} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} explain={explain && at === plain} />
               })}
             </ol>
             {!searching && <footer ref={endRef} data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
-              <p className="text-lead font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
+              <p className="text-lead font-semibold tracking-[-0.01em] text-foreground">That's all for today</p>
               <p data-feed-summary className="max-w-[44ch] text-body text-foreground/85">{listed} came up today.</p>
+              {!unloaded(insights) && !insights.done && <p data-feed-insights-more className="max-w-[44ch] text-body text-muted-foreground">A few more insights come later today, while Haligtree is open.</p>}
               <p data-feed-next className="text-body text-muted-foreground">A new set in {until}.</p>
             </footer>}
           </>
@@ -859,6 +892,104 @@ const pairSaid = (why: NonNullable<FeedPost['pair']>['why']): React.ReactNode =>
   why.kind === 'word' ? <>Both say <em data-feed-pair-word className="font-medium text-foreground">{why.word}</em></>
     : why.kind === 'source' ? <>Both quote <span className="font-medium text-foreground">{why.source}</span></>
     : 'Kept within the same hour'
+
+/** Each insight's quiet label, and what its tip says it is. */
+const INSIGHT: Record<Insight['level'], { label: string; tip: string }> = {
+  resurface: { label: 'Resurface', tip: 'A line of your own, back to you: picked by rule, no AI' },
+  connect: { label: 'Connect', tip: 'Two of your notes not linked yet, and why they may belong together' },
+  reframe: { label: 'Reframe', tip: 'An idea of yours, turned to an unexpected angle' }
+}
+/** The made-by line on an AI card's panel. */
+const MADE_BY = 'Made by Apple Intelligence from your notes'
+
+/**
+ * An insight drawn from your own notes (insights.ts). Resurface is your own line, in your own type. Connect and
+ * Reframe were written on this Mac by Apple Intelligence, so they sit in the quiet panel "Works cited" uses, in muted
+ * ink and labelled as made: never as if you wrote them. Every one names the notes it came from, each one opening.
+ * Keep makes it a gem, its notes linked under it; dismiss takes it away and brings its kind a little less often.
+ */
+function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: string, id: string) => void; mark?: Mark }): React.JSX.Element {
+  const made = card.level !== 'resurface'
+  const kept = card.state === 'kept'
+  const openSource = (one: Insight['sources'][number]): void => (one.type === 'highlight' ? (chime('open'), void followPdfLink(one.href ?? '')) : onOpen(one.type, one.id))
+  const keep = async (): Promise<void> => {
+    const gem = await call<string | null>('feed:insight:keep', card.id)
+    if (!gem) return toast('That could not be kept as a gem', undefined, 'error')
+    chime('saved')
+    toast(`Kept as a gem, linked to ${card.sources.length === 1 ? 'its note' : 'its notes'}`, () => void call('feed:insight:unkeep', card.id).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => onOpen('nugget', gem) })
+  }
+  const dismiss = async (): Promise<void> => {
+    const was = await call<number | null>('feed:insight:dismiss', card.id)
+    if (was === null) return
+    chime('tap')
+    toast(`Dismissed: ${INSIGHT[card.level].label} cards come a little less often`, () => void call('feed:insight:undismiss', card.id, was).then(() => chime('undo')), 'success')
+  }
+  return (
+    <li data-feed-post="insight" data-insight={card.level} data-feed-id={card.id} data-feed-at={mark?.at} onPointerDown={mark?.onPoint} className="relative isolate flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+      <CursorRing on={!!mark?.cursor} />
+      <Tip label={INSIGHT[card.level].tip}>
+        <p data-feed-context data-insight-label className="w-fit pl-12 text-control text-muted-foreground">{INSIGHT[card.level].label}</p>
+      </Tip>
+      <div className="flex gap-3">
+        <div className="flex w-9 shrink-0 flex-col items-center">
+          {made ? (
+            <span aria-hidden className="mt-0.5 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_6%,var(--background))] text-(--mf-muted-strong)">
+              {card.level === 'connect' ? <Link2 className="size-4" /> : <Sparkles className="size-4" />}
+            </span>
+          ) : <Avatar name="You" size={36} className="mt-0.5 shrink-0" />}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {made ? (
+            <div data-insight-panel className="flex flex-col gap-1 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] px-3.5 py-3">
+              <p data-insight-made className="text-meta font-medium text-muted-foreground">{MADE_BY}</p>
+              <p data-insight-words className="text-body leading-relaxed text-(--mf-muted-strong)">{card.words}</p>
+            </div>
+          ) : (
+            <blockquote data-insight-words className="font-serif text-reading leading-relaxed hyphens-auto [overflow-wrap:break-word] text-foreground">{card.words}</blockquote>
+          )}
+          {/* The notes it came from, one a line under "From", each opening its note. */}
+          <div data-insight-sources className="flex min-w-0 items-baseline gap-2 text-control text-muted-foreground">
+            <span className="shrink-0">From</span>
+            <ul className="flex min-w-0 flex-col gap-1">
+              {card.sources.map((one) => (
+                <li key={one.id} className="flex min-w-0">
+                  <button type="button" data-insight-source={`${one.type}:${one.id}`} {...(one.type === 'highlight' ? {} : hoverNote(one.type === 'capture' ? 'capture' : 'nugget', one.id))} onClick={() => openSource(one)}
+                    className="flex min-w-0 max-w-[48ch] items-baseline gap-1.5 rounded-sm text-left text-foreground/85 underline-offset-2 hover:text-foreground hover:underline">
+                    <FileText className="size-3.5 shrink-0 self-center text-muted-foreground" />
+                    <span className="truncate">{one.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div data-feed-actions className="-ml-2 flex items-center gap-1 whitespace-nowrap text-muted-foreground">
+            {kept ? (
+              <button type="button" data-insight-kept onClick={() => card.gemId && onOpen('nugget', card.gemId)}
+                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control text-foreground transition-colors hover:bg-foreground/[0.06]">
+                <Check className="size-4 shrink-0" /> Kept as a gem <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
+              </button>
+            ) : (
+              <>
+                <Tip label="Keep it as a gem, the notes it came from linked under it">
+                  <button type="button" data-insight-keep onClick={() => void keep()}
+                    className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+                    <Check className="size-4 shrink-0" /> Keep
+                  </button>
+                </Tip>
+                <Tip label={`Dismiss: ${INSIGHT[card.level].label} cards come a little less often (⌫)`}>
+                  <button type="button" data-insight-dismiss onClick={() => void dismiss()}
+                    className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+                    <X className="size-4 shrink-0" /> Dismiss
+                  </button>
+                </Tip>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </li>
+  )
+}
 
 /**
  * "Two subjects, one thread": two notes with no tag in common that share an
