@@ -1,8 +1,9 @@
-// Wrapped's lines written on this Mac (main/wrap-lines.ts): someone opens this month's wrap, turns every card, closes it
-// and opens it again. With the Mac's model stood in (HALIGTREE_QA_CAPS=ai), pages say the stand-in's lines, every number
-// in them one of that page's facts, the stand-in's line with a number it was never given is dropped (that page keeps its
-// own sentence), and the second open says the same lines. Without it (HALIGTREE_QA_CAPS=macos26), every page says its own.
-//   QA_ARGS=--sandbox QA_DATA=<copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_CAPS=ai SHOTS=/abs/dir node qa/wrap-lines.mjs
+// Wrapped's lead-ins written on this Mac (main/wrap-lines.ts): someone opens this month's wrap, turns every card, closes
+// it and opens it again. With the Mac's model stood in (HALIGTREE_QA_CAPS=ai), pages show the stand-in's lead-ins over
+// their own sentences, no lead-in holds a digit, the stand-in's lead-in with numbers in it is dropped (that page shows its
+// sentence alone), the pages' own sentences and their numbers are untouched, and the second open shows the same lead-ins.
+// Without it (HALIGTREE_QA_CAPS=macos26), no page has a lead-in.
+//   QA_ARGS=--sandbox QA_DATA=<copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_CAPS=ai node qa/wrap-lines.mjs
 //   (and again with HALIGTREE_QA_CAPS=macos26 on a fresh copy)
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -15,9 +16,8 @@ const c = await sandbox({ width: 1280, height: 800 })
 const { electron, h, errors } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const month = `month:${new Date().toISOString().slice(0, 7)}`
-const numbers = (text) => [...text.matchAll(/\d+(?:[.,]\d+)*/g)].map((one) => String(Number(one[0].replace(/,(?=\d{3}\b)/g, ''))))
 
-// Opens the month's wrap and turns every card, reading each card's line: what it says, and whether it was written.
+// Opens the month's wrap and turns every card, reading each card's lead-in and the rest of its words apart.
 const walk = async () => {
   await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: id })), month)
   await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 })
@@ -26,8 +26,10 @@ const walk = async () => {
     await wait(i ? 2600 : 3200)
     const card = await h.$eval('[data-wrap-card]', (el) => el.getAttribute('data-wrap-card'))
     seen[card] = await h.$eval('[data-wrap-card]', (el) => {
-      const line = el.querySelector('[data-wrap-line]')
-      return { written: line?.getAttribute('data-wrap-line') === 'written', words: (line ?? el).innerText.replace(/\s+/g, ' ').trim() }
+      const lead = el.querySelector('[data-wrap-lead]')
+      const all = el.innerText.replace(/\s+/g, ' ').trim()
+      const said = lead?.innerText.trim() ?? null
+      return { lead: said, rest: said ? all.replace(said, '') : all }
     })
     if (card === 'report') break
     await h.keyboard.press('ArrowRight')
@@ -39,37 +41,19 @@ const walk = async () => {
 
 try {
   const first = await walk()
-  const written = Object.entries(first).filter(([, one]) => one.written)
+  const leads = Object.entries(first).filter(([, one]) => one.lead)
   if (ai) {
-    // A later open of the same month: the stand-in's lines were written while the first open's cards turned.
+    // A later open of the same month: the stand-in's lead-ins were written while the first open's cards turned.
     const second = await walk()
-    check('pages say the lines written on this Mac (the stand-in\'s)', written.length >= 2 && written.every(([, one]) => one.words.includes("in a stand-in's words")), JSON.stringify(first).slice(0, 600))
-    check('the line with a number it was never given is not shown: the first card keeps its own sentence', !JSON.stringify(first).includes('98765') && !JSON.stringify(second).includes('98765'), JSON.stringify(first.intro ?? {}))
-    const kept = JSON.parse(readFileSync(join(await electron.evaluate(({ app }) => app.getPath('userData')), 'wrap-lines.json'), 'utf8'))[month]
-    const facts = Object.fromEntries(JSON.parse(kept.facts).map((one) => [one.page, new Set(numbers([...one.facts, one.above ?? ''].join(' ')))]))
-    const off = Object.entries(kept.lines).filter(([page, line]) => !numbers(line).every((n) => facts[page]?.has(n)))
-    check('every number in every kept line is one of its page\'s facts', Object.keys(kept.lines).length >= 2 && !off.length, JSON.stringify(off))
-    const again = Object.entries(second).filter(([card, one]) => one.written && first[card]?.written)
-    check('opened again, the same pages say the same lines', again.length >= 2 && again.every(([card, one]) => one.words === first[card].words), JSON.stringify(again).slice(0, 400))
+    check('pages show the lead-ins written on this Mac (the stand-in\'s)', leads.length >= 2 && leads.every(([, one]) => one.lead.includes("stand-in's lead")), JSON.stringify(first).slice(0, 600))
+    check('no lead-in holds a digit, and the stand-in\'s one with numbers in it is not shown', [...Object.values(first), ...Object.values(second)].every((one) => !one.lead || !/\d/.test(one.lead)) && !JSON.stringify([first, second]).includes('the stand-in counted'), JSON.stringify(first.intro ?? {}))
+    check('the pages\' own sentences stand as they were, numbers and all', Object.values(first).every((one) => !one.rest.includes('stand-in')) && (!first.tags || /came up most: \d/.test(first.tags.rest) || /\d+ things? caught/.test(first.tags.rest)), JSON.stringify(first.tags ?? {}).slice(0, 300))
+    const kept = JSON.parse(readFileSync(join(await electron.evaluate(({ app }) => app.getPath('userData')), 'wrap-leads.json'), 'utf8'))[month]
+    check('every kept lead-in is free of digits, and its facts too', Object.keys(kept.leads).length >= 2 && Object.values(kept.leads).every((one) => !/\d/.test(one)) && !/\d/.test(kept.facts.replace(/“[^”]*”|#\S+/g, '')), JSON.stringify(kept.leads))
+    const again = Object.entries(second).filter(([card, one]) => one.lead && first[card]?.lead)
+    check('opened again, the same pages show the same lead-ins', again.length >= 2 && again.every(([card, one]) => one.lead === first[card].lead), JSON.stringify(again).slice(0, 400))
   } else {
-    check('without Apple Intelligence every page says its own sentence', Object.keys(first).length >= 3 && !written.length && !JSON.stringify(first).includes('stand-in'), JSON.stringify(first).slice(0, 600))
-  }
-  // Frames: two pages, light and dark, each with its line in.
-  if (process.env.SHOTS) {
-    await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: { id, world: 'files' } })), month)
-    for (let i = 0, shot = 0; i < 12 && shot < 2; i++) {
-      await wait(2600)
-      const card = await h.$eval('[data-wrap-card]', (el) => el.getAttribute('data-wrap-card'))
-      if (['tags', 'focus', 'run', 'busiest', 'pictures', 'hours'].includes(card)) {
-        shot++
-        for (const theme of ['light', 'dark']) {
-          await c.look(theme)
-          await wait(700)
-          await h.screenshot({ path: `${process.env.SHOTS}/wrap-lines-${ai ? 'ai' : 'own'}-${card}-${theme}.png` })
-        }
-      }
-      await h.keyboard.press('ArrowRight')
-    }
+    check('without Apple Intelligence no page has a lead-in, each shows its own sentence', Object.keys(first).length >= 3 && !leads.length && !JSON.stringify(first).includes('stand-in'), JSON.stringify(first).slice(0, 600))
   }
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } catch (error) {

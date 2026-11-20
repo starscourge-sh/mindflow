@@ -61,8 +61,8 @@ type Wrapped = {
   well: string[]
   sites: { site: string; count: number }[]
   reads: Reads
-  /** The span before, for the comparison Wrapped's written lines may make: its captures and minutes of focus. */
-  before: { captures: number; minutes: number }
+  /** The span before, for the lead-ins' "against last time": its captures, minutes of focus and tags. */
+  before: { captures: number; minutes: number; tags: { name: string; n: number }[] }
 }
 /** Articles read in the reader this span (main/read-time.ts): finished only with their end reached and half their reading time spent. */
 type Reads = { total: number; finished: number; left: { title: string; minutes: number; needs: number }[] }
@@ -120,7 +120,7 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
     well: [...new Set(well)],
     sites: bySite(sent, since, until),
     reads: { total: inSpan.length, finished: inSpan.filter((one) => one.finished).length, left: inSpan.filter((one) => !one.finished).map((one) => ({ title: one.title, minutes: one.minutes, needs: one.needs })) },
-    before: { captures: priorRecap.captures, minutes: Math.round(priorSessions.reduce((sum, one) => sum + spent(one), 0)) }
+    before: { captures: priorRecap.captures, tags: priorRecap.tags, minutes: Math.round(priorSessions.reduce((sum, one) => sum + spent(one), 0)) }
   }
 }
 
@@ -214,28 +214,29 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     }
   }, [data, pictures]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On a Mac with Apple Intelligence, each page's line written from the facts it counted (main/wrap-lines.ts), one request
-  // a story. Lines already written for these facts come at once and the first card waits for that answer only; new ones
-  // come while the cards turn, each page taking its written line if it is in when the page first shows, and keeping
-  // whichever it showed. Without them, or past 20 seconds, every page says its own sentence.
+  // On a Mac with Apple Intelligence, a few words over each page on how it feels against last time, written from the
+  // page's key facts (main/wrap-lines.ts), one request a story; the page's own sentence under it keeps every number.
+  // Lead-ins already written for these facts come at once and the first card waits for that answer only; new ones come
+  // while the cards turn, each page taking its lead-in if it is in when the page first shows, and keeping whatever it
+  // showed. Without them, or past 20 seconds, every page shows its sentence alone.
   const ai = useHas('ai') && !worst
   const asked = useMemo(() => (facts && ai ? wrapFacts(facts) : null), [facts, ai])
-  const [written, setWritten] = useState<{ lines: Record<string, string> | null; done: boolean }>({ lines: null, done: false })
+  const [written, setWritten] = useState<{ leads: Record<string, string> | null; done: boolean }>({ leads: null, done: false })
   useEffect(() => {
     if (!asked) return
     let live = true
-    type Said = { lines: Record<string, string> | null } | { error: string }
-    const said = (one: Said, done: boolean): void => void (live && setWritten({ lines: 'lines' in one ? one.lines : null, done }))
+    type Said = { leads: Record<string, string> | null } | { error: string }
+    const said = (one: Said): void => void (live && setWritten({ leads: 'leads' in one ? one.leads : null, done: true }))
     void window.api.haligtree<Said>('ai:wrap', id, asked, true).then((kept) => {
-      said(kept, true)
-      if ('lines' in kept && !kept.lines) void window.api.haligtree<Said>('ai:wrap', id, asked, false).then((one) => said(one, true), () => undefined)
-    }, () => said({ lines: null }, true))
+      said(kept)
+      if ('leads' in kept && !kept.leads) void window.api.haligtree<Said>('ai:wrap', id, asked, false).then(said, () => undefined)
+    }, () => said({ leads: null }))
     return () => void (live = false)
   }, [asked]) // eslint-disable-line react-hooks/exhaustive-deps
-  const shownLines = useRef(new Map<Kind, string | undefined>())
-  const lineFor = (one: Kind): string | undefined => {
-    if (!shownLines.current.has(one)) shownLines.current.set(one, written.lines?.[one])
-    return shownLines.current.get(one)
+  const shownLeads = useRef(new Map<Kind, string | undefined>())
+  const leadFor = (one: Kind): string | undefined => {
+    if (!shownLeads.current.has(one)) shownLeads.current.set(one, written.leads?.[one])
+    return shownLeads.current.get(one)
   }
   const ready = !!facts && (!asked || written.done)
 
@@ -331,7 +332,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
               <motion.div key={at} className="absolute inset-0"
                 initial={byKey || still() ? false : { opacity: 0, transform: shift(`translateX(${24 * dir}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.24, ease: EASE } }}
                 custom={dir} variants={{ gone: (to: number) => ({ opacity: 0, transform: shift(`translateX(${-12 * to}px)`), transition: { duration: byKey ? 0 : 0.12, ease: EASE } }) }} exit="gone">
-                <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} wide={wide} open={open} line={lineFor(kind)} />
+                <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} wide={wide} open={open} lead={leadFor(kind)} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -485,43 +486,36 @@ const thinkingHour = (hours: number[]): number | null => {
 const hourSaid = (hour: number): string => `${hour}:00`
 
 /**
- * What each page may say, for the lines Apple Intelligence writes (main/wrap-lines.ts): the facts the page counted, as
- * it shows them, and the span before where the page compares. Every page a story could show, whichever this open
- * picks, so the lines are kept per story and not per open. A page with nothing to say is left out, as are "In your
- * words" (your own lines, never retold) and the last card.
+ * What each page's lead-in may go on (main/wrap-lines.ts): its one to three key facts and the change since last time,
+ * all in words, with no numbers (the page's sentence says those). Every page a story could show, whichever this open
+ * picks, so the lead-ins are kept per story and not per open. Only pages with something to set against last time or a
+ * shape to name (the opening, tags, focus, the busiest day, the hour, the close): on the others (sites, reading, plan,
+ * pictures, notes, the run) the model, with nothing to compare, made things up ("Days passed with effort, no pattern
+ * found." over a long run, 20 Nov). Never "In your words" (your own lines) or the last card.
  */
 function wrapFacts(f: Facts): WrapPage[] {
   const last = `last ${f.period}`
-  // The span before, said as the change: "23 more things caught than last month", never a sum left to the model (given
-  // last month's count as well, the model tacked it on: "9 fewer than last week, 32").
-  const than = (now: number, before: number, what: string): string[] =>
-    !before && !now ? [] : now === before ? [`as many ${what} as ${last}`] : [`${num(Math.abs(now - before))} ${now > before ? 'more' : 'fewer'} ${what} than ${last}`]
-  const pages: WrapPage[] = []
-  const page = (kind: Kind, above: string | undefined, facts: (string | false | null | undefined)[], most = 22): void =>
-    void pages.push({ page: kind, ...(above ? { above } : {}), facts: facts.filter((one): one is string => !!one), most })
   const span = f.period === 'month' ? f.name : 'this week'
-  if (f.captures || f.minutes) page('intro', `the title "${f.title}"; this line opens the story`, [`${plural(f.captures, 'thing')} caught in ${span}`, ...than(f.captures, f.before.captures, 'things caught'), f.minutes >= 1 && `${howLong(f.minutes)} of focus`, f.gems > 0 && plural(f.gems, 'gem') + ' kept'], 18)
-  if (f.tags.length) page('tags', `#${f.tags[0].name} in large type`, [`#${f.tags[0].name} came up in ${plural(f.tags[0].n, 'capture')}`, `${plural(f.captures, 'thing')} caught in all`, f.tags[1] && `#${f.tags[1].name} next, in ${plural(f.tags[1].n, 'capture')}`])
-  else if (f.captures) page('tags', `${num(f.captures)} in large type`, [`${plural(f.captures, 'thing')} caught in ${span}`, 'none of them tagged'])
-  if (f.minutes >= 1) {
-    const top = f.focusTasks[0]
-    page('focus', f.minutes >= 120 ? `${num(Math.round(f.minutes / 60))} in large type, the hours of focus` : `${num(f.minutes)} in large type, the minutes of focus`,
-      [`${howLong(f.minutes)} of focus`, plural(f.sessions, 'session'), top && `most of it on “${top.name}”, ${howLong(top.minutes)}`, ...than(f.minutes, f.before.minutes, 'minutes of focus')])
-  }
-  if (f.sites.length) page('sites', `Kept you off ${f.sites[0].site} ${timesSaid(f.sites[0].count)} this ${f.period}`,
-    [...f.sites.slice(0, 3).map((one) => `${one.site} sent away ${plural(one.count, 'time')} while you focused`), `${plural(f.sites.reduce((n, one) => n + one.count, 0), 'time')} in all`])
-  if (f.reads.total) page('reading', `You finished ${num(f.reads.finished)} of ${plural(f.reads.total, 'article')} you opened`, [`${num(f.reads.left.length)} left part way`, f.reads.left[0] && `“${f.reads.left[0].title}” among those left part way`], 18)
-  if (f.planRows.length) page('plan', `You planned ${howLong(f.planned)}${f.did ? ` and did ${howLong(f.did)}` : ''}`, [`${plural(f.planRows.length, 'task')} with a time planned and a date this ${f.period}`, f.did ? `${howLong(f.did)} done of ${howLong(f.planned)} planned` : 'none of it done yet'])
-  if (f.pictures.length) page('pictures', f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw', [`${plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from ${span}`], 16)
-  if (f.notes.length) page('notes', `a few of the notes as a list; this line is its short heading`, [`${f.notesLabel.toLowerCase()} from ${span}`, ...f.notes.slice(0, 3).map((note) => quoted(note, 50))], 10)
-  if (f.run >= 2) page('run', `${num(f.run)} in large type`, [`${plural(f.run, 'day')} in a row with something caught or focused on`, `${dayjs(f.runFrom).format('D MMMM')} to ${dayjs(f.runTo).format('D MMMM')}`, 'not a streak to keep, just how it went'])
+  // A change said as a word, never a count: clearly more, clearly fewer, or about the same.
+  const change = (now: number, before: number, what: string): string =>
+    !before ? (now ? `${what}, where ${last} had none` : '') : now > before * 1.3 ? `more ${what} than ${last}` : now < before * 0.77 ? `fewer ${what} than ${last}` : `about as many ${what} as ${last}`
+  const pages: WrapPage[] = []
+  const page = (kind: Kind, facts: (string | false | null | undefined)[]): void => void pages.push({ page: kind, facts: facts.filter((one): one is string => !!one) })
+  const had = new Map(f.before.tags.map((one) => [one.name, one.n]))
+  const rise = (name: string, n: number): string => (!had.has(name) ? `#${name} is new since ${last}` : n > had.get(name)! ? `#${name} came up more than ${last}` : n < had.get(name)! ? `#${name} came up less than ${last}` : `#${name} held steady from ${last}`)
+  if (f.captures || f.minutes) page('intro', [`the story of ${span}`, change(f.captures, f.before.captures, 'things caught'), f.minutes >= 1 && change(f.minutes, f.before.minutes, 'focus'), f.gems > 0 && 'gems kept along the way'])
+  if (f.tags.length) {
+    const risen = f.tags.slice(1).find((one) => (had.get(one.name) ?? 0) < one.n)
+    page('tags', [`#${f.tags[0].name} came up most`, rise(f.tags[0].name, f.tags[0].n), risen && rise(risen.name, risen.n)])
+  } else if (f.captures) page('tags', [change(f.captures, f.before.captures, 'things caught'), 'none of them tagged'])
+  if (f.minutes >= 1) page('focus', [change(f.minutes, f.before.minutes, 'focus'), f.focusTasks[0] && `most of it on “${f.focusTasks[0].name}”`, f.focusTasks.length > 1 && 'shared among a few tasks'])
   if (f.busiest) {
     const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
     const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
-    page('busiest', `Your busiest day was ${f.busiest.label}`, [`${plural(f.busiest.n, 'capture')} that day`, usual > 0 && usual < f.busiest.n && `${plural(usual, 'capture')} on a usual day`])
+    page('busiest', [`the busiest day was a ${dayjs(f.busiest.day).format('dddd')}`, usual > 0 && f.busiest.n >= usual * 2 && 'far busier than a usual day'])
   }
-  if (f.hour !== null) page('hours', `Ideas came most around ${hourSaid(f.hour)}`, [`${num(f.hours[f.hour])} of ${plural(f.captures, 'capture')} came in that hour`])
-  page('outro', 'nothing; this is the last line of the story, a short goodbye in large type', [span, `your kind of ${f.period} in a word, ${f.kind}`, ...than(f.captures, f.before.captures, 'things caught')], 12)
+  if (f.hour !== null) page('hours', [`ideas came most in the ${f.hour >= 5 && f.hour < 12 ? 'morning' : f.hour < 17 && f.hour >= 12 ? 'afternoon' : f.hour >= 17 && f.hour < 22 ? 'evening' : 'night'}`])
+  page('outro', [`the end of the story of ${span}`, `in a word, ${f.kind.toLowerCase()}`, change(f.captures, f.before.captures, 'things caught')])
   return pages
 }
 
@@ -557,16 +551,17 @@ function Bars({ p, mark, values, peak, under }: { p: Palette; mark: string; valu
 }
 
 /** One card: its words in front, its own chart or your own pictures beside them, laid out for the width it has. */
-// `line`: the page's line written on this Mac from its facts (wrapFacts), said in place of its own sentence.
-function Card({ kind, f, look, variant, seed, wide, open, line }: { kind: Kind; f: Facts; look: Look; variant: number; seed: number; wide: boolean; open: (type: string, id: string) => void; line?: string }): React.JSX.Element {
+// `lead`: a few words written on this Mac from the page's facts (wrapFacts), over its words; the page's own sentence
+// under it says every number.
+function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; f: Facts; look: Look; variant: number; seed: number; wide: boolean; open: (type: string, id: string) => void; lead?: string }): React.JSX.Element {
   const { p, world } = look
   const e = look.entrance
   const flip = variant === 1
   const top = f.tags.slice(0, 5)
-  const split = (a: ReactNode, b: ReactNode): ReactElement => <Split a={a} b={b} flip={flip} />
   const night = world === 'night'
-  /** The line under a page's number or heading: the one written from its facts, else the page's own sentence. */
-  const caption = (own: ReactNode, more = ''): ReactElement => <p className={CAPTION} data-wrap-line={line ? 'written' : 'own'}>{line ? `${line}${more}` : own}</p>
+  const kicker = lead ? <In at={0.05} from={e}><p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p></In> : null
+  const split = (a: ReactNode, b: ReactNode): ReactElement => <Split a={<>{kicker}{a}</>} b={b} flip={flip} />
+  const caption = (own: ReactNode): ReactElement => <p className={CAPTION}>{own}</p>
 
   // Night's silk of light, under its words; Files is paper and ink, its art the op-art round your own pictures.
   const art = night ? <><Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} /><div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${p.bg} 10%, color-mix(in srgb, ${p.bg} 55%, transparent))` }} /></> : null
@@ -583,10 +578,10 @@ function Card({ kind, f, look, variant, seed, wide, open, line }: { kind: Kind; 
   const body = ((): ReactElement => {
     switch (kind) {
       case 'intro':
-        if (night) return <Centre><In at={0.12} from={e}><h2 className="text-[clamp(40px,10cqi,84px)] leading-[0.95] font-black tracking-tight text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={line ?? opening(f, look.intro)} /></p></In></Centre>
+        if (night) return <Centre>{kicker}<In at={0.12} from={e}><h2 className="text-[clamp(40px,10cqi,84px)] leading-[0.95] font-black tracking-tight text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={opening(f, look.intro)} /></p></In></Centre>
         return split(<>
           <In at={0.12} from={e}><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
-          <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium"><Typed story text={line ?? opening(f, look.intro)} /></p></In>
+          <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium"><Typed story text={opening(f, look.intro)} /></p></In>
         </>, cover())
       case 'tags': {
         if (!top.length) return split(<><In at={0.15}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div></In><In at={0.45}>{caption(<>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)}</In></>, night ? <div /> : cover())
@@ -613,7 +608,7 @@ function Card({ kind, f, look, variant, seed, wide, open, line }: { kind: Kind; 
         // Finished means its end reached with half its reading time spent on it: said under the number, so it is never a guess.
         const { total, finished, left } = f.reads
         return split(<><In at={0.12}><h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2></In>
-          <In at={0.45}>{caption(`Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up.` : ''}`, ' Finished means its end reached with at least half its reading time spent on it.')}</In></>,
+          <In at={0.45}>{caption(`Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up.` : ''}`)}</In></>,
           left.length ? <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} /> : cover())
       }
       case 'plan': {
@@ -634,13 +629,13 @@ function Card({ kind, f, look, variant, seed, wide, open, line }: { kind: Kind; 
       case 'pictures':
         return (
           <div data-wrap-flow className="relative grid h-full grid-rows-[auto_1fr] [align-content:safe_center] gap-5 px-7 pt-12 pb-14 @2xl:px-12">
-            <In at={0.12}><h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
+            <In at={0.12}>{lead && <p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p>}<h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
             <In at={0.3} className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 300 : 170} label="Pictures and gems" onOpen={(index) => f.pictures[index] && open(f.pictures[index].type, f.pictures[index].id)} className="-mx-7 @2xl:-mx-12" /></In>
           </div>
         )
       case 'notes':
-        if (!night && wide) return split(<In><h2 className={BIG} data-wrap-line={line ? 'written' : 'own'}>{line ?? look.folder}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
-        return split(<><In at={0.12}><h2 className={BIG} data-wrap-line={line ? 'written' : 'own'}>{line ?? look.folder}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
+        if (!night && wide) return split(<In><h2 className={BIG}>{look.folder}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
+        return split(<><In at={0.12}><h2 className={BIG}>{look.folder}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
       case 'well':
         return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well, from your weekly notes</p></In></>, <ul className="grid h-full [align-content:safe_center] gap-3">{f.well.slice(0, wide ? 4 : 3).map((line, i) => <In key={line} at={0.3 + i * 0.1}><li className="text-[17px] leading-snug font-medium text-pretty" dir="auto">{quoted(line, 90)}</li></In>)}</ul>)
       case 'run':
@@ -656,8 +651,8 @@ function Card({ kind, f, look, variant, seed, wide, open, line }: { kind: Kind; 
         return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
           <In at={0.4}>{caption(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In></>, <HourBars f={f} p={p} />)
       case 'outro':
-        if (night) return <Centre><In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={line ?? fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
-        return split(<><In><h2 className={BIG}><Typed story text={line ?? fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.pictures.at(-1)))
+        if (night) return <Centre>{kicker}<In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
+        return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.pictures.at(-1)))
       case 'report':
         return <Report f={f} look={look} />
     }
