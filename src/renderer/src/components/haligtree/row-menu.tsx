@@ -25,8 +25,8 @@ export const Hinted = ({ label, hint, icon }: { label: string; hint: string; ico
 export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
   /** A line that opens a small tool beside it (a calendar to pick a card's day): it closes the menu itself once used. */
   | { label: string; panel: ReactNode; icon?: ReactNode }
-  /** A row of colour swatches, the one in use ticked (an event's colour). `stay`: the menu stays open as one is picked, so each is seen worn in place before you leave it (a book's colour in Settings). */
-  | { swatches: { color: string; label: string; on: boolean; run: () => void }[]; stay?: boolean }
+  /** A row of colour swatches, the one in use ticked (an event's colour). */
+  | { swatches: { color: string; label: string; on: boolean; run: () => void }[] }
 export type Shown = Exclude<RowItem, false | null | undefined>
 
 /**
@@ -111,7 +111,7 @@ export const lines =(items: Shown[]): React.ReactNode =>
     ) : 'swatches' in item ? (
       <div key={`swatches-${index}`} role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
         {item.swatches.map((one) => (
-          <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={(event) => (item.stay && event.preventDefault(), one.run())}
+          <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
             className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
             <Swatch color={one.color} on={one.on} />
           </ContextMenuItem>

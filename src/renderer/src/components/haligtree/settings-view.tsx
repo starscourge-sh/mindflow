@@ -1450,14 +1450,14 @@ function HomeGoalRows({ settings }: { settings: Settings }): React.JSX.Element {
 }
 
 /** A book's row, as System Settings lists users: its mark, its name over one quiet fact, and at the right only “Open” and its “…”. */
-const BOOK_ROW = 'flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 py-2 pr-3 pl-4'
+const BOOK_ROW = 'flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 py-1.5 pr-3 pl-4'
 const BOOK_KEYS = 'book books rename delete open switch colour color accent tint hue space arc vault workspace'
 
 /**
  * Your books, under “Your book”: one list, as System Settings lists users and Finder its sidebar, in main's order (the
  * open one first, then the one you were in last). Each a compact row: its mark in its colour, its name, one quiet fact
  * (“Open now”, “Your first book”, “Made 13 Oct 2026”), and at the right “Open” (not on the open one) and a “…” holding
- * Rename, Colour and Delete, the same menu as its right-click (books.tsx bookRowMenu). Delete asks in the book's own row,
+ * Rename, Colour and Delete, the same menu as its right-click (a row of it under 56px tall, so it fills, never rings, while open) (books.tsx bookRowMenu). Delete asks in the book's own row,
  * held, its warning said there and nowhere else. “New book” once, at the list's foot, named in place as Finder names
  * a folder. (The user, 20 Nov, of the old rows, each with nine swatches, a paragraph and three buttons: "something
  * feels busy about this and un-Apple/Dia like".)

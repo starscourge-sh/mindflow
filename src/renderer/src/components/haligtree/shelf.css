@@ -40,6 +40,10 @@
 .mf-shelf .mf-spine [data-reader-spine-face] span { color: transparent; }
 /* The open book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx ShelfCover). */
 .mf-card-cover { overflow: hidden; }
+/* Its picture at the card's own size, and its words wrapping as on the card: a menu row draws every svg in it at 14px
+   unless told, and keeps its words on one line (dropdown-menu.tsx). */
+.mf-shelf [data-reader-shape] > svg:not(.size-0) { width: 168px; height: 168px; }
+.mf-shelf [data-shelf-card] { white-space: normal; }
 /* Its cover: cream washed with the book's colour, a tooled frame in its ink, the name set in from the hinge. */
 .mf-spine-face {
   display: flex;

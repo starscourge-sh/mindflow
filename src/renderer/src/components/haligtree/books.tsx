@@ -51,8 +51,7 @@ export function BookMark({ hue, className = 'size-3.5' }: { hue: Hue | null; cla
 const NINE = ([null, ...HUES] as (Hue | null)[]).map((hue) => ({ hue, label: hue ? hueName(hue) : 'No colour: the theme’s own', ink: markInk(hue) }))
 
 /**
- * A book's colour picked where the picker then goes away (⌘K, its right-click): said, with Undo. In Settings the
- * colour menu stays open and the book's mark in its row shows it.
+ * A book's colour picked where the picker then goes away (⌘K, its right-click, its "…" in Settings): said, with Undo.
  */
 export function colourBook(book: Book, hue: Hue | null): void {
   if (hue === book.color) return chime('nope')
@@ -81,9 +80,9 @@ export const bookMenu = (book: Book, inSettings: (rename: boolean) => void): Row
 ]
 
 /**
- * A book's "…" menu in Settings › Books, and its right-click there: its name, its colour (the nine, the menu kept
- * open so each is seen worn in place, the open book's sidebar and accent easing into it), and deleting it, asked in its
- * own row. The sandbox is someone else's book: nothing of a book can be changed from inside it. Your first book and
+ * A book's "…" menu in Settings › Books, and its right-click there: its name, its colour (the nine, picked as from the
+ * sidebar's menu and ⌘K: said, with Undo, the book's mark in its row and, for the open book, the sidebar and accent
+ * easing into it), and deleting it, asked in its own row. The sandbox is someone else's book: nothing of a book can be changed from inside it. Your first book and
  * the open one are never deleted from here (switch to another book first).
  */
 export const bookRowMenu = (book: Book, { rename, remove }: { rename: () => void; remove: () => void }): RowItem[] => SANDBOX ? [] : [
@@ -91,14 +90,8 @@ export const bookRowMenu = (book: Book, { rename, remove }: { rename: () => void
   {
     label: 'Colour',
     items: [
-      { heading: `${book.color ? hueName(book.color) : 'The theme’s own'}. ${book.current ? 'It tints the sidebar and the accent now' : 'It tints the sidebar and the accent while the book is open'}` },
-      {
-        stay: true,
-        swatches: NINE.map(({ hue, label, ink }) => ({
-          color: ink, label, on: hue === book.color,
-          run: () => (hue === book.color ? chime('nope') : (chime('tap'), pickBookColor(book, hue)))
-        }))
-      }
+      { heading: book.current ? 'Tints the sidebar and accent' : 'Tints the sidebar once open' },
+      { swatches: NINE.map(({ hue, label, ink }) => ({ color: ink, label, on: hue === book.color, run: () => colourBook(book, hue) })) }
     ]
   },
   { label: 'Delete…', danger: true, can: () => !book.current && book.id !== 'default', run: remove }

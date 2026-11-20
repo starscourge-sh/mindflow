@@ -40,7 +40,15 @@ try {
   check('the menu opens with every book on the shelf', at.length === books.books.length && at.length === 30, JSON.stringify(at))
   const open = at.find((one) => one.open)
   check('the open book stands turned to its face', open?.w >= 80 && Number(open.face) > 0.9, JSON.stringify(open))
-  check('the others stand as spines', at.filter((one) => !one.open).every((one) => one.w <= 30), JSON.stringify(at.map((one) => one.w)))
+  // Its cover is its reader card (reader-card.tsx ShelfCover), as Settings draws it, the picture at its size.
+  const card = await h.evaluate(() => { const one = document.querySelector('[data-book-shelf] [aria-current] [data-shelf-card]'); return one && { name: one.querySelector('[data-reader-name]')?.textContent, title: one.querySelector('[data-reader-title]')?.textContent, since: one.querySelector('[data-reader-since]')?.textContent, shape: Math.round(one.querySelector('[data-reader-shape] > svg:not(.size-0)')?.getBoundingClientRect().width ?? 0) } })
+  check('the open book wears its own reader card: its name, title, day begun and picture', card?.name === books.books.find((one) => one.current)?.name && !!card.title && /Kept since|Not begun/.test(card.since) && card.shape >= 45, JSON.stringify(card))
+  // Seen as tall as the tallest book on the shelf, standing on the ledge with the rest (it stood shorter, 20 Nov).
+  const tall = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => { const face = (one.getAttribute('aria-current') ? one.querySelector('[data-shelf-card]')?.parentElement : one.querySelector('[data-reader-spine-face]'))?.getBoundingClientRect(); return { open: !!one.getAttribute('aria-current'), h: Math.round(face?.height ?? 0), bottom: Math.round(face?.bottom ?? 0) } }))
+  const spinesTall = tall.filter((one) => !one.open)
+  const turnedTall = tall.find((one) => one.open)
+  check('the turned book stands as tall as the tallest spine, within 3px, its foot on the ledge with theirs', Math.abs(turnedTall.h - Math.max(...spinesTall.map((one) => one.h))) <= 3 && spinesTall.every((one) => Math.abs(one.bottom - turnedTall.bottom) <= 7), JSON.stringify(tall.slice(0, 8)))
+  check('the others stand as spines',at.filter((one) => !one.open).every((one) => one.w <= 30), JSON.stringify(at.map((one) => one.w)))
   check('every spine shows the hand', at.every((one) => one.cursor === 'pointer'))
   const width = (list) => list.reduce((sum, one) => sum + one.w, 0)
   const room = await h.evaluate(() => { const one = document.querySelector('[data-book-shelf]'); const menu = one.closest('[role="menu"]'); return { shelf: one.clientWidth, holds: one.scrollWidth, menu: menu.getBoundingClientRect().width, fade: getComputedStyle(one).maskImage, win: window.innerWidth, right: menu.getBoundingClientRect().right } })
