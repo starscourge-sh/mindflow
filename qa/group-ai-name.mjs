@@ -1,5 +1,5 @@
-// A group is named from its notes by the Mac's own model, the way the real one answers: a name, then a line on why
-// ("Ambition and Habits \nall explore human struggles", 19 Nov). A "Group 3" already in the list is named as the list
+// A group is named from its notes by the Mac's own model, as the field it fills (a name, nothing else).
+// A "Group 3" already in the list is named as the list
 // opens; a new group made with ⌘G takes the name in its open field, picked for typing; one whose field was left before
 // the answer still takes it. Real pointer and keys only.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/group-ai-name.mjs
@@ -7,7 +7,7 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 process.env.HALIGTREE_QA_CAPS = 'ai'
-process.env.HALIGTREE_QA_GROUP_NAME = 'Ambition and Habits  \nall explore human struggles'
+process.env.HALIGTREE_QA_GROUP_NAME = 'Ambition and Habits'
 process.env.HALIGTREE_QA_GROUP_NAME_MS = '1200'
 const { check, done } = checks()
 const s = await sandbox({ width: 1300, height: 900 })

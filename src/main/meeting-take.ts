@@ -1,8 +1,8 @@
 /**
- * What to take from a meeting, as Apple Intelligence wrote it (native/meeting.swift asks for five headed lists, each
- * line keeping its "[12s]"), read into lists whose lines play from their moment. A recording read again (meeting.ts
- * `readAgain`, filled as a shape since 20 Nov) and a probe's stand-in come already in lists; the headed text stays read
- * for meetings kept before. Null when there is none: the page then shows the lines found instead.
+ * What to take from a meeting, as lists whose lines play from their moment. Since 20 Nov Apple Intelligence fills them
+ * as fields (meeting.ts `readAgain`, as each recording is kept and when one is read again), and a probe's stand-in comes
+ * in lists too; the headed text native/meeting.swift had the model write before (five headed lists, each line keeping
+ * its "[12s]") stays read for meetings kept then. Null when there is none: the page then shows the lines found instead.
  */
 export type TakeLine = { text: string; at: number; owner?: string; date?: string | null }
 export type Take = { summary: string; decisions: TakeLine[]; actions: TakeLine[]; questions: TakeLine[]; missed: TakeLine[]; standIn: boolean }

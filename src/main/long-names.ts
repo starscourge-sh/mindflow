@@ -1,10 +1,10 @@
 import { ipcMain, type BrowserWindow } from 'electron'
 import { changed, database } from './captures'
 import { LABEL } from './book-words'
-import { write } from './write'
+import { titled } from './write'
 import { writeMarkdown } from './backup'
 import { markdown } from './haligtree'
-import { caps } from './understand'
+import { caps, shaped } from './understand'
 import { meets } from './needs'
 import { transcriptLines, type MeetingLine } from './meeting-doc'
 
@@ -34,14 +34,10 @@ type Was = { kind: 'capture' | 'task'; id: string; title: string; body: string |
 type Doc = { type: 'doc'; content?: { type: string; attrs?: Record<string, unknown>; content?: unknown[] }[] }
 const text = (words: string): { type: 'text'; text: string } => ({ type: 'text', text: words })
 
-/** What the model is shown: the long name, and the first words after it. */
+/** What the model is shown: the long name, and the first words after it. Kept only when it is short and new. */
 const askName = async (name: string, more = ''): Promise<string | null> => {
-  const said = await write(
-    'You give a note a short title of two to five words, in its own language, saying what it is about, the way a person would name it. Answer with the title alone: no quotes, no full stop, nothing else.',
-    `${name}\n${more}`.slice(0, 1500), `${name.replace(/(?<=^|\s)#\S+/g, '').trim().split(/\s+/).slice(0, 3).join(' ')} (a stand-in name)`)
-  if ('error' in said) return null
-  const first = said.text.split('\n').find((one) => one.trim()) ?? ''
-  const short = first.replace(/^["“'‘]+|["”'’.]+$/g, '').trim()
+  const said = await titled(name, more)
+  const short = 'error' in said ? '' : String(said.title ?? '').trim()
   return short && short.length <= 60 && !isLong(short) && short.toLowerCase() !== name.toLowerCase() ? short : null
 }
 
@@ -154,12 +150,13 @@ function recorded(id: string): Recorded | null {
 async function topicOf(one: Recorded): Promise<string | null> {
   if (one.event) return one.event
   if (!one.said.trim()) return null
-  const said = await write(
-    'You name a recorded conversation from the start of its transcript, the way a person names a meeting in their calendar: what it was about and, when a name is said, with whom ("Pricing call with Sam", "Launch plan stand-up"). Two to six words, in the transcript\'s own language. Never the words "recording", "transcript" or "conversation". Answer with the name alone: no quotes, no full stop, nothing else.',
-    one.said.slice(0, 1500), `${one.said.replace(/^\[[^\]]*\][^:]*:\s*/, '').split(/\s+/).slice(0, 3).join(' ').replace(/[,.;:!?]+$/, '')} (a stand-in topic)`)
-  if ('error' in said) return null
-  const first = said.text.split('\n').find((line) => line.trim()) ?? ''
-  const topic = first.replace(/^["“'‘]+|["”'’.]+$/g, '').replace(/\s*·\s*/g, ' - ').trim()
+  const said = await shaped<{ topic: string }>(
+    'You name a recorded conversation from the start of its transcript, the way a person names a meeting in their calendar: what it was about and, when a name is said, with whom.',
+    one.said.slice(0, 1500),
+    { type: 'object', properties: [{ name: 'topic', type: 'string', description: 'Two to six words, in the transcript\'s own language, under 56 characters ("Pricing call with Sam", "Launch plan stand-up"). Never the words "recording", "transcript" or "conversation". No quotation marks and no full stop' }] },
+    () => ({ topic: `${one.said.replace(/^\[[^\]]*\][^:]*:\s*/, '').split(/\s+/).slice(0, 3).join(' ').replace(/[,.;:!?]+$/, '')} (a stand-in topic)` }))
+  // The dot is what parts a name from its day and time (saidName), so one in the topic is a dash.
+  const topic = 'error' in said ? '' : String(said.topic ?? '').replace(/\s*·\s*/g, ' - ').trim()
   return topic && topic.length <= 60 && !/^recording\b/i.test(topic) ? topic : null
 }
 

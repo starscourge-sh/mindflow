@@ -8,8 +8,8 @@ import { Orb } from './orb'
 
 /**
  * What Apple Intelligence writes for you on this Mac (main/write.ts), only where
- * the Mac has it: nothing here is drawn at all on a Mac without it (What
- * Haligtree can do says "Needs Apple Intelligence" instead). Always offered,
+ * the Mac has it: nothing here is drawn at all on a Mac without it, nor listed
+ * in What Haligtree can do. Always offered,
  * shown before it is kept, never put in unasked, and said to be written on this Mac.
  */
 
@@ -113,8 +113,8 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
 /** A name for a note that starts with no words of its own (a picture, a recording), from the words further in. */
 export async function nameFor(text: string): Promise<string | null> {
   const said = await window.api.haligtree<Written>('ai:name', text).catch(() => null)
-  // Its first line: the Mac's model may answer a name and then a line on why (group-name.ts cleanName).
-  return said && 'text' in said ? (said.text.split('\n').find((one) => one.trim()) ?? '').trim().replace(/^["“']|["”'.]$/g, '').trim() || null : null
+  // The title field the Mac's model filled (main/write.ts `titled`): a name alone, nothing to read out of it.
+  return said && 'text' in said ? said.text.trim() || null : null
 }
 
 /** The last card of a week's Wrapped: the week in a paragraph, written on this Mac (kept from the Week page). */

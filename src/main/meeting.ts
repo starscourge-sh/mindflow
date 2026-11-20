@@ -381,6 +381,12 @@ async function keep(from: string, noted: Noted, saved: Saved, found: Record<stri
     const line = said.find((line) => Math.abs(line.at - one.at) < 0.05)
     if (line && one.date) dated[line.id] = String(one.date).slice(0, 10)
   }
+  // What to take from it, read by Apple Intelligence as fields it fills (a probe's stand-in comes from the program): the
+  // latest 12,000 characters, about the last quarter hour, within two minutes, as the program's own read was before.
+  if (!take && said.length) {
+    const fresh = await readAgain(said, 12_000, 120_000)
+    if ('take' in fresh) take = fresh.take
+  }
   const read = readTake(take)
   // A probe's stand-in for the model writes the same items a person would (made from the lines, written down plainly).
   const actions = read?.standIn ? foundActions(said, dated).map((one) => ({ ...one, by: 'ai' as const })) : read ? writtenActions(read.actions, said) : foundActions(said, dated)
@@ -541,10 +547,12 @@ type Filled = { summary: string; decisions: Item[]; actions: { owner: string; wh
  * since a long meeting is more than the model takes at once. The summary is the first part's; the lists are every
  * part's. Said plainly when this Mac has no Apple Intelligence, so the page keeps the lines found by rule.
  */
-async function readAgain(lines: MeetingLine[]): Promise<{ take: Record<string, unknown>; actions: ReturnType<typeof writtenActions> } | { unavailable: string } | { failed: string }> {
+async function readAgain(lines: MeetingLine[], most = Infinity, ms = 5 * 60_000): Promise<{ take: Record<string, unknown>; actions: ReturnType<typeof writtenActions> } | { unavailable: string } | { failed: string }> {
   const ai = (await caps()).ai
   if (ai !== 'available') return { unavailable: ai }
-  const said = lines.map((one) => `[${Math.floor(one.at)}s] ${one.who === 'you' ? 'You' : `Speaker ${one.who.slice(1)}`}: ${one.text}`)
+  let said = lines.map((one) => `[${Math.floor(one.at)}s] ${one.who === 'you' ? 'You' : `Speaker ${one.who.slice(1)}`}: ${one.text}`)
+  // `most` characters at most, the latest lines: what a recording just kept is read from while it waits to be kept.
+  for (let size = 0, from = said.length; from > 0; from--) if ((size += said[from - 1].length + 1) > most) { said = said.slice(from); break }
   const parts: string[] = []
   for (const line of said) {
     // 8,000 characters a part: the shape asked for is read by the model too, and the whole must fit what it reads at once.
@@ -556,7 +564,7 @@ async function readAgain(lines: MeetingLine[]): Promise<{ take: Record<string, u
   const list = (value: unknown): Item[] => (Array.isArray(value) ? value : []).filter((one) => typeof one?.text === 'string' && one.text.trim())
     .map((one) => ({ text: one.text.trim(), at: Number(one.at) || 0, ...(typeof one.owner === 'string' && one.owner.trim() ? { owner: one.owner.trim() } : {}) }))
   for (const [n, part] of parts.entries()) {
-    const said = await shaped<Filled>(READ_AGAIN + (n ? ' This is a later part: leave the summary empty.' : ''), part, TAKE, undefined, 5 * 60_000)
+    const said = await shaped<Filled>(READ_AGAIN + (n ? ' This is a later part: leave the summary empty.' : ''), part, TAKE, undefined, ms)
     if ('error' in said) return { failed: said.error }
     if (!n) take.summary = String(said.summary ?? '').trim()
     take.decisions.push(...list(said.decisions))

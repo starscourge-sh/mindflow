@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { database } from './captures'
-import { caps, understand } from './understand'
+import { caps, shaped, understand } from './understand'
 import { num, plural } from './dates'
 
 /**
@@ -34,9 +34,21 @@ export async function write(instructions: string, prompt: string, stand: string)
 
 const PLAIN = 'Write in plain, warm English a student could read. Use only what the notes say; never add facts, names or numbers that are not in them. No lists, no headings, no quotation marks around the answer.'
 
+/**
+ * A note's short title, filled as a field by Apple Intelligence: its long first line and what follows it (long-names.ts),
+ * or the words of a note with none (ai-offers.tsx). A stand-in answers under HALIGTREE_QA_CAPS=ai.
+ */
+export const titled = (name: string, more = ''): Promise<{ title: string } | { error: string }> => shaped<{ title: string }>(
+  'You give a note a short title, the way a person would name it, from its first words and what follows them.',
+  `${name}\n${more}`.trim().slice(0, 1500),
+  { type: 'object', properties: [{ name: 'title', type: 'string', description: 'Two to five words, in the note\'s own language, saying what it is about. Under 56 characters. No quotation marks and no full stop' }] },
+  () => ({ title: `${name.replace(/(?<=^|\s)#\S+/g, '').trim().split(/\s+/).slice(0, 3).join(' ')} (a stand-in name)` }))
+
 /** The most a pick may hold for Writing help: the model reads about this much at once, and a rewrite must see all of it. */
 export const HELP_MOST = 4000
 const KEEP = 'Keep every fact, name and number; never add one. Answer with the rewritten words alone: no preface, no quotation marks around them. Keep the paragraph breaks.'
+/** "Make it a card": asked as two fields (ai:help below). */
+const CARD = 'You write one study flashcard from a passage: a question someone would answer from memory, and its short answer, taken from the passage. Never put the answer in the question; never add a fact that is not in the passage.'
 /** What each Writing help asks of the model, and the stand-in's answer for tests (marked as a stand-in's). */
 const HELP: Record<string, { instructions: string; stand: (words: string, mine: number) => string }> = {
   fix: { instructions: `You fix spelling, punctuation, capitals and the slips of dictation (a doubled word, a wrong homophone) in someone's own writing, and change nothing else: not their words, not their order, not their tone. ${KEEP}`, stand: (words) => `${words} (a stand-in's fix)` },
@@ -44,7 +56,7 @@ const HELP: Record<string, { instructions: string; stand: (words: string, mine: 
   friendlier: { instructions: `You make someone's writing friendlier: the same thought, warmer and kinder, as said to a friend. ${KEEP}`, stand: (words) => `${words} (a stand-in's friendlier)` },
   plainer: { instructions: `You make someone's writing plainer: the same thought in short, everyday words a fourteen-year-old would follow. ${KEEP}`, stand: (words) => `${words} (a stand-in's plainer)` },
   mine: { instructions: `You retell a passage someone copied in their own voice: their words, rhythm and tone, as their own writing in SAMPLES shows it. Say what the passage says, in about as many words. ${KEEP}`, stand: (words, mine) => `${words} (a stand-in's retelling, in the voice of ${plural(mine, 'note')} of yours)` },
-  card: { instructions: 'You write one study flashcard from a passage: a question someone would answer from memory, and its short answer, taken from the passage. Never put the answer in the question; never add a fact that is not in the passage. Answer in this form and nothing else: Q: the question || A: the answer', stand: (words) => `Q: What do these words say? || A: ${words.split(/(?<=[.!?])\s/)[0]}` },
+  card: { instructions: '', stand: () => '' },
   ask: { instructions: 'You turn a passage into one open question its reader could keep thinking about, the kind that gathers clues over months; use only the passage and the NOTE it sits in. Answer with the question alone, ending in a question mark.', stand: (words) => `What follows from “${words.split(/\s+/).slice(0, 6).join(' ')}”? (a stand-in's question)` },
   quote: { instructions: 'You find the one sentence in a passage most worth keeping as a quote. Answer with that sentence alone, copied exactly as it stands in the passage, every word and mark the same.', stand: (words) => [...words.split(/(?<=[.!?])\s+/)].sort((a, b) => b.length - a.length)[0] }
 }
@@ -76,23 +88,23 @@ export function registerWrite(): void {
     return write(`You sum up someone's week from the notes they kept, in one short paragraph of three to five sentences, speaking to them as "you". ${PLAIN}`, notes,
       `This week you kept ${plural(rows.length, 'note')}, among them “${rows[0].title.replace(/[.!?]+$/, '')}”. (Written by a stand-in for Apple Intelligence, for a test.)`)
   })
-  ipcMain.handle('haligtree:ai:name', (_event, text: unknown) => {
+  ipcMain.handle('haligtree:ai:name', async (_event, text: unknown) => {
     const words = String(text ?? '').trim()
     if (words.length < 12) return { error: 'Too few words to name' }
-    return write(`You give a note a short title of two to six words, in the note's own language, saying what it is about. Answer with the title alone. ${PLAIN}`, words,
-      `${words.split(/\s+/).slice(0, 4).join(' ')} (a stand-in name)`)
+    const said = await titled(words)
+    return 'error' in said ? said : { text: said.title }
   })
   // Quick capture's line, where the wording's own rules read no kind: something to do, someone's words, or a note.
-  // One word back, read by the Mac's model; anything else is no reading (null), and the box stays a note.
+  // One of three choices filled by the Mac's model; no answer is no reading (null), and the box stays a note.
   ipcMain.handle('haligtree:ai:kind', async (_event, text: unknown) => {
     const line = String(text ?? '').trim()
     if (line.split(/\s+/).length < 4) return null
     // A test run that stands no model in asks this Mac's none: every quick capture probe would read its lines through it.
     if (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_CAPS) return null
-    const said = await write('You sort a line someone typed into a quick capture box. Answer with one word: "task" if it is something they mean to do (an errand, a job, a thing to send, buy, call, fix, find or finish), "quote" if it is words someone else said or wrote, or "note" for anything else (an idea, a thought, a fact). Nothing else.',
-      line.slice(0, 400), process.env.HALIGTREE_QA_KIND ?? 'note')
-    const word = 'text' in said ? said.text.toLowerCase().match(/\b(task|quote|note)\b/)?.[1] : null
-    return word === 'task' ? 'todo' : word === 'quote' ? 'quote' : null
+    const said = await shaped<{ kind: string }>('You sort a line someone typed into a quick capture box.', line.slice(0, 400),
+      { type: 'object', properties: [{ name: 'kind', type: 'string', choices: ['task', 'quote', 'note'], description: 'task: something they mean to do (an errand, a job, a thing to send, buy, call, fix, find or finish). quote: words someone else said or wrote. note: anything else (an idea, a thought, a fact)' }] },
+      () => ({ kind: process.env.HALIGTREE_QA_KIND ?? 'note' }))
+    return 'error' in said ? null : said.kind === 'task' ? 'todo' : said.kind === 'quote' ? 'quote' : null
   })
   ipcMain.handle('haligtree:ai:why', (_event, question: unknown, note: unknown) =>
     write(`You say in one short sentence why a note may help answer a question, or plainly that it may not. ${PLAIN}`, `Question: ${String(question ?? '')}\nNote: ${String(note ?? '').slice(0, 1500)}`,
@@ -117,14 +129,20 @@ export function registerWrite(): void {
     if (op === 'mine' && !mine.length) return { error: 'None of your own notes to learn your voice from yet: write a few, then ask again' }
     const prompt = op === 'mine' ? `SAMPLES:\n${mine.join('\n---\n')}\n\nPASSAGE:\n${words}`
       : op === 'ask' ? `NOTE:\n${String(note ?? '').slice(0, 3000)}\n\nPASSAGE:\n${words}` : words
+    // A card is two fields the model fills, never a "Q: … || A: …" line read back.
+    if (op === 'card') {
+      const card = await shaped<{ question: string; answer: string }>(CARD, words, { type: 'object', properties: [
+        { name: 'question', type: 'string', description: 'A question someone would answer from memory, without its answer in it' },
+        { name: 'answer', type: 'string', description: 'Its short answer, taken from the passage' }
+      ] }, () => ({ question: 'What do these words say?', answer: words.split(/(?<=[.!?])\s/)[0] }))
+      if ('error' in card) return card
+      const question = String(card.question ?? '').trim(), answer = String(card.answer ?? '').trim()
+      return question && answer ? { question, answer } : { error: 'Apple Intelligence did not write a question and answer' }
+    }
     const said = await write(help.instructions, prompt, help.stand(words, mine.length))
     if ('error' in said) return said
     const answer = said.text.replace(/^["“'‘]+|["”'’]+$/g, '').trim()
     if (!answer) return { error: 'Apple Intelligence gave no answer' }
-    if (op === 'card') {
-      const shape = /Q:\s*(.+?)\s*\|\|\s*A:\s*(.+)/s.exec(answer)
-      return shape ? { question: shape[1].trim(), answer: shape[2].trim() } : { error: 'Apple Intelligence did not write a question and answer' }
-    }
     if (op === 'quote') return { text: lineIn(words, answer) }
     if (answer === words) return { error: op === 'fix' ? 'Nothing to fix: Apple Intelligence found it right as it is' : 'It came back the same as your words' }
     return { text: answer }
