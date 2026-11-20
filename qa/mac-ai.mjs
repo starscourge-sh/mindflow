@@ -68,11 +68,12 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
     const named = await h.evaluate(() => [...document.querySelectorAll('[data-offer-clue] [data-offer-note]')].slice(0, 3).map((one) => one.textContent.trim()))
     check(`${level}: the question's notes ${ai ? 'come with one sentence from them, naming them, written on this Mac' : 'come alone, no answer line'}`,
       ai ? /stand-in's answer/.test(answer ?? '') && named.every((title) => (answer ?? '').includes(`“${title}”`)) && /written on this Mac/.test(answer ?? '') : answer === null, `${answer} | ${named.join(' / ')}`)
-    // Shown whole (19 Nov): the room held for two lines opens to the answer's own height, never cut with "…". One answer and a why line per clue shown (offers-about.tsx: WhyLine in each clue), so two or more.
+    // Held to two lines for good (20 Nov), so nothing under them moves when the Mac's words come in late: a longer one
+    // ends in "…", whole on pointing (its title). One answer and a why line per clue shown, so two or more.
     if (ai) {
       await wait(400)
-      const whole = await h.evaluate(() => [...document.querySelectorAll('[data-ai-answer], [data-ai-why]')].map((one) => ({ clamp: getComputedStyle(one.querySelector('span') ?? one).webkitLineClamp, cut: one.scrollHeight > one.clientHeight + 1 })))
-      check(`${level}: the answer and the why line show whole, never cut to two lines`, whole.length >= 2 && whole.every((one) => (one.clamp === 'none' || !one.clamp) && !one.cut), JSON.stringify(whole))
+      const held = await h.evaluate(() => [...document.querySelectorAll('[data-ai-answer], [data-ai-why]')].map((one) => ({ lines: one.clientHeight / parseFloat(getComputedStyle(one).lineHeight), whole: one.title === one.textContent.trim() })))
+      check(`${level}: the answer and the why line keep two lines, the whole words on pointing`, held.length >= 2 && held.every((one) => Math.abs(one.lines - 2) < 0.1 && one.whole), JSON.stringify(held))
     }
     if (ai && process.env.SHOT) await c.both(`${process.env.SHOT}/ai-why`)
     // What Haligtree can do.

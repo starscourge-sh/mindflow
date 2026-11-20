@@ -51,25 +51,11 @@ export function WeekParagraph({ monday, had, onKeep }: { monday: string; had: st
 }
 
 /**
- * The room an answer written on this Mac is held in: two lines from the first frame, then its own height once its
- * words are in, the height eased (interpolate-size lets `auto` ease) so the lines under it glide down rather than jump.
- * With Reduce motion, or Motion off, it is simply its height.
+ * The room an answer written on this Mac is held in: two lines, from the first frame and for good, so nothing under it
+ * ever moves when the words come in (this Mac may take seconds). Longer words end in "…", whole on pointing (`title`).
  */
-const WORDS_ROOM = 'overflow-hidden [interpolate-size:allow-keywords] transition-[height] duration-200 ease-(--mf-ease) motion-reduce:transition-none [[data-motion=off]_&]:transition-none'
-
-/**
- * The page holds its first drawing a moment for this Mac's words (1.2 s at most), so they come in with it, whole, and
- * nothing under them moves as they open their room. Past that, the held room shows the orb and eases open after.
- */
-function useWordsWait(waiting: boolean): void {
-  const [late, setLate] = useState(false)
-  useEffect(() => {
-    if (!waiting) return
-    const wait = setTimeout(() => setLate(true), 1200)
-    return () => clearTimeout(wait)
-  }, [waiting])
-  useReading(waiting && !late)
-}
+const WORDS_ROOM = 'h-[2lh] overflow-hidden'
+const WORDS_CUT = 'block line-clamp-2'
 
 /** Under a clue offered for a question: one line on why it may help, written on this Mac. */
 export function WhyLine({ question, note }: { question: string; note: string }): React.JSX.Element | null {
@@ -85,14 +71,12 @@ export function WhyLine({ question, note }: { question: string; note: string }):
     void window.api.haligtree<Written>('ai:why', question, note).then((one) => live && setSaid(one), (error: Error) => live && setSaid({ error: error.message }))
     return () => void (live = false)
   }, [has, question, note])
-  useWordsWait(has && said === null)
   if (!has) return null
-  // Two lines held from the first frame: the orb while this Mac writes, then its words in that room, whole: a longer
-  // answer opens the room to its own height, eased, so what is under it moves on smoothly and never jumps (WORDS_ROOM).
+  // Two lines held from the first frame: the orb while this Mac writes, then its words in that same room (WORDS_ROOM).
   const words = said && 'text' in said ? `${said.text} Written on this Mac.` : said ? `Not written: ${said.error}.` : null
   return (
-    <p data-mac-needs="ai" data-ai-why data-room-held className={`${WORDS_ROOM} ${words === null ? 'h-[2lh]' : 'h-auto min-h-[2lh]'} text-meta text-muted-foreground`}>
-      {words === null ? <Orb label="Asking this Mac why…" /> : <span><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{words}</span>}
+    <p data-mac-needs="ai" data-ai-why data-room-held title={words ?? undefined} className={`${WORDS_ROOM} text-meta text-muted-foreground`}>
+      {words === null ? <Orb label="Asking this Mac why…" /> : <span className={WORDS_CUT}><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{words}</span>}
     </p>
   )
 }
@@ -114,16 +98,14 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
     void window.api.haligtree<Written>('ai:answer', question, asked).then((one) => live && setSaid(one), (error: Error) => live && setSaid({ error: error.message }))
     return () => void (live = false)
   }, [has, question, asked.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
-  useWordsWait(has && said === null)
   if (!has) return null
   const from = [...new Set(notes.map((one) => one.title))].slice(0, 3).map((title) => `“${title}”`)
   const named = from.length > 1 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from[0]
   const words = said && 'text' in said ? `${said.text} From ${named}, written on this Mac.` : said ? `Not answered: ${said.error}.` : null
   return (
-    // Two lines held from the first frame, as WhyLine holds its room: the orb while this Mac writes, then the answer
-    // whole, the room opening to it eased (WORDS_ROOM): it was cut to two lines with "…", the rest only on pointing.
-    <p data-mac-needs="ai" data-ai-answer data-room-held className={`mt-1 ${WORDS_ROOM} ${words === null ? 'h-[2lh]' : 'h-auto min-h-[2lh]'} text-body text-foreground`}>
-      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
+    // Two lines held from the first frame, as WhyLine holds its room: the orb while this Mac writes, then the answer.
+    <p data-mac-needs="ai" data-ai-answer data-room-held title={words ?? undefined} className={`mt-1 ${WORDS_ROOM} text-body text-foreground`}>
+      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span className={WORDS_CUT}><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
     </p>
   )
 }
