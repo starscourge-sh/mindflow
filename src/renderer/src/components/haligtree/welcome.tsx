@@ -9,12 +9,12 @@ import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
-import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Compass, CornerDownLeft, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
 import { useFitPicture, useFitText } from '@/lib/fit-text'
 import { shift, spring, still, still as calm } from '@/lib/motion'
-import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
+import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -34,8 +34,8 @@ import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { Grainient, INTRO_DELAY, INTRO_SECONDS, SPARK_HOLD, type GrainientHandle } from '@/components/ui/grainient'
-import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
-import { CURSOR_MS, FLOW_START, flowEnd, flowParts, flowWords, FlowTree, PICKS, type FlowShot, type Pick } from './welcome-flow'
+import { Grants, PLAN_WORDS, PlanCard, Tiles } from './welcome-steps'
+import { flowWords } from './welcome-flow'
 import {
   CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, quoteNow, Rise, Caught, Stage,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
@@ -54,29 +54,34 @@ import { APP_NAME } from '../../../../main/name'
  *   3 Catch: the key goes down, the box opens; the thought, a line from the
  *     film (its source read) and a plan to see it again (its day read) are
  *     caught; the kinds there are; then your turn
- *   4 Write: the thought becomes a long note; a line of it a task, another a
- *     gem kept as it is, and the last a gem with a question
- *   5 Remember: the task on the desktop, the plain gem in the Feed and the
- *     other's question in Review, the quote a year on as a postcard
+ *   4 Out of the box: a tile for each thing it does from the first day, each
+ *     playing its own small demo in turn (power-demos.tsx, as the Powers page)
+ *   5 Permissions: what macOS must allow, each asked for in place, its state live
  *   6 Make it yours: the theme dial
  *   7 Name it: your book's name, on its reader card
- *   8 Ready: start, the sandbox, or your notes
+ *   8 Plan: a placeholder for the plan and its trial, to be written
+ *   9 Your notes: bring them in from Obsidian, Apple Notes or files
+ *  10 Ready: start, or the sandbox
  *
- * Any key or click while a chapter plays settles it at its end; the next
- * press moves on. Esc settles a chapter, and never goes back a page. Motion off or
+ * A row of short marks bottom left says where you are (each one a way to that
+ * step), Back is the round button before them, Continue bottom right. ↵ goes
+ * on, ⇧↵ and ← go back, Esc asks before leaving. Any key or click while a
+ * chapter plays settles it at its end; the next press moves on. Motion off or
  * Reduce motion: every chapter arrives settled, with fades only.
  */
 
 // Why first: the whole idea in one screen, so someone who stops there still has it.
-const CHAPTERS = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Name it', 'Ready']
+const CHAPTERS = ['Why', 'You', 'Catch', 'Out of the box', 'Permissions', 'Make it yours', 'Name it', 'Plan', 'Your notes', 'Ready']
 const WHY = 1
 const YOU = 2
 const CATCH = 3
-const WRITE = 4
-const BACK = 5
+const TOUR = 4
+const GRANTS = 5
 const DIAL = 6
 const NAME = 7
-const LAST = 8
+const PLAN = 8
+const NOTES = 9
+const LAST = 10
 const EASE = ENTER
 /** The name a book has until it is given one (main/books.ts, DEFAULT_NAME). */
 const DEFAULT_BOOK = 'My book'
@@ -316,10 +321,12 @@ export function Welcome(): React.JSX.Element | null {
   const go = (to: number, backward = false): void => {
     if (to < WHY || to > LAST || performance.now() - pressedAt.current < 400) return
     pressedAt.current = performance.now()
+    setAsking(false)
     // A page of the book turned, heard as one.
     pageTurn(true)
     setTurning(backward ? -1 : 1)
-    if (backward) trail.current.pop()
+    // Back, by key or by a mark further left: every page seen after the one gone to drops off the way back.
+    if (backward) trail.current = trail.current.filter((one) => one < to)
     else trail.current.push(at)
     // Quick capture never stays up over a page it was not opened for.
     if (turn === 'open') window.api.hidePrompt()
@@ -353,7 +360,6 @@ export function Welcome(): React.JSX.Element | null {
     setTurn('idle')
     setMine(null)
     setSkipped(false)
-    setImporting(false)
     setReplay(again)
     // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
     reel.current = { done: true, settle: () => undefined }
@@ -591,7 +597,6 @@ export function Welcome(): React.JSX.Element | null {
   // Back returns to the screen seen just before, as it was left: an earlier part of this page first, then the page before (the one skipped from, after a skip).
   const back = (): void => {
     if (reel.current.less?.()) return void chime('page')
-    if (at === LAST && importing) return (chime('page'), setImporting(false))
     const to = trail.current[trail.current.length - 1] ?? at - 1
     if (at <= WHY || to < WHY) return void chime('nope')
     if (at === LAST) setSkipped(false)
@@ -604,19 +609,20 @@ export function Welcome(): React.JSX.Element | null {
     window.api.showPrompt()
   }
 
-  const [importing, setImporting] = useState(false)
   // Leaving for the sandbox: shown, but nothing in it answers any more.
   const [opening, setOpening] = useState(false)
-  const start = (choice: 1 | 2 | 3): void => {
+  // Esc pressed with nothing playing: whether to leave the welcome, asked over the footer.
+  const [asking, setAsking] = useState(false)
+  const start = (choice: 1 | 2): void => {
     if (choice === 1) return leave('fresh')
     // Played in the sandbox already (tried from Settings or ⌘K): its notes are the examples.
-    if (choice === 2) return leave(SANDBOX ? 'fresh' : 'sandbox')
-    if (!importing) {
-      chime('tap')
-      return setImporting(true)
-    }
+    leave(SANDBOX ? 'fresh' : 'sandbox')
+  }
+  // Your notes, brought in now: the welcome ends into your book, where the importer opens (Apple Notes' folders are
+  // chosen in the main window's own sheet, under the welcome until it goes).
+  const bringIn = (what: 'vault' | 'files' | 'apple-notes'): void => {
     leave('notes')
-    void window.api.importFrom('vault')
+    void window.api.importFrom(what)
   }
 
   const primary = (): void => {
@@ -650,6 +656,13 @@ export function Welcome(): React.JSX.Element | null {
         }
         return
       }
+      // Asked whether to leave: ↵ leaves, Esc stays, and nothing else answers until it is answered.
+      if (asking) {
+        if (event.key === 'Enter') leave('closed')
+        if (event.key === 'Enter' || event.key === 'Escape') setAsking(false)
+        if (event.key === 'Enter' || event.key === 'Escape' || !event.metaKey) (event.preventDefault(), event.stopPropagation())
+        return
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (target?.closest?.('input, textarea, [contenteditable="true"]')) return
       // A focused button answers its own Enter and Space.
@@ -657,19 +670,22 @@ export function Welcome(): React.JSX.Element | null {
       if (button) return
       if (event.key === 'Escape') {
         // Esc puts the box away if it is up, or settles a chapter that is
-        // playing. It never goes back a page (← does), and skipping the
-        // welcome is a button only.
+        // playing. With nothing left to settle it asks before leaving: one
+        // stray Esc never throws the welcome away. It never goes back a page (← does).
         if (turn === 'open') window.api.hidePrompt()
         else if (veiled) rush()
         else if (performance.now() - awayAt.current < 1000) undefined
-        else if (!reel.current.waiting) settled()
+        else if (!reel.current.done && !reel.current.waiting) settled()
+        else (chime('open'), setAsking(true))
       } else if (event.key === 'Enter' && veiled) rush()
+      // ⇧↵ goes back, as ← does; ↵ goes on.
+      else if (event.key === 'Enter' && event.shiftKey) back()
       else if (event.key === 'Enter') primary()
       else if (event.key === 'ArrowRight' || event.key === ' ') {
         if (at !== LAST) next()
       } else if (event.key === 'ArrowLeft') back()
-      // The two cards' keys, 1 and 2, as they show them: "Open my book" is ↵ (it said 2 and 3 with no 1 anywhere, 17 Nov).
-      else if (at === LAST && /^[12]$/.test(event.key)) start((Number(event.key) + 1) as 2 | 3)
+      // The sandbox card's key, 1, as it shows it: "Open my book" is ↵.
+      else if (at === LAST && event.key === '1') start(2)
       else if (at === DIAL && reel.current.done && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         const dial = document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')
         if (!dial || dial.contains(target)) return
@@ -738,7 +754,7 @@ export function Welcome(): React.JSX.Element | null {
           the dark deep end on the right the user called "mud on the right" (15 Nov). */}
       <div ref={plate} data-plate="" className="absolute inset-0 bg-background"
         style={scened && !swept ? { transform: 'translateX(calc(-100% - 18rem))' } : undefined}>
-        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={!scened && mist && veiled && at === WHY} desk={!!scened} held={false} onBloomed={bloom} />
+        <Backdrop family={at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={!scened && mist && veiled && at === WHY} desk={!!scened} held={false} onBloomed={bloom} />
         {/* Its leading edge feathered into the haze as it comes, never a hard line crossing the window; the feather
             ends past the window's right edge once the page is in, so nothing pops as it goes. */}
         {scened && !swept && <div aria-hidden className="pointer-events-none absolute inset-y-0 left-full w-[18rem] bg-[linear-gradient(90deg,var(--background),transparent)]" />}
@@ -748,7 +764,7 @@ export function Welcome(): React.JSX.Element | null {
           dial's page and the last, a slow stream of them is drawn in and sinks behind the dial's ring or
           the recommended way in, quicker and with the wind louder as the pointer nears it. */}
       {/* Not with the ember gradient: it is the movement there. */}
-      {WELCOME_BACKGROUND === 'paper' && <WelcomeLeaves on={at === WHY && play} open={play} motes={at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing}
+      {WELCOME_BACKGROUND === 'paper' && <WelcomeLeaves on={at === WHY && play} open={play} motes={at !== DIAL} middle={0.3} gather={at === LAST && !closing}
         lure={closing ? null : at === LAST ? '.mf-welcome [data-recommended]' : at === DIAL ? '.mf-welcome [role="slider"][aria-label="Theme"]' : null} />}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
@@ -770,12 +786,14 @@ export function Welcome(): React.JSX.Element | null {
               {at === WHY && !veiled && <ThesisChapter play={play} report={report} />}
               {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} paid={paid} onPaid={setPaid} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} turn={turn} mine={mine} />}
-              {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
-              {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
+              {at === TOUR && <TourChapter play={play} report={report} />}
+              {at === GRANTS && <GrantsChapter play={play} report={report} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
               {at === NAME && <NameChapter play={play} report={report} onNext={next} save={nameSave} />}
+              {at === PLAN && <PlanChapter play={play} report={report} />}
+              {at === NOTES && <NotesChapter play={play} report={report} setup={setup} onImport={bringIn} />}
               {at === LAST && <WelcomeStamp still={!play} />}
-              {at === LAST && <Start state={state} onState={setState} name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
+              {at === LAST && <Start state={state} onState={setState} name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} still={!play} onPick={start} setup={setup} />}
             </motion.section>
           </AnimatePresence>
         </main>
@@ -801,7 +819,7 @@ export function Welcome(): React.JSX.Element | null {
         )}
         <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity ${closing ? 'duration-300' : 'duration-1000'} ${veiled || closing ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
           <div className="mr-auto flex min-w-0 items-center gap-[clamp(0.5rem,2vw,1.5rem)]">
-            <Progress at={at} seen={played} onBack={back} />
+            <Progress at={at} seen={played} onBack={back} onGo={(to) => (to === at ? undefined : go(to, to < at))} />
             {/* The ways past a page sit with Back and the marks, far from the arrow, so the arrow only ever points from nothing to Next.
                 Worded alike: Skip the welcome, or, on Your turn, Skip trying it. */}
             {/* Always a way out, on every page until the welcome ends, whatever was caught on the way. */}
@@ -817,7 +835,10 @@ export function Welcome(): React.JSX.Element | null {
             )}
           </div>
           <AnimatePresence>
-            {held && (
+            {asking && <LeaveAsk key="ask" onStay={() => (chime('tap'), setAsking(false))} onLeave={() => (setAsking(false), leave('closed'))} />}
+          </AnimatePresence>
+          <AnimatePresence>
+            {held && !asking && (
               <motion.p role="status" className="absolute left-1/2 -translate-x-1/2 text-[0.875rem] whitespace-nowrap text-(--mf-wl-body)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: spring.fast.exit }}>
                 That waits until the welcome is done.
               </motion.p>
@@ -827,7 +848,7 @@ export function Welcome(): React.JSX.Element | null {
           <NextArrow on={at === LAST || cue.done || !!cue.waiting} page={at} quiet={quiet} />
           {at < LAST && (trying
             ? <Primary onClick={openBox} keys={<BoxKeys />}>Try it in quick capture</Primary>
-            : <Primary onClick={next} wait={cue.done || cue.waiting ? null : cue.part ?? { from: 0, to: 0 }}>{cue.label ?? (at === WHY ? 'Show me' : 'Next')}</Primary>)}
+            : <Primary onClick={next} wait={cue.done || cue.waiting ? null : cue.part ?? { from: 0, to: 0 }}>{cue.label ?? (at === WHY ? 'Get started' : 'Continue')}</Primary>)}
           {/* Says where it goes: the highlighted card is a choice of its own (2), never what this opens. */}
           {at === LAST && <Primary onClick={() => start(1)}>Open my book</Primary>}
         </footer>
@@ -914,28 +935,35 @@ function Finale({ name, carry, onRisen }: { name: string; /** The window has gro
 }
 
 /**
- * Where you are, said quietly: Back, a short mark a chapter, the one you are
- * in drawn longer, and its name. The prologue has no number.
+ * Where you are, said quietly: a round Back, then a short mark a chapter, the
+ * one you are in drawn longer and in gold, and its name. Each mark is a way
+ * to its chapter. The prologue has no number.
  */
-function Progress({ at, seen, onBack }: { at: number; /** The chapters already shown: one skipped past stays faint. */ seen: Set<number>; onBack: () => void }): React.JSX.Element {
+function Progress({ at, seen, onBack, onGo }: { at: number; /** The chapters already shown: one skipped past stays faint. */ seen: Set<number>; onBack: () => void; onGo: (to: number) => void }): React.JSX.Element {
   return (
     <div className="flex items-center gap-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet)">
       <span className="sr-only">{at > 0 ? `Chapter ${at} of ${CHAPTERS.length}: ${CHAPTERS[at - 1]}` : 'Welcome'}</span>
       {/* Nothing comes before the first page: Back keeps its place there, unseen, so the marks never shift. */}
-      <button type="button" onClick={onBack} tabIndex={at > WHY ? 0 : -1} aria-hidden={at > WHY ? undefined : true}
+      <button type="button" data-back onClick={onBack} tabIndex={at > WHY ? 0 : -1} aria-hidden={at > WHY ? undefined : true} aria-label="Back"
         // Come to the second page, it blobs into being where it was kept: from 90%, soft and clear, to its size, a touch past and back, in 260ms.
-        className={`-ml-3 flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center rounded-[0.6rem] px-3 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97] motion-reduce:transition-none ${at > WHY ? '' : 'invisible scale-[0.9] opacity-0 blur-[2px]'}`}
+        className={`flex size-[clamp(2rem,4.2vmin,2.5rem)] shrink-0 items-center justify-center rounded-full border border-foreground/12 bg-popover text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--foreground)_5%,var(--popover))] active:scale-[0.94] motion-reduce:transition-none ${at > WHY ? '' : 'invisible scale-[0.9] opacity-0 blur-[2px]'}`}
         style={{ transition: still() ? 'none' : 'visibility 260ms linear, opacity 200ms var(--mf-ease), scale 260ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 200ms var(--mf-ease), background-color 150ms ease, color 150ms ease' }}>
-        Back
+        <ArrowLeft className="size-4" strokeWidth={2} />
       </button>
       {/* Narrower still (the smallest window), the marks make room too, so the skip link is never under the way on. */}
-      <span aria-hidden className="flex items-center gap-1 [@container(max-width:680px)]:hidden">
-        {CHAPTERS.map((_, i) => (
-          <motion.span key={i} className="h-[3px] w-5 origin-left rounded-full bg-foreground" initial={false}
-            animate={{ opacity: i + 1 === at ? 0.85 : seen.has(i + 1) ? 0.4 : 0.14, scaleX: i + 1 === at ? 1 : 0.55 }} transition={spring.moderate} />
+      <span data-marks className="flex items-center [@container(max-width:680px)]:hidden">
+        {CHAPTERS.map((name, i) => (
+          // Each mark is a button the height of a finger, its line drawn in the middle: easy to hit, quiet to look at.
+          <button key={name} type="button" data-mark-to={i + 1} aria-label={`${name}${i + 1 === at ? ', here' : ''}`} aria-current={i + 1 === at ? 'step' : undefined} onClick={() => onGo(i + 1)}
+            // A click leaves the keys where they were: ↵ after it still means Continue, not this mark again.
+            tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className="flex h-7 items-center px-[3px]">
+            <motion.span className="block h-[3px] w-5 origin-left rounded-full" initial={false}
+              animate={{ opacity: i + 1 === at ? 1 : seen.has(i + 1) ? 0.4 : 0.16, scaleX: i + 1 === at ? 1 : 0.55, backgroundColor: i + 1 === at ? 'var(--primary)' : 'var(--foreground)' }} transition={spring.moderate}
+              whileHover={{ opacity: i + 1 === at ? 1 : 0.7 }} />
+          </button>
         ))}
       </span>
-      {/* Narrow, the marks alone say where you are: the name makes room, so the skip link never crowds the arrow beside Next. */}
+      {/* Narrow, the marks alone say where you are: the name makes room, so the skip link never crowds the arrow beside Continue. */}
       <span aria-hidden className="relative inline-flex h-[1.3em] min-w-[8rem] overflow-hidden [@container(max-width:960px)]:hidden">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span key={at} className="text-foreground" initial={{ opacity: 0, transform: shift('translateY(100%)') }} animate={{ opacity: 1, transform: shift('translateY(0%)') }} exit={{ opacity: 0, transform: shift('translateY(-100%)') }} transition={{ duration: 0.24, ease: EASE }}>
@@ -947,15 +975,36 @@ function Progress({ at, seen, onBack }: { at: number; /** The chapters already s
   )
 }
 
+/** Esc with nothing playing: whether to leave, asked over the footer's middle. ↵ leaves, Esc stays. */
+function LeaveAsk({ onStay, onLeave }: { onStay: () => void; onLeave: () => void }): React.JSX.Element {
+  return (
+    <motion.div role="alertdialog" aria-label="Leave the welcome?" data-leave-ask
+      className="absolute bottom-[calc(100%+0.5rem)] left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-foreground/12 bg-popover py-2 pr-2 pl-4 text-popover-foreground shadow-(--mf-panel-shadow)"
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4, transition: spring.fast.exit }} transition={spring.fast}>
+      <span className="flex flex-col">
+        <span className="text-[0.9375rem] font-medium whitespace-nowrap text-foreground">Leave the welcome?</span>
+        <span className="text-[0.875rem] whitespace-nowrap text-(--mf-wl-body)">It waits in the {APP_NAME} menu and ⌘K.</span>
+      </span>
+      <button type="button" data-leave-stay onClick={onStay} className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[0.875rem] text-foreground hover:bg-foreground/[0.06]">
+        Stay <Kbd className="h-5 min-w-5 text-[0.6875rem]">esc</Kbd>
+      </button>
+      <button type="button" data-leave-go onClick={onLeave} className="flex h-8 items-center gap-1.5 rounded-lg bg-foreground/[0.07] px-2.5 text-[0.875rem] font-medium text-foreground hover:bg-foreground/[0.11]">
+        Leave <Kbd className="h-5 min-w-5"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd>
+      </button>
+    </motion.div>
+  )
+}
+
 /**
  * A chapter's words: the headline and the one line under it, top left, there
  * from the start and never moving or dimming, so they can be read while the
  * stage below waits (each chapter's demo starts once they have been read,
  * `lead`). Each word of the headline rises once, in place.
  */
-function Words({ title, still, done, wide = false, children }: { title: string; docked?: boolean; still: boolean; done: boolean; tight?: boolean; /** A longer line, kept to two lines on a wide window. */ wide?: boolean; children?: ReactNode }): React.JSX.Element {
+function Words({ title, still, done, wide = false, tag, children }: { title: string; docked?: boolean; still: boolean; done: boolean; tight?: boolean; /** A longer line, kept to two lines on a wide window. */ wide?: boolean; /** What part of the welcome this is, a small gold tag over the title ("Out of the box", "Permissions"). */ tag?: string; children?: ReactNode }): React.JSX.Element {
   return (
     <div data-reel={done ? 'done' : 'playing'} data-words className="relative z-20 flex max-w-[60rem] shrink-0 flex-col gap-[clamp(0.375rem,1.2vh,0.75rem)] pb-[clamp(0.5rem,2vh,1.25rem)]">
+      {tag && <Tag>{tag}</Tag>}
       <h1 className={DOCKED}>
         <Rise text={title} still={still} />
       </h1>
@@ -969,6 +1018,15 @@ function Words({ title, still, done, wide = false, children }: { title: string; 
         </motion.div>
       )}
     </div>
+  )
+}
+
+/** A step's small tag over its title, in the welcome's gold: what part of the welcome it is. */
+function Tag({ children }: { children: ReactNode }): React.JSX.Element {
+  return (
+    <span data-step-tag className="w-fit rounded-full bg-[color-mix(in_oklab,var(--primary)_16%,transparent)] px-2.5 py-0.5 text-[0.8125rem] leading-5 font-semibold text-[color-mix(in_oklab,var(--primary)_80%,var(--foreground))]">
+      {children}
+    </span>
   )
 }
 
@@ -1190,7 +1248,7 @@ function YouChapter({ setup, onChange, still, report, paid, onPaid: setPaid }: {
   })
   return (
     <>
-      <Words key={paid ? 'paid' : 'ask'} title={paid ? `${APP_NAME} is shaped for you now.` : `Tell ${APP_NAME} a little about you.`} docked still={still} done>
+      <Words key={paid ? 'paid' : 'ask'} tag="About you" title={paid ? `${APP_NAME} is shaped for you now.` : `Tell ${APP_NAME} a little about you.`} docked still={still} done>
         {paid ? 'Here is what that means for you.' : 'So it starts out shaped for you. Skip any question.'}
       </Words>
       <div ref={stage} className="mf-more relative flex min-h-0 flex-1 flex-col justify-center-safe overflow-y-auto pb-2">
@@ -1479,7 +1537,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   }
   return (
     <>
-      <Words title="Catch it before it goes." still={!play} done={show.done}>
+      <Words tag="Quick capture" title="Catch it before it goes." still={!play} done={show.done}>
         {state?.boxTaken || choosing ? (
           <KeyPicker taken={!!state?.boxTaken} onState={onState} />
         ) : (
@@ -1542,115 +1600,57 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   )
 }
 
-// --- 4 Write ------------------------------------------------------------------------
-
-const WRITE_TITLE = 'Write it out.'
-const WRITE_LINE = 'What you catch waits in your Inbox. When it needs room, write it out as a page, then pick out a line to make it a task or a gem.'
+// --- 4 Out of the box, 5 Permissions, 8 Plan, 9 Your notes -----------------------------
 
 /**
- * The thought caught in Catch, written out a key at a time; then, in real
- * milliseconds: "New page" is pressed and it is written out as a page, its
- * title typed and its lines one after another; the pointer selects one line, presses
- * "Make a task", and the task lands with its day; another line, "Make a gem",
- * and a plain gem lands; the last line, "Make a gem" again, and the gem
- * with a question lands, its question typed in; then the closing line.
- * Each card lands with its own words under it, so nothing waits to be said.
+ * A step in two parts, as one: its words in a column on the left (the tag, the title, one line), and on the
+ * right what it is about, shown rather than told (welcome-steps.tsx). One column on a narrow window.
  */
-function writeBeats(): Beat<FlowShot>[] {
-  const random = seeded(31)
-  const beats: Beat<FlowShot>[] = [{ at: 0, to: {} }]
-  // The thought is written first, a key at a time, as it was on the walk; only then does it grow into a note.
-  const written = typed<FlowShot>(flowWords().caught, 400, (sofar) => ({ caught: sofar }), random, 0.9, 1700)
-  beats.push(...written.beats)
-  // You choose to write about it: "New page" comes up beside the capture, the pointer presses it, and the page opens
-  // with the thought as its title, typed, then its lines written in one after another. Writing at length, not a copy.
-  const offer = written.end + 600
-  beats.push({ at: offer, to: { newPage: 'shown' } })
-  beats.push({ at: offer + 250, to: { cursor: { line: 'page', to: 'button' } } })
-  const press = offer + 250 + CURSOR_MS.button + 260
-  beats.push({ at: press, to: { pressed: true }, cue: () => click('tick') })
-  beats.push({ at: press + 170, to: { pressed: false, newPage: 'off', cursor: null, shown: 2 }, cue: cue('slide') })
-  const title = typed<FlowShot>(flowWords().note, press + 600, (sofar) => ({ title: sofar }), random, 0.85, 1400)
-  beats.push(...title.beats)
-  let line = title.end + 350
-  for (let n = 1; n <= flowParts(); n++) (beats.push({ at: line, to: { body: n }, cue: () => click('soft') }), (line += 420))
-  const grows = line
-  // You pick a line: the pointer comes to its start, drags across it (the selection grows with it), its one action
-  // shows beside the selection, the pointer presses it, and only then is the line marked and what it becomes set down.
-  const pick = (t: number, line: Pick, shown: number, sound: () => void): number => {
-    const dragAt = t + CURSOR_MS.travel + 60
-    const barAt = dragAt + CURSOR_MS.drag + 40
-    const pressAt = barAt + 180 + CURSOR_MS.button + 40
-    beats.push({ at: t, to: { cursor: { line, to: 'start' } } })
-    beats.push({ at: dragAt, to: { cursor: { line, to: 'end' }, picked: line, pressed: false }, cue: () => click('soft') })
-    beats.push({ at: barAt, to: { bar: true } })
-    beats.push({ at: barAt + 180, to: { cursor: { line, to: 'button' } } })
-    beats.push({ at: pressAt, to: { pressed: true }, cue: () => click('tick') })
-    beats.push({ at: pressAt + 160, to: { picked: null, bar: false, pressed: false, lit: PICKS.indexOf(line) + 1, shown }, cue: sound })
-    return pressAt + 160
-  }
-  let t = pick(grows + 500, 'task', 3, cue('tag'))
-  // Two gems: one kept as it is, then the last sentence, which takes a question.
-  t = pick(t + 450, 'kept', 4, cue('promote'))
-  t = pick(t + 450, 'gem', 5, cue('promote'))
-  // The pointer steps away once the gem is made: what is left is yours.
-  beats.push({ at: t + 500, to: { cursor: null } })
-  const question = typed<FlowShot>(flowWords().question, t + 450, (sofar) => ({ question: sofar }), random, 0.75, 1500)
-  beats.push(...question.beats)
-  beats.push({ at: question.end + 500, to: { last: true }, cue: cue('settled') })
-  // The closing line stays up: it is read while Next waits.
-  beats.push({ at: question.end + 1100, to: {} })
-  return beats
-}
-
-function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
-  const [beats] = useState(writeBeats)
-  // The thought starts typing once the title and the first sentence are glanced at (about 1.2s), not the whole line
-  // (4.2s): its box stood empty that long. The rest of the line is read while it types; nothing after it moves sooner.
-  const show = useScript<FlowShot>(FLOW_START, beats, play, 1, glance(`${WRITE_TITLE} ${WRITE_LINE.split('. ')[0]}.`))
-  useReport(report, show.done, show.settle, show.part)
+function Split({ words, children }: { words: ReactNode; children: ReactNode }): React.JSX.Element {
   return (
-    <>
-      <Words title={WRITE_TITLE} still={!play} done={show.done} wide>{WRITE_LINE}<ForYou setup={setup} at="write" /></Words>
-      <div className="relative flex min-h-0 flex-1 flex-col pb-2">
-        <FlowTree shot={show.done ? flowEnd() : show.state} quiet={!play} />
-      </div>
-    </>
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(15rem,0.72fr)_minmax(0,1.6fr)] items-center gap-x-[clamp(1.5rem,4vw,4rem)] gap-y-4 pb-[clamp(0.5rem,2vh,1.5rem)] [@container(max-width:900px)]:grid-cols-1 [@container(max-width:900px)]:items-start">
+      <div className="min-w-0 self-center">{words}</div>
+      <div className="relative flex min-h-0 min-w-0 items-center self-stretch">{children}</div>
+    </div>
   )
 }
 
-// --- 5 Remember ---------------------------------------------------------------------
+const TOUR_TITLE = 'What it does for you.'
+const TOUR_LINE = 'With nothing set up. Each one plays in turn; click any to watch it again.'
 
-const BACK_TITLE = 'It comes back to you.'
-const BACK_LINE = 'Each thing you keep comes back when you need it.'
+function TourChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  // Nothing here to wait for: the tiles play on their own, and Continue is ready from the start.
+  useReport(report, true, () => undefined)
+  return <Split words={<Words tag="Out of the box" title={TOUR_TITLE} still={!play} done>{TOUR_LINE}</Words>}><Tiles still={still()} wait={play ? glance(`${TOUR_TITLE} ${TOUR_LINE}`) : 0} /></Split>
+}
 
-/**
- * The three kept things, there from the first frame; then, in real
- * milliseconds, each comes back in turn and stays: the sticky, ticked off;
- * Review's card, turned over, and the curve under it all for why; the
- * postcard, signed.
- */
-const BACK_BEATS: Beat<BackShot>[] = [
-  { at: 0, to: {} },
-  { at: 50, to: { shown: 1 }, cue: cue('stick') },
-  { at: 1500, to: { ticked: true }, cue: cue('done') },
-  // One thing moving at a time: the gem's card lands and turns over to its answer, and only once it is still
-  // does the curve under it draw, so the curve reads as that card's why; the postcard comes once the curve is in.
-  { at: 2700, to: { shown: 2 }, cue: cue('open') },
-  { at: 3800, to: { over: true }, cue: () => fold() },
-  { at: 4700, to: { curve: true } },
-  { at: 8000, to: { shown: 3 }, cue: cue('memory') },
-  // Signed once its line is written on.
-  { at: 9900, to: { signed: true } },
-  // The last moment stays up: it is looked at while Next waits, a full second after the card's last line (where
-  // the quote is from) is in, so Next never arrives with it.
-  { at: 12400, to: {} }
-]
+const GRANTS_LINE = 'Each is optional, and macOS asks in its own words. Skip any: the calendar and alerts wait in “Settings”, and the microphone is asked for the first time you record.'
+
+function GrantsChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  useReport(report, true, () => undefined)
+  return <Split words={<Words tag="Permissions" title="Let it reach a little further." still={!play} done>{GRANTS_LINE}</Words>}><Grants /></Split>
+}
+
+function PlanChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
+  useReport(report, true, () => undefined)
+  return <Split words={<Words tag="Plan" title={PLAN_WORDS.title} still={!play} done>{PLAN_WORDS.line}</Words>}><PlanCard /></Split>
+}
+
+const NOTES_LINE = 'See what each thing becomes, then bring them in: your book opens as they arrive. Or Continue, and do it later from “Settings”.'
+
+function NotesChapter({ play, report, setup, onImport }: { play: boolean; report: (now: Reel) => void; setup: Setup; onImport: (what: 'vault' | 'files' | 'apple-notes') => void }): React.JSX.Element {
+  useReport(report, true, () => undefined)
+  return (
+    <Split words={<Words tag="Your notes" title="Bring your notes in." still={!play} done>{NOTES_LINE}</Words>}>
+      {/* Opened on the app you said you came from (You), as the Ready page's import did. */}
+      <ImportMap start={sourceFrom(setup.from)} onImport={onImport} still={!play} />
+    </Split>
+  )
+}
 
 /** An answer's words with the ones that carry the point marked *so*: as parts, each said plain or stood out. */
 const parts = (said: string): { text: string; key: boolean }[] => said.split('*').map((text, i) => ({ text, key: i % 2 === 1 })).filter((one) => one.text)
 const plainOf = (said: string): string => said.replace(/\*/g, '')
-const shining = (said: string): ReactNode => parts(said).map((part, i) => (part.key ? <Shine key={i}>{part.text}</Shine> : <span key={i}>{part.text}</span>))
 
 /** A word's gap in the answer's reveal: a little slower than the headline's, as it is a longer line read more slowly. */
 const ANSWER_STAGGER = 0.07
@@ -1667,22 +1667,6 @@ function MistAnswer({ said, on, quick }: { said: string; on: boolean; quick: boo
         before += words.split(' ').length
         return <span key={i}>{lead}<Condense text={words} on={on} quick={quick} delay={delay} stagger={ANSWER_STAGGER} each={part.key ? (word) => <Shine>{word}</Shine> : undefined} />{part.text.endsWith(' ') && words ? ' ' : ''}</span>
       })}
-    </>
-  )
-}
-
-function RememberChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
-  const show = useScript<BackShot>(BACK_START, BACK_BEATS, play, 1, glance(`${BACK_TITLE} ${BACK_LINE} ${forYou(setup, 'remember')}`))
-  useReport(report, show.done, show.settle, show.part)
-  return (
-    <>
-      <Words title={BACK_TITLE} still={!play} done={show.done} wide>
-        {BACK_LINE}
-        <ForYou setup={setup} at="remember" />
-      </Words>
-      <div className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
-        <ComeBack shot={show.done ? BACK_END : show.state} quiet={!play} said={shining} />
-      </div>
     </>
   )
 }
@@ -1742,7 +1726,7 @@ function DialChapter({ play, report, onPick, mine }: { play: boolean; report: (n
   const size = Math.round(Math.max(150, Math.min(win.height * 0.42, win.width * 0.3, 360)))
   return (
     <>
-      <Words title="Make it yours." still={!play} done={show.done}>
+      <Words tag="Your look" title="Make it yours." still={!play} done={show.done}>
         {DIAL_LINE}
       </Words>
       <div className="relative flex min-h-0 flex-1 items-center-safe justify-center pb-2">
@@ -1828,7 +1812,7 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
   useEffect(() => () => void (save.current = null), [save])
   return (
     <>
-      <Words title="Name your book." still={!play} done>{NAME_LINE}</Words>
+      <Words tag="Your book" title="Name your book." still={!play} done>{NAME_LINE}</Words>
       <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-x-[clamp(2rem,7vw,6rem)] gap-y-6 pb-2">
         <motion.div data-name-field className="flex w-[min(28rem,100%)] flex-col gap-3" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: ENTER, delay: 0.1 }}>
           <label htmlFor="mf-book-name" className="-mb-1 text-[1.0625rem] font-medium text-foreground">Your book's name</label>
@@ -2372,9 +2356,8 @@ const keptSaid = (kept: number, mine: number): string => {
  * arrow at the top of the window points at Haligtree in the menu bar, so the
  * words do not have to.
  */
-function Start({ state, onState, name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { state: Onboarding | null; onState: (now: Onboarding) => void; name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files' | 'apple-notes') => void }): React.JSX.Element {
+function Start({ state, onState, name, kept, mine, skipped, still, onPick, setup }: { state: Onboarding | null; onState: (now: Onboarding) => void; name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; still: boolean; onPick: (pick: 1 | 2) => void; setup: Setup }): React.JSX.Element {
   useKeyChanges()
-  const from = sourceFrom(setup.from)
   // The goal the answers made, only while it is still open in the book: binned, archived or ended since, it is not said.
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const goalOpen = !unloaded(goals) && goals.some((one) => one.id === setup.made?.goalId && !one.archivedAt && !one.closedAt)
@@ -2383,10 +2366,9 @@ function Start({ state, onState, name, kept, mine, skipped, importing, still, on
   const [picking, setPicking] = useState(false)
   useEffect(() => void (state?.boxTaken && setPicking(true)), [state?.boxTaken])
   // The sandbox is the way we point a newcomer: it is marked, tinted and says why. Start still opens their own book.
-  const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass; best?: boolean }[] = [
-    { key: 2, title: 'Try it in someone else’s book first', line: `The best way to see what ${APP_NAME} does. Their notes stay apart from yours; try anything, and “Back to my notes” takes you home.`, icon: Compass, best: true },
-    // Named for the app you said you came from, when Haligtree can bring things in from it.
-    { key: 3, title: from && from !== 'Other files' ? `Bring my notes from ${from}` : 'Bring my notes', line: 'From Apple Notes, Obsidian, Notion, Anki or files. See what each thing becomes before you choose.', icon: FolderInput }
+  // Bringing your notes in has its own step just before this one (Your notes): one home for it.
+  const others: { key: 2; title: string; line: string; icon: typeof Compass; best?: boolean }[] = [
+    { key: 2, title: 'Try it in someone else’s book first', line: `The best way to see what ${APP_NAME} does. Their notes stay apart from yours; try anything, and “Back to my notes” takes you home.`, icon: Compass, best: true }
   ]
   return (
     // The page with the most on it: its headline and gaps a smaller share of the height than the other pages', so its two
@@ -2404,9 +2386,9 @@ function Start({ state, onState, name, kept, mine, skipped, importing, still, on
         <p data-start-where className={WHERE_SAID}>{WHERE_TRUE}</p>
         {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the {APP_NAME} menu and ⌘K.</p>}
       </div>
-      {importing ? <ImportMap start={from} onImport={onImport} still={still} /> : (
-        // The other two ways in, as choices you can see at a glance: a card each, its key with it.
-        <div data-start-choices className="grid w-full max-w-[48rem] grid-cols-2 gap-3 [@container(max-width:640px)]:grid-cols-1">
+      {(
+        // The other way in, as a choice you can see at a glance: a card, its key with it.
+        <div data-start-choices className="grid w-full max-w-[30rem] grid-cols-1 gap-3">
           {others.map((row, i) => {
             const Icon = row.icon
             return (

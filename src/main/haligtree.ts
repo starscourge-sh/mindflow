@@ -1551,6 +1551,15 @@ export function registerHaligtree(): void {
 
   // --- settings and privacy
   handle('settings', () => settings())
+  // The welcome's Permissions step: alerts turned on, one sample sent at once, so macOS asks now (it asks on an app's
+  // first notification) rather than in the middle of a task's time. A test run sends none to the screen: it counts it.
+  let samples = 0
+  handle('notify:sample', () => {
+    samples += 1
+    if (process.env.HALIGTREE_QA_AWAY || !Notification.isSupported()) return { sent: false, samples }
+    new Notification({ title: APP_NAME, body: 'A task’s alert looks like this, at its time.', silent: !settings().sounds }).show()
+    return { sent: true, samples }
+  })
   handle('settings:set', (patch: Partial<Settings>) => {
     const wasSafe = settings().safeMode
     // A setting is in no list and no search: kept without moving the book's stamp (captures.ts).

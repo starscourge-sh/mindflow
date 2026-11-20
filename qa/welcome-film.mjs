@@ -98,7 +98,7 @@ try {
     }
     const skip = await h.$('footer button:has-text("Skip trying it")')
     if (skip) await skip.click()
-    else await h.click('footer button:has-text("Next"), footer button:has-text("Show me")')
+    else await h.click('footer button:has-text("Continue"), footer button:has-text("Get started")')
     mark('next pressed')
     await h.waitForTimeout(400)
   }

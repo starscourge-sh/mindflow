@@ -277,9 +277,17 @@ export function registerMedia(): void {
   })
   // Before a voice note: macOS asks once, with the sentence in electron-builder.yml, and remembers.
   // True when the microphone may be used; elsewhere than a Mac, Chromium asks for itself.
+  // Whether it may, without asking (the welcome's Permissions step shows it live). A probe's stand-in microphone
+  // reads as not asked until mic:ask is called, then as allowed.
+  let standInAsked = false
+  ipcMain.handle('haligtree:mic:status', () => {
+    if (process.platform !== 'darwin' || app.commandLine.hasSwitch('use-fake-device-for-media-stream')) return standInAsked ? 'granted' : 'unasked'
+    const now = systemPreferences.getMediaAccessStatus('microphone')
+    return now === 'granted' ? 'granted' : now === 'not-determined' ? 'unasked' : 'denied'
+  })
   ipcMain.handle('haligtree:mic:ask', async () => {
     // Chromium's stand-in microphone (a probe's) is no device of the Mac's: nothing to ask.
-    if (process.platform !== 'darwin' || app.commandLine.hasSwitch('use-fake-device-for-media-stream')) return true
+    if (process.platform !== 'darwin' || app.commandLine.hasSwitch('use-fake-device-for-media-stream')) return (standInAsked = true)
     const now = systemPreferences.getMediaAccessStatus('microphone')
     if (now === 'granted') return true
     if (now === 'denied' || now === 'restricted') return false
