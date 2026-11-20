@@ -614,7 +614,21 @@ export function BlockMenu({
         />
 
         <div className="tiptap-block-menu-list mf-more">
-        {spelling && !term ? <SpellingRows editor={editor} spelling={spelling} /> : null}
+        {/* A misspelt word: its fixes one step away under "Spelling ›", so the block's own lines stay where they always are. */}
+        {spelling && !term ? (
+          <>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger data-spelling-sub>
+                <MenuGlyph label="Spelling" />
+                <span className="tiptap-slash-menu-title">Spelling</span>
+                <span className="tiptap-slash-menu-hint">&rsaquo;</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
+                <div className="tiptap-block-menu-list mf-more"><SpellingRows editor={editor} spelling={spelling} /></div>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
+        ) : null}
 
         {/* What the click landed on first; the block's lines after, so nothing is lost. */}
         {apart ? <ClickedRows editor={editor} clicked={apart} matches={matches} onDone={() => onOpenChange(false)} /> : null}
