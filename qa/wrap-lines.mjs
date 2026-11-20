@@ -20,7 +20,7 @@ const month = `month:${new Date().toISOString().slice(0, 7)}`
 
 // Opens the month's wrap and turns every card, reading each card's lead-in and the rest of its words apart.
 const walk = async () => {
-  // In the Files look both times, so both opens speak in its voice (the librarian).
+  // In the Files look both times, so both opens speak in its voice (pulp, every look's).
   await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: { id, world: 'files' } })), month)
   await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 })
   const seen = {}
@@ -55,8 +55,8 @@ try {
     const kept = JSON.parse(readFileSync(join(await electron.evaluate(({ app }) => app.getPath('userData')), 'wrap-leads.json'), 'utf8'))[month]
     const voices = Object.values(kept.leads)
     check('the lead-ins are kept by voice, each free of digits, and the statements too', voices.length >= 1 && voices.every((one) => Object.keys(one).length >= 2 && Object.values(one).every((line) => !/\d/.test(line))) && !/\d/.test(kept.facts.replace(/“[^”]*”|#\S+/g, '')), JSON.stringify(kept.leads).slice(0, 400))
-    const again = Object.entries(second).filter(([card, one]) => one.lead && kept.leads.librarian?.[card])
-    check('opened again, each page shows the lead-in kept for its voice at once', again.length >= 2 && again.every(([card, one]) => one.lead === kept.leads.librarian[card]), JSON.stringify(again).slice(0, 400))
+    const again = Object.entries(second).filter(([card, one]) => one.lead && kept.leads.pulp?.[card])
+    check('opened again, each page shows the lead-in kept for its voice at once', again.length >= 2 && again.every(([card, one]) => one.lead === kept.leads.pulp[card]), JSON.stringify(again).slice(0, 400))
   } else {
     check('without Apple Intelligence no page has a lead-in, each shows its own sentence', Object.keys(first).length >= 3 && !leads.length && !JSON.stringify(first).includes('stand-in'), JSON.stringify(first).slice(0, 600))
   }
