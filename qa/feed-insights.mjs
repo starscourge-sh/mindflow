@@ -119,8 +119,10 @@ try {
     await sql(s, "insert into pdf_highlights (id, src, page, quote, start, end, created_at) values (?, 'haligtree://assets/qa-reading.pdf', ?, ?, 0, 40, ?)",
       `qa-mark-${at}`, at + 3, `A line worth keeping from the reading, number ${at + 1}, about how memory fades without use.`, new Date(Date.now() - at * 9 * 86_400_000).toISOString())
   }
-  // Read once afresh here, so the page opens on this book's set, not on what Home was told at launch.
+  // Read once afresh here, so the page opens on this book's set, not on what Home was told at launch; the writes above
+  // went straight to the book, so the window hears of no change: reloaded, it asks again.
   await v('feed')
+  await h.reload(); await h.waitForTimeout(2500)
   await go('feed')
   await h.locator('[data-feed-post="highlight"]').first().waitFor({ timeout: 15_000 }).catch(() => {})
   check('no goal screen: the newcomer has a Feed on day one', (await h.locator('[data-page="feed"] [data-feed] li[data-feed-post]').count()) > 0 && (await h.getByText('Your Feed starts once').count()) === 0)
