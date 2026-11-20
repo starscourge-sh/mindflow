@@ -167,7 +167,13 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
                   // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes. A little smaller on a short window, so the curve under it has room.
                   <motion.div className="w-full max-w-[21rem] [@media(max-height:760px)]:[zoom:0.82] [@media(max-height:660px)]:[zoom:0.66]!" initial={false}
                     animate={{ opacity: on ? 1 : 0, y: on ? 0 : 12, rotate: on ? -2 : 0 }} transition={quiet ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.15 }}>
-                    {on && <PostcardResult id="day-postcard" words={quoteNow().text} who={quoteNow().who!} where={quoteNow().where} signed={shot.signed} write={!quiet && shot !== BACK_END} />}
+                    {/* Its room kept from the start by an unseen copy in the same place: coming only with the card, it made the
+                        moments taller for a frame before they were fitted again, the curve under them squashed and dropped
+                        22px for that frame (Remember, 20 Nov film, 67.3s). */}
+                    <div className="grid">
+                      {!on && <div aria-hidden inert className="invisible [grid-area:1/1]"><PostcardResult id="day-postcard-room" words={quoteNow().text} who={quoteNow().who!} where={quoteNow().where} signed /></div>}
+                      {on && <div className="[grid-area:1/1]"><PostcardResult id="day-postcard" words={quoteNow().text} who={quoteNow().who!} where={quoteNow().where} signed={shot.signed} write={!quiet && shot !== BACK_END} /></div>}
+                    </div>
                   </motion.div>
                 )}
               </motion.div>
