@@ -190,6 +190,8 @@ try {
   const downs = await h.evaluate(() => window.__more.downs)
   console.log('presses over 16ms [handlers ms, to the next frame ms]:', JSON.stringify(downs))
   check('a press in the article (the first one bringing its pane to the front) runs its handlers in under 16ms', downs.every(([work]) => work < 16), JSON.stringify(downs))
+  // Bringing a pane to the front restyled the whole article when a variable above it changed (1,312ms to the frame).
+  check('...and its frame shows within 100ms of the press', downs.every(([, frame]) => frame < 100), JSON.stringify(downs))
 } catch (error) {
   check('the probe ran to its end', false, String(error).slice(0, 500))
 } finally {
