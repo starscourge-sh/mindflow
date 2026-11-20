@@ -55,7 +55,10 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
   // The focus timer turned off: its powers are not here, only the line saying where it is turned on.
   const focusTools = useFocusTools()
   const pinned = useLive(haligtree.settings, null)?.powersPinned
-  const powers = focusTools ? POWERS : POWERS.filter((power) => !FOCUS_POWERS.has(power.id))
+  const caps = useCaps()
+  // A Mac without Apple Intelligence is never shown what it would do (the user, 20 Nov): its features are not listed.
+  const ai = meets(caps, 'ai')
+  const powers = POWERS.filter((power) => (focusTools || !FOCUS_POWERS.has(power.id)) && (ai || power.needs !== 'ai'))
   useEffect(() => {
     try {
       localStorage.setItem(SEEN_KEY, '1')
@@ -63,7 +66,6 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
       // Home simply keeps offering the page.
     }
   }, [])
-  const caps = useCaps()
   const [tab, setTabState] = useState(() => {
     try {
       const kept = localStorage.getItem(TAB_KEY)
@@ -195,7 +197,7 @@ function ThisMac({ caps, missing }: { caps: Caps | null; missing: number }): Rea
       {caps && (
         <>
           <strong className="font-semibold text-foreground">On this Mac{caps.major ? ` (macOS ${caps.macos.replace(/\.0$/, '')})` : ''}.</strong>{' '}
-          {missing ? `${plural(missing, 'feature needs', 'features need')} a newer Mac or Apple Intelligence, and ${missing === 1 ? 'says' : 'say'} so on ${missing === 1 ? 'its card' : 'their cards'}; the rest work here.` : 'Everything here works.'}{' '}
+          {missing ? `${plural(missing, 'feature needs', 'features need')} a newer Mac, and ${missing === 1 ? 'says' : 'say'} so on ${missing === 1 ? 'its card' : 'their cards'}; the rest work here.` : 'Everything here works.'}{' '}
           <span data-not-yet>Not on any Mac yet: Siri and Shortcuts, a widget, and keeping quiet in a Focus, which need parts this build of {APP_NAME} cannot carry.</span>
         </>
       )}

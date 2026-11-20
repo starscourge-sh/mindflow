@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { call } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { lacks, meets, useCaps } from '@/lib/needs'
+import { useHas } from '@/lib/needs'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Setting } from './settings-view'
@@ -109,23 +109,22 @@ function RenamePreview({ offer, list, ask, done, what, after }: {
  * short by Apple Intelligence on this Mac, its long name kept. "Rename the long ones…" does those already kept:
  * a list to look over first, each name changeable or left out, then one notice with Undo.
  */
-export function LongNamesSetting({ on, set }: { on: boolean; set: (on: boolean) => void }): React.JSX.Element {
-  const caps = useCaps()
-  const has = meets(caps, 'ai')
+export function LongNamesSetting({ on, set }: { on: boolean; set: (on: boolean) => void }): React.JSX.Element | null {
+  // Not drawn at all on a Mac without Apple Intelligence: Settings' "Apple Intelligence" line says what it would add.
+  if (!useHas('ai')) return null
   return (
-    <div data-mac-needs="ai" data-mac-lacking={has ? undefined : ''}>
+    <div data-mac-needs="ai">
       <Setting title="Name long notes for me" note="A note or task made with a long name gets a short one from Apple Intelligence; the long one stays."
         more="A note keeps its long first line under the short name, and is found by either. A task's long words move to its description. On this Mac, with nothing sent anywhere."
         keywords="rename long name title short apple intelligence alias backfill task description auto name"
-        off={has ? undefined : lacks(caps, 'ai', true)}
-        below={has && (
+        below={(
           <div data-long-names>
             <RenamePreview offer="Rename the long ones I have…" list={() => call<Long[]>('names:long')} ask={(one) => call<string | null>('names:ask', one.name)}
               done={(count) => `Renamed ${plural(count, 'note or task', 'notes and tasks')}, their long names kept`} what={(one) => `${one.kind === 'task' ? 'Task' : 'Note'}, now “${one.name}”`} />
           </div>
         )}>
-        {has && <LongNamesSample on={on} />}
-        {has && <Switch aria-label="Name long notes for me" checked={on} onCheckedChange={set} />}
+        <LongNamesSample on={on} />
+        <Switch aria-label="Name long notes for me" checked={on} onCheckedChange={set} />
       </Setting>
     </div>
   )

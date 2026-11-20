@@ -28,8 +28,8 @@ import { num } from '../../../../main/dates'
  * a new wording shows in the note after your own words, yours struck beside it; ↵ uses it (one ⌘Z puts yours back),
  * Esc leaves your words as they were. A card, a question or a quote is shown in the card by the words first and made
  * only with ↵, with a notice and Undo. While the model writes, the orb; a model that fails, is slow or says nothing,
- * a plain line saying which. On a Mac without Apple Intelligence none of it is drawn (What Haligtree can do says what
- * it needs).
+ * a plain line saying which. On a Mac without Apple Intelligence none of it is drawn, nor listed in What
+ * Haligtree can do.
  */
 
 export type Help = 'fix' | 'shorter' | 'friendlier' | 'plainer' | 'mine' | 'card' | 'ask' | 'quote'
@@ -163,8 +163,8 @@ export function helpWith(id: Help, editor: Editor, range: { from: number; to: nu
   const help = HELPS.find((one) => one.id === id)
   const { from, to } = range
   const words = editor.state.doc.textBetween(from, to, '\n').trim()
-  if (!help || !words) return
-  if (!meets(capsNow(), 'ai')) return refuse('Writing help needs Apple Intelligence, turned on in System Settings', 'info')
+  // None on a Mac without Apple Intelligence: nothing offers it there, so nothing says it is missing either.
+  if (!help || !words || !meets(capsNow(), 'ai')) return
   if (help.edits && !editor.isEditable) return refuse('This note is locked for reading: its words are kept as they are', 'info')
   // The words stay lit by the marks, not the selection: the bar steps away, and ↵ and Esc are the card's.
   editor.chain().focus().setTextSelection(to).run()
@@ -174,8 +174,7 @@ export function helpWith(id: Help, editor: Editor, range: { from: number; to: nu
 /** The same on words picked in a reader (read-bar.tsx): only the three that keep something, never a change to the words. */
 export function helpWords(id: Help, words: string, away: Away): void {
   const help = HELPS.find((one) => one.id === id)
-  if (!help || help.edits || !words.trim()) return
-  if (!meets(capsNow(), 'ai')) return refuse('Writing help needs Apple Intelligence, turned on in System Settings', 'info')
+  if (!help || help.edits || !words.trim() || !meets(capsNow(), 'ai')) return
   start({ turn: 0, help, from: 0, to: 0, words: words.trim(), said: null, away }, '')
 }
 
@@ -279,10 +278,10 @@ addEventListener('keydown', (event) => {
   const dom = (event.target as HTMLElement | null)?.closest?.('.ProseMirror')
   const editor = dom && (dom as HTMLElement & { editor?: Editor }).editor
   // Only where the bar holds Writing help (a note, a page, a capture): elsewhere the key is not this one's to take.
-  if (!editor || editor.state.selection.empty || !bars.has(editor)) return
+  // On a Mac without Apple Intelligence the key is not Writing help's at all.
+  if (!editor || editor.state.selection.empty || !bars.has(editor) || !meets(capsNow(), 'ai')) return
   event.preventDefault()
   event.stopImmediatePropagation()
-  if (!meets(capsNow(), 'ai')) return refuse('Writing help needs Apple Intelligence, turned on in System Settings', 'info')
   dispatchEvent(new CustomEvent(opener(editor)))
 }, true)
 

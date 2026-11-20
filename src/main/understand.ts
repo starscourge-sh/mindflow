@@ -121,6 +121,7 @@ export type Shape = { description?: string } & (
  */
 export async function shaped<T>(instructions: string, prompt: string, schema: Shape, stand?: () => T, ms = 30_000): Promise<T | { error: string }> {
   if (stand && process.env.HALIGTREE_QA_CAPS === 'ai') return new Promise((done) => setTimeout(() => done(stand()), Number(process.env.HALIGTREE_QA_AI_DELAY ?? 0)))
+  if (!meets(await caps(), 'ai')) return { error: 'Needs Apple Intelligence' }
   let late: NodeJS.Timeout | undefined
   const said = await Promise.race([
     understand('shaped', { instructions, prompt, schema }),
@@ -248,17 +249,16 @@ export function registerStudyAi(on: () => boolean): void {
   ipcMain.handle('haligtree:ai:phrase', (_event, drafts: unknown) => phraseDrafts(Array.isArray(drafts) ? drafts.slice(0, 5) : [], on))
   // A new group's first name, offered in its name field. Never an error: no answer simply leaves the name it has.
   ipcMain.handle('haligtree:ai:group-name', async (_event, titles: unknown): Promise<string | null> => {
-    const have = await caps()
-    if (have.major < 26 || !on() || !Array.isArray(titles)) return null
+    if (!meets(await caps(), 'ai') || !on() || !Array.isArray(titles)) return null
     const stand = process.env.HALIGTREE_QA_GROUP_NAME
-    const prompt = `Titles:\n${titles.slice(0, 12).map((one) => `- ${String(one).slice(0, 80)}`).join('\n')}\n\nThe shared topic:`
+    const prompt = `Titles:\n${titles.slice(0, 12).map((one) => `- ${String(one).slice(0, 80)}`).join('\n')}`
     const said = stand
-      ? (have.ai === 'available' ? new Promise<Answer>((done) => setTimeout(() => done(stand === 'fail' ? { error: { code: 'failed', message: 'no' } } : { text: stand }), Number(process.env.HALIGTREE_QA_GROUP_NAME_MS ?? 300))) : Promise.resolve<Answer>({ error: { code: 'unavailable', message: 'no' } }))
-      // The helper checks the Mac afresh, so Apple Intelligence turned on or its model downloaded counts without a restart.
+      ? new Promise<{ name: string } | { error: string }>((done) => setTimeout(() => done(stand === 'fail' ? { error: 'no' } : { name: stand }), Number(process.env.HALIGTREE_QA_GROUP_NAME_MS ?? 300)))
       // Asked for "the topic" with the titles laid out: asked for "a name", it answered "Notes from titles" (19 Nov).
-      : understand('write', { instructions: 'You name a folder that holds some notes, the way a person names a folder on their desk. Read the note titles, find the one topic they share, and answer with that topic alone: one to three words, Title Case, in the language of the titles. Never the words "notes", "titles", "group" or "things". No quotes, no full stop, nothing else.', prompt })
-    const answer = await Promise.race([said, new Promise<null>((done) => setTimeout(() => done(null), 5000))])
-    return answer && !answer.error && typeof answer.text === 'string' ? answer.text : null
+      : shaped<{ name: string }>('You name a folder that holds some notes, the way a person names a folder on their desk. Read the note titles and find the one topic they share.', prompt,
+        { type: 'object', properties: [{ name: 'name', type: 'string', description: 'The shared topic alone: one to three words, Title Case, in the language of the titles. Never the words "notes", "titles", "group" or "things". No quotation marks and no full stop' }] }, undefined, 5000)
+    const answer = await said
+    return 'name' in answer && typeof answer.name === 'string' && answer.name.trim() ? answer.name.trim() : null
   })
 }
 

@@ -1,4 +1,4 @@
-import { lacks, meets, useCaps } from '@/lib/needs'
+import { meets, useCaps } from '@/lib/needs'
 import { folders, moveFoldersAgain, putFoldersBack } from '@/lib/folders'
 import { calendar } from '@/lib/mac-calendar'
 import { SunSetting } from './sun-setting'
@@ -2577,20 +2577,26 @@ function FinishSample({ look }: { look: Settings['reviewFinish'] }): React.JSX.E
 }
 
 /**
- * Apple Intelligence in Review and the reader: one switch for all three. On a
- * Mac without it, said once in place of the switch, never a dead control.
+ * Apple Intelligence in Review and the reader: one switch for all three. On a Mac without it (the user, 20 Nov: "let's
+ * not even advertise such features"), one quiet line: it is not on this Mac, and what it would add. Nothing else of it
+ * is drawn anywhere in the app.
  */
 function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }): React.JSX.Element {
   const caps = useCaps()
   const has = meets(caps, 'ai')
+  if (!has) return (
+    <div data-mac-needs="ai" data-mac-lacking="">
+      <Setting title="Apple Intelligence" keywords="apple intelligence ai"
+        note={`${caps?.ai === 'not-ready' ? 'Still being set up on this Mac' : 'Not on this Mac'}. Where it is on, it checks typed answers by meaning, gives hints, writes cards and names things.`} />
+    </div>
+  )
   return (
-    <div data-mac-needs="ai" data-mac-lacking={has ? undefined : ''}>
+    <div data-mac-needs="ai">
       <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, and a name for a group or a recording."
-        more={has ? 'Five cards from a chapter, in the reader. A recording is named after its event, or by what was said in its first minutes, its day and time kept after a dot. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a name is yours to type over, with Undo on its notice.' : undefined}
+        more="Five cards from a chapter, in the reader. A recording is named after its event, or by what was said in its first minutes, its day and time kept after a dot. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a name is yours to type over, with Undo on its notice."
         keywords="apple intelligence ai meaning hint cards chapter typed answer check group name recording meeting name foundation model"
-        off={has ? undefined : lacks(caps, 'ai', true)}
-        below={has && on && <RecordingNames on />}>
-        {has && <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />}
+        below={on && <RecordingNames on />}>
+        <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />
       </Setting>
     </div>
   )

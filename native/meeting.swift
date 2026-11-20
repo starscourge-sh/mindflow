@@ -23,7 +23,8 @@
 //   {"words":{"id":"o12","track":"others","text":"...","start":1.2,"end":3.4,"final":false,"speaker":"s1"}}
 //   {"saved":{"seconds":3605.2,"peaks":[...],"you":true,"others":true,"heard":3590.1,"stopped":"disk"}}   heard: until when anything was heard; stopped: only when the disk ended it
 //   {"from":{"bundle":"com.example.app"|null,"mic":true}}    what is being recorded, at the start and on each change
-//   {"found":{...}} and {"take":{...}}                       what to take from it, once stopped
+//   {"found":{...}}                                          the lines found by rule, once stopped
+//   {"take":{...}}                                           a probe's stand-in for Apple Intelligence's read (--ai-stand-in)
 //   {"error":{"code":"...","message":"..."}}
 import Accelerate
 import AppKit
@@ -35,9 +36,6 @@ import Foundation
 import NaturalLanguage
 import ScreenCaptureKit
 import Speech
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 // The app gone: saying something to nobody must not end the program before it has let go of the files.
 signal(SIGPIPE, SIG_IGN)
@@ -901,37 +899,18 @@ func found(_ all: [[String: Any]]) -> [String: Any] {
   return ["dates": dates, "actions": actions, "questions": questions, "names": names.sorted { $0.value > $1.value }.map { ["name": $0.key, "times": $0.value] }]
 }
 
-/** With Apple Intelligence (macOS 26, on this Mac): a short summary, decisions, actions with owners, questions left open, what you missed. */
+/**
+ * A probe's stand-in for Apple Intelligence's read (--ai-stand-in): made from the lines themselves, so its owners, times
+ * and dates are real ones from the meeting. The real read is asked by the app as fields to fill (meeting.ts `readTake`,
+ * through understand's "shaped"), once the recording is kept.
+ */
 func take(_ all: [[String: Any]], standIn: Bool, done: @escaping ([String: Any]?) -> Void) {
-  let said = all.map { "[\(Int($0["start"] as? Double ?? 0))s] \(($0["speaker"] as? String) == "you" ? "You" : "Speaker \(String(($0["speaker"] as? String ?? "s1").dropFirst()))"): \($0["text"] as? String ?? "")" }.joined(separator: "\n")
-  if all.isEmpty { return done(nil) }
-  if standIn {
-    // A probe's stand-in for Apple Intelligence, which is off on the Mac this was built on: made from the lines
-    // themselves, so its owners, times and dates are real ones from the meeting.
-    let f = found(all)
-    let actions = (f["actions"] as? [[String: Any]] ?? []).map { ["text": $0["text"]!, "owner": $0["speaker"]!, "at": $0["at"]!, "date": $0["date"] ?? NSNull()] }
-    return done(["standIn": true, "summary": "A stand-in summary for testing: \(all.count) lines were said, and \(actions.count) of them sound like something to do.",
-                 "decisions": [], "actions": actions, "questions": (f["questions"] as? [[String: Any]] ?? []).map { ["text": $0["text"]!, "at": $0["at"]!] },
-                 "missed": all.filter { ($0["speaker"] as? String) != "you" && (($0["text"] as? String)?.lowercased().contains("you") ?? false) }.prefix(3).map { ["text": $0["text"]!, "at": $0["start"]!] }])
-  }
-  #if canImport(FoundationModels)
-  if #available(macOS 26, *), case .available = SystemLanguageModel.default.availability {
-    Task {
-      do {
-        let session = LanguageModelSession(instructions: """
-          You read a meeting's transcript and write what to take from it, plainly. Answer in exactly these sections, each line starting with "- ":
-          SUMMARY (two or three sentences, no list), DECISIONS, ACTIONS (each "- [owner] what, by when if said [12s]"), OPEN QUESTIONS, ABOUT YOU (things said about "You" or your work).
-          Keep each line's [seconds] from the transcript. Write "- none" under a heading with nothing.
-          """)
-        // The model's window is small: the most recent part of a long meeting, line by line.
-        let answer = try await session.respond(to: String(said.suffix(12000)))
-        done(["text": answer.content])
-      } catch { done(nil) }
-    }
-    return
-  }
-  #endif
-  done(nil)
+  if all.isEmpty || !standIn { return done(nil) }
+  let f = found(all)
+  let actions = (f["actions"] as? [[String: Any]] ?? []).map { ["text": $0["text"]!, "owner": $0["speaker"]!, "at": $0["at"]!, "date": $0["date"] ?? NSNull()] }
+  done(["standIn": true, "summary": "A stand-in summary for testing: \(all.count) lines were said, and \(actions.count) of them sound like something to do.",
+        "decisions": [], "actions": actions, "questions": (f["questions"] as? [[String: Any]] ?? []).map { ["text": $0["text"]!, "at": $0["at"]!] },
+        "missed": all.filter { ($0["speaker"] as? String) != "you" && (($0["text"] as? String)?.lowercased().contains("you") ?? false) }.prefix(3).map { ["text": $0["text"]!, "at": $0["start"]!] }])
 }
 
 // ---- Start.

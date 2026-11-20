@@ -1,6 +1,6 @@
 // The Apple Intelligence features ("Your week, in a paragraph" on the Week page and in Wrapped, a name for a
 // note with none, why a clue may help) run as four Macs (HALIGTREE_QA_CAPS=every|macos15|macos26|ai). On the
-// first three none is drawn anywhere (What Haligtree can do says "Needs Apple Intelligence"); on "ai" a
+// first three none is drawn anywhere, nor listed in What Haligtree can do (the user, 20 Nov); on "ai" a
 // stand-in model answers (main/write.ts), and each is driven to its end: the week's paragraph read, then kept
 // as its summary; a name offered for a note that starts with a picture, then used; a why line under a clue; a
 // question answered in one sentence from the notes found for it, the notes named (ask your book).
@@ -87,7 +87,7 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
       cards.push(...await h.evaluate(() => [...document.querySelectorAll('[data-power][data-mac-needs="ai"]')].map((one) => ({ id: one.getAttribute('data-power'), lacking: one.hasAttribute('data-mac-lacking'), says: /Needs Apple Intelligence/.test(one.textContent) }))))
     }
     const three = cards.filter((one) => ['weekparagraph', 'untitled', 'cluewhy'].includes(one.id))
-    check(`${level}: What Haligtree can do lists the three ${ai ? 'as working here' : 'as needing Apple Intelligence'}`, three.length === 3 && cards.every((one) => (ai ? !one.lacking : one.lacking && one.says)), JSON.stringify(cards))
+    check(`${level}: What Haligtree can do ${ai ? 'lists the three as working here' : 'lists no Apple Intelligence feature at all'}`, ai ? three.length === 3 && cards.every((one) => !one.lacking) : !cards.length, JSON.stringify(cards))
     check(`${level}: no page errors`, !c.errors.length, c.errors.slice(0, 3).join(' | '))
   } finally {
     await c.close()

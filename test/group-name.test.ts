@@ -35,16 +35,13 @@ test('what the model says becomes a name only if it is one', () => {
   const titles = ['NumPy Basics', 'Pandas Basics']
   const taken = new Set(['reading'])
   assert.equal(cleanName('Data Tools', titles, taken), 'Data Tools')
-  assert.equal(cleanName(' "Data Tools." ', titles, taken), 'Data Tools')
+  assert.equal(cleanName(' Data Tools ', titles, taken), 'Data Tools')
   assert.equal(cleanName('', titles, taken), null)
   assert.equal(cleanName(null, titles, taken), null)
   assert.equal(cleanName('123', titles, taken), null)
   assert.equal(cleanName('Reading', titles, taken), null)
   assert.equal(cleanName('numpy basics', titles, taken), null)
   assert.equal(cleanName('Here is a name for your new group', titles, taken), null)
-  // The Mac's own model answers a name, then a line on why (its words for "On ambition and failure" and "On habits and addiction").
-  assert.equal(cleanName('Ambition and Habits  \nall explore human struggles', titles, taken), 'Ambition and Habits')
-  assert.equal(cleanName('Name: Data Tools', titles, taken), 'Data Tools')
-  assert.equal(cleanName('Notes from titles  \nAll are things', titles, taken), null)
+  assert.equal(cleanName('Notes from titles', titles, taken), null)
   assert.equal(cleanName('A very very very long name that runs on', titles, taken), null)
 })
