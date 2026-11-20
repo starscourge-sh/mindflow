@@ -1113,7 +1113,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
         <button type="button" aria-label="Larger" title="Larger  ⌘+" className="flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => step(1)}><Plus className="size-3.5" /></button>
       </div>
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger><BookOpen />View</DropdownMenuSubTrigger>
+        <DropdownMenuSubTrigger data-tool="View"><BookOpen />View</DropdownMenuSubTrigger>
         <DropdownMenuSubContent className="w-56" data-page-layout-menu>{viewItems}</DropdownMenuSubContent>
       </DropdownMenuSub>
     </>
