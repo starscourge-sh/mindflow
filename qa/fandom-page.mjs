@@ -40,6 +40,12 @@ export function fandomPage({ site, cdn, sections = 60, perSection = 3 }) {
       n++
       if (p === 1) parts.push(picture(n, n === 2 ? 'Harry as an infant with his parents' : `A scene from part ${s + 1}, picture ${n}`))
       parts.push(para(n))
+      // Part 2 as Harry's page has it: a section of its own (an h3), opened by a quote and its attribution.
+      if (s === 1 && p === 0)
+        parts.push(
+          `<h3><span class="mw-headline" id="The_Sorting_Ceremony">The Sorting Ceremony</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/wiki/Harry_Potter?action=edit&amp;section=${s}a">edit</a><span class="mw-editsection-bracket">]</span></span></h3>`,
+          `<div class="quote"><dl><dd><i>"It is our choices, Harry, that show what we truly are, far more than our abilities."</i></dd><dd>—Albus Dumbledore on Harry's choice at his Sorting</dd></dl></div>`
+        )
     }
     return parts.join('\n')
   }).join('\n')
