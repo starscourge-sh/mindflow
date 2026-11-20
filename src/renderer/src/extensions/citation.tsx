@@ -123,7 +123,7 @@ function drawCited(list: CiteAttrs[]): HTMLElement {
   const head = document.createElement("div")
   head.className = "mf-works-cited-head"
   const title = document.createElement("h3")
-  title.textContent = "Works cited"
+  title.textContent = "Works cited · made from your citations"
   const copy = document.createElement("button")
   copy.type = "button"
   copy.className = "mf-works-cited-copy"

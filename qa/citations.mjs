@@ -83,7 +83,7 @@ try {
   check('the chip fills in as "(Shelley 1831, p. 82)"', (await chipTexts())[0] === '(Shelley 1831, p. 82)', JSON.stringify(await chipTexts()))
   check('Crossref was asked with the app named in User-Agent and no email', asked.some((one) => /frankenstein/.test(one.url) && /Haligtree/.test(one.agent) && !/@|mailto/.test(one.url + one.agent)), JSON.stringify(asked.at(-1)))
   const foot = await h.evaluate(() => ({ head: document.querySelector('[data-works-cited] h3')?.textContent, rows: [...document.querySelectorAll('[data-works-cited] [data-work-cited]')].map((one) => one.textContent), link: document.querySelector('[data-works-cited] a')?.getAttribute('href') }))
-  check('"Works cited" at the foot: author, year, title, publisher, DOI link', foot.head === 'Works cited' && foot.rows[0] === 'Shelley, Mary. 1831. Frankenstein; or, The Modern Prometheus. Henry Colburn and Richard Bentley. https://doi.org/10.1000/frankenstein' && foot.link === 'https://doi.org/10.1000/frankenstein', JSON.stringify(foot))
+  check('"Works cited" at the foot: author, year, title, publisher, DOI link', foot.head === 'Works cited · made from your citations' && foot.rows[0] === 'Shelley, Mary. 1831. Frankenstein; or, The Modern Prometheus. Henry Colburn and Richard Bentley. https://doi.org/10.1000/frankenstein' && foot.link === 'https://doi.org/10.1000/frankenstein', JSON.stringify(foot))
   const lastBlock = await h.evaluate(() => { const box = document.querySelector(`[data-open] .tiptap`); return box.lastElementChild?.matches('[data-works-cited]') || !!box.querySelector(':scope > [data-works-cited]') })
   check('"Works cited" sits inside the note, at its end', lastBlock)
 

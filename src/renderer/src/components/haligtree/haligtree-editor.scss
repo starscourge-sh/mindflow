@@ -4862,10 +4862,15 @@ html[data-block-carry] .mf-lines {
   }
 
   // The works a note cites, at its foot, as its footnotes are.
+  /* Made by the app from the note's citations, never typed and never saved with its words: so it must not look like
+     the writing (the user, 20 Nov 2026: "not a fan of areas that look like a part of my writing but aren't really").
+     A quiet panel of its own, its heading in the footer's label style, its lines in the quiet ink. */
   .mf-works-cited {
     margin-top: 2.5em;
-    padding-top: 0.75em;
-    border-top: 1px solid var(--tt-border-color);
+    padding: 0.75em 1em 0.85em;
+    border-radius: 0.5rem;
+    background-color: color-mix(in oklab, var(--foreground) 4%, var(--background));
+    color: var(--mf-muted-strong);
     font-size: 0.875em;
     user-select: text;
 
@@ -4878,9 +4883,10 @@ html[data-block-carry] .mf-lines {
 
     h3 {
       margin: 0;
-      font-size: 1em;
-      font-weight: 600;
-      color: var(--foreground);
+      font-family: inherit;
+      font-size: 0.9em;
+      font-weight: 500;
+      color: var(--muted-foreground);
     }
 
     .mf-works-cited-copy {
