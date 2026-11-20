@@ -1765,7 +1765,7 @@ export function Home(): React.JSX.Element {
     if (narrow) return `place:${litRow(view.id, shown)}`
     if ((view.id === 'articles' || view.id === 'nuggets') && view.folder && !noteNow && foldersOn(view.id === 'articles' ? 'article' : 'nugget')) return `folder:${view.folder}`
     if (!shown.includes(view.id) && JOURNAL_SCALES.some((one) => one.id === view.id)) return `scale:${view.id}`
-    if (view.id === 'tags' && shown.includes('tags') && tags.length > 0) return view.focus && sideTags.some(({ tag }) => tag === view.focus) ? `tag:${view.focus}` : 'tags'
+    if (view.id === 'tags' && shown.includes('tags')) return view.focus && sideTags.some(({ tag }) => tag === view.focus) ? `tag:${view.focus}` : 'tags'
     return `place:${litRow(view.id, shown)}`
   })()
   // Folded by hand, it stays folded until focus next comes to something in it; meanwhile the section holding it takes the light.
