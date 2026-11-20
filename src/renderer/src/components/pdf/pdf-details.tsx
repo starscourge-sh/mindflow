@@ -2,13 +2,15 @@ import { useMemo, useState } from "react"
 import { Kbd } from "@/components/ui/kbd"
 import { labelFor } from "./pdf-labels"
 import { Search } from "lucide-react"
-import { BackToTop, MoreBelow, VirtualList } from "@/components/haligtree/ui"
+import { BackToTop, Grows, MoreBelow, VirtualList } from "@/components/haligtree/ui"
 import { useLive } from "@/lib/haligtree"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
 import type { PdfCover } from "./pdf-cover"
 import { MARK_COLORS, markCss } from "./read-bar"
 import { pdfBytes, type PdfMark } from "./pdf-pages"
-import { InYourNotes, PageBar, PartHead, StuckHead, inNotes, linesOf, partAt, partsOf, useCited, useFolded, type Line } from "./book-links"
+import { InYourNotes, PageBar, PartHead, StuckHead, inNotes, linesOf, partAt, partsOf, useCitedRead, useFolded, type Cited, type Line } from "./book-links"
+
+const NONE: Cited[] = []
 
 /** More highlights than this and the list folds by chapter, the one you are reading open. */
 const LONG = 30
@@ -43,7 +45,8 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
   /** A scanned book's line: read its pages, or forget what was read (pdf-scan.tsx). */
   scan?: React.ReactNode
 }): React.JSX.Element {
-  const cited = useCited(src, marks.length)
+  const read = useCitedRead(src, marks.length)
+  const cited = read ?? NONE
   const [words, setWords] = useState("")
   const [box, setBox] = useState<HTMLElement | null>(null)
   const [colour, setColour] = useState<string | null | undefined>(undefined)
@@ -82,16 +85,20 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
 
       {/* First: the way from the book to the notes that hold it or link into it (the tracker: "no way to go from a pdf
           to the note its linked from"). Under a long run of highlights it was out of sight. */}
+      {/* Each part as the Display menu draws its sections: its title row (name, count, action) on the panel's ground,
+          the island under it holding only the rows. */}
       <section className="read-details-section" data-in-notes>
         <div className="read-details-heading">
           <h3>
-            In your notes <span className="read-details-count">{inNotes(cited).length.toLocaleString()}</span>
+            In your notes {read && <span className="read-details-count animate-in fade-in-0 duration-200 motion-reduce:animate-none">{inNotes(cited).length.toLocaleString()}</span>}
           </h3>
         </div>
-        <InYourNotes src={src} cited={cited} parts={parts} here={page} empty="No note holds it or links into it yet." />
+        <Grows className="read-details-island mf-island">
+          <InYourNotes src={src} cited={read} parts={parts} here={page} empty="No note holds it or links into it yet." />
+        </Grows>
       </section>
 
-      <section className="read-details-section">
+      <section className="read-details-section" data-highlights>
         <div className="read-details-heading">
           <h3>
             Highlights <span className="read-details-count">{marks.length.toLocaleString()}</span>
@@ -102,6 +109,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
             </button>
           )}
         </div>
+        <Grows className="read-details-island mf-island">
         {marks.length ? (
           <>
             <label className="read-details-find">
@@ -152,6 +160,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
         ) : (
           <p className="read-details-empty">Pick words and press <Kbd>H</Kbd> to highlight them. Every highlight gathers here.</p>
         )}
+        </Grows>
       </section>
       {book && <BookInfo one={book} linked={inNotes(cited).length} />}
       </div>

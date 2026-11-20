@@ -2,6 +2,7 @@ import { useState } from "react"
 import { labelFor } from "./pdf-labels"
 import { call } from "@/lib/haligtree"
 import type { PdfCover } from "./pdf-cover"
+import { Grows } from "@/components/haligtree/ui"
 import { plural } from '../../../../main/dates'
 
 /** What the library knows of a book: the reader's Details and the shelf's panel both show it. */
@@ -69,20 +70,23 @@ export function BookInfo({ one, linked }: { one: Book; linked: number }): React.
           {more ? "Show less" : "Show more"}
         </button>
       </div>
-      <dl className="pdf-inspector-rows">
-        {[...rows, ...(more ? rest : [])].map(([label, value]) => (
-          <div key={label} className="pdf-inspector-row">
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-        {more && (
-          <div className="pdf-inspector-row is-file">
-            <dt>File</dt>
-            <dd title={one.name}>{one.name}</dd>
-          </div>
-        )}
-      </dl>
+      {/* "Show more" grows the island to the rows it adds (Grows), and they fade in; nothing under it jumps. */}
+      <Grows className="read-details-island mf-island">
+        <dl className="pdf-inspector-rows">
+          {[...rows, ...(more ? rest : [])].map(([label, value]) => (
+            <div key={label} className={`pdf-inspector-row${rest.some((one) => one[0] === label) ? " animate-in fade-in-0 duration-200 motion-reduce:animate-none" : ""}`}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+          {more && (
+            <div className="pdf-inspector-row is-file animate-in fade-in-0 duration-200 motion-reduce:animate-none">
+              <dt>File</dt>
+              <dd title={one.name}>{one.name}</dd>
+            </div>
+          )}
+        </dl>
+      </Grows>
     </section>
   )
 }

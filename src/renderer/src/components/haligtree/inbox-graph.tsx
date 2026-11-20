@@ -174,8 +174,10 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
         <>
           <GraphCanvas key={`${mode}-${range}`} map={graph} fit={fit} hold={HOLD} keepFit paint={looseTint} counts={countOf} className={`flex-1 rounded-lg border bg-accent/20 ${compact ? 'min-h-44' : 'min-h-64'}`} onOpen={pick} />
           {picked && (
-            <div data-inbox-cluster className="mt-2 shrink-0 rounded-lg border bg-accent/25 p-1">
-              <div className="flex items-center gap-2 px-2 py-1">
+            // As the Display menu draws a section (ui.tsx Island compact): the title row on the page's own ground, the
+            // island under it holding only the rows.
+            <div data-inbox-cluster className="mt-2 flex shrink-0 flex-col gap-1">
+              <div className="flex items-center gap-2 px-1">
                 <span className="min-w-0 truncate text-control font-semibold text-foreground">{picked.title}</span>
                 <span className="shrink-0 text-control text-muted-foreground tabular-nums"><Rolling text={listed.length} /></span>
                 {picked.tag && <button type="button" onClick={() => openTag(picked.tag!)} className="ml-auto shrink-0 rounded-md px-1.5 text-control font-medium text-(--mf-muted-strong) hover:bg-accent hover:text-foreground">Open the tag</button>}
@@ -183,7 +185,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
                   <button type="button" aria-label="Close the list" onClick={() => (chime('fold'), setPicked(null))} className={`${picked.tag ? '' : 'ml-auto'} flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground`}><X className="size-3.5" /></button>
                 </Tip>
               </div>
-              <ul className={`${compact ? 'max-h-28' : 'max-h-56'} overflow-y-auto`}>
+              <ul className={`mf-island rounded-lg border bg-accent/25 p-1 ${compact ? 'max-h-28' : 'max-h-56'} overflow-y-auto`}>
                 {listed.map((one) => (
                   <li key={one.id}>
                     <button type="button" data-cluster-row={one.id} data-private={one.private ? '' : undefined} onClick={() => onOpen('capture', one.id)}
