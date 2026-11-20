@@ -4,6 +4,7 @@ import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
 import { chime, openCue } from "@/lib/sound"
 import { markKeyed } from "@/lib/motion"
+import { escOneLayer } from "@/lib/menu-keys"
 import { blinkThen } from "./menu-blink"
 import { MenuScroll, MenuShield, useShieldedOpen } from "./context-menu"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
@@ -286,6 +287,7 @@ function DropdownMenuSubContent({
       collisionPadding={MENU_ROOM}
       sticky="always"
       data-slot="dropdown-menu-sub-content"
+        onEscapeKeyDown={escOneLayer}
       className={cn("z-[51] flex max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-float", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
       {...props}
     >

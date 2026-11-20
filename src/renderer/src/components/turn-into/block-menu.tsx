@@ -607,6 +607,17 @@ export function BlockMenu({
               takeFirst()
               return
             }
+            // Radix walks the rows only once one of them has the keys: from the search field ↓ and ↑ did nothing,
+            // so the rows (and "Spelling ›") could not be reached by keys. Hand the keys to the first or last row.
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              const rows = event.currentTarget.closest('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([data-disabled])')
+              const to = rows?.[event.key === "ArrowDown" ? 0 : rows.length - 1]
+              if (to) {
+                event.preventDefault()
+                to.focus()
+              }
+              return
+            }
             if (!["ArrowDown", "ArrowUp", "Escape", "Tab"].includes(event.key)) {
               event.stopPropagation()
             }
@@ -624,7 +635,7 @@ export function BlockMenu({
                 <span className="tiptap-slash-menu-hint">&rsaquo;</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
-                <div className="tiptap-block-menu-list mf-more"><SpellingRows editor={editor} spelling={spelling} /></div>
+                <div className="tiptap-block-menu-list mf-more"><SpellingRows editor={editor} spelling={spelling} titled={false} /></div>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </>

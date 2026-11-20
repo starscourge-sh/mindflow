@@ -9,7 +9,8 @@
 // text over 5,000 characters) and quick capture:
 //   - the pill comes for a misspelt word the caret is put on, and not for a Spanish word in a Spanish sentence
 //     (the same word in an English sentence is misspelt, as the red underline has it);
-//   - the right-click menu's first frame already has its spelling rows, and nothing lands in it after;
+//   - in a note and quick capture the right-click menu's first frame already has "Spelling ›" first (its fixes one step
+//     in, by pointer or by ↓ →, ← and Esc closing it one layer at a time), in a sticky its flat rows; nothing lands after;
 //   - a word spelt right gets no spelling rows: in a sticky the right-click goes on to the sticky's own menu;
 //   - the first right-click on a word in a long sticky has its rows (nothing is asked ahead any more);
 //   - "Learn spelling" stops the word being flagged at once, in the note and in the sticky, and Undo flags it again.
@@ -121,6 +122,20 @@ const rightClick = async (pg, sel, word, nth = 0, settle = 700, name = '') => {
   else await pg.waitForTimeout(settle)
   return pg.evaluate(() => (window.__menu.watch.disconnect(), { first: window.__menu.first, later: document.querySelector('[role="menu"]') ? window.__menu.read() : null, ms: window.__menu.ms }))
 }
+/** The note's menu: whether "Spelling ›" is open, what its submenu lists, and which row has the keys. */
+const subState = (pg) => pg.evaluate(() => {
+  const trigger = document.querySelector('[data-spelling-sub]')
+  const sub = [...document.querySelectorAll('[role="menu"]')].find((one) => !one.querySelector('[data-spelling-sub]') && one.querySelector('[data-learn-spelling]'))
+  return { open: trigger?.getAttribute('data-state') === 'open', menus: document.querySelectorAll('[role="menu"]').length, rows: sub ? [...sub.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()) : [], focus: document.activeElement?.textContent?.trim() ?? '' }
+})
+/** "Spelling ›" opened by the pointer resting on it. */
+const hoverSub = async (pg) => {
+  const box = await pg.locator('[data-spelling-sub]').first().boundingBox()
+  if (box) await pg.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
+  await pg.waitForTimeout(400)
+}
+/** "Spelling ›" first in the menu, its fixes not in the menu itself. */
+const headed = (rows) => /^Spelling/.test(rows?.[0] ?? '') && !rows.includes('tomorrow') && !rows.includes('Learn spelling')
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const shut = async (pg) => { await pg.keyboard.press('Escape'); await pg.waitForTimeout(250) }
 /**
@@ -144,7 +159,7 @@ const ownMenu = async () => {
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0, stickiesGlass: false })
-  const ED = '[data-open] .tiptap'
+  const ED = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
   if (part('note')) {
     const id = await v('article:new')
     await v('item:save', id, { title: 'Spelling everywhere', body: { type: 'doc', content: WORDS } })
@@ -167,20 +182,63 @@ try {
       if (shots) await h.screenshot({ path: `${shots}/note-pill-${look}.png` })
       const menu = await rightClick(h, ED, 'tomorow', 0, 700, `note-menu-${look}`)
       if (shots) await h.screenshot({ path: `${shots}/note-menu-${look}.png` })
-      check(`note, ${look}: the right-click menu's first frame is whole: “Spelling”, “tomorrow”, its other rows, and nothing lands after`, menu.first?.[0] === 'Spelling' && menu.first?.[1] === 'tomorrow' && same(menu.first, menu.later), `first seen ${menu.ms} ms after the right-click [${load()}]; first ${JSON.stringify(menu.first?.slice(0, 8))}; later ${JSON.stringify(menu.later?.slice(0, 8))}`)
-      check(`note, ${look}: the spelling rows end with “Learn spelling”`, !!menu.first?.includes('Learn spelling'), JSON.stringify(menu.first?.slice(0, 8)))
+      check(`note, ${look}: the right-click menu's first frame is whole: “Spelling ›” first, the fixes not in it, and nothing lands after`, headed(menu.first) && same(menu.first, menu.later), `first seen ${menu.ms} ms after the right-click [${load()}]; first ${JSON.stringify(menu.first?.slice(0, 8))}; later ${JSON.stringify(menu.later?.slice(0, 8))}`)
+      if (look === 'light') {
+        // By pointer: resting on it opens the fixes, “tomorrow” first, “Learn spelling” last.
+        await hoverSub(h)
+        const hovered = await subState(h)
+        if (shots) await h.screenshot({ path: `${shots}/note-sub-${look}.png` })
+        check(`note, ${look}: the pointer on “Spelling ›” opens its fixes, “tomorrow” first, “Learn spelling” last`, hovered.open && hovered.rows[0] === 'tomorrow' && hovered.rows.at(-1) === 'Learn spelling', JSON.stringify(hovered))
+        await h.locator('[role="menu"] [role="menuitem"]', { hasText: /^tomorrow$/ }).first().click({ timeout: 3000 }).catch(() => {})
+        await wait(400)
+        const text = await h.evaluate((sel) => document.querySelector(sel).innerText, ED)
+        check('note: a press on “tomorrow” in the submenu puts the word right, and both menus close', text.includes('by tomorrow.') && !(await h.locator('[role="menu"]').count()), JSON.stringify(text.slice(text.indexOf('I will'), text.indexOf('I will') + 30)))
+        await h.evaluate((sel) => document.querySelector(sel).editor.commands.undo(), ED)
+        await wait(400)
+      } else {
+        // By keys: ↓ to the row, → opens with the keys on “tomorrow”, ← closes it alone, Esc one layer at a time, ↵ puts it right.
+        await h.keyboard.press('ArrowDown')
+        await h.keyboard.press('ArrowRight')
+        await wait(350)
+        const right = await subState(h)
+        if (shots) await h.screenshot({ path: `${shots}/note-sub-${look}.png` })
+        check(`note, ${look}: ↓ then → opens “Spelling ›” with the keys on “tomorrow”`, right.open && right.rows[0] === 'tomorrow' && right.focus === 'tomorrow', JSON.stringify(right))
+        await h.keyboard.press('ArrowLeft')
+        await wait(300)
+        const left = await subState(h)
+        check(`note, ${look}: ← closes the submenu alone, the keys back on “Spelling ›”`, !left.open && left.menus === 1 && /^Spelling/.test(left.focus), JSON.stringify(left))
+        await h.keyboard.press('ArrowRight')
+        await wait(300)
+        await h.keyboard.press('Escape')
+        await wait(300)
+        const esc1 = await subState(h)
+        await h.keyboard.press('Escape')
+        await wait(300)
+        const esc2 = await subState(h)
+        check(`note, ${look}: Esc closes the submenu first, the menu with the second`, !esc1.open && esc1.menus === 1 && esc2.menus === 0, `${JSON.stringify(esc1)} then ${JSON.stringify(esc2)}`)
+        await rightClick(h, ED, 'tomorow')
+        await h.keyboard.press('ArrowDown')
+        await h.keyboard.press('ArrowRight')
+        await wait(300)
+        await h.keyboard.press('Enter')
+        await wait(400)
+        const text = await h.evaluate((sel) => document.querySelector(sel).innerText, ED)
+        check('note: ↵ on “tomorrow” in the submenu puts the word right, and both menus close', text.includes('by tomorrow.') && !(await h.locator('[role="menu"]').count()), JSON.stringify(text.slice(text.indexOf('I will'), text.indexOf('I will') + 30)))
+        await h.evaluate((sel) => document.querySelector(sel).editor.commands.undo(), ED)
+        await wait(400)
+      }
       await shut(h)
     }
     await c.look('light')
     check('note: a Spanish word in a Spanish sentence gets no pill (“duerme” in “El gato duerme en la casa…”)', (await pillOn(h, ED, 'duerme', 0, 1800)) === null)
     const spanish = await rightClick(h, ED, 'duerme', 0)
-    check('note: and no spelling rows on its right-click (the block menu opens without them)', !!spanish.later && !spanish.later.includes('Spelling'), JSON.stringify(spanish.later?.slice(0, 5)))
+    check('note: and no “Spelling” row on its right-click (the block menu opens without it)', !!spanish.later && !spanish.later.some((row) => /^Spelling/.test(row)), JSON.stringify(spanish.later?.slice(0, 5)))
     await shut(h)
     const english = await rightClick(h, ED, 'duerme', 1)
-    check('note: the same word in an English sentence is misspelt (“The cat duerme on the mat…”): “Spelling” heads its menu', english.first?.[0] === 'Spelling' && same(english.first, english.later), JSON.stringify(english.first?.slice(0, 5)))
+    check('note: the same word in an English sentence is misspelt (“The cat duerme on the mat…”): “Spelling ›” heads its menu', /^Spelling/.test(english.first?.[0] ?? '') && same(english.first, english.later), JSON.stringify(english.first?.slice(0, 5)))
     await shut(h)
     const right = await rightClick(h, ED, 'Start')
-    check('note: a word spelt right gets the block menu without spelling rows', !!right.later?.length && !right.later.includes('Spelling'), JSON.stringify(right.later?.slice(0, 4)))
+    check('note: a word spelt right gets the block menu without a “Spelling” row', !!right.later?.length && !right.later.some((row) => /^Spelling/.test(row)), JSON.stringify(right.later?.slice(0, 4)))
     await shut(h)
   }
 
@@ -252,6 +310,7 @@ try {
     await h.bringToFront()
     check('note: before it is learnt, “recieve” has its pill', /receive/.test((await pillOn(h, ED, 'recieve')) ?? ''))
     await rightClick(h, ED, 'recieve')
+    await hoverSub(h)
     await h.locator('[role="menu"] [data-learn-spelling]').first().click({ timeout: 3000 }).catch(() => {})
     await wait(300)
     const said = await h.evaluate(() => /Learnt “recieve”/.test(document.body.innerText))
@@ -259,7 +318,7 @@ try {
     if (shots) await h.screenshot({ path: `${shots}/note-learnt.png` })
     check('note: learnt, “recieve” is no longer flagged: no pill with the caret on it', (await pillOn(h, ED, 'recieve', 0, 1800)) === null)
     const learnt = await rightClick(h, ED, 'recieve')
-    check('note: and no spelling rows on its right-click', !!learnt.later && !learnt.later.includes('Spelling'), JSON.stringify(learnt.later?.slice(0, 4)))
+    check('note: and no “Spelling” row on its right-click', !!learnt.later && !learnt.later.some((row) => /^Spelling/.test(row)), JSON.stringify(learnt.later?.slice(0, 4)))
     await shut(h)
     if (sticky) {
       await writeIn()
@@ -272,12 +331,13 @@ try {
     }
     // Undo, from the notice.
     await rightClick(h, ED, 'tomorow')
+    await hoverSub(h)
     await h.locator('[role="menu"] [data-learn-spelling]').first().click({ timeout: 3000 }).catch(() => {})
     await wait(300)
     await h.locator('button', { hasText: /Undo/ }).first().click({ timeout: 3000 }).catch(() => {})
     await wait(400)
     const undone = await rightClick(h, ED, 'tomorow')
-    check('Undo on the notice: “tomorow” is flagged again, its rows back at the head of the menu', undone.first?.[0] === 'Spelling' && undone.first?.[1] === 'tomorrow', JSON.stringify(undone.first?.slice(0, 4)))
+    check('Undo on the notice: “tomorow” is flagged again, “Spelling ›” back at the head of the menu', headed(undone.first), JSON.stringify(undone.first?.slice(0, 4)))
     await shut(h)
   }
 
@@ -295,10 +355,15 @@ try {
     if (shots) await box.screenshot({ path: `${shots}/box-pill.png` })
     const boxMenu = await rightClick(box, BOX, 'definately')
     if (shots) await box.screenshot({ path: `${shots}/box-menu.png` })
-    check('quick capture: the right-click menu\'s first frame is whole, “Spelling” and “definitely” first', boxMenu.first?.[0] === 'Spelling' && boxMenu.first.includes('definitely') && same(boxMenu.first, boxMenu.later), `first seen ${boxMenu.ms} ms after the right-click [${load()}]; ${JSON.stringify(boxMenu.first?.slice(0, 6))}`)
+    check('quick capture: the right-click menu\'s first frame is whole, “Spelling ›” first, and nothing lands after', /^Spelling/.test(boxMenu.first?.[0] ?? '') && !boxMenu.first.includes('definitely') && same(boxMenu.first, boxMenu.later), `first seen ${boxMenu.ms} ms after the right-click [${load()}]; ${JSON.stringify(boxMenu.first?.slice(0, 6))}`)
+    await hoverSub(box)
+    const boxSub = await subState(box)
+    if (shots) await box.screenshot({ path: `${shots}/box-sub.png` })
+    check('quick capture: the pointer on “Spelling ›” opens “definitely” first, “Learn spelling” last', boxSub.open && boxSub.rows[0] === 'definitely' && boxSub.rows.at(-1) === 'Learn spelling', JSON.stringify(boxSub))
+    await shut(box)
     await shut(box)
     const boxPlain = await rightClick(box, BOX, 'here')
-    check('quick capture: a word spelt right gets the block menu without spelling rows', !!boxPlain.later?.length && !boxPlain.later.includes('Spelling'), JSON.stringify(boxPlain.later?.slice(0, 4)))
+    check('quick capture: a word spelt right gets the block menu without a “Spelling” row', !!boxPlain.later?.length && !boxPlain.later.some((row) => /^Spelling/.test(row)), JSON.stringify(boxPlain.later?.slice(0, 4)))
     await shut(box)
   }
 

@@ -154,7 +154,7 @@ export function rightClickOnWords(editor: Editor, event: MouseEvent, decide: (fo
  * then “Learn spelling” for a word that is right as written (a name, a term). Inside any of the editor's menus,
  * which lend them their row styling.
  */
-export function SpellingRows({ editor, spelling }: { editor: Editor; spelling: Misspelling }) {
+export function SpellingRows({ editor, spelling, titled = true }: { editor: Editor; spelling: Misspelling; titled?: boolean }) {
   // Nothing from the page's checker (its list is short): Harper's dictionary, once loaded.
   const [more, setMore] = useState<string[]>([])
   useEffect(() => {
@@ -170,7 +170,8 @@ export function SpellingRows({ editor, spelling }: { editor: Editor; spelling: M
   const learn = host().learnSpelling
   return (
     <>
-      <div className="tiptap-slash-menu-group">Spelling</div>
+      {/* Under "Spelling ›" the row it opens from already says so. */}
+      {titled ? <div className="tiptap-slash-menu-group">Spelling</div> : null}
       {offered.slice(0, 5).map((word) => (
         <DropdownMenuItem key={word} asChild>
           <button type="button" onClick={() => replace(word)}>

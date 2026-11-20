@@ -5,6 +5,7 @@ import "@/components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.scss"
 import { openChime } from "@/lib/sound"
 import { notTheOpeningRelease, onlyRealMoves } from "@/lib/real-move"
 import { quietClose } from "@/lib/quiet-focus"
+import { escOneLayer } from "@/lib/menu-keys"
 
 
 function DropdownMenu({
@@ -130,6 +131,7 @@ function DropdownMenuSubContent({
       <DropdownMenuPrimitive.SubContent
         collisionPadding={ROOM}
         data-slot="tiptap-dropdown-menu-sub-content"
+        onEscapeKeyDown={escOneLayer}
         className={cn("tiptap-dropdown-menu-sub-content", className)}
         {...props}
       />

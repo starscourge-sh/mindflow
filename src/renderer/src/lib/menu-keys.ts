@@ -96,3 +96,14 @@ export function revealRow(row: Element | null | undefined): void {
   if (from.top < area.top + above) box.scrollTop -= area.top + above - from.top
   else if (to.bottom > area.bottom - below) box.scrollTop += to.bottom - (area.bottom - below)
 }
+
+/**
+ * Esc in a submenu closes that submenu alone, the keys back on its row, as ← does: Radix closes the whole menu.
+ * Handed to every SubContent's onEscapeKeyDown; the menu under it takes the next Esc.
+ */
+export function escOneLayer(event: KeyboardEvent): void {
+  const here = document.activeElement
+  if (!(here instanceof HTMLElement) || !here.closest('[data-slot$="sub-content"]')) return
+  event.preventDefault()
+  here.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }))
+}
