@@ -6,7 +6,7 @@ import { useCornerDock, useLayerOpen } from '@/lib/layer-watch'
 import { chime, type Cue } from '@/lib/sound'
 import { EASE, shift, still } from '@/lib/motion'
 import { useSurface } from '@/lib/use-alive'
-import { useLive, haligtree, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/haligtree'
+import { call, useLive, haligtree, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/haligtree'
 import { useHas } from '@/lib/needs'
 import type { Lean, Voice, WrapPage } from '../../../../main/wrap-lines'
 import { taskName } from '@/lib/tasks'
@@ -15,7 +15,7 @@ import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
 import { Folder, In, OpArt, Roll, Scribble, Silk, type Op } from './wrap-art'
-import { FOLDER_LINES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
+import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
 import { plannedVsDid } from './planned-did'
@@ -124,6 +124,37 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
   }
 }
 
+type Picture = { src: string; title: string; type: string; id: string; stored?: string }
+/** What the Mac's Vision calls a picture of words, a page or a screen (main/picture-sight.ts): never a story's hero. */
+const PAGES = new Set(['document', 'screenshot', 'text', 'receipt', 'chart', 'diagram', 'table', 'spreadsheet', 'printed_page', 'handwriting', 'paper', 'letter', 'invoice', 'menu', 'whiteboard', 'blackboard', 'computer', 'monitor', 'screen', 'display', 'website', 'map', 'calendar', 'book', 'magazine', 'poster', 'sign', 'card', 'qr_code', 'barcode'])
+const ART_WORDS = new Set(['art', 'painting', 'paintings', 'drawing', 'sketch', 'illustrations'])
+/** The most words a hero may hold: a caption on a photo, a signature on a painting; a page of figures holds hundreds. */
+const HERO_WORDS = 6
+const nameIn = (src: string): string => src.replace(/^[a-z]+:\/\/assets\//, '').replace(/\?.*$/, '')
+/**
+ * The pictures fit to be the story's big picture, best first: your own photos and art, never a screenshot of a page
+ * of figures or a table (they can be private, and they are no picture of the month). A picture is taken only once the
+ * Mac has read it for words (main/picture-words.ts, kept, so most are known at once) and found almost none, and Vision
+ * does not call it a page or a screen; paintings and drawings first. Read one at a time, the span's order, until two
+ * are found or ten were asked: never a crowd of readings at once. None fit, and the cards draw their own motif instead.
+ */
+async function heroesOf(pictures: Picture[]): Promise<Picture[]> {
+  const sight = await call<{ labels: Record<string, string[]> }>('pictures:sight').catch(() => ({ labels: {} as Record<string, string[]> }))
+  const labels = new Map(Object.entries(sight.labels).map(([src, said]) => [nameIn(src), said.map((one) => one.toLowerCase())]))
+  const found: { one: Picture; art: boolean }[] = []
+  let asked = 0
+  for (const one of pictures) {
+    if (!one.stored || one.type === 'gem' || found.length >= 2 || asked >= 10) continue
+    const said = labels.get(nameIn(one.stored)) ?? []
+    if (said.some((label) => PAGES.has(label))) continue
+    asked++
+    const words = await window.api.imageText(one.stored).catch(() => null)
+    if (words === null || words.split(/\s+/).filter((word) => /\p{L}|\d/u.test(word)).length > HERO_WORDS) continue
+    found.push({ one, art: said.some((label) => ART_WORDS.has(label)) })
+  }
+  return found.sort((a, b) => Number(b.art) - Number(a.art)).map(({ one }) => one)
+}
+
 /** At most this many cards: the first and the last always, the rest by what there is to say. */
 const MOST = 12
 
@@ -151,7 +182,9 @@ type Facts = {
   name: string; title: string; range: string; period: 'week' | 'month'; from: string; to: string
   captures: number; tags: { name: string; n: number }[]; minutes: number; sessions: number; focusTasks: { name: string; minutes: number }[]
   planned: number; did: number; planRows: { name: string; planned: number; did: number }[]
-  pictures: { src: string; title: string; type: string; id: string }[]; notes: string[]; notesLabel: string; gems: number
+  pictures: Picture[]; notes: string[]; notesLabel: string; gems: number
+  /** The story's big pictures (heroesOf): your own photos and art, none of words; empty, and a drawn motif stands in. */
+  heroes: Picture[]
   run: number; runFrom: string; runTo: string; busy: string[]; days: Record<string, number>
   busiest: { label: string; day: string; n: number } | null; well: string[]; kind: string; sites: { site: string; count: number }[]; reads: Reads
   /** Captures by hour of the day, and the hour most came in; null with too few to say. */
@@ -178,6 +211,13 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   const [data, setData] = useState<Wrapped | null>(null)
   useEffect(() => void wrapOf(span).then(setData), [id]) // eslint-disable-line react-hooks/exhaustive-deps
   const pictures = usePicturesFrom(dayjs(span.from).startOf('day').toISOString(), dayjs(span.to).endOf('day').toISOString())
+  const [heroes, setHeroes] = useState<Picture[] | null>(null)
+  useEffect(() => {
+    if (!pictures) return
+    let live = true
+    void heroesOf(pictures).then((found) => live && setHeroes(found), () => live && setHeroes([]))
+    return () => void (live = false)
+  }, [pictures])
   const surface = useSurface()
   // The seed picks the world, its palette, each card's layout and the lines: never the same twice.
   const look = useMemo<Look>(() => {
@@ -193,7 +233,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   const wide = useWide()
 
   const facts = useMemo<Facts | null>(() => {
-    if (!data || !pictures) return null
+    if (!data || !pictures || !heroes) return null
     const { recap, focus, plan, gems, run, well, name, busy, days, sites, reads, before } = data
     // The span's pictures, and its gems with none of their own on their paper drawing: one flowing row.
     const pictured = new Set(pictures.map((one) => one.id))
@@ -204,7 +244,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       range: `${dayjs(span.from).format('D MMM')} to ${dayjs(span.to).format('D MMM YYYY')}`,
       captures: recap.captures, tags: recap.tags, minutes: focus.minutes, sessions: focus.sessions, focusTasks: focus.tasks,
       planned: plan.planned, did: plan.did, planRows: plan.rows.map((row) => ({ name: taskName(row.task.title).text, planned: row.planned, did: row.did })),
-      pictures: flow, notes, notesLabel: recap.sources.length ? 'Top sources' : 'Gems kept', gems: gems.length,
+      pictures: flow, heroes, notes, notesLabel: recap.sources.length ? 'Top sources' : 'Gems kept', gems: gems.length,
       run: run.n, runFrom: run.from, runTo: run.to, busy, days,
       busiest: recap.busiestDay ? { label: dayName(noon(recap.busiestDay.name), 'never'), day: recap.busiestDay.name, n: recap.busiestDay.n } : null,
       // An hour is said only with enough caught to mean something, and one hour clearly ahead of the next.
@@ -212,7 +252,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites, reads, before,
       ...worst
     }
-  }, [data, pictures]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, pictures, heroes]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // On a Mac with Apple Intelligence, a few words over each page: the page's plain statement, written here from its
   // facts (wrapSays), said again by the model in the voice of the story's look (main/wrap-lines.ts); the page's own
