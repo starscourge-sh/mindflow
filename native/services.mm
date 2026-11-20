@@ -71,15 +71,26 @@ static void Call(napi_env env, napi_value callback, void *context, void *data) {
 
 static HTServices *provider = nil;
 
+/**
+ * Node shutting down (a quit, or a switch to another book, which ends the run with app.exit): a sending that came
+ * after Node freed the function would call it freed and crash the app. Run first (added after the function), on the
+ * app's own thread, where sendings arrive too.
+ */
+static void Stop(void *) { told = NULL; }
+
 static napi_value Listen(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value argv[1], nothing, name;
   napi_get_undefined(env, &nothing);
   if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 1) return nothing;
-  if (told) napi_release_threadsafe_function(told, napi_tsfn_release);
+  if (told) {
+    napi_remove_env_cleanup_hook(env, Stop, NULL);
+    napi_release_threadsafe_function(told, napi_tsfn_release);
+  }
   napi_create_string_utf8(env, "services", NAPI_AUTO_LENGTH, &name);
   napi_create_threadsafe_function(env, argv[0], NULL, name, 0, 1, NULL, NULL, NULL, Call, &told);
   napi_unref_threadsafe_function(env, told);
+  napi_add_env_cleanup_hook(env, Stop, NULL);
   provider = provider ?: [HTServices new];
   // The menu line is declared in Info.plist; nothing to tell macOS at launch.
   NSApp.servicesProvider = provider;

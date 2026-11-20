@@ -7,6 +7,7 @@
 // Built by native/build-spotlight.sh into resources/spotlight.node.
 #import <CoreSpotlight/CoreSpotlight.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#include <mutex>
 #include <node_api.h>
 
 static NSString *Text(napi_env env, napi_value value) {
@@ -25,10 +26,30 @@ static NSString *Field(napi_env env, napi_value object, const char *key) {
   return Text(env, value);
 }
 
-/** A callback kept until the Mac answers, on its own thread, and called back on Node's. */
-struct Later { napi_threadsafe_function call; };
+/**
+ * A callback kept until the Mac answers, on its own thread, and called back on Node's. `gone`: Node is shutting down
+ * (a quit, or a switch to another book, which ends the run with app.exit) and is about to free the function, so an
+ * answer that comes later is dropped instead of calling it freed and crashing the app. Read and set under `lock`.
+ */
+struct Later { napi_threadsafe_function call; bool gone; };
+// Made once and never freed: an answer may come while the process ends and frees its statics.
+static std::mutex &lock = *new std::mutex;
+/** Run by Node as it shuts down, before it frees the function (added after it, so run first). */
+static void Gone(void *data) {
+  std::lock_guard<std::mutex> hold(lock);
+  ((Later *)data)->gone = true;
+}
 static void Answer(napi_env env, napi_value callback, void *context, void *data) {
   id result = (__bridge_transfer id)data;
+  // Node freeing the function with an answer still waiting: Gone has run, nothing more to do.
+  if (!env) return;
+  Later *later = (Later *)context;
+  napi_remove_env_cleanup_hook(env, Gone, later);
+  {
+    // Done may still be letting go of the function on the Mac's thread.
+    std::lock_guard<std::mutex> hold(lock);
+  }
+  delete later;
   napi_value argument, nothing;
   napi_get_undefined(env, &nothing);
   if ([result isKindOfClass:NSArray.class]) {
@@ -44,21 +65,25 @@ static void Answer(napi_env env, napi_value callback, void *context, void *data)
   } else {
     napi_get_null(env, &argument);
   }
-  if (env && callback) napi_call_function(env, nothing, callback, 1, &argument, NULL);
+  if (callback) napi_call_function(env, nothing, callback, 1, &argument, NULL);
 }
-static napi_threadsafe_function Keep(napi_env env, napi_value callback) {
-  napi_threadsafe_function call;
+static Later *Keep(napi_env env, napi_value callback) {
+  Later *later = new Later{NULL, false};
   napi_value name;
   napi_create_string_utf8(env, "spotlight", NAPI_AUTO_LENGTH, &name);
-  napi_create_threadsafe_function(env, callback, NULL, name, 0, 1, NULL, NULL, NULL, Answer, &call);
-  return call;
+  napi_create_threadsafe_function(env, callback, NULL, name, 0, 1, NULL, NULL, later, Answer, &later->call);
+  napi_add_env_cleanup_hook(env, Gone, later);
+  return later;
 }
-static void Done(napi_threadsafe_function call, id result) {
-  napi_call_threadsafe_function(call, (__bridge_retained void *)(result ?: NSNull.null), napi_tsfn_blocking);
-  napi_release_threadsafe_function(call, napi_tsfn_release);
+static void Done(Later *later, id result) {
+  std::lock_guard<std::mutex> hold(lock);
+  if (later->gone) return;
+  // The queue has no limit, so this never waits: the lock is held only a moment.
+  napi_call_threadsafe_function(later->call, (__bridge_retained void *)(result ?: NSNull.null), napi_tsfn_nonblocking);
+  napi_release_threadsafe_function(later->call, napi_tsfn_release);
 }
-static void (^Finished(napi_threadsafe_function call))(NSError *) {
-  return ^(NSError *error) { Done(call, error ? error.localizedDescription : nil); };
+static void (^Finished(Later *later))(NSError *) {
+  return ^(NSError *error) { Done(later, error ? error.localizedDescription : nil); };
 }
 
 static napi_value Put(napi_env env, napi_callback_info info) {
@@ -117,7 +142,7 @@ static napi_value Find(napi_env env, napi_callback_info info) {
   napi_get_undefined(env, &nothing);
   if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 2) return nothing;
   NSString *words = [Text(env, argv[0]) stringByReplacingOccurrencesOfString:@"\"" withString:@""];
-  napi_threadsafe_function call = Keep(env, argv[1]);
+  Later *call = Keep(env, argv[1]);
   NSString *asked = [NSString stringWithFormat:@"title == \"*%@*\"cd || textContent == \"*%@*\"cd", words, words];
   CSSearchQuery *query = [[CSSearchQuery alloc] initWithQueryString:asked attributes:@[ @"title" ]];
   NSMutableArray *found = [NSMutableArray array];

@@ -14,7 +14,8 @@ import { screen } from 'electron'
 import { mirrored, watchInUse } from './glass'
 import { NO_SIGNALS, SIGNALS, type Signal, type Signals } from './meeting-away'
 
-const QA = !!process.env.HALIGTREE_QA_AWAY
+// HALIGTREE_QA_INUSE: a test run that listens to the Mac's own in-use flags as a person's run does (qa/switch-packaged.mjs).
+const QA = !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_INUSE
 const stood = (process.env.HALIGTREE_QA_SIGNALS ?? '').split(',')
 let signals: Signals = { ...NO_SIGNALS, ...Object.fromEntries(SIGNALS.filter((one) => QA && stood.includes(one)).map((one) => [one, true])) }
 /** “Show anyway”: the stickies and goal cards out again though a meeting or quiet hours would keep them away. */
