@@ -341,11 +341,17 @@ async function addPageIn(folder: Folder, open: (type: string, id: string) => voi
 
 /** Each kind's own sign, as its rows show it elsewhere. */
 const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = { article: FileText, capture: StickyNote, nugget: Gem, question: HelpCircle, task: CircleCheck }
-const THINGS_SHOWN = 8
+/** How many things any fold in the sidebar shows (a folder's, Writing's): four, then "See all". */
+export const TREE_SHOWN = 4
+/** Of a list in order, the first few, the open one always among them: past them, it takes the last place, the gap implied. */
+export const pagesShown = <T extends { id: string }>(all: T[], lit: string | undefined, n = TREE_SHOWN): T[] => {
+  const at = lit ? all.findIndex((one) => one.id === lit) : -1
+  return at < n ? all.slice(0, n) : [...all.slice(0, n - 1), all[at]]
+}
 
 /**
  * What an unfolded folder holds, under its folders on the same trunk: its pages, notes, gems and tasks, each with its
- * own sign, newest first, the first eight and then "Show N more", which opens the folder's page.
+ * own sign, newest first, the first four (the open one always among them) and then "See all", the folder's page.
  */
 function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: string; onOpen: (type: string, id: string) => void; onAll: () => void }): React.JSX.Element | null {
   const things = useLive(() => folders.items(folder.id), null as FolderItem[] | null, [folder.id], undefined, `folders:items:${folder.id}`)
@@ -354,8 +360,8 @@ function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: st
   if (!shown.length) return <p data-folder-empty-row="" className="py-1 pr-2 pl-8 text-control text-muted-foreground">Nothing in it yet</p>
   return (
     <>
-      {shown.slice(0, THINGS_SHOWN).map((one) => <ThingRow key={one.id} thing={one} lit={lit === one.id} onOpen={onOpen} from={folder.name} />)}
-      {shown.length > THINGS_SHOWN && <MoreRow data-folder-show-more={folder.id} onClick={onAll}>Show {num(shown.length - THINGS_SHOWN)} more</MoreRow>}
+      {pagesShown(shown, lit).map((one) => <ThingRow key={one.id} thing={one} lit={lit === one.id} onOpen={onOpen} from={folder.name} />)}
+      {shown.length > TREE_SHOWN && <MoreRow data-folder-show-more={folder.id} onClick={onAll}>See all</MoreRow>}
     </>
   )
 }
