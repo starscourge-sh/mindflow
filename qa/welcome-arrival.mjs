@@ -136,14 +136,39 @@ try {
       await at(18400)
       check('the scene window is gone by the first words', !(await sceneOf()))
       check('the first words come in the window', await h.evaluate(() => !!document.querySelector('[data-thesis]')))
-      // As Dia's: the page a panel over the fog, solid under the words and thinning out to the right, the fog moving on
-      // beside it (never the old gold gradient over the whole window, "mud on the right", nor the red margin line).
-      const beside = await h.evaluate(() => ({
-        fog: !!document.querySelector('[data-welcome-scene="window"] [data-scene-stage]'),
-        panel: getComputedStyle(document.querySelector('[data-plate]')).backgroundImage,
-        margin: !!document.querySelector('[data-margin]')
-      }))
-      check('the page has come in over the scene as a panel, the fog moving on beside it', beside.fog && /linear-gradient/.test(beside.panel) && /transparent|rgba\(0, 0, 0, 0\)|0\)\s*100%/.test(beside.panel), JSON.stringify(beside).slice(0, 220))
+      // The gold gradient behind the page on this path too (20 Nov, the user: "missing its previous background … the gold
+      // gradient"): the page has come in and covers the whole window, its gradient drawn, the haze gone from behind it;
+      // and the pixels behind the words are the gradient, not the bare page (the window read off a screenshot, sampled
+      // across its right half, where nothing is written).
+      await h.waitForTimeout(1500)
+      const beside = await h.evaluate(() => {
+        const plate = document.querySelector('[data-plate]')?.getBoundingClientRect()
+        const canvas = document.querySelector('[data-plate] canvas')?.getBoundingClientRect()
+        return {
+          covers: !!plate && plate.left <= 1 && plate.right >= innerWidth - 1 && plate.top <= 1 && plate.bottom >= innerHeight - 1,
+          gradient: !!canvas && canvas.width > innerWidth / 2,
+          fog: !!document.querySelector('[data-welcome-scene="window"]'),
+          page: getComputedStyle(document.body).backgroundColor,
+          margin: !!document.querySelector('[data-margin]')
+        }
+      })
+      const shot = await h.screenshot({ type: 'png' })
+      const seen = await electron.evaluate(({ nativeImage }, b64) => {
+        const image = nativeImage.createFromBuffer(Buffer.from(b64, 'base64'))
+        const { width, height } = image.getSize()
+        const bits = image.toBitmap()
+        const sum = [0, 0, 0]
+        let n = 0
+        for (let y = Math.round(height * 0.2); y < height * 0.8; y += 23) for (let x = Math.round(width * 0.55); x < width * 0.95; x += 29) {
+          const at = (y * width + x) * 4
+          sum[0] += bits[at + 2]; sum[1] += bits[at + 1]; sum[2] += bits[at]; n++
+        }
+        return sum.map((one) => Math.round(one / n))
+      }, shot.toString('base64'))
+      const bare = (beside.page.match(/\d+/g) ?? []).slice(0, 3).map(Number)
+      const off = Math.max(...seen.map((one, i) => Math.abs(one - (bare[i] ?? one))))
+      check('the page has come in and covers the window, the gold gradient behind it and the haze gone', beside.covers && beside.gradient && !beside.fog, JSON.stringify(beside))
+      check('behind the words is the gradient, not the bare page', off >= 4, `seen rgb(${seen.join(', ')}) against the page's ${beside.page}`)
       check('no red margin line down the page', !beside.margin)
       // QA_SHOTS: a picture of each page as it stands over the fog, for reading by eye beside Dia's (its panel and its sky).
       if (process.env.QA_SHOTS) {
