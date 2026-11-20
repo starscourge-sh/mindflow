@@ -7,6 +7,8 @@ import { chime, type Cue } from '@/lib/sound'
 import { EASE, shift, still } from '@/lib/motion'
 import { useSurface } from '@/lib/use-alive'
 import { useLive, haligtree, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/haligtree'
+import { useHas } from '@/lib/needs'
+import type { WrapPage } from '../../../../main/wrap-lines'
 import { taskName } from '@/lib/tasks'
 import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
@@ -59,6 +61,8 @@ type Wrapped = {
   well: string[]
   sites: { site: string; count: number }[]
   reads: Reads
+  /** The span before, for the comparison Wrapped's written lines may make: its captures and minutes of focus. */
+  before: { captures: number; minutes: number }
 }
 /** Articles read in the reader this span (main/read-time.ts): finished only with their end reached and half their reading time spent. */
 type Reads = { total: number; finished: number; left: { title: string; minutes: number; needs: number }[] }
@@ -67,7 +71,9 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
   const [since, until] = [dayjs(from).startOf('day').toISOString(), dayjs(to).endOf('day').toISOString()]
   const mondays: string[] = []
   for (let monday = dayjs(from).startOf('week'); dayKey(monday) <= to; monday = monday.add(1, 'week')) mondays.push(dayKey(monday))
-  const [recap, sessions, tasks, gems, days, pages, sent, read] = await Promise.all([
+  const prior = dayjs(from).subtract(1, period)
+  const [priorSince, priorUntil] = [prior.startOf(period).toISOString(), prior.endOf(period).toISOString()]
+  const [recap, sessions, tasks, gems, days, pages, sent, read, priorRecap, priorSessions] = await Promise.all([
     haligtree.recap(period, since),
     haligtree.sessionsSpan(since, until) as Promise<SpanSession[]>,
     haligtree.tasks() as Promise<Task[]>,
@@ -75,14 +81,17 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
     haligtree.dayCaptures(from, to),
     Promise.all(mondays.map((monday) => haligtree.period(`week:${monday}`))),
     sentAwaySince(since),
-    window.api.haligtree('read:stats', since) as Promise<{ rows: { title: string; minutes: number; needs: number; finished: boolean; lastAt: string }[] }>
+    window.api.haligtree('read:stats', since) as Promise<{ rows: { title: string; minutes: number; needs: number; finished: boolean; lastAt: string }[] }>,
+    haligtree.recap(period, priorSince),
+    haligtree.sessionsSpan(priorSince, priorUntil) as Promise<SpanSession[]>
   ])
   const inSpan = read.rows.filter((one) => one.lastAt <= until)
   const minutes = new Map<string, number>()
   const worked = new Set<string>()
   let total = 0
+  const spent = (one: SpanSession): number => Math.max(0, ((one.endedAt ? Date.parse(one.endedAt) : Date.now()) - Date.parse(one.startedAt) - (one.pausedMs || 0)) / 60_000)
   for (const one of sessions) {
-    const n = Math.max(0, ((one.endedAt ? Date.parse(one.endedAt) : Date.now()) - Date.parse(one.startedAt) - (one.pausedMs || 0)) / 60_000)
+    const n = spent(one)
     minutes.set(one.taskId, (minutes.get(one.taskId) ?? 0) + n)
     worked.add(dayKey(one.startedAt))
     total += n
@@ -110,7 +119,8 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
     days: days.counts,
     well: [...new Set(well)],
     sites: bySite(sent, since, until),
-    reads: { total: inSpan.length, finished: inSpan.filter((one) => one.finished).length, left: inSpan.filter((one) => !one.finished).map((one) => ({ title: one.title, minutes: one.minutes, needs: one.needs })) }
+    reads: { total: inSpan.length, finished: inSpan.filter((one) => one.finished).length, left: inSpan.filter((one) => !one.finished).map((one) => ({ title: one.title, minutes: one.minutes, needs: one.needs })) },
+    before: { captures: priorRecap.captures, minutes: Math.round(priorSessions.reduce((sum, one) => sum + spent(one), 0)) }
   }
 }
 
@@ -146,6 +156,7 @@ type Facts = {
   busiest: { label: string; day: string; n: number } | null; well: string[]; kind: string; sites: { site: string; count: number }[]; reads: Reads
   /** Captures by hour of the day, and the hour most came in; null with too few to say. */
   hours: number[]; hour: number | null
+  before: Wrapped['before']
 }
 type Kind = 'intro' | 'tags' | 'focus' | 'sites' | 'reading' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
 
@@ -183,7 +194,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
 
   const facts = useMemo<Facts | null>(() => {
     if (!data || !pictures) return null
-    const { recap, focus, plan, gems, run, well, name, busy, days, sites, reads } = data
+    const { recap, focus, plan, gems, run, well, name, busy, days, sites, reads, before } = data
     // The span's pictures, and its gems with none of their own on their paper drawing: one flowing row.
     const pictured = new Set(pictures.map((one) => one.id))
     const flow = [...pictures, ...gems.filter((gem) => !pictured.has(gem.id)).map((gem) => ({ src: drawingFor(gem.id).url, title: gem.title || 'New note', type: 'gem', id: gem.id }))]
@@ -198,10 +209,35 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       busiest: recap.busiestDay ? { label: dayName(noon(recap.busiestDay.name), 'never'), day: recap.busiestDay.name, n: recap.busiestDay.n } : null,
       // An hour is said only with enough caught to mean something, and one hour clearly ahead of the next.
       hours: recap.hours, hour: thinkingHour(recap.hours),
-      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites, reads,
+      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites, reads, before,
       ...worst
     }
   }, [data, pictures]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On a Mac with Apple Intelligence, each page's line written from the facts it counted (main/wrap-lines.ts), one request
+  // a story. Lines already written for these facts come at once and the first card waits for that answer only; new ones
+  // come while the cards turn, each page taking its written line if it is in when the page first shows, and keeping
+  // whichever it showed. Without them, or past 20 seconds, every page says its own sentence.
+  const ai = useHas('ai') && !worst
+  const asked = useMemo(() => (facts && ai ? wrapFacts(facts) : null), [facts, ai])
+  const [written, setWritten] = useState<{ lines: Record<string, string> | null; done: boolean }>({ lines: null, done: false })
+  useEffect(() => {
+    if (!asked) return
+    let live = true
+    type Said = { lines: Record<string, string> | null } | { error: string }
+    const said = (one: Said, done: boolean): void => void (live && setWritten({ lines: 'lines' in one ? one.lines : null, done }))
+    void window.api.haligtree<Said>('ai:wrap', id, asked, true).then((kept) => {
+      said(kept, true)
+      if ('lines' in kept && !kept.lines) void window.api.haligtree<Said>('ai:wrap', id, asked, false).then((one) => said(one, true), () => undefined)
+    }, () => said({ lines: null }, true))
+    return () => void (live = false)
+  }, [asked]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shownLines = useRef(new Map<Kind, string | undefined>())
+  const lineFor = (one: Kind): string | undefined => {
+    if (!shownLines.current.has(one)) shownLines.current.set(one, written.lines?.[one])
+    return shownLines.current.get(one)
+  }
+  const ready = !!facts && (!asked || written.done)
 
   const kinds = useMemo<Kind[]>(() => {
     if (!facts) return []
@@ -291,11 +327,11 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
           go(event.clientX - box.left > box.width / 3 ? at + 1 : at - 1)
         }}>
           <AnimatePresence mode="popLayout" initial={false} custom={dir}>
-            {facts && kind && (
+            {facts && ready && kind && (
               <motion.div key={at} className="absolute inset-0"
                 initial={byKey || still() ? false : { opacity: 0, transform: shift(`translateX(${24 * dir}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.24, ease: EASE } }}
                 custom={dir} variants={{ gone: (to: number) => ({ opacity: 0, transform: shift(`translateX(${-12 * to}px)`), transition: { duration: byKey ? 0 : 0.12, ease: EASE } }) }} exit="gone">
-                <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} wide={wide} open={open} />
+                <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} wide={wide} open={open} line={lineFor(kind)} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -448,6 +484,47 @@ const thinkingHour = (hours: number[]): number | null => {
 }
 const hourSaid = (hour: number): string => `${hour}:00`
 
+/**
+ * What each page may say, for the lines Apple Intelligence writes (main/wrap-lines.ts): the facts the page counted, as
+ * it shows them, and the span before where the page compares. Every page a story could show, whichever this open
+ * picks, so the lines are kept per story and not per open. A page with nothing to say is left out, as are "In your
+ * words" (your own lines, never retold) and the last card.
+ */
+function wrapFacts(f: Facts): WrapPage[] {
+  const last = `last ${f.period}`
+  // The span before, said as the change: "23 more things caught than last month", never a sum left to the model (given
+  // last month's count as well, the model tacked it on: "9 fewer than last week, 32").
+  const than = (now: number, before: number, what: string): string[] =>
+    !before && !now ? [] : now === before ? [`as many ${what} as ${last}`] : [`${num(Math.abs(now - before))} ${now > before ? 'more' : 'fewer'} ${what} than ${last}`]
+  const pages: WrapPage[] = []
+  const page = (kind: Kind, above: string | undefined, facts: (string | false | null | undefined)[], most = 22): void =>
+    void pages.push({ page: kind, ...(above ? { above } : {}), facts: facts.filter((one): one is string => !!one), most })
+  const span = f.period === 'month' ? f.name : 'this week'
+  if (f.captures || f.minutes) page('intro', `the title "${f.title}"; this line opens the story`, [`${plural(f.captures, 'thing')} caught in ${span}`, ...than(f.captures, f.before.captures, 'things caught'), f.minutes >= 1 && `${howLong(f.minutes)} of focus`, f.gems > 0 && plural(f.gems, 'gem') + ' kept'], 18)
+  if (f.tags.length) page('tags', `#${f.tags[0].name} in large type`, [`#${f.tags[0].name} came up in ${plural(f.tags[0].n, 'capture')}`, `${plural(f.captures, 'thing')} caught in all`, f.tags[1] && `#${f.tags[1].name} next, in ${plural(f.tags[1].n, 'capture')}`])
+  else if (f.captures) page('tags', `${num(f.captures)} in large type`, [`${plural(f.captures, 'thing')} caught in ${span}`, 'none of them tagged'])
+  if (f.minutes >= 1) {
+    const top = f.focusTasks[0]
+    page('focus', f.minutes >= 120 ? `${num(Math.round(f.minutes / 60))} in large type, the hours of focus` : `${num(f.minutes)} in large type, the minutes of focus`,
+      [`${howLong(f.minutes)} of focus`, plural(f.sessions, 'session'), top && `most of it on “${top.name}”, ${howLong(top.minutes)}`, ...than(f.minutes, f.before.minutes, 'minutes of focus')])
+  }
+  if (f.sites.length) page('sites', `Kept you off ${f.sites[0].site} ${timesSaid(f.sites[0].count)} this ${f.period}`,
+    [...f.sites.slice(0, 3).map((one) => `${one.site} sent away ${plural(one.count, 'time')} while you focused`), `${plural(f.sites.reduce((n, one) => n + one.count, 0), 'time')} in all`])
+  if (f.reads.total) page('reading', `You finished ${num(f.reads.finished)} of ${plural(f.reads.total, 'article')} you opened`, [`${num(f.reads.left.length)} left part way`, f.reads.left[0] && `“${f.reads.left[0].title}” among those left part way`], 18)
+  if (f.planRows.length) page('plan', `You planned ${howLong(f.planned)}${f.did ? ` and did ${howLong(f.did)}` : ''}`, [`${plural(f.planRows.length, 'task')} with a time planned and a date this ${f.period}`, f.did ? `${howLong(f.did)} done of ${howLong(f.planned)} planned` : 'none of it done yet'])
+  if (f.pictures.length) page('pictures', f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw', [`${plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from ${span}`], 16)
+  if (f.notes.length) page('notes', `a few of the notes as a list; this line is its short heading`, [`${f.notesLabel.toLowerCase()} from ${span}`, ...f.notes.slice(0, 3).map((note) => quoted(note, 50))], 10)
+  if (f.run >= 2) page('run', `${num(f.run)} in large type`, [`${plural(f.run, 'day')} in a row with something caught or focused on`, `${dayjs(f.runFrom).format('D MMMM')} to ${dayjs(f.runTo).format('D MMMM')}`, 'not a streak to keep, just how it went'])
+  if (f.busiest) {
+    const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
+    const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
+    page('busiest', `Your busiest day was ${f.busiest.label}`, [`${plural(f.busiest.n, 'capture')} that day`, usual > 0 && usual < f.busiest.n && `${plural(usual, 'capture')} on a usual day`])
+  }
+  if (f.hour !== null) page('hours', `Ideas came most around ${hourSaid(f.hour)}`, [`${num(f.hours[f.hour])} of ${plural(f.captures, 'capture')} came in that hour`])
+  page('outro', 'nothing; this is the last line of the story, a short goodbye in large type', [span, `your kind of ${f.period} in a word, ${f.kind}`, ...than(f.captures, f.before.captures, 'things caught')], 12)
+  return pages
+}
+
 /** Each day of the span as a bar of its captures, the busiest in the loud colour with its count over it; the first and last dates under. */
 function DayBars({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   const days: string[] = []
@@ -480,13 +557,16 @@ function Bars({ p, mark, values, peak, under }: { p: Palette; mark: string; valu
 }
 
 /** One card: its words in front, its own chart or your own pictures beside them, laid out for the width it has. */
-function Card({ kind, f, look, variant, seed, wide, open }: { kind: Kind; f: Facts; look: Look; variant: number; seed: number; wide: boolean; open: (type: string, id: string) => void }): React.JSX.Element {
+// `line`: the page's line written on this Mac from its facts (wrapFacts), said in place of its own sentence.
+function Card({ kind, f, look, variant, seed, wide, open, line }: { kind: Kind; f: Facts; look: Look; variant: number; seed: number; wide: boolean; open: (type: string, id: string) => void; line?: string }): React.JSX.Element {
   const { p, world } = look
   const e = look.entrance
   const flip = variant === 1
   const top = f.tags.slice(0, 5)
   const split = (a: ReactNode, b: ReactNode): ReactElement => <Split a={a} b={b} flip={flip} />
   const night = world === 'night'
+  /** The line under a page's number or heading: the one written from its facts, else the page's own sentence. */
+  const caption = (own: ReactNode, more = ''): ReactElement => <p className={CAPTION} data-wrap-line={line ? 'written' : 'own'}>{line ? `${line}${more}` : own}</p>
 
   // Night's silk of light, under its words; Files is paper and ink, its art the op-art round your own pictures.
   const art = night ? <><Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} /><div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${p.bg} 10%, color-mix(in srgb, ${p.bg} 55%, transparent))` }} /></> : null
@@ -503,43 +583,43 @@ function Card({ kind, f, look, variant, seed, wide, open }: { kind: Kind; f: Fac
   const body = ((): ReactElement => {
     switch (kind) {
       case 'intro':
-        if (night) return <Centre><In at={0.12} from={e}><h2 className="text-[clamp(40px,10cqi,84px)] leading-[0.95] font-black tracking-tight text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={opening(f, look.intro)} /></p></In></Centre>
+        if (night) return <Centre><In at={0.12} from={e}><h2 className="text-[clamp(40px,10cqi,84px)] leading-[0.95] font-black tracking-tight text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={line ?? opening(f, look.intro)} /></p></In></Centre>
         return split(<>
           <In at={0.12} from={e}><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
-          <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium"><Typed story text={opening(f, look.intro)} /></p></In>
+          <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium"><Typed story text={line ?? opening(f, look.intro)} /></p></In>
         </>, cover())
       case 'tags': {
-        if (!top.length) return split(<><In at={0.15}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div></In><In at={0.45}><p className={CAPTION}>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</p></In></>, night ? <div /> : cover())
+        if (!top.length) return split(<><In at={0.15}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div></In><In at={0.45}>{caption(<>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)}</In></>, night ? <div /> : cover())
         const lead = `#${top[0].name}`
         return split(<><In at={0.12}><h2 className={fit(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2></In>
-          <In at={0.45}><p className={CAPTION}>came up most: {plural(top[0].n, 'capture')} of the {num(f.captures)} {f.captures === 1 ? 'thing' : 'things'} you caught</p></In></>,
+          <In at={0.45}>{caption(<>came up most: {plural(top[0].n, 'capture')} of the {num(f.captures)} {f.captures === 1 ? 'thing' : 'things'} you caught</>)}</In></>,
           <Ranked rows={top} accent={p.accent} />)
       }
       case 'focus': {
         const said = f.minutes >= 120 ? `${num(Math.round(f.minutes / 60))}` : num(f.minutes)
         const most = f.focusTasks[0]
         return split(<><In at={0.12}><div className={HUGE} style={{ color: p.accent }}>{said}</div></In>
-          <In at={0.45}><p className={CAPTION}>{f.minutes >= 120 ? 'hours' : f.minutes === 1 ? 'minute' : 'minutes'} of focus, over {plural(f.sessions, 'session')}{most ? `. Most of it on ${quoted(most.name, 60)}.` : '.'}</p></In></>,
+          <In at={0.45}>{caption(<>{f.minutes >= 120 ? 'hours' : f.minutes === 1 ? 'minute' : 'minutes'} of focus, over {plural(f.sessions, 'session')}{most ? `. Most of it on ${quoted(most.name, 60)}.` : '.'}</>)}</In></>,
           f.focusTasks.length ? <Rows p={p} wide={wide} rows={f.focusTasks.map((one) => ({ key: one.name, name: one.name, said: howLong(one.minutes), n: one.minutes }))} /> : night ? <div /> : cover())
       }
       case 'sites': {
         const [first, ...rest] = f.sites
         const total = f.sites.reduce((n, one) => n + one.count, 0)
         return split(<><In at={0.12}><h2 className={fit(first.site)}>Kept you off <span style={{ color: p.accent }}>{siteWords(first.site)}</span> {timesSaid(first.count)} this {f.period}</h2></In>
-          <In at={0.45}><p className={CAPTION}>{rest.length ? `and ${and(rest.slice(0, 2).map((one) => `${one.site} ${timesSaid(one.count)}`))}${rest.length > 2 ? `, and ${plural(rest.length - 2, 'more site')}` : ''}: sent away ${plural(total, 'time')} while you focused.` : 'The one site it had to send away while you focused.'}</p></In></>,
+          <In at={0.45}>{caption(<>{rest.length ? `and ${and(rest.slice(0, 2).map((one) => `${one.site} ${timesSaid(one.count)}`))}${rest.length > 2 ? `, and ${plural(rest.length - 2, 'more site')}` : ''}: sent away ${plural(total, 'time')} while you focused.` : 'The one site it had to send away while you focused.'}</>)}</In></>,
           <Rows p={p} wide={wide} rows={f.sites.slice(0, 5).map((one) => ({ key: one.site, name: one.site, said: timesSaid(one.count), n: one.count }))} />)
       }
       case 'reading': {
         // Finished means its end reached with half its reading time spent on it: said under the number, so it is never a guess.
         const { total, finished, left } = f.reads
         return split(<><In at={0.12}><h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2></In>
-          <In at={0.45}><p className={CAPTION}>{`Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up.` : ''}`}</p></In></>,
+          <In at={0.45}>{caption(`Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up.` : ''}`, ' Finished means its end reached with at least half its reading time spent on it.')}</In></>,
           left.length ? <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} /> : cover())
       }
       case 'plan': {
         const rows = [...f.planRows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, wide ? 4 : 2)
         const most = Math.max(1, ...rows.flatMap((row) => [row.planned, row.did]))
-        return split(<><In at={0.12}><h2 className={BIG}>You planned {held(f.planned)}{f.did ? ` and did ${held(f.did)}` : ''}.</h2></In><In at={0.45}><p className={CAPTION}>on {plural(f.planRows.length, 'task')} with a time planned and a date this {f.period}</p></In></>,
+        return split(<><In at={0.12}><h2 className={BIG}>You planned {held(f.planned)}{f.did ? ` and did ${held(f.did)}` : ''}.</h2></In><In at={0.45}>{caption(<>on {plural(f.planRows.length, 'task')} with a time planned and a date this {f.period}</>)}</In></>,
           <div className="grid h-full grid-cols-1 [align-content:safe_center] gap-4">{rows.map((row, i) => (
             <In key={row.name + i} at={0.3 + i * 0.07} from="left" className="min-w-0">
               <p className="truncate text-[15px] font-semibold" dir="auto">{row.name}</p>
@@ -554,30 +634,30 @@ function Card({ kind, f, look, variant, seed, wide, open }: { kind: Kind; f: Fac
       case 'pictures':
         return (
           <div data-wrap-flow className="relative grid h-full grid-rows-[auto_1fr] [align-content:safe_center] gap-5 px-7 pt-12 pb-14 @2xl:px-12">
-            <In at={0.12}><h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2><p className={CAPTION}>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</p></In>
+            <In at={0.12}><h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
             <In at={0.3} className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 300 : 170} label="Pictures and gems" onOpen={(index) => f.pictures[index] && open(f.pictures[index].type, f.pictures[index].id)} className="-mx-7 @2xl:-mx-12" /></In>
           </div>
         )
       case 'notes':
-        if (!night && wide) return split(<In><h2 className={BIG}>{look.folder}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
-        return split(<><In at={0.12}><h2 className={BIG}>{look.folder}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
+        if (!night && wide) return split(<In><h2 className={BIG} data-wrap-line={line ? 'written' : 'own'}>{line ?? look.folder}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
+        return split(<><In at={0.12}><h2 className={BIG} data-wrap-line={line ? 'written' : 'own'}>{line ?? look.folder}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
       case 'well':
         return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well, from your weekly notes</p></In></>, <ul className="grid h-full [align-content:safe_center] gap-3">{f.well.slice(0, wide ? 4 : 3).map((line, i) => <In key={line} at={0.3 + i * 0.1}><li className="text-[17px] leading-snug font-medium text-pretty" dir="auto">{quoted(line, 90)}</li></In>)}</ul>)
       case 'run':
         return split(<><In at={0.12}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.run} /></div></In>
-          <In at={0.5}><p className={CAPTION}>days in a row with something caught or focused on, {dayjs(f.runFrom).format('D MMMM')} to {dayjs(f.runTo).format('D MMMM')}. Not a streak to keep: just how it went.</p></In></>, <Calendar f={f} p={p} />)
+          <In at={0.5}>{caption(<>days in a row with something caught or focused on, {dayjs(f.runFrom).format('D MMMM')} to {dayjs(f.runTo).format('D MMMM')}. Not a streak to keep: just how it went.</>)}</In></>, <Calendar f={f} p={p} />)
       case 'busiest': {
         const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
         const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
         return split(<><In at={0.12}><h2 className={BIG}>Your busiest day was <span style={{ color: p.accent }}>{f.busiest?.label}</span></h2></In>
-          <In at={0.4}><p className={CAPTION}>{plural(f.busiest?.n ?? 0, 'capture')} in one day{usual && usual < (f.busiest?.n ?? 0) ? `, where a usual day held ${num(usual)}` : ''}.</p></In></>, <DayBars f={f} p={p} />)
+          <In at={0.4}>{caption(<>{plural(f.busiest?.n ?? 0, 'capture')} in one day{usual && usual < (f.busiest?.n ?? 0) ? `, where a usual day held ${num(usual)}` : ''}.</>)}</In></>, <DayBars f={f} p={p} />)
       }
       case 'hours':
         return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
-          <In at={0.4}><p className={CAPTION}>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</p></In></>, <HourBars f={f} p={p} />)
+          <In at={0.4}>{caption(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In></>, <HourBars f={f} p={p} />)
       case 'outro':
-        if (night) return <Centre><In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
-        return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.pictures.at(-1)))
+        if (night) return <Centre><In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={line ?? fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
+        return split(<><In><h2 className={BIG}><Typed story text={line ?? fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.pictures.at(-1)))
       case 'report':
         return <Report f={f} look={look} />
     }
