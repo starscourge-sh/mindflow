@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
+  <!-- The install window's page (electron-builder.yml dmg): cream paper, brown ink, a golden-brown thread from
+       Haligtree to Applications. Finder puts the two icons at (170, 214) and (490, 214), 112 points, with their names.
+       The words are set by render.mjs, in Fraunces with the app's own axes (an SVG cannot ask for them). -->
+  <defs>
+    <radialGradient id="paper" cx="50%" cy="46%" r="72%">
+      <stop offset="0" stop-color="#f8f1e1"/>
+      <stop offset="0.62" stop-color="#f3ead7"/>
+      <stop offset="1" stop-color="#e2d7c0"/>
+    </radialGradient>
+    <radialGradient id="pool" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#d9a441" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#d9a441" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-20%" y="-60%" width="140%" height="220%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+
+  <rect width="660" height="400" fill="url(#paper)"/>
+
+  <!-- A book plate's double rule, inset from the window's edge. -->
+  <rect x="16" y="16" width="628" height="368" rx="3" fill="none" stroke="#8f5c0c" stroke-opacity="0.38" stroke-width="1"/>
+  <rect x="21" y="21" width="618" height="358" rx="2" fill="none" stroke="#8f5c0c" stroke-opacity="0.16" stroke-width="0.75"/>
+
+  <!-- A fleuron under the heading: a short rule either side of a lozenge. -->
+  <g stroke="#8f5c0c" stroke-opacity="0.55" stroke-width="1" stroke-linecap="round">
+    <line x1="290" y1="95" x2="322" y2="95"/>
+    <line x1="338" y1="95" x2="370" y2="95"/>
+  </g>
+  <path d="M330 90.5 L334.5 95 L330 99.5 L325.5 95 Z" fill="#8f5c0c" fill-opacity="0.7"/>
+
+  <!-- The light the thread runs through. -->
+  <ellipse cx="330" cy="206" rx="120" ry="46" fill="url(#pool)"/>
+
+  <!-- The arrow, drawn by hand: a glow under it, then the ink. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#d9a441" stroke-opacity="0.55" stroke-width="7" filter="url(#glow)">
+      <path d="M252 214 C 290 186, 360 182, 404 206"/>
+      <path d="M389 191 L 406 207 L 384 213"/>
+    </g>
+    <path d="M252 214 C 290 186, 360 182, 404 206" stroke="#8f5c0c" stroke-width="3"/>
+    <path d="M389 191 L 406 207 L 384 213" stroke="#8f5c0c" stroke-width="3"/>
+  </g>
+
+</svg>

@@ -110,6 +110,24 @@ dmg:
   artifactName: Haligtree-${version}.${ext}
   # The disk's icon once opened; the .dmg file's own is set by the step below.
   icon: build/icon.icns
+  title: Haligtree ${version}
+  # The window it opens in: cream paper, "Drag Haligtree to Applications" and a golden-brown arrow from the app
+  # to the Applications folder, drawn by build/dmg/render.mjs (background@2x.png beside it is used on Retina screens).
+  background: build/dmg/background.png
+  iconSize: 112
+  iconTextSize: 13
+  window:
+    width: 660
+    height: 400
+  # Where the arrow starts and ends in build/dmg/background.svg.
+  contents:
+    - x: 170
+      y: 214
+      type: file
+    - x: 490
+      y: 214
+      type: link
+      path: /Applications
 # Each .dmg gets Haligtree's icon in Finder too.
 afterAllArtifactBuild: build/stamp-dmg-icon.cjs
 linux:

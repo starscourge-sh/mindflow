@@ -14,6 +14,7 @@
 #import <CoreMediaIO/CMIOHardware.h>
 #include <algorithm>
 #include <libproc.h>
+#include <mutex>
 #include <node_api.h>
 #include <objc/message.h>
 #include <unistd.h>
@@ -134,6 +135,17 @@ static void CallScroll(napi_env env, napi_value js, void *context, void *data) {
   napi_call_function(env, global, js, 2, args, NULL);
 }
 
+/**
+ * Node shutting down (a quit, or a switch to another book, which ends the run with app.exit): the monitor goes before
+ * Node frees the function it calls (added after that function, so Node runs this first), on the app's own thread,
+ * where the monitor runs too. A scroll in the moment after would call a freed function and crash the app.
+ */
+static void StopScroll(void *) {
+  if (scrollMonitor) [NSEvent removeMonitor:scrollMonitor];
+  scrollMonitor = nil;
+  scrollListener = NULL;
+}
+
 static napi_value WatchScroll(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value argv[1], nothing, name;
@@ -146,9 +158,10 @@ static napi_value WatchScroll(napi_env env, napi_callback_info info) {
     NSString *kind = nil;
     if (event.phase == NSEventPhaseBegan) kind = @"began";
     else if (event.phase == NSEventPhaseEnded || event.phase == NSEventPhaseCancelled) kind = @"ended";
-    if (kind) napi_call_threadsafe_function(scrollListener, (__bridge_retained void *)@[kind, @(event.windowNumber)], napi_tsfn_nonblocking);
+    if (kind && scrollListener) napi_call_threadsafe_function(scrollListener, (__bridge_retained void *)@[kind, @(event.windowNumber)], napi_tsfn_nonblocking);
     return event;
   }];
+  napi_add_env_cleanup_hook(env, StopScroll, NULL);
   return nothing;
 }
 
@@ -369,8 +382,10 @@ static napi_value IsOurs(napi_env env, napi_callback_info info) {
 
 static napi_threadsafe_function inUseListener = NULL;
 static dispatch_queue_t inUseQueue = NULL;
-static std::vector<AudioObjectID> heardAudio;
-static std::vector<CMIOObjectID> heardCameras;
+// Made once and never freed: the queue may still be at work while the process ends and frees its statics.
+static std::mutex &inUseLock = *new std::mutex;
+static std::vector<AudioObjectID> &heardAudio = *new std::vector<AudioObjectID>;
+static std::vector<CMIOObjectID> &heardCameras = *new std::vector<CMIOObjectID>;
 
 static void CallInUse(napi_env env, napi_value js, void *context, void *data) {
   if (!env) return;
@@ -384,7 +399,9 @@ static void CallInUse(napi_env env, napi_value js, void *context, void *data) {
 static void SayInUse() {
   if (!inUseListener) return;
   uintptr_t said = (MicInUse() ? 1 : 0) | (CameraInUse() ? 2 : 0);
-  napi_call_threadsafe_function(inUseListener, (void *)said, napi_tsfn_nonblocking);
+  // Held only to hand the answer over (the queue has no limit, so that never waits), so StopInUse never waits long.
+  std::lock_guard<std::mutex> hold(inUseLock);
+  if (inUseListener) napi_call_threadsafe_function(inUseListener, (void *)said, napi_tsfn_nonblocking);
 }
 /** Those in `now` not listened to yet; `heard` becomes `now`, so one that went (its listener went with it) is new again if its number comes back. */
 template <typename ID>
@@ -396,6 +413,7 @@ static std::vector<ID> NotHeard(std::vector<ID> &heard, const std::vector<ID> &n
 }
 /** Each thing that can start or stop taking sound or pictures is listened to once; run on inUseQueue only. */
 static void HearInUse() {
+  if (!inUseListener) return;
   bool processes = HasProcessList();
   AudioObjectID device = processes ? kAudioObjectUnknown : AudioNumber(kAudioObjectSystemObject, kAudioHardwarePropertyDefaultInputDevice);
   AudioObjectPropertyAddress taking = AudioAt(processes ? kProcessInput : kAudioDevicePropertyDeviceIsRunningSomewhere);
@@ -407,6 +425,18 @@ static void HearInUse() {
     CMIOObjectAddPropertyListenerBlock(camera, &running, inUseQueue, ^(UInt32, const CMIOObjectPropertyAddress *) { SayInUse(); });
 }
 
+/**
+ * Node shutting down (a quit, or a switch to another book, which ends the run with app.exit): the Mac's listeners
+ * keep calling on the module's queue, and one that came after Node freed the function it calls aborted the app
+ * ("Haligtree quit unexpectedly" on a switch: this queue's thread in uv_mutex_lock, from SayInUse). Run before that
+ * function is freed (added after it, so Node runs this first): an answer being handed over is let finish, and from
+ * then on every listener finds nothing to call and returns.
+ */
+static void StopInUse(void *) {
+  std::lock_guard<std::mutex> hold(inUseLock);
+  inUseListener = NULL;
+}
+
 static napi_value WatchInUse(napi_env env, napi_callback_info info) {
   size_t argc = 1;
   napi_value argv[1], nothing, name;
@@ -416,6 +446,7 @@ static napi_value WatchInUse(napi_env env, napi_callback_info info) {
   if (napi_create_threadsafe_function(env, argv[0], NULL, name, 0, 1, NULL, NULL, NULL, CallInUse, &inUseListener) != napi_ok) return nothing;
   napi_unref_threadsafe_function(env, inUseListener);
   inUseQueue = dispatch_queue_create("haligtree.in-use", DISPATCH_QUEUE_SERIAL);
+  napi_add_env_cleanup_hook(env, StopInUse, NULL);
   // The lists themselves: an app opening sound for the first time, another microphone made the default, a camera
   // plugged in. Each is listened to from then on, and the answer read again.
   void (^again)(void) = ^{ HearInUse(); SayInUse(); };

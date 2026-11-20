@@ -255,7 +255,8 @@ const EXTENSIONS: Record<string, string> = {
 // A test run's app goes when the run does: if the probe that launched it is
 // killed outright (kill -9, a crashed runner), nothing is left to close it,
 // and it sat on as "Sandbox · 1 due" in the menu bar. Its parent gone, it quits.
-if (process.env.HALIGTREE_QA_AWAY) {
+// A run started by a book switch (sandbox.ts relaunch) is the child of the run it replaces, which goes on purpose.
+if (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_ARRIVAL) {
   const parent = process.ppid
   setInterval(() => process.ppid !== parent && app.exit(0), 2000).unref()
 }
