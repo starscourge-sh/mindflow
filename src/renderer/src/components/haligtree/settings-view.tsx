@@ -14,7 +14,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useStepped } from '@/lib/nav'
 import { PACKS, SCAPES, TICKS, scapeSample, type Scape, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { CalendarDays, Check, ChevronDown, FlaskConical, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, FlaskConical, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Plus, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { SecondZoneSetting } from './calendar-events'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import CameraIcon from '@/components/ui/camera-icon'
@@ -78,8 +78,10 @@ import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
-import { askBook, deleteBook, markInk, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
-import { BookMark, HueDots } from './books'
+import { askBook, deleteBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
+import { BookMark, bookRowMenu } from './books'
+import { RowMenu, openFromGrip } from './row-menu'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { NameInPlace } from './name-in-place'
 import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
@@ -154,20 +156,10 @@ function BoxPanelSetting({ oneLine }: { oneLine: boolean }): React.JSX.Element {
 /** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
 const SLIDER_VALUE = 'w-24 text-right tabular-nums'
 
-export function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming, mark, anchor, badge, wash, role }: {
+export function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, anchor }: {
   title: string
-  /** Its own drawing before its title (a book's mark in its colour), centred on the title's first line. */
-  mark?: ReactNode
-  /** A short status beside the title, for the book that is open. */
-  badge?: string
-  /** A wash of this colour behind the row, so the open book reads as the one in force. */
-  wash?: string
-  /** 'now' is the open book. 'shelf' is one waiting beside it. */
-  role?: 'now' | 'shelf'
   /** A name for its row on the page (data-setting-anchor), to bring it into view when it is asked for from elsewhere. */
   anchor?: string
-  /** Its name being typed where the title stands (a book named or renamed), in place of the title. */
-  naming?: ReactNode
   /** What the one-line note had no room for, behind a “?” beside the title. Searched too. */
   more?: string
   /** Why its control is greyed out now, or why it has no effect yet, said under it in plain words (“Turn “Sounds” on to change this”). */
@@ -192,12 +184,10 @@ export function Setting({ title, aka, children, note, more, below, beside, keywo
   if (!all && !matches(query, title, plain(note), `${keywords} ${aka ?? ''} ${more ?? ''}`)) return null
   const shown = all ? '' : query
   return (
-    <div data-setting data-setting-title={title} data-setting-anchor={anchor} data-book-role={role} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`} style={wash ? { background: `color-mix(in srgb, ${wash} 16%, transparent)` } : undefined}>
+    <div data-setting data-setting-title={title} data-setting-anchor={anchor} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
       <div className={`flex flex-wrap justify-between gap-x-6 ${beside ? 'items-start gap-y-4' : 'items-center gap-y-2'}`}>
         <div className="min-w-0 flex-[1_1_13rem]">
-          <div className="text-body font-medium text-foreground">{mark
-            ? <span className={`inline-flex items-start gap-1.5 align-top ${naming ? 'w-full max-w-80' : ''}`}><span className="flex h-[1lh] shrink-0 items-center">{mark}</span>{naming ?? <span className="min-w-0"><Marked text={title} query={shown} /></span>}</span>
-            : naming ?? <Marked text={title} query={shown} />}{badge && <span data-setting-badge className="ml-2 inline-flex translate-y-[-1px] items-center rounded-full bg-foreground/10 px-1.5 py-px align-middle text-meta font-medium text-foreground">{badge}</span>}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
+          <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} />{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
               <Tip label={more}>
                 <button type="button" data-setting-more aria-label={`More about ${quoted(title, 80)}`} className="relative after:absolute after:-inset-1 after:rounded-full shrink-0 ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
@@ -1459,15 +1449,27 @@ function HomeGoalRows({ settings }: { settings: Settings }): React.JSX.Element {
   )
 }
 
+/** A book's row, as System Settings lists users: its mark, its name over one quiet fact, and at the right only “Open” and its “…”. */
+const BOOK_ROW = 'flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 py-2 pr-3 pl-4'
+const BOOK_KEYS = 'book books rename delete open switch colour color accent tint hue space arc vault workspace'
+
 /**
- * Your books, under “Your book”: the open one first with its name and its colour (the nine, eased into where
- * the colour is worn as one is picked), then the others, each with its name to change, a way in, its colour, and, for any
- * but My book, deleting it, held, with a whole copy kept first. In main's order: the one you were in last first.
+ * Your books, under “Your book”: one list, as System Settings lists users and Finder its sidebar, in main's order (the
+ * open one first, then the one you were in last). Each a compact row: its mark in its colour, its name, one quiet fact
+ * (“Open now”, “Your first book”, “Made 13 Oct 2026”), and at the right “Open” (not on the open one) and a “…” holding
+ * Rename, Colour and Delete, the same menu as its right-click (books.tsx bookRowMenu). Delete asks in the book's own row,
+ * held, its warning said there and nowhere else. “New book” once, at the list's foot, named in place as Finder names
+ * a folder. (The user, 20 Nov, of the old rows, each with nine swatches, a paragraph and three buttons: "something
+ * feels busy about this and un-Apple/Dia like".)
  */
 function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>', from a book's own menu. */ asked?: string; nonce?: number }): React.JSX.Element | null {
   const shelf = useShelf()
-  // A book named where it is listed, as Finder names a folder: a new one on its own row under the others, or one renamed in its row.
+  const { query, all } = useContext(Query)
+  const shown = all ? '' : query
+  // A book named where it is listed, as Finder names a folder: a new one on its own row at the foot, or one renamed in its row.
   const [naming, setNaming] = useState<string | null>(null)
+  // The book whose deleting is being asked about, in its own row.
+  const [asking, setAsking] = useState<string | null>(null)
   const loaded = !!shelf
   useEffect(() => {
     const [, what, id] = /^(book|book-rename):(.+)$/.exec(asked ?? '') ?? []
@@ -1477,61 +1479,94 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>',
     document.querySelector(`[data-setting-anchor="book:${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [asked, nonce, loaded])
   if (!shelf) return null
+  // In a span that takes the keys: a rename chosen in the book's menu keeps them here as the menu shuts (row-menu.tsx).
   const nameField = (book: { id: string; name: string } | null): React.JSX.Element => (
-    <NameInPlace initial={book?.name ?? ''} placeholder="Name the book" label="Book name"
-      className="w-full max-w-72 rounded-[4px] bg-transparent px-1 -mx-1 text-foreground outline-none ring-1 ring-ring/45 placeholder:font-normal placeholder:text-muted-foreground"
-      onDone={(words) => {
-        setNaming(null)
-        if (!words || words === book?.name) return
-        if (!book) return void newBook(words)
-        void renameBook(book.id, words).then((ok) => ok && (chime('settled'), toast(`Now called ${words}`)))
-      }} />
+    <span data-takes-keys className="block">
+      <NameInPlace initial={book?.name ?? ''} placeholder="Name the book" label="Book name"
+        className="w-full max-w-72 rounded-[4px] bg-transparent px-1 -mx-1 text-body font-medium text-foreground outline-none ring-1 ring-ring/45 placeholder:font-normal placeholder:text-muted-foreground"
+        onDone={(words) => {
+          setNaming(null)
+          if (!words || words === book?.name) return
+          if (!book) return void newBook(words)
+          void renameBook(book.id, words).then((ok) => ok && (chime('settled'), toast(`Now called ${words}`)))
+        }} />
+    </span>
   )
   const remove = async (id: string, name: string): Promise<void> => {
+    setAsking(null)
     const kept = await deleteBook(id).catch(() => null)
     // Nothing goes until its whole copy is safe with the backups: that is the one way it fails.
     if (!kept) return refuse(`${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was. Check the backup folder under “Import and backups”, then try again`, 'error')
     chime('away')
     toast(`${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, undefined, 'info')
   }
-  const open = shelf.books.find((one) => one.current)
-  const others = shelf.books.filter((one) => !one.current)
-  const made = (book: Book): string => (book.id === 'default' ? 'Your first book, which cannot be deleted.' : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}.`)
+  const factOf = (book: Book): string =>
+    [book.current && 'Open now', book.id === 'default' ? 'Your first book' : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}`].filter(Boolean).join(' · ')
+  const fact = 'block truncate text-meta text-(--mf-muted-strong)'
+  const books = shelf.books.filter((book) => matches(query, book.name, factOf(book), BOOK_KEYS))
+  const sandboxShown = SANDBOX && matches(query, 'Sandbox', 'open now', BOOK_KEYS)
+  const footShown = !SANDBOX && matches(query, 'New book', 'books book new another vault workspace')
   return (
     <>
-      {open ? (
-        <Setting anchor={`book:${open.id}`} role="now" badge="Open now" wash={markInk(open.color)} mark={<BookMark hue={open.color} className="size-5" />} title={open.name} naming={naming === open.id ? nameField(open) : undefined}
-          note="The book open now. Its colour tints the sidebar and takes the accent's place (links, the caret, what is selected), to tell your books apart at a glance."
-          more={`${made(open)} ${open.id === 'default' ? `It is where ${APP_NAME} has always kept your notes.` : 'Switch to another book to delete this one.'} The book menu at the sidebar’s foot (“Book colour”), ⌘K’s “Book colour…” and a right-click on the book’s name there pick a colour too.`}
-          keywords="this book name rename colour color accent tint hue space arc books vault workspace"
-          below={<div className="mt-2.5"><HueDots book={open} /></div>}>
-          <Button variant="ghost" size="sm" data-book-rename={open.id} onClick={() => setNaming(open.id)}>Rename</Button>
-        </Setting>
-      ) : (
-        // The sandbox: someone else's book, with no colour of yours to change. Said where the colour would be.
-        <Setting anchor="book:sandbox" mark={<FlaskConical aria-hidden className="size-4 text-muted-foreground" />} title="Sandbox" note="You are in the sandbox now: a peek into someone else's book."
-          off="It has no colour to change: it is someone else’s book, and wears the theme’s own. Your books keep theirs."
-          keywords="this book sandbox colour color accent tint hue books" />
+      {sandboxShown && (
+        // The sandbox: someone else's book, open now, with no name or colour of yours to change.
+        <div data-setting data-setting-title="Sandbox" data-setting-anchor="book:sandbox" aria-current="true" className={BOOK_ROW}>
+          <FlaskConical aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-medium text-foreground"><Marked text="Sandbox" query={shown} /></span>
+            <span data-book-fact className={fact}>Open now: someone else’s book, so it has no name or colour of yours to change</span>
+          </span>
+        </div>
       )}
-      <Setting title={open ? 'Your other books' : 'Your books'} note={others.length || !open ? `Each book is a ${APP_NAME} of its own, with its own notes and settings.` : `None yet. A new book is a ${APP_NAME} of its own, with its own notes and settings.`}
-        more="Its own pictures and Getting started; your look comes along, and every book's notes are backed up each day they change. The one you were in last is listed first, here, in the sidebar's menu and in ⌘K." keywords="books book vault vaults switch new another scratch library workspace">
-        {!SANDBOX && <Button variant="outline" size="sm" data-book-new onClick={() => (chime('open'), setNaming('new'))}>New book</Button>}
-      </Setting>
-      {others.map((book) => (
-        <Setting key={book.id} under role="shelf" anchor={`book:${book.id}`} mark={<BookMark hue={book.color} />} title={book.name} naming={naming === book.id ? nameField(book) : undefined}
-          note={`${made(book)}${!SANDBOX && book.id !== 'default' ? ' **Deleting it deletes everything in it, for good.**' : ''}`}
-          more={book.id === 'default' ? `Where ${APP_NAME} has always kept your notes.` : undefined}
-          keywords="book rename delete open switch colour color accent tint hue space arc"
-          below={SANDBOX ? undefined : <div className="mt-2"><HueDots book={book} /></div>}>
-          {!SANDBOX && <Button variant="ghost" size="sm" data-book-rename={book.id} onClick={() => setNaming(book.id)}>Rename</Button>}
-          {/* No "Show in Finder": a book is the app's own files deep in the system's folders, nothing to open by hand. */}
-          <Button variant="ghost" size="sm" data-book-open={book.id} onClick={() => void switchBook(book.id)}>Open</Button>
-          {!SANDBOX && book.id !== 'default' && (
-            <HoldButton hint={`${book.name} and everything in it, for good`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Hold to delete</HoldButton>
-          )}
-        </Setting>
+      {books.map((book) => (
+        <RowMenu key={book.id} items={bookRowMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)) })}>
+          <div data-setting data-setting-title={book.name} data-setting-anchor={`book:${book.id}`} data-book-row={book.id} aria-current={book.current || undefined} className={BOOK_ROW}>
+            <BookMark hue={book.color} className="size-4" />
+            <span className="min-w-0 flex-1">
+              {naming === book.id ? nameField(book) : <span title={book.name} className="block truncate text-body font-medium text-foreground"><Marked text={book.name} query={shown} /></span>}
+              <span data-book-fact className={fact}>{factOf(book)}</span>
+            </span>
+            {asking !== book.id && (
+              <span className="flex shrink-0 items-center gap-1">
+                {/* No "Show in Finder": a book is the app's own files deep in the system's folders, nothing to open by hand. */}
+                {!book.current && <Button variant="ghost" size="sm" data-book-open={book.id} onClick={() => void switchBook(book.id)}>Open</Button>}
+                {!SANDBOX && (
+                  <Tip label="More">
+                    <button type="button" data-book-more={book.id} aria-label={`${book.name} menu`} onClick={openFromGrip}
+                      className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                      <AliveIcon icon={DotsHorizontalIcon} size={16} />
+                    </button>
+                  </Tip>
+                )}
+              </span>
+            )}
+            {/* Deleting asked in the book's own row, as the Bin asks (bin-view.tsx): what goes and what is kept, said once, here. */}
+            {asking === book.id && (
+              <span data-book-ask data-takes-keys className="flex basis-full flex-wrap items-center gap-2 rounded-[6px] bg-destructive/10 px-3 py-2"
+                onKeyDown={(event) => event.key === 'Escape' && (event.stopPropagation(), chime('off'), setAsking(null))}>
+                <span className="mr-auto min-w-0 text-control font-medium text-foreground">Delete {quoted(book.name, 60)} and everything in it? A whole copy is kept with your backups first.</span>
+                <HoldButton variant="destructive" hint={`${book.name} and everything in it`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Hold to delete</HoldButton>
+                <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>Keep it</Button>
+              </span>
+            )}
+          </div>
+        </RowMenu>
       ))}
-      {naming === 'new' && <Setting under title="New book" note="An empty book, apart from this one. It opens once it has a name." naming={nameField(null)} />}
+      {naming === 'new' && (
+        <div data-setting data-setting-title="New book" data-book-row="new" className={BOOK_ROW}>
+          <BookMark hue={null} className="size-4" />
+          <span className="min-w-0 flex-1">
+            {nameField(null)}
+            <span data-book-fact className={fact}>An empty book of its own. It opens once it has a name</span>
+          </span>
+        </div>
+      )}
+      {footShown && naming !== 'new' && (
+        <div data-setting data-setting-title="New book" className={BOOK_ROW}>
+          <span className="min-w-0 flex-1 text-control text-(--mf-muted-strong)">Each book keeps its own notes and settings. Your look comes along.</span>
+          <Button variant="outline" size="sm" data-book-new onClick={() => (chime('open'), setNaming('new'))}><Plus className="size-3.5" /> New book</Button>
+        </div>
+      )}
     </>
   )
 }
