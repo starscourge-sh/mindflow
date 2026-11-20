@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Gem, Link2, Shuffle } from 'lucide-react'
 import { Coolshape, shapes } from 'coolshapes-react'
 import { animate, motion, useMotionValue, useSpring, useTransform } from 'motion/react'
@@ -37,7 +37,7 @@ const SHAPES = ['star', 'flower', 'wheel', 'polygon', 'moon', 'misc'] as const
 type Shape = { type: (typeof SHAPES)[number]; index: number }
 
 /** What the stamps are read from (main 'reader:card'). */
-type Facts = { notes: number; since: string | null; linked: boolean; journal: number; reviewed: boolean }
+export type Facts = { notes: number; since: string | null; linked: boolean; journal: number; reviewed: boolean }
 
 /** The same run of numbers from the same seed (mulberry32). */
 function drawsFrom(seed: number): () => number {
@@ -174,11 +174,13 @@ async function shareCard(card: HTMLElement | null, save: boolean, name: string, 
  * under it, and glides with them on “Randomize”. Pictured at one size, so the
  * card never changes.
  */
-function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
+function ShapePicture({ shape, rise }: { shape: Shape; rise: boolean }): React.JSX.Element {
+  // Its own filter, so two cards on one page (Settings' and the shelf's) each tint by their own inks.
+  const tint = `mf-card-tint${useId().replace(/:/g, '')}`
   return (
     <div data-reader-shape={`${shape.type}-${shape.index}`} className="relative grid aspect-[226/200] place-items-center">
       <svg aria-hidden className="absolute size-0">
-        <filter id="mf-card-tint" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+        <filter id={tint} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
           {/* How light each point is, opaque, stretched so the shape's own light and dark span the whole way. */}
           <feColorMatrix in="SourceGraphic" type="matrix" values="0.3 0.59 0.11 0 0  0.3 0.59 0.11 0 0  0.3 0.59 0.11 0 0  0 0 0 0 1" result="grey" />
           <feComponentTransfer in="grey" result="light">
@@ -206,7 +208,81 @@ function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
         </filter>
       </svg>
       {/* A new shape comes up softly, while the colours glide. */}
-      <Coolshape key={`${shape.type}-${shape.index}`} type={shape.type} index={shape.index} noise={false} size={168} className="mf-rise" style={{ filter: 'url(#mf-card-tint)' }} />
+      <Coolshape key={`${shape.type}-${shape.index}`} type={shape.type} index={shape.index} noise={false} size={168} className={rise ? 'mf-rise' : undefined} style={{ filter: `url(#${tint})` }} />
+    </div>
+  )
+}
+
+/** A card's three inks (light to deep), set on what wears them: the whole book in Settings, the cover alone on the shelf. */
+export const cardInks = (hues: [string, string, string]): CSSProperties =>
+  ({ '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) }) as CSSProperties
+
+/** The card's own size: drawn at it, and scaled wherever it is shown smaller (the open book on the sidebar's shelf). */
+export const CARD = { wide: 250, high: 375 }
+
+/**
+ * What is printed on the cover: the picture, the book's name, its title, the stamps and the day it began. One drawing
+ * for the reader card (Settings, the welcome) and for the open book on the sidebar's shelf, scaled. Laid out in the
+ * cover's own padding (`flex flex-col py-4 pr-4 pl-[1.75rem]`). `small`, on the shelf: no hover tips on its stamps (the
+ * shelf sits in a menu, and a tip there is a second floating thing) and its picture there at once, never rising in each
+ * time the menu opens.
+ */
+export function CardFace({ seed, name, facts, small = false }: { seed: number; name: string; facts: Facts | null; small?: boolean }): React.JSX.Element {
+  const nameLine = useRef<HTMLParagraphElement>(null)
+  useFitText(nameLine, name, { most: 22, least: 13, way: 'down' })
+  const { title, shape } = cardOf(seed)
+  const stamps = facts ? stampsOf(facts) : []
+  return (
+    <>
+      <ShapePicture shape={shape} rise={!small} />
+      {/* Smaller the longer the name, so every name up to the field's 60 letters shows whole, in up to three lines. */}
+      <p ref={nameLine} data-reader-name className="mt-3 line-clamp-3 leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif", fontSize: 22 }}>{name || ' '}</p>
+      {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
+          pointer) they measure short, so the words were cut through their middles. */}
+      <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase">{title}</p>
+      {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet
+          on a cover narrowed by its spine. */}
+      <div className="mt-auto flex flex-col items-stretch gap-2.5 border-t border-current/15 pt-2.5">
+        <div className="flex items-end justify-between gap-2">
+          {/* Room for a row of stamps, kept even before the first, so the card never changes. */}
+          <div data-reader-stamps className="flex min-h-[26px] gap-1">
+            {stamps.map((one) => (
+              <Tip key={one.said} label={small ? '' : one.said}>
+                <span
+                  data-reader-stamp={one.said}
+                  className="grid size-[26px] place-items-center rounded-full border border-current/60 font-mono text-[0.5625rem] font-medium tracking-tight"
+                >{one.label}</span>
+              </Tip>
+            ))}
+          </div>
+          <p aria-hidden data-reader-book className="shrink-0 text-right font-mono text-[0.5rem] leading-[1.3] font-medium tracking-[0.14em] uppercase">Commonplace<br />Book</p>
+        </div>
+        <div className="flex">
+          {/* One quiet line, as a member card's "Member since": no box, no hatching. */}
+          <span data-reader-since className="font-mono text-[0.5rem] leading-none font-medium tracking-[0.14em] whitespace-nowrap uppercase">
+            {facts?.since ? `Kept since ${dayMonth(facts.since, 'always')}` : 'Not begun'}
+          </span>
+        </div>
+      </div>
+      {/* A tooled frame on the cover, two fine rules in its ink, as a cloth binding is blocked; clear of the spine. */}
+      <span aria-hidden data-reader-frame className="pointer-events-none absolute top-[7px] right-[7px] bottom-[7px] left-[19px] rounded-[2px] border border-current opacity-[0.14]" />
+    </>
+  )
+}
+
+/**
+ * The open book's cover on the sidebar's shelf: its reader card, the same drawing as in Settings, scaled to the shelf
+ * book's cover (`high` tall) in the card's own inks. Read as Settings reads it: the seed kept in settings, else the
+ * name's, and the stamps from the book.
+ */
+export function ShelfCover({ name, high }: { name: string; high: number }): React.JSX.Element {
+  const settings = useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null)
+  const facts = useLive(() => call<Facts>('reader:card'), null as Facts | null, [], undefined, 'reader:card')
+  const seed = settings?.readerSeed ?? seedOf(name)
+  return (
+    <div data-shelf-card className="absolute top-0 left-0 flex origin-top-left flex-col py-4 pr-4 pl-[1.75rem]"
+      style={{ width: CARD.wide, height: CARD.high, scale: high / CARD.high, color: 'var(--mf-card-c)', ...cardInks(cardOf(seed).hues) }}>
+      <CardFace seed={seed} name={name} facts={facts} small />
     </div>
   )
 }
@@ -327,11 +403,8 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
   }
   useEffect(() => void (point && card.current?.scrollIntoView({ block: 'center' })), [point])
   const name = named ?? shelf?.name ?? ''
-  const nameLine = useRef<HTMLParagraphElement>(null)
-  useFitText(nameLine, name, { most: 22, least: 13, way: 'down' })
   const seed = saved ?? seedOf(name)
-  const { title, hues, shape } = cardOf(seed)
-  const stamps = facts ? stampsOf(facts) : []
+  const { title, hues } = cardOf(seed)
   const actions: { tip: string; icon: ReactNode; data: string; run: () => void }[] = [
     { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level).finally(unlevel) },
     { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level).finally(unlevel) },
@@ -376,40 +449,9 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
         <motion.div aria-hidden className="pointer-events-none absolute inset-x-6 -bottom-1.5 h-3 rounded-[50%] bg-black/40 blur-[6px]" style={{ x: shadowAt, scaleX: shadowWide }} />
         {/* The book (book-box.tsx): its colours set on the whole book, so the spine and the cover wear the same ink. */}
         <BookBox size={BOOK} pitch={pitched} turn={turned} lit={lit} scale={tilt.grow} perspective={1000} name={name} ribbon
-          style={{ transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties}
+          style={{ transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', ...cardInks(hues) }}
           cover={{ ref: card, 'data-reader-card': '', 'data-hues': hues.join(' '), className: 'flex flex-col py-4 pr-4 pl-[1.75rem]' }}>
-          <ShapePicture shape={shape} />
-          {/* Smaller the longer the name, so every name up to the field's 60 letters shows whole, in up to three lines. */}
-          <p ref={nameLine} data-reader-name className="mt-3 line-clamp-3 leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif", fontSize: 22 }}>{name || ' '}</p>
-          {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
-              pointer) they measure short, so the words were cut through their middles. */}
-          <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase">{title}</p>
-          {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet
-              on a cover narrowed by its spine. */}
-          <div className="mt-auto flex flex-col items-stretch gap-2.5 border-t border-current/15 pt-2.5">
-            <div className="flex items-end justify-between gap-2">
-              {/* Room for a row of stamps, kept even before the first, so the card never changes. */}
-              <div data-reader-stamps className="flex min-h-[26px] gap-1">
-                {stamps.map((one) => (
-                  <Tip key={one.said} label={one.said}>
-                    <span
-                      data-reader-stamp={one.said}
-                      className="grid size-[26px] place-items-center rounded-full border border-current/60 font-mono text-[0.5625rem] font-medium tracking-tight"
-                    >{one.label}</span>
-                  </Tip>
-                ))}
-              </div>
-              <p aria-hidden data-reader-book className="shrink-0 text-right font-mono text-[0.5rem] leading-[1.3] font-medium tracking-[0.14em] uppercase">Commonplace<br />Book</p>
-            </div>
-            <div className="flex">
-              {/* One quiet line, as a member card's "Member since": no box, no hatching. */}
-              <span data-reader-since className="font-mono text-[0.5rem] leading-none font-medium tracking-[0.14em] whitespace-nowrap uppercase">
-                {facts?.since ? `Kept since ${dayMonth(facts.since, 'always')}` : 'Not begun'}
-              </span>
-            </div>
-          </div>
-          {/* A tooled frame on the cover, two fine rules in its ink, as a cloth binding is blocked; clear of the spine. */}
-          <span aria-hidden data-reader-frame className="pointer-events-none absolute top-[7px] right-[7px] bottom-[7px] left-[19px] rounded-[2px] border border-current opacity-[0.14]" />
+          <CardFace seed={seed} name={name} facts={facts} />
           {/* A soft light where the pointer is, as the card tips. */}
           <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ background: tilt.sheen, opacity: tilt.glow }} />
         </BookBox>

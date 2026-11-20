@@ -3,6 +3,7 @@ import { useSideEnds } from '@/lib/side-ends'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { still } from '@/lib/motion'
 import { BookBox, inked } from './book-box'
+import { ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -15,8 +16,8 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { ago } from '../../../../main/dates'
 import './shelf.css'
-import { Tip, ask, refuse, toast, whyFailed } from './ui'
-import { Swatch, type RowItem } from './row-menu'
+import { ask, refuse, toast, whyFailed } from './ui'
+import type { RowItem } from './row-menu'
 import { APP_NAME } from '../../../../main/name'
 import { cut, quoted } from '../../../../main/clip'
 
@@ -50,37 +51,8 @@ export function BookMark({ hue, className = 'size-3.5' }: { hue: Hue | null; cla
 const NINE = ([null, ...HUES] as (Hue | null)[]).map((hue) => ({ hue, label: hue ? hueName(hue) : 'No colour: the theme’s own', ink: markInk(hue) }))
 
 /**
- * A book's colour, picked from its nine swatches in Settings: the theme's own, or one of the theme's hues, drawn
- * as a right-click's swatches are (row-menu.tsx), the one worn ticked and named beside them. What wears the
- * open book's colour eases into it in place.
- */
-export function HueDots({ book }: { book: Book }): React.JSX.Element {
-  const pick = (hue: Hue | null): void => {
-    if (hue === book.color) return chime('nope')
-    chime('tap')
-    pickBookColor(book, hue)
-  }
-  return (
-    <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-      <span role="radiogroup" aria-label="Book colour" className="flex items-center gap-1">
-        {NINE.map(({ hue, label, ink }) => (
-          <Tip key={hue ?? 'none'} label={label}>
-            <button type="button" role="radio" aria-checked={hue === book.color} aria-label={hueName(hue)} data-hue={hue ?? 'none'} onClick={() => pick(hue)}
-              className="grid size-6 place-items-center rounded-md transition-[background-color,scale] duration-100 hover:bg-foreground/10 active:scale-[0.94]">
-              <Swatch color={ink} on={hue === book.color} />
-            </button>
-          </Tip>
-        ))}
-      </span>
-      {/* The one worn, in words: nobody has to point at a swatch to learn its name. */}
-      <span data-book-colour-name className="text-control text-muted-foreground">{book.color ? hueName(book.color) : 'The theme’s own colour'}</span>
-    </span>
-  )
-}
-
-/**
- * A book's colour picked where the picker then goes away (⌘K, its right-click): said, with Undo. In Settings
- * the swatches stay in view and say it themselves.
+ * A book's colour picked where the picker then goes away (⌘K, its right-click): said, with Undo. In Settings the
+ * colour menu stays open and the book's mark in its row shows it.
  */
 export function colourBook(book: Book, hue: Hue | null): void {
   if (hue === book.color) return chime('nope')
@@ -106,6 +78,30 @@ export const bookMenu = (book: Book, inSettings: (rename: boolean) => void): Row
     { label: 'Rename…', run: () => inSettings(true) }
   ]),
   { label: 'Show in Settings', run: () => inSettings(false) }
+]
+
+/**
+ * A book's "…" menu in Settings › Books, and its right-click there: its name, its colour (the nine, the menu kept
+ * open so each is seen worn in place, the open book's sidebar and accent easing into it), and deleting it, asked in its
+ * own row. The sandbox is someone else's book: nothing of a book can be changed from inside it. Your first book and
+ * the open one are never deleted from here (switch to another book first).
+ */
+export const bookRowMenu = (book: Book, { rename, remove }: { rename: () => void; remove: () => void }): RowItem[] => SANDBOX ? [] : [
+  { label: 'Rename…', run: rename },
+  {
+    label: 'Colour',
+    items: [
+      { heading: `${book.color ? hueName(book.color) : 'The theme’s own'}. ${book.current ? 'It tints the sidebar and the accent now' : 'It tints the sidebar and the accent while the book is open'}` },
+      {
+        stay: true,
+        swatches: NINE.map(({ hue, label, ink }) => ({
+          color: ink, label, on: hue === book.color,
+          run: () => (hue === book.color ? chime('nope') : (chime('tap'), pickBookColor(book, hue)))
+        }))
+      }
+    ]
+  },
+  { label: 'Delete…', danger: true, can: () => !book.current && book.id !== 'default', run: remove }
 ]
 
 /** What the main window wears as a book opens: your look as it came along, once. */
@@ -268,13 +264,15 @@ export function BookName(): React.JSX.Element {
  * book (the open one: its name and colour in Settings); a right-click, its menu.
  */
 /** Books on a shelf stand a little taller or shorter than each other: one of these by its id, the same every time. */
-const TALL = [92, 98, 88, 100, 95]
-/** A shelf book: as thick as a spine with a name down it, its cover a little narrower than it is tall, its boards thin. */
-const SHELF_BOOK = { wide: 84, thick: 26, board: 1.5, overhang: 1.5 }
+const TALL = [120, 127, 116, 130, 124]
+/** A shelf book: shaped as the reader card is (two wide to three tall, so the open book's cover is its card scaled), as thick as a spine with a name down it, its boards thin. */
+const SHELF_BOOK = { thick: 26, board: 1.5, overhang: 1.5 }
 /** The room a turned book takes on the shelf: its cover turned, a little of its spine, and a gap either side. */
 const TURNED_ROOM = 100
 /** Turned out, it stays turned a little, its spine and depth showing at its edge, as a book held up to you. */
 const TURNED = 18
+/** How far the eye is from the shelf, in pixels: the books' perspective. */
+const EYE = 700
 /** Pulled out and turned, and back: one spring for all, so the one turning out takes just what the one turning back gives up. */
 const PULL = { stiffness: 260, damping: 26 }
 /** A book's three inks from its colour (light to deep), as the welcome's book takes the card's: no colour, the theme's own, kept quiet. */
@@ -282,16 +280,29 @@ const inksOf = (hue: Hue | null): React.CSSProperties => {
   const ink = (light: number, strength: number): string => (hue && hue !== 'gray' ? inked(hue, light, strength) : `oklch(from ${markInk(hue)} ${light} min(c, ${hue ? 0.02 : strength}) h)`)
   return { '--mf-card-a': ink(0.82, 0.13), '--mf-card-b': ink(0.66, 0.19), '--mf-card-c': ink(0.44, 0.15) } as React.CSSProperties
 }
+const tallOf = (book: Book): number => TALL[[...book.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % TALL.length]
 
-function ShelfBook({ book, said, up, keyed, lit, onPick, onMenu }: { book: Book; said: string; up: boolean; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void }): React.JSX.Element {
+function ShelfBook({ book, said, up, tallest, keyed, lit, onPick, onMenu }: { book: Book; said: string; up: boolean; tallest: number; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void }): React.JSX.Element {
   // 0 a spine, 1 pulled out and turned: the book's turn, its room on the shelf, its lift and what stands in front, all from it.
   // A plain value moved by animate() (as the reader card's spin is), so a book caught mid-turn goes on from where it is.
   const out = useMotionValue(up ? 1 : 0)
   const flat = still()
+  const high = tallOf(book)
+  const wide = Math.round((high * 2) / 3)
   const turn = useTransform(out, (at) => 90 - (90 - (flat ? 0 : TURNED)) * at)
   const width = useTransform(out, (at) => SHELF_BOOK.thick + (TURNED_ROOM - SHELF_BOOK.thick) * at)
   const y = useTransform(out, (at) => -5 * at)
   const zIndex = useTransform(out, (at) => (at > 0.01 ? 1 : 0))
+  // Seen as tall as it is, whichever way it is turned: the face toward you stands nearer the eye than the book's middle
+  // (a spine by half the book's width, about 40px, drawn 6% bigger; a cover by half its thickness), so spines stood
+  // taller than a turned book of the same height. Scaled back by just that, from the foot, so every book stands on the
+  // ledge. And pulled out, it comes up to the tallest on the shelf, as a book drawn toward you does, so the one you are
+  // looking at never stands shorter than the spines beside it (the user, 20 Nov: "why does the active book look shorter").
+  const scale = useTransform(() => {
+    const rad = (turn.get() * Math.PI) / 180
+    const near = Math.max((SHELF_BOOK.thick / 2) * Math.cos(rad), (wide / 2) * Math.sin(rad))
+    return ((EYE - near) / EYE) * (1 + (tallest / high - 1) * out.get())
+  })
   // Reduce Motion or Motion off, or reached by the keys: there at once. Otherwise it swings round on the spring.
   // A passive effect, after the transforms above have listened again for this render: set in a layout effect, a book
   // reached by the keys changed while they were between listeners and stood still as a spine.
@@ -305,14 +316,16 @@ function ShelfBook({ book, said, up, keyed, lit, onPick, onMenu }: { book: Book;
     return undefined
   }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
   const pitch = useMotionValue(0)
-  const high = TALL[[...book.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % TALL.length]
   return (
     <DropdownMenuItem asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
       onContextMenu={onMenu} onSelect={onPick}>
-      <motion.div className="mf-spine" style={{ width, height: high, y, zIndex, ...inksOf(book.color) }}>
-        <BookBox size={{ ...SHELF_BOOK, high }} pitch={pitch} turn={turn} lit={lit} perspective={700} name={book.name} edges={false}
-          className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -SHELF_BOOK.wide / 2 }} cover={{ className: 'mf-spine-face' }}>
-          <span className="mf-spine-name">{book.name}</span>
+      <motion.div className="mf-spine" style={{ width, height: tallest, y, zIndex, ...inksOf(book.color) }}>
+        {/* The open book wears its own reader card (reader-card.tsx ShelfCover), the one Settings shows, scaled. The others
+            wear their name: a book's card is drawn from its own settings and stamps, which only the open book can read. */}
+        <BookBox size={{ ...SHELF_BOOK, wide, high }} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false}
+          className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -wide / 2, transformOrigin: '50% 100%' }}
+          cover={{ className: book.current ? 'mf-card-cover' : 'mf-spine-face' }}>
+          {book.current ? <ShelfCover name={book.name} high={high} /> : <span className="mf-spine-name">{book.name}</span>}
         </BookBox>
         {book.current && <span data-book-open className="sr-only">Open now</span>}
       </motion.div>
@@ -335,6 +348,7 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   const lit = useMotionValue(1)
   const saidOf = (book: Book, at: number): string => (book.current ? 'Open now' : at === 1 && book.openedAt ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
   const shown = Math.max(0, books.findIndex((one) => (pointed ? one.id === pointed : one.current)))
+  const tallest = Math.max(...books.map(tallOf))
   return (
     <>
       <div ref={row} role="group" aria-label="Your books" data-book-shelf data-unlit className="mf-shelf" style={style}
@@ -343,7 +357,7 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
         onFocus={(event) => setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
         onBlur={(event) => !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}>
         {books.map((book, at) => (
-          <ShelfBook key={book.id} book={book} said={saidOf(book, at)} up={at === shown} keyed={() => keyed.current} lit={lit}
+          <ShelfBook key={book.id} book={book} said={saidOf(book, at)} up={at === shown} tallest={tallest} keyed={() => keyed.current} lit={lit}
             onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} />
         ))}
       </div>
