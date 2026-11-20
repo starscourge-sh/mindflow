@@ -20,6 +20,7 @@ import { tagTint } from './tag-icon'
 import { HaligtreeEditor } from '../haligtree'
 import { chime, step } from '@/lib/sound'
 import { TaskAddress, TaskSite } from './task-site'
+import { linkName } from '../../../../main/task-links'
 import { typeSaid } from '@/lib/capture-links'
 import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { useOpened } from '@/lib/nav'
@@ -1592,7 +1593,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                                 A task open beside the list leaves the list no margin either: there the numbers stood against the pane's edge (16 Nov). */}
                             {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline ${beside ? 'inline' : 'hidden'}`} />}
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || task.link) && (
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || (task.link && task.title !== linkName(task.link))) && (
                             <span data-task-meta className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               <TaskWhen task={task} />
                               {carried(task) > 0 && !task.recurrence && (

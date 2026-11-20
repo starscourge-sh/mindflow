@@ -1,7 +1,7 @@
 import { Link2 } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { Tip } from './ui'
-import { linkShown } from '../../../../main/task-links'
+import { linkName, linkShown } from '../../../../main/task-links'
 
 type Linked = { link?: string | null; linkIcon?: string | null }
 
@@ -30,7 +30,7 @@ export function TaskSite({ task, className = 'size-3.5', tip = true }: { task: L
   return tip ? <Tip label={`Open ${linkShown(href)}`}>{mark}</Tip> : mark
 }
 
-/** The address a bookmark task keeps, said quietly under its name: the site and path, never the query. */
-export function TaskAddress({ task, className = '' }: { task: Linked; className?: string }): React.JSX.Element | null {
-  return task.link ? <span data-task-address dir="ltr" className={`min-w-0 truncate ${className}`}>{linkShown(task.link)}</span> : null
+/** The address a bookmark task keeps, said quietly under its name: the site and path, never the query. Not while the name is the site and path itself (its title still coming): said once, not twice. */
+export function TaskAddress({ task, className = '' }: { task: Linked & { title?: string }; className?: string }): React.JSX.Element | null {
+  return task.link && task.title !== linkName(task.link) ? <span data-task-address dir="ltr" className={`min-w-0 truncate ${className}`}>{linkShown(task.link)}</span> : null
 }

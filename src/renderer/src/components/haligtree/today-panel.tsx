@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { TaskSite } from './task-site'
+import { TaskAddress, TaskSite } from './task-site'
 import { Plus } from 'lucide-react'
 import { AnimatePresence, PresenceContext, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
@@ -371,6 +371,7 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
           {rank === undefined && <SessionDot id={task.id} time={time} className={DOT_IN_LINE} />}
           <TaskWhen task={task} />
           {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
+          <TaskAddress task={task} className="max-w-full" />
           <TaskSpent task={task} time={time} />
         </p>
       </button>

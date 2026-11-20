@@ -92,7 +92,8 @@
   // In from each side by the selection ring's width, since the editor's wrapper clips
   // flush at the column: the round corners and the ring show whole, drawn or edited.
   // Not ProseMirror's empty separator after a mark at a line's end: sized, it took a line.
-  img:not([data-type="emoji"] img, .ProseMirror-separator) {
+  // Nor a task's site icon on the Today sticky (task-site.tsx): a mark beside a name, not a picture.
+  img:not([data-type="emoji"] img, .ProseMirror-separator, [data-task-site] img) {
     display: block;
     width: calc(100% - 4px) !important;
     height: auto;
