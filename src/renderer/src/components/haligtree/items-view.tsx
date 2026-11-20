@@ -1797,9 +1797,10 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   /** Grouped by source, a row in "One gem each" names its book or site quietly. */
   sourceSaid: (one: Item) => string | undefined
 } {
-  // Grouped by kind to start: a few short lists read calmer than one long one.
+  // Newest first under date headings to start, as Notebook Navigator's list (Today, Previous 7 days, Previous 30 days,
+  // then each year): a sort or grouping the person chose is kept as theirs (useView).
   // Words, as Looked up: A to Z under their letters (a list of its own, so Open and Answered keep theirs).
-  const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'kind' })
+  const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'date' })
   // Archived ones are out of sight until Display's Marked asks for them.
   const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
   const folderOf = useFolderOf()
