@@ -54,7 +54,8 @@ export const dangerLast = (items: RowItem[]): RowItem[] => {
 
 /** Rules only between groups of lines: never first, last or twice in a row, whatever was left out. */
 export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
-  items.filter((item, index) => item !== 'separator' || (index > 0 && index < items.length - 1 && items[index - 1] !== 'separator'))
+  // A rule is kept only with a line before it and a line after it: two rules ending a menu left one hanging (20 Nov).
+  items.filter((item, index) => item !== 'separator' || (items.slice(0, index).some((one) => one !== 'separator') && items[index - 1] !== 'separator' && items.slice(index + 1).some((one) => one !== 'separator')))
 
 /**
  * Lines that belong together, folded into one line that opens them beside it,
