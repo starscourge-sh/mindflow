@@ -36,7 +36,13 @@ const seen = () => h.evaluate(() => {
     row: rect(document.querySelector('[data-tabs]')),
     page: rect(document.querySelector('[data-pane-card]')),
     side: rect(document.querySelector('aside')),
-    grabbing: getComputedStyle(document.elementFromPoint(window.__px ?? 0, window.__py ?? 0) ?? document.body).cursor
+    grabbing: getComputedStyle(document.elementFromPoint(window.__px ?? 0, window.__py ?? 0) ?? document.body).cursor,
+    // What is under the pointer, and which marks are up, so a sample that is not the grabbing hand says why.
+    under: (() => {
+      const one = document.elementFromPoint(window.__px ?? 0, window.__py ?? 0)
+      const html = document.documentElement
+      return one && `${one.tagName.toLowerCase()}${one.closest('[data-tab]') ? ' in a tab' : ''} carry=${one.closest('[data-carry-cursor]')?.getAttribute('data-carry-cursor') ?? 'none'} marks=${['data-split-drag', 'data-dragging', 'data-drag-refused'].filter((m) => html.hasAttribute(m)).join('+') || 'none'}`
+    })()
   }
 })
 // The pointer moved in small steps, a frame every 50 ms written as it goes (one per step).
@@ -97,7 +103,7 @@ try {
       check('the tab itself rides along the row, at the row, and the card is put away', shapes.every((one) => one.lifted && !one.card && Math.abs(one.lifted.top - before.row.top) < 30), JSON.stringify(shapes.map((one) => [one.lifted?.left, one.lifted?.top, !!one.card])))
       check('every tab keeps its size and the row its height', shapes.every((one) => JSON.stringify(one.widths) === JSON.stringify(before.widths) && one.row.height === before.row.height), JSON.stringify([before.widths, shapes.at(-1).widths, before.row, shapes.at(-1).row]))
       check('nothing else in the window moves', shapes.every((one) => JSON.stringify(one.page) === JSON.stringify(before.page) && JSON.stringify(one.side) === JSON.stringify(before.side)), JSON.stringify([before.page, shapes.at(-1).page]))
-      check('the pointer is a grabbing hand all the way', shapes.every((one) => one.grabbing === 'grabbing'), shapes.map((one) => one.grabbing).join())
+      check('the pointer is a grabbing hand all the way', shapes.every((one) => one.grabbing === 'grabbing'), shapes.map((one, at) => (one.grabbing === 'grabbing' ? one.grabbing : `step ${at + 1}: ${one.grabbing} (${one.under})`)).join())
     }
     await h.mouse.up(); await film(`row-land-${theme}`, 300)
     row = (await tabs())[0]

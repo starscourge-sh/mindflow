@@ -62,11 +62,23 @@ if (typeof document !== 'undefined' && !(window as { __carryCursor?: boolean }).
   // per move; nothing is restyled unless a mark is up.
   window.addEventListener('pointerdown', heard, { capture: true, passive: true })
   window.addEventListener('pointermove', onMove, { capture: true, passive: true })
+  // While a look is up, the spot is read again each frame: what is under a still pointer changes as the carry draws
+  // (the carried tab's place hidden, its neighbours sliding apart under it), and the newcomer kept its own look (the
+  // arrow) until the pointer next moved; a tab carried showed the arrow from its first step until the second (20 Nov).
+  // One elementFromPoint a frame, and an attribute set only when the element under it is another.
+  let frame = 0
+  const each = (): void => {
+    frame = 0
+    if (!look) return
+    mark()
+    frame = requestAnimationFrame(each)
+  }
   new MutationObserver(() => {
     const next = wanted()
     if (next === look) return
     look = next
     mark()
+    if (look && !frame) frame = requestAnimationFrame(each)
   }).observe(document.documentElement, { attributes: true, attributeFilter: [...MARKS] })
 }
 
