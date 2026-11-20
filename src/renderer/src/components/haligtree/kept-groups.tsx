@@ -1085,13 +1085,7 @@ export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, o
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
       <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New {noun} in {word}</ContextMenuItem>
-      <ContextMenuItem
-        onSelect={() =>
-          void groups.duplicate(group.id).then((made) => made && (chime('copy'), toast('Duplicated, with a copy of each note', () => void groups.unclone(made.ids))))
-        }
-      >
-        Duplicate {word}
-      </ContextMenuItem>
+      {/* No "Duplicate": a group gathers notes, and a copy of each note is the duplicate content the book avoids. */}
       {/* Only when its notes hold a web link: a line that would say "no links" is not offered. */}
       {links.length > 0 && (
         <ContextMenuItem onSelect={() => copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`)}>

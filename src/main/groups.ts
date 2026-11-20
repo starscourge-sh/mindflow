@@ -165,36 +165,6 @@ export function registerGroups(): void {
     return true
   })
 
-  // A second group of copies of its notes, right after it, named so you can tell them apart.
-  handle('groups:duplicate', (id: string) => {
-    const group = db.prepare('select list, name, icon, color, parent_id as parent, folder from note_groups where id = ?').get(id) as { list: string; name: string; icon: string | null; color: string | null; parent: string | null; folder: number } | undefined
-    if (!group) return null
-    const copy = randomUUID()
-    const columns = (db.prepare('pragma table_info(nuggets)').all() as { name: string }[]).map((one) => one.name)
-      .filter((name) => !['id', 'group_id', 'group_order', 'created_at', 'updated_at', 'pinned_at', 'remind_at', 'capture_id'].includes(name))
-    const ids = members(id)
-    let made: string[] = []
-    atomically(() => {
-      db.prepare('insert into note_groups (id, list, name, icon, color, parent_id, folder, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(copy, group.list, `${group.name} copy`, group.icon, group.color, group.parent, group.folder, now())
-      const clone = db.prepare(`insert into nuggets (id, group_id, group_order, created_at, updated_at, ${columns.join(', ')})
-        select ?, ?, ?, ?, ?, ${columns.join(', ')} from nuggets where id = ?`)
-      made = ids.map((one, at) => {
-        const fresh = randomUUID()
-        clone.run(fresh, copy, at, now(), now(), one)
-        return fresh
-      })
-      // Right after the original in your own order.
-      const order = (db.prepare('select id from note_order where list = ? order by position').all(group.list) as { id: string }[]).map((row) => row.id)
-      const after = Math.max(order.indexOf(KEY + id), ...ids.map((one) => order.indexOf(one)))
-      order.splice(after + 1, 0, KEY + copy, ...made)
-      db.prepare('delete from note_order where list = ?').run(group.list)
-      const add = db.prepare('insert or ignore into note_order (list, id, position) values (?, ?, ?)')
-      order.forEach((one, at) => add.run(group.list, one, at))
-    })
-    changed()
-    return { id: copy, ids: made }
-  })
-
   // Every web address a group's notes hold (or these notes'), once each, in order: every word of every note in it is
   // read, so on the reading thread (reader-jobs.ts `links`). Each folder row asks as the page draws (its menu offers
   // "Copy all links" only when there are some), and on main a folder of 2,000 notes held the app 107 to 186 ms.

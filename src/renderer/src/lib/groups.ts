@@ -17,7 +17,6 @@ export const groups = {
   separate: (id: string) => call<Separated | null>('groups:separate', id),
   restore: (was: Separated) => call<boolean>('groups:restore', was),
   holds: (id: string) => call<{ notes: { type: string; id: string }[]; groups: string[] }>('groups:holds', id),
-  duplicate: (id: string) => call<{ id: string; ids: string[] } | null>('groups:duplicate', id),
   links: (id: string | string[]) => call<string[]>('groups:links', id),
   clone: (list: string, ids: string[]) => call<string[]>('groups:clone', list, ids),
   unclone: (ids: string[]) => call<boolean>('groups:unclone', ids),
