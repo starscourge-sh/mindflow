@@ -4,7 +4,7 @@
 // pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
 // QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 node qa/book-shelf.mjs
-import { mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -12,6 +12,11 @@ import { sandbox } from './sandbox-lib.mjs'
 const { check, done } = checks()
 // At scale: the shelf of the copy filled to 30 books, a few with long names, written before the app reads it.
 const shelfFile = join(process.env.QA_DATA, 'books.json')
+// The sandbox is one book with no shelf file: this runs on a copy of book-master (the gate's "book-shelf+book").
+if (/--sandbox/.test(process.env.QA_ARGS ?? '') || !existsSync(shelfFile)) {
+  console.log(`FAIL  run on a copy of book-master, not the sandbox: no ${shelfFile}`)
+  process.exit(1)
+}
 const kept = JSON.parse(readFileSync(shelfFile, 'utf8'))
 const HUES = ['blue', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'gray', null]
 const NAMES = ['Thesis', 'Reading year', 'The Long Commonplace Book of Everything I Ever Meant to Remember', 'Greek', 'Recipes', 'Garden', 'Work 2026', 'Anki imports', 'Notes from the Unisa years']

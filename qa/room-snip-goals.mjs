@@ -94,7 +94,7 @@ try {
     await v('item:save', id, { title: 'Plates', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
     await c.send('article', id); await wait(1400)
     await h.evaluate((bytes) => {
-      const ed = document.querySelector('[data-open] .tiptap').editor
+      const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
       const data = new DataTransfer()
       data.items.add(new File([new Uint8Array(bytes)], 'plates.pdf', { type: 'application/pdf' }))
       const box = ed.view.dom.getBoundingClientRect()

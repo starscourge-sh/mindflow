@@ -51,7 +51,7 @@ for (const level of ['every', 'ai']) {
     await send('article', article)
     await wait(1400)
     await h.evaluate((bytes) => {
-      const ed = document.querySelector('[data-open] .tiptap').editor
+      const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
       const data = new DataTransfer()
       data.items.add(new File([new Uint8Array(bytes)], 'cells.pdf', { type: 'application/pdf' }))
       const box = ed.view.dom.getBoundingClientRect()

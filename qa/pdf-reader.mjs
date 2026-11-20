@@ -91,7 +91,7 @@ const hiddenWords = (selector = '.pdf-reader .pdf-why') => h.evaluate((selector)
 const errors = []
 h.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 h.on('pageerror', (e) => errors.push(String(e)))
-const EDITOR = '[data-open] .tiptap'
+const EDITOR = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 /** How much of a span's box on page 1 of the note's PDF block reads as white page: a grey band behind the words reads near 0. */
 const whiteUnderWords = async () => {
   const box = await h.evaluate(() => {
@@ -559,7 +559,7 @@ try {
   check('a row goes to its page and lights the highlight', jumped.page === '3' && jumped.lit === '3', JSON.stringify(jumped))
   // "Gather into a note": one new note with every highlight as a quote, each linking back to its page.
   await h.click('.read-details-action:has-text("Gather into a note")'); await wait(1500)
-  const gathered = await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap'); return ed ? { quotes: ed.querySelectorAll('blockquote').length, links: [...ed.querySelectorAll('a')].map((a) => a.textContent) } : null })
+  const gathered = await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)'); return ed ? { quotes: ed.querySelectorAll('blockquote').length, links: [...ed.querySelectorAll('a')].map((a) => a.textContent) } : null })
   check('"Gather into a note" opens a note with each highlight quoted and linked to its page', gathered?.quotes === 3 && gathered.links.every((one) => one === 'The Probe Book, p. 3'), JSON.stringify(gathered))
   await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
   await h.waitForSelector('.pdf-reader .pdf-page[data-page="3"] canvas', { timeout: 10000 }).catch(() => {})
@@ -595,13 +595,13 @@ try {
     const marks = await window.api.haligtree('pdf:highlights', src)
     return `${src}#page=3&mark=${marks[0].id}&name=probe-book.pdf`
   }, pdfSrc)
-  await h.evaluate((href) => document.querySelector('[data-open] .tiptap').editor.chain().focus('end').insertContent(`<p><a href="${href}">back to the book</a></p>`).run(), link)
+  await h.evaluate((href) => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.chain().focus('end').insertContent(`<p><a href="${href}">back to the book</a></p>`).run(), link)
   await wait(400)
-  const linkBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[data-open] .tiptap a')].find((one) => one.textContent === 'back to the book').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
+  const linkBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) a')].find((one) => one.textContent === 'back to the book').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
   // Pointed at, the link shows the book in the app's one PDF preview, open at the page it lands on, never its stored address.
   await h.mouse.move(linkBox.x, linkBox.y); await wait(1200)
   const hover = await h.evaluate(() => ({ corner: document.querySelector('[data-pdf-peek-card] [data-pdf-peek-page]')?.textContent?.trim(), page: !!document.querySelector('[data-pdf-peek-card] img')?.src.startsWith('data:image'), address: !!document.querySelector('.tiptap-link-preview') }))
-  check('a PDF link says its page after its words, outside the link', await h.evaluate(() => { const link = [...document.querySelectorAll('[data-open] .tiptap a')].find((one) => one.textContent === 'back to the book'); return link?.nextElementSibling?.classList.contains('mf-pdf-link-page') && link.nextElementSibling.textContent === ' · p. 3' && link.textContent === 'back to the book' }), '')
+  check('a PDF link says its page after its words, outside the link', await h.evaluate(() => { const link = [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) a')].find((one) => one.textContent === 'back to the book'); return link?.nextElementSibling?.classList.contains('mf-pdf-link-page') && link.nextElementSibling.textContent === ' · p. 3' && link.textContent === 'back to the book' }), '')
   check('a PDF link pointed at previews the book at its page (3 / 3), not its address', hover.corner === '3 / 3' && hover.page && !hover.address, JSON.stringify(hover))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-link-hover.png` })
   await h.mouse.click(linkBox.x, linkBox.y)
@@ -649,7 +649,7 @@ try {
   await v('item:save', fresh, { title: 'Slash PDF', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
   await c.send('article', fresh); await wait(1400)
   // Two notes are open side by side now: type in the fresh one.
-  const FRESH = `[data-open="${fresh}"] .tiptap`
+  const FRESH = `[data-open="${fresh}"] .tiptap:not(.is-line):not(.is-plain)`
   await h.click(`${FRESH} p`)
   await h.keyboard.type('/pdf'); await wait(600)
   const offered = await h.evaluate(() => [...document.querySelectorAll('.tiptap-slash-menu-title')].map((one) => one.textContent.trim()))
@@ -665,7 +665,7 @@ try {
   const byName = await h.evaluate(() => window.api.captures.find('probe-book.pdf'))
   check('search finds the PDF by its title, once', byTitle.filter((one) => one.type === 'pdf').length === 1 && byTitle.find((one) => one.type === 'pdf')?.label === 'The Probe Book', JSON.stringify(byTitle.map((one) => [one.type, one.label])))
   check('and by its file name', byName.some((one) => one.type === 'pdf'), JSON.stringify(byName.map((one) => [one.type, one.label])))
-  await h.keyboard.press('Escape'); await h.click('.pdf-reader-scroll, [data-open] .tiptap', { timeout: 3000 }).catch(() => {})
+  await h.keyboard.press('Escape'); await h.click('.pdf-reader-scroll, [data-open] .tiptap:not(.is-line):not(.is-plain)', { timeout: 3000 }).catch(() => {})
   await h.keyboard.press('Meta+k'); await wait(600)
   await h.keyboard.type('The Probe Book', { delay: 30 }); await wait(1200)
   const row = await h.evaluate(() => [...document.querySelectorAll('[data-drag-open^="pdf:"]')].map((one) => one.textContent.trim()))
@@ -701,7 +701,7 @@ try {
   const pasted = await v('article:new')
   await v('item:save', pasted, { title: 'Pasted PDF', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
   await c.send('article', pasted); await wait(1400)
-  const PASTED = `[data-open="${pasted}"] .tiptap`
+  const PASTED = `[data-open="${pasted}"] .tiptap:not(.is-line):not(.is-plain)`
   // As Finder's ⌘C then ⌘V hands it to the page: the file, with its place on disk (qa/pasteboard.mjs).
   await h.click(`${PASTED} p`); await paste(h, { paths: [finderFile] })
   await h.waitForSelector(`${PASTED} .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span`, { timeout: 15000 }).catch(() => {})

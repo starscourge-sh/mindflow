@@ -16,7 +16,7 @@ const check = (ok, name, got) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}$
 const ED = '[data-open] .ProseMirror'
 const open = async (id) => { await c.send('article', id); await h.waitForSelector(ED); await h.waitForTimeout(1200) }
 const shot = async (name) => SHOTS && c.both(`${SHOTS}/${name}`)
-const editor = (fn, arg) => h.evaluate(([fn, arg]) => new Function('e', 'arg', `return (${fn})(e, arg)`)(document.querySelector('[data-open] .tiptap').editor, arg), [fn.toString(), arg])
+const editor = (fn, arg) => h.evaluate(([fn, arg]) => new Function('e', 'arg', `return (${fn})(e, arg)`)(document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor, arg), [fn.toString(), arg])
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
 

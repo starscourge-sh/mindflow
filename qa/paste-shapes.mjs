@@ -10,7 +10,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const EDITOR = '[data-open] .tiptap'
+const EDITOR = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 
 /** A fresh note, the words pasted as plain text, and what it holds after. */
 const paste = async (words, html = '') => {

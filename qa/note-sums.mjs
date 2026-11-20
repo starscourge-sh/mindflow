@@ -13,15 +13,15 @@ const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const lines = ['12 × 4 =', '2.5*3+1 =', '3h 20m + 45m =', '2^10 =', '(1 + 2) * 3 ÷ 2 =', '200 * 10% =']
 const want = ['48', '8.5', '4h 5m', '1024', '4.5', '20']
 const body = { type: 'doc', content: [...lines.map(p), { type: 'codeBlock', content: [{ type: 'text', text: 'x = 2 + 2 =' }] }, p('7 * 6 =')] }
-const ghosts = () => h.evaluate(() => [...document.querySelectorAll('[data-open] .tiptap .mf-calc-ghost')].map((one) => ({ line: one.closest('p, pre')?.textContent.slice(0, -one.textContent.length).trim(), ghost: one.textContent.trim(), code: !!one.closest('pre') })))
-const endOf = (text) => h.evaluate((text) => { const ed = document.querySelector('[data-open] .tiptap').editor; let at = 0; ed.state.doc.descendants((node, pos) => { if (node.isTextblock && node.textContent === text) at = pos + node.nodeSize - 1 }); ed.chain().focus().setTextSelection(at).run() }, text)
-const lineText = (start) => h.evaluate((start) => { const ed = document.querySelector('[data-open] .tiptap').editor; let found = ''; ed.state.doc.descendants((node) => { if (node.isTextblock && node.textContent.startsWith(start)) found = node.textContent }); return found }, start)
+const ghosts = () => h.evaluate(() => [...document.querySelectorAll('[data-open] .tiptap:not(.is-line):not(.is-plain) .mf-calc-ghost')].map((one) => ({ line: one.closest('p, pre')?.textContent.slice(0, -one.textContent.length).trim(), ghost: one.textContent.trim(), code: !!one.closest('pre') })))
+const endOf = (text) => h.evaluate((text) => { const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; let at = 0; ed.state.doc.descendants((node, pos) => { if (node.isTextblock && node.textContent === text) at = pos + node.nodeSize - 1 }); ed.chain().focus().setTextSelection(at).run() }, text)
+const lineText = (start) => h.evaluate((start) => { const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; let found = ''; ed.state.doc.descendants((node) => { if (node.isTextblock && node.textContent.startsWith(start)) found = node.textContent }); return found }, start)
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   const id = await v('article:new')
   await v('item:save', id, { title: 'Sums', body })
   await c.send('article', id)
-  await h.waitForSelector('[data-open] .tiptap .mf-calc-ghost', { timeout: 15000 })
+  await h.waitForSelector('[data-open] .tiptap:not(.is-line):not(.is-plain) .mf-calc-ghost', { timeout: 15000 })
   await wait(800)
   const shown = await ghosts()
   lines.forEach((line, i) => check(`"${line}" shows ${want[i]}`, shown.some((one) => one.line === line && one.ghost === want[i]), JSON.stringify(shown.find((one) => one.line === line))))

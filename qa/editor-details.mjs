@@ -19,7 +19,7 @@ const c = await sandbox({ width: 1280, height: 900 })
 const { h, v, electron } = c
 const shots = process.env.QA_SHOTS
 const wait = (ms) => h.waitForTimeout(ms)
-const sel = '[data-open] .tiptap'
+const sel = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 const p = (text) => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
 const cell = (kind, text) => ({ type: kind, content: [p(text)] })
 const table = (rows, cols) => ({ type: 'table', content: Array.from({ length: rows }, (_, r) => ({ type: 'tableRow', content: Array.from({ length: cols }, (_, k) => cell(r === 0 ? 'tableHeader' : 'tableCell', `${String.fromCharCode(65 + k)}${r}`)) })) })
@@ -173,7 +173,7 @@ try {
   check('8b. "Read it again" has a hairline and the hand', !!again && /1px/.test(again.ring) && again.cursor === 'pointer', JSON.stringify(again))
   await h.keyboard.press('Meta+BracketLeft')
   await wait(1200)
-  const backAt = await h.evaluate(() => ({ reader: !!document.querySelector('.web-reader'), note: document.querySelector('[data-open] .tiptap')?.textContent?.includes('A line to hover.') ?? false }))
+  const backAt = await h.evaluate(() => ({ reader: !!document.querySelector('.web-reader'), note: document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)')?.textContent?.includes('A line to hover.') ?? false }))
   check('8c. ⌘[ comes back to the note', !backAt.reader && backAt.note, JSON.stringify(backAt))
   await h.keyboard.press('Meta+BracketRight')
   await wait(1200)
@@ -196,7 +196,7 @@ try {
   await h.locator('[data-tab-arrows] button').first().click()
   await wait(1500)
   const after = await scroller()
-  const home = await h.evaluate(() => ({ reader: !!document.querySelector('.web-reader'), note: document.querySelector('[data-open] .tiptap')?.textContent?.includes('Line 1 of a long note.') ?? false }))
+  const home = await h.evaluate(() => ({ reader: !!document.querySelector('.web-reader'), note: document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)')?.textContent?.includes('Line 1 of a long note.') ?? false }))
   check('8c. the Back arrow returns to the note', !home.reader && home.note, JSON.stringify(home))
   check(`8c. at its place (scrolled ${before} before, ${after} after)`, before > 100 && Math.abs(after - before) < 40, `${before} -> ${after}`)
 

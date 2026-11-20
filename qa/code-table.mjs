@@ -16,7 +16,7 @@ try {
   await v('item:save', id, { title: 'Cards', body: { type: 'doc', content: [{ type: 'codeBlock', attrs: { language: null }, content: [{ type: 'text', text: rows.join('\n') }] }, { type: 'paragraph' }] } })
   await c.send('article', id); await wait(3000)
   const got = await h.evaluate(() => {
-    const pre = document.querySelector('[data-open] .tiptap pre')
+    const pre = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain) pre')
     const strip = document.querySelector('[data-open] [data-property-strip]:not([data-in-panel])')
     return { painted: pre.querySelectorAll('[class^="hljs-"]').length, white: getComputedStyle(pre).whiteSpace, spell: pre.spellcheck, lines: Math.round(pre.querySelector('code').getBoundingClientRect().height / parseFloat(getComputedStyle(pre).lineHeight || '20')), above: strip ? strip.getBoundingClientRect().bottom <= pre.getBoundingClientRect().top + 1 : null }
   })
@@ -26,7 +26,7 @@ try {
   check('"Add property" sits above a note that opens with code', got.above === true, String(got.above))
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/code-table.png` })
   // The block menu, from the code block's handle.
-  await h.hover('[data-open] .tiptap pre'); await wait(400)
+  await h.hover('[data-open] .tiptap:not(.is-line):not(.is-plain) pre'); await wait(400)
   const handle = h.locator('.tiptap-drag-handle-grip').first()
   await handle.click(); await wait(600)
   const icons = await h.evaluate(() => [...document.querySelectorAll('.tiptap-block-menu-list [role=menuitem]')].filter((one) => /^(Copy|Duplicate|Delete)$/.test(one.textContent.trim())).map((one) => !!one.querySelector('svg, [data-menu-icon]')))

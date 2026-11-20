@@ -33,7 +33,8 @@ try {
   // arrow, the tick in its own column, no count by the heading, no loose sentence among the rows.
   await h.keyboard.press('Escape')
   await h.waitForTimeout(300)
-  const rows = () => h.evaluate(() => [...document.querySelectorAll('[role=menu][aria-label="Sort by"] [role=menuitemradio]')].map((one) => ({ name: one.textContent.trim(), on: one.getAttribute('aria-checked') === 'true', height: Math.round(one.getBoundingClientRect().height), hand: getComputedStyle(one).cursor, tick: one.querySelector('svg') ? Math.round(one.querySelector('svg').getBoundingClientRect().left - one.getBoundingClientRect().left) : null })))
+  // A row's name as seen: Weighted (glide.tsx) keeps a hidden bold copy for its width, so textContent reads it twice.
+  const rows = () => h.evaluate(() => [...document.querySelectorAll('[role=menu][aria-label="Sort by"] [role=menuitemradio]')].map((one) => ({ name: one.innerText.split('\n')[0].trim(), on: one.getAttribute('aria-checked') === 'true', height: Math.round(one.getBoundingClientRect().height), hand: getComputedStyle(one).cursor, tick: one.querySelector('svg') ? Math.round(one.querySelector('svg').getBoundingClientRect().left - one.getBoundingClientRect().left) : null })))
   const listed = await rows()
   check('Sort by: one "Recently changed" row, no "Longest unchanged" row of its own', listed.some((one) => one.name === 'Recently changed') && !listed.some((one) => one.name === 'Longest unchanged'), JSON.stringify(listed.map((one) => one.name)))
   check('Sort by: every row one height, the hand on each', listed.length > 2 && listed.every((one) => one.height === listed[0].height && one.hand === 'pointer'), JSON.stringify(listed))

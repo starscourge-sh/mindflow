@@ -11,8 +11,8 @@ const wait = (ms) => h.waitForTimeout(ms)
 const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const li = (text) => ({ type: 'listItem', content: [p(text)] })
 const body = { type: 'doc', content: [p('gifts'), { type: 'bulletList', content: [li('vatete:'), li('toaster'), li('laundry basket'), li('reading glasses cleaning liquid')] }, p('kay')] }
-const depth = () => h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap').editor; const out = {}; ed.state.doc.descendants((node, pos) => { if (node.isText) { let d = 0; const $p = ed.state.doc.resolve(pos); for (let i = 0; i <= $p.depth; i++) if ($p.node(i).type.name === 'listItem') d++; out[node.text] = d } }); return out })
-const pick = (a, b) => h.evaluate(([a, b]) => { const ed = document.querySelector('[data-open] .tiptap').editor; let from = 0, to = 0; ed.state.doc.descendants((node, pos) => { if (node.isText && node.text === a) from = pos; if (node.isText && node.text === b) to = pos + node.nodeSize }); ed.chain().focus().setTextSelection({ from, to }).run() }, [a, b])
+const depth = () => h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; const out = {}; ed.state.doc.descendants((node, pos) => { if (node.isText) { let d = 0; const $p = ed.state.doc.resolve(pos); for (let i = 0; i <= $p.depth; i++) if ($p.node(i).type.name === 'listItem') d++; out[node.text] = d } }); return out })
+const pick = (a, b) => h.evaluate(([a, b]) => { const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; let from = 0, to = 0; ed.state.doc.descendants((node, pos) => { if (node.isText && node.text === a) from = pos; if (node.isText && node.text === b) to = pos + node.nodeSize }); ed.chain().focus().setTextSelection({ from, to }).run() }, [a, b])
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   for (const vim of ['off', 'on']) {

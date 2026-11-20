@@ -43,7 +43,7 @@ const wait = (ms) => h.waitForTimeout(ms)
 /** Opened (in the Inbox, or where `type` opens), its words drawn. */
 const open = async (id, long, type = 'capture') => {
   await send(type, id)
-  const drawn = await h.waitForFunction(([id, long]) => !!document.querySelector(`[data-open="${id}"] .tiptap${long ? '[data-long]' : ''}`), [id, long], { timeout: type === 'capture' ? 60000 : 20000 }).then(() => true, () => false)
+  const drawn = await h.waitForFunction(([id, long]) => !!document.querySelector(`[data-open="${id}"] .tiptap:not(.is-line):not(.is-plain)${long ? '[data-long]' : ''}`), [id, long], { timeout: type === 'capture' ? 60000 : 20000 }).then(() => true, () => false)
   // Not drawn: what the page shows instead, said and kept as a picture, so the run goes on to the next note.
   if (!drawn) {
     const there = await h.evaluate(() => ({ url: location.search, open: [...document.querySelectorAll('[data-open]')].map((el) => `${el.getAttribute('data-open')}: ${el.textContent.trim().slice(0, 80)}`).slice(0, 3), view: document.querySelector('[data-view]')?.getAttribute('data-view') ?? null }))
@@ -59,7 +59,7 @@ const open = async (id, long, type = 'capture') => {
 
 /** What the stored note holds, parsed by the app's own schema, counted here by this probe's own walk. */
 const stored = (id, type = 'capture') => h.evaluate(async ([id, type]) => {
-  const ed = document.querySelector('[data-open] .tiptap').editor
+  const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
   const found = type === 'capture' ? await window.api.captures.get(id) : await window.api.haligtree('item', id)
   const doc = ed.schema.nodeFromJSON(typeof found.body === 'string' ? JSON.parse(found.body) : found.body)
   const shown = (node) => (node.type.name === 'noteLink' ? String(node.attrs.text || node.attrs.label || ' ') : ' ')
@@ -194,7 +194,7 @@ try {
     await open(largest.id, true)
     const before = await bar()
     const spot = await h.evaluate(() => {
-      const note = document.querySelector('[data-open] .tiptap[data-long]')
+      const note = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)[data-long]')
       const r = note.getBoundingClientRect()
       const line = [...note.children].find((el) => el.tagName === 'P' && el.textContent.trim().length > 20 && el.getBoundingClientRect().top > 120 && el.getBoundingClientRect().bottom < innerHeight - 80)
       const b = line.getBoundingClientRect()
@@ -203,7 +203,7 @@ try {
     await h.mouse.click(spot.x, spot.y)
     await h.keyboard.press('End')
     // With Vim's keys on (the user's book has them), the caret sits in normal mode: into insert mode before typing.
-    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap[data-vim-mode="normal"]'))) await h.keyboard.press('i')
+    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)[data-vim-mode="normal"]'))) await h.keyboard.press('i')
     await h.keyboard.type(' sizeword anotherword', { delay: 40 })
     await wait(300)
     const typed = await bar()
@@ -223,7 +223,7 @@ try {
     const keyed = await cardUp()
     const card = (await bar()).card
     const caret = await h.evaluate(() => {
-      const ed = document.querySelector('[data-open] .tiptap').editor
+      const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
       const LISTS = new Set(['bulletList', 'orderedList', 'taskList'])
       const linesOf = (node) => {
         let n = 0
@@ -240,7 +240,7 @@ try {
     check('the card says the caret\'s own line', card?.place?.startsWith(`Line ${caret.line.toLocaleString('en')} of`), `${card?.place} (caret on ${caret.line})`)
     await h.keyboard.press('Escape')
     check('Esc puts the card away', await cardGone(), '')
-    check('Esc took the card, not the note: the caret is still in it', await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.isFocused), '')
+    check('Esc took the card, not the note: the caret is still in it', await h.evaluate(() => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor.isFocused), '')
 
     // A click on it shows it and keeps it while the pointer is on it.
     await pointAt()
@@ -254,7 +254,7 @@ try {
     // Words picked: their own count, where it always was.
     await h.mouse.click(spot.x - 40, spot.y)
     // With Vim's keys on (the user's book has them), the caret sits in normal mode: into insert mode before typing.
-    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap[data-vim-mode="normal"]'))) await h.keyboard.press('i')
+    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)[data-vim-mode="normal"]'))) await h.keyboard.press('i')
     await h.keyboard.down('Shift')
     await h.keyboard.press('Home')
     await h.keyboard.up('Shift')
@@ -269,7 +269,7 @@ try {
   if (PART === 'frames') {
     await open(largest.id, true)
     const spot = await h.evaluate(() => {
-      const note = document.querySelector('[data-open] .tiptap[data-long]')
+      const note = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)[data-long]')
       const line = [...note.children].find((el) => el.tagName === 'P' && el.textContent.trim().length > 20 && el.getBoundingClientRect().top > 120 && el.getBoundingClientRect().bottom < innerHeight - 80)
       const b = line.getBoundingClientRect()
       return { x: b.right - 4, y: b.top + 8 }
@@ -277,7 +277,7 @@ try {
     await h.mouse.click(spot.x, spot.y)
     await h.keyboard.press('End')
     // With Vim's keys on (the user's book has them), the caret sits in normal mode: into insert mode before typing.
-    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap[data-vim-mode="normal"]'))) await h.keyboard.press('i')
+    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)[data-vim-mode="normal"]'))) await h.keyboard.press('i')
     await wait(1500)
     await h.evaluate(() => {
       window.__frames = []

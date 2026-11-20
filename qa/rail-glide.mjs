@@ -11,7 +11,7 @@ const { check, done } = checks()
 const s = await sandbox({ width: 1300, height: 900 })
 const { h, v, close } = s
 const wait = (ms) => h.waitForTimeout(ms)
-const EDITOR = '[data-open] .tiptap'
+const EDITOR = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 try {
   const pdf = await PDFDocument.create()
   pdf.setTitle('The Long Probe Book')

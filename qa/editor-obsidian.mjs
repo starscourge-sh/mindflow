@@ -17,7 +17,7 @@ const wait = (ms) => h.waitForTimeout(ms)
 const p = (text, marks) => ({ type: 'paragraph', content: text ? [{ type: 'text', text, ...(marks ? { marks } : {}) }] : [] })
 const li = (text, kids) => ({ type: 'listItem', content: [p(text), ...(kids ?? [])] })
 const bullet = (items) => ({ type: 'bulletList', content: items })
-const ED = '[data-open] .tiptap'
+const ED = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 
 /** Each line's depth in lists, the words picked, the caret's line and Vim's mode. */
 const read = () => h.evaluate((sel) => {

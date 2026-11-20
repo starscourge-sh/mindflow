@@ -66,7 +66,7 @@ try {
     { type: 'bookmark', attrs: { href: ESSAY, title: 'The Long Essay', site: 'Probe Times' } },
     { type: 'paragraph' }
   ] } })
-  const LINK = `[data-open="${note}"] .tiptap a[href="${ESSAY}"]`
+  const LINK = `[data-open="${note}"] .tiptap:not(.is-line):not(.is-plain) a[href="${ESSAY}"]`
   const showNote = async () => {
     await h.keyboard.press('Escape').catch(() => {})
     await c.send('article', note)
@@ -180,7 +180,7 @@ try {
   check('the reader\'s bar has no “Paper pages” of its own: the theme decides', await h.evaluate(() => ![...document.querySelectorAll('.web-reader .pdf-reader-tools button')].some((one) => /pages/i.test(one.getAttribute('aria-label') ?? ''))))
   const rhythm = await h.evaluate((n) => {
     const read = (p) => { const s = getComputedStyle(p); return { line: Math.round((parseFloat(s.lineHeight) / parseFloat(s.fontSize)) * 100) / 100, size: parseFloat(s.fontSize), family: s.fontFamily } }
-    const noteP = [...document.querySelectorAll(`[data-open="${n}"] .tiptap > p`)]
+    const noteP = [...document.querySelectorAll(`[data-open="${n}"] .tiptap:not(.is-line):not(.is-plain) > p`)]
     const body = document.querySelector('.web-reader-body')
     const ps = [...(body?.querySelectorAll('p') ?? [])]
     const second = ps.find((one) => one.previousElementSibling?.tagName === 'P')
@@ -206,7 +206,7 @@ try {
     await h.evaluate(([t, s]) => { localStorage.setItem('theme', t); localStorage.setItem('style', s); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, [theme, style])
     await wait(900)
     const look = await h.evaluate((n) => {
-      const noteP = document.querySelector(`[data-open="${n}"] .tiptap > p`)
+      const noteP = document.querySelector(`[data-open="${n}"] .tiptap:not(.is-line):not(.is-plain) > p`)
       const readerP = document.querySelector('.web-reader-body p')
       const meta = document.querySelector('.web-reader-meta')
       return {
@@ -214,7 +214,7 @@ try {
         notePage: window.__painted(noteP)?.join(), readerPage: window.__painted(readerP)?.join(), notePane: window.__paneGives(noteP)?.join(), readerPane: window.__paneGives(readerP)?.join(),
         noteInk: getComputedStyle(noteP).color, readerInk: getComputedStyle(readerP).color,
         byline: meta?.textContent, bylineContrast: meta ? window.__contrast(meta) : 0, bylineSize: meta ? parseFloat(getComputedStyle(meta).fontSize) : 0,
-        noteLink: getComputedStyle(document.querySelector(`[data-open="${n}"] .tiptap a[href]`)).color,
+        noteLink: getComputedStyle(document.querySelector(`[data-open="${n}"] .tiptap:not(.is-line):not(.is-plain) a[href]`)).color,
         readerLink: getComputedStyle(document.querySelector('.web-reader-body a[href]')).color
       }
     }, note)
