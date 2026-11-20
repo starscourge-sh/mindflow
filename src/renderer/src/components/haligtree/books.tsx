@@ -268,7 +268,10 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   // with more fading out, opened on the open book; the keys bring the book they reach into view, as focus does.
   const row = useRef<HTMLDivElement>(null)
   const { style } = useSideEnds(row)
-  useLayoutEffect(() => row.current?.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'center' }), [])
+  // A body in braces: this Chromium's scrollIntoView answers with a promise, and an effect that returns one stops the page.
+  useLayoutEffect(() => {
+    row.current?.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [])
   return (
     // Reached by the keys, a book turns at once; by the pointer, it slides out.
     <div ref={row} role="group" aria-label="Your books" data-book-shelf className="mf-shelf" style={style}

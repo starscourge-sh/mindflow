@@ -17,7 +17,7 @@ const NAMES = ['Thesis', 'Reading year', 'The Long Commonplace Book of Everythin
 for (let n = kept.books.length + 1; n < 30; n++) kept.books.push({ id: `b-qa${String(n).padStart(8, '0')}`, name: `${NAMES[n % NAMES.length]}${n > 9 ? ` ${n}` : ''}`, createdAt: '2026-11-01T09:00:00.000Z', ...(HUES[n % 9] && { color: HUES[n % 9] }) })
 writeFileSync(shelfFile, JSON.stringify(kept, null, 2))
 const s = await sandbox({ width: 1300, height: 900, seeded: false })
-const { h, electron, close } = s
+const { h, electron, close, errors } = s
 const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const wait = (ms) => h.waitForTimeout(ms)
@@ -27,6 +27,10 @@ const floating = () => h.evaluate(() => [...document.querySelectorAll('[data-rad
 try {
   const books = await s.v('books:list')
   check('the shelf holds 30 books', books.books.length === 30, books.books.map((one) => one.name).join(', '))
+  // An effect that hands React a promise (this Chromium's scrollIntoView answers with one) stopped the whole window as the
+  // menu opened in dev mode and as it closed in a build: "destroy is not a function". Opened, closed and opened again.
+  await h.locator('[aria-label="Haligtree menu"]').click(); await wait(400); await h.keyboard.press('Escape'); await wait(400)
+  check('the book menu opens and closes with no page error', errors.length === 0 && (await h.locator('[aria-label="Haligtree menu"]').count()) === 1, errors.join(' | '))
   await h.locator('[aria-label="Haligtree menu"]').click(); await film('open', 6); await wait(400)
   const at = await spines()
   check('the menu opens with every book on the shelf', at.length === books.books.length && at.length === 30, JSON.stringify(at))
