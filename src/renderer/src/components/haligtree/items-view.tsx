@@ -1197,8 +1197,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           board={board} details={!boardShown} tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} size={past ? undefined : <NoteSize editor={ready} />}
           menu={[
             ...(boardShown ? [
-              ...(place ? [{ label: place.list ? 'Hide the list' : 'Show the list', run: () => (chime(place.list ? 'fold' : 'slide'), place.onList(!place.list)) }] : []),
-              { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
+              ...(place ? [{ label: place.list ? 'Hide the list' : 'Show the list', run: () => (chime('tap'), place.onList(!place.list)) }] : []),
+              { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime('tap'), setPropsOut(!propsOut)) },
               'separator' as const
             ] : []),
             ...(item.tier === 'article' && !titled && !titling ? [{ label: 'Give it a title', run: () => setTitling(true) }] : []),

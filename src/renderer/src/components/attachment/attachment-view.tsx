@@ -320,7 +320,7 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
   const [page, setPage] = useState(1)
   const fitTo = (next: "width" | "height"): void => (localStorage.setItem("pdf-note-fit", next), chime("tick"), setFit(next))
   const spreadTo = (two: boolean): void => (localStorage.setItem("pdf-note-spread", two ? "two" : "one"), chime("tick"), setSpread(two))
-  const railTo = (tab: RailTab | null): void => (chime(tab ? "slide" : "fold"), setRail(tab))
+  const railTo = (tab: RailTab | null): void => (chime("tap"), setRail(tab))
   // The page you are on: the first whose foot is below the top of the box.
   useEffect(() => {
     const box = scroller.current

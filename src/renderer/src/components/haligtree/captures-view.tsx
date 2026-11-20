@@ -807,8 +807,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 { label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread },
                 ...(boardShown ? [
                   'separator' as const,
-                  { label: listOut ? 'Hide the list' : 'Show the list', run: () => (chime(listOut ? 'fold' : 'slide'), setListOut(!listOut)) },
-                  { label: propsOut ? 'Hide properties' : 'Show properties', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
+                  { label: listOut ? 'Hide the list' : 'Show the list', run: () => (chime('tap'), setListOut(!listOut)) },
+                  { label: propsOut ? 'Hide properties' : 'Show properties', run: () => (chime('tap'), setPropsOut(!propsOut)) },
                   'separator' as const
                 ] : []),
                 ...captureDots(meta)

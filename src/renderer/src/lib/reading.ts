@@ -65,7 +65,8 @@ export function detailsOutHere(pane: string): () => void {
 
 /** Out or away: for one pane when `pane` is given and the page is split, else everywhere. */
 export function showDetails(on: boolean, pane?: string | null): void {
-  chime(on ? 'slide' : 'fold')
+  // One quiet tap for every side panel's show and hide; callers play nothing of their own (two sounds at once, 20 Nov).
+  chime('tap')
   if (pane && isSplit()) {
     inPane.set(pane, on)
     return void window.dispatchEvent(new Event(CHANGED))

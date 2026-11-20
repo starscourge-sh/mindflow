@@ -1470,7 +1470,7 @@ export function Home(): React.JSX.Element {
         event.preventDefault()
         event.stopPropagation()
         const open = event.shiftKey ? sidebar || detailsShown() : sidebar
-        chime(open ? 'fold' : 'slide')
+        if (!event.shiftKey) chime('tap')
         if (event.shiftKey) showDetails(!open)
         return setSidebar(!open)
       }
@@ -1579,7 +1579,7 @@ export function Home(): React.JSX.Element {
   useEffect(() => {
     const onNewPage = (): void => void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
     const onExport = (): void => void exportEverything()
-    const onSidebar = (): void => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar))
+    const onSidebar = (): void => (chime('tap'), setSidebar(!sidebar))
     // View > Split the Page, or Open in a split to the right (asking), clicked: the new pane eases in, as anything a pointer opens.
     const onSplitRight = (event: Event): void => (byPointer(), splitRight((event as CustomEvent<boolean | undefined>).detail === true))
     window.addEventListener('haligtree:split-right', onSplitRight)
@@ -2036,7 +2036,7 @@ export function Home(): React.JSX.Element {
             { label: 'Try a celebration', hint: 'One of the moments the app marks, like an empty Inbox, shown now', cue: null, run: () => tryCelebration() },
             ...placesTo(),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', hint: sidebar ? 'More room for the page; ⌘B brings it back' : 'Your pages, folders and pins on the left', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
-            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', hint: sidebar || detailsShown() ? 'The page alone, with nothing at its sides' : 'The sidebar on the left and the details on the right', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
+            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', hint: sidebar || detailsShown() ? 'The page alone, with nothing at its sides' : 'The sidebar on the left and the details on the right', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', hint: fill ? 'The window back to the size it was' : 'The window as big as the screen, without going full screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
             { label: 'Split the page', hint: 'This page again beside it; ⌘O there opens something else', keys: '⌘\\', cue: null, run: () => splitRight() },
             { label: 'Open in a split to the right', hint: 'A new side, searching for what to open', keys: '⌥⌘\\', cue: null, run: () => splitRight(true) },

@@ -682,7 +682,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
             }}
           />
           <Tip label={pane ? 'Hide the preview' : 'Show the preview'}>
-          <button type="button" aria-label={pane ? 'Hide the preview' : 'Show the preview'} className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${roomy && !inPane ? '' : 'hidden'}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane); box.current?.focus() }}>
+          <button type="button" aria-label={pane ? 'Hide the preview' : 'Show the preview'} className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${roomy && !inPane ? '' : 'hidden'}`} onClick={() => { chime('tap'); setPane(!pane); box.current?.focus() }}>
             <AliveIcon icon={LayoutSidebarRightIcon} size={16} />
           </button>
           </Tip>

@@ -425,7 +425,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [tabByHand, setTabByHand] = useState(false)
   const cramped = (squeeze === "narrow" ? NARROW : railWidth()) < OUTLINE_ROOM
   const railShown = squeeze === "folded" ? null : rail === "outline" && cramped && !tabByHand ? "pages" : rail
-  const toggleRail = (): void => (setByHand(true), showRail(railShown ? null : rail ?? "pages"))
+  const toggleRail = (): void => (chime("tap"), setByHand(true), showRail(railShown ? null : rail ?? "pages"))
   const [lit, setLit] = useState<string | null>(null)
   const goToMark = (one: PdfMark): void => {
     go(one.page)
@@ -1061,7 +1061,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const moreMenu = (
     <>
       <DropdownMenuItem data-tool="Sidebar" onSelect={toggleRail}><PanelLeft />Pages and outline{railShown && <MenuCheck />}</DropdownMenuItem>
-      <DropdownMenuItem data-tool="Details" disabled={!detailsFit} onSelect={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (chime(detailsOut ? "fold" : "slide"), setChaptering(false), showDetails(!detailsOut, pane)))}>
+      <DropdownMenuItem data-tool="Details" disabled={!detailsFit} onSelect={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (setChaptering(false), showDetails(!detailsOut, pane)))}>
         <PanelRight />Details{detailsOut && detailsFit && !chaptering && <MenuCheck />}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
@@ -1110,7 +1110,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={railShown ? "on" : "off"} onClick={toggleRail}>
             <PanelLeft className="tiptap-button-icon" />
           </Button>
-          <Button data-style="ghost" aria-label="Details" disabled={!detailsFit} title={!detailsFit ? "Details: widen the window to show them beside the pages" : detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut && detailsFit && !chaptering ? "on" : "off"} onClick={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (chime(detailsOut ? "fold" : "slide"), setChaptering(false), showDetails(!detailsOut, pane)))}>
+          <Button data-style="ghost" aria-label="Details" disabled={!detailsFit} title={!detailsFit ? "Details: widen the window to show them beside the pages" : detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut && detailsFit && !chaptering ? "on" : "off"} onClick={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (setChaptering(false), showDetails(!detailsOut, pane)))}>
             <PanelRight className="tiptap-button-icon" />
           </Button>
           {marks.some((one) => one.color === "later") && (

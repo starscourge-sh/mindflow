@@ -744,7 +744,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             title={outline.length > 1 ? 'Contents' : article ? 'Contents: this page has no sections' : 'Contents: once the page is read'}
             disabled={outline.length < 2}
             data-active-state={railShown ? 'on' : 'off'}
-            onClick={() => (chime(railShown ? 'fold' : 'slide'), setRail(!railShown))}
+            onClick={() => (chime('tap'), setRail(!railShown))}
           >
             <PanelLeft className="tiptap-button-icon" />
           </Button>

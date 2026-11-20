@@ -1071,7 +1071,7 @@ export default function App(): React.JSX.Element {
   const setPanel = (open: boolean, quiet = false): void => {
     // A small window holds one note and has no side panel: its keys get the app's "no" sound, and nothing moves.
     if (SMALL) return void (open && chime('nope'))
-    if (!quiet) chime(open ? 'slide' : 'fold')
+    if (!quiet) chime('tap')
     // The panel's move sets the height too; the writing's own waits for it to land.
     box.held.current = true
     // Put away: the height the box will want without it, told first, so main puts it back at that size.
