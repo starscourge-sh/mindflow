@@ -65,6 +65,19 @@ try {
   check('a second pinned tab lands after the first', row[0].key === third.key && row[1].key === fourth.key && row[1].pinned, JSON.stringify(row.map((one) => one.title)))
   await rowShot('two-pinned')
 
+  // --- 2b. A pinned tab keeps its page (Safari's and Arc's way, the user's choice 20 Nov): a favorite opened from the
+  // sidebar while it is in front opens in a new tab beside it, and the pinned tab still shows what it showed.
+  if (favKey) {
+    await tabAt(third.key).locator('[role="tab"]').click(); await wait(300)
+    const before = await h.evaluate((key) => document.querySelector(`[data-tab="${key}"]`)?.getAttribute('aria-label') ?? document.querySelector(`[data-tab="${key}"]`)?.textContent, third.key)
+    const count = (await tabs()).length
+    await h.locator('[data-side-section="pinned"] [data-drag-open]').first().click(); await wait(600)
+    const after = await tabs()
+    const front = await h.evaluate(() => document.querySelector('[data-tab-on]')?.getAttribute('data-tab'))
+    const kept = await h.evaluate((key) => document.querySelector(`[data-tab="${key}"]`)?.getAttribute('aria-label') ?? document.querySelector(`[data-tab="${key}"]`)?.textContent, third.key)
+    check('a favorite opened while a pinned tab is in front: a new tab, the pinned tab keeps its page', after.length === count + 1 && front !== third.key && kept === before, JSON.stringify({ count, now: after.length, front, before, kept }))
+  }
+
   // --- 3. Pinned and a favorite at once: the same note, both kept.
   if (favKey) {
     const [type, id] = favKey.split(':')

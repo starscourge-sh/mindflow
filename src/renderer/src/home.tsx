@@ -623,6 +623,13 @@ export function Home(): React.JSX.Element {
     // Already open in another tab of this pane: that tab, never the same thing twice.
     const there = otherTab(key, next)
     if (there) return goToTab(key, there)
+    // A pinned tab keeps its page, as Safari's and Arc's do: going somewhere else from it (another section, another
+    // note) opens a new tab beside it. Moving within its own page (a day before, a week on) stays in it.
+    const pane = splitRef.current.panes.find((one) => one.key === key)
+    if (pane?.tabs.find((one) => one.key === pane.active)?.pinned) {
+      const here = onShow(pane)
+      if (here.id !== next.id || (holdsNotes(next.id) && here.focus !== next.focus)) return openTab(next, key)
+    }
     const scroll = scrolled(key)
     setTrail(key, (trail) => {
       const here = trail.views[trail.at]
