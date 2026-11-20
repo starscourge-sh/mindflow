@@ -1,4 +1,3 @@
-import { afterLayout } from '@/lib/after-layout'
 import { Fragment, useLayoutEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactNode } from "react"
 import { ChevronDown, Plus, X } from 'lucide-react'
 
@@ -159,17 +158,24 @@ function OneTab({ tab, group, actions, lifted, shift }: { tab: TabShown; group: 
 function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): React.JSX.Element {
   const now = useSyncExternalStore(follow, () => carry)
   const box = useRef<HTMLDivElement>(null)
-  // Read once the row is laid out, before it is painted, never in the middle of a pane mounting (lib/after-layout.ts).
+  // Read once the row is laid out, before it is painted, never in the middle of a pane mounting (lib/after-layout.ts),
+  // and again whenever the row or a tab in it changes size: a tab's name arrives after the row is first laid out (a
+  // note's title is read from the book), each widening the tabs before the open one, and read only at the first
+  // layout, the open one of twenty was pushed out of sight. Sizes only: scrolling the row by hand moves nothing back.
   useLayoutEffect(() => {
     const row = box.current
     if (!row) return
-    return afterLayout(row, () => {
+    const reveal = (): void => {
       const on = row.querySelector<HTMLElement>('[data-tab-on]')
       if (!on || row.scrollWidth <= row.clientWidth) return
       const [left, right] = [on.offsetLeft - 16, on.offsetLeft + on.offsetWidth + 16]
       if (left < row.scrollLeft) row.scrollLeft = left
       else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth
-    })
+    }
+    const watch = new ResizeObserver(reveal)
+    watch.observe(row)
+    for (const tab of row.querySelectorAll('[data-tab]')) watch.observe(tab)
+    return () => watch.disconnect()
   }, [group.active, group.tabs.length])
   const gap = now.gap?.pane === group.pane ? now.gap : null
   const carrying = now.from !== null || now.gap !== null
