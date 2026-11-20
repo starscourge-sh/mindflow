@@ -58,6 +58,7 @@ import { TagsView } from './components/haligtree/tags-view'
 import { RailFolders, SideFolders } from './components/haligtree/side-folders'
 import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
 import { WritingPages } from './components/haligtree/side-writing'
+import { useEveryFold, useFold, type FoldKey } from '@/lib/side-folds'
 import { askFolder, folders, useFolderOf, useFolders, type FolderKind } from '@/lib/folders'
 import { FolderOpen } from 'lucide-react'
 import { FoldersView, tabOfKind } from './components/haligtree/folder-view'
@@ -166,25 +167,6 @@ import { quoted } from '../../main/clip'
 type View = Step
 
 /** An open-or-shut fold in the sidebar, remembered across launches; shut to start unless said. */
-function useRemembered(key: string, start = false): [boolean, (open: boolean) => void] {
-  const [open, setOpen] = useState(() => {
-    try {
-      const kept = localStorage.getItem(key)
-      return kept ? kept === 'open' : start
-    } catch {
-      return start
-    }
-  })
-  return [open, (next) => {
-    setOpen(next)
-    try {
-      localStorage.setItem(key, next ? 'open' : 'shut')
-    } catch {
-      // Open for now, not next time.
-    }
-  }]
-}
-
 /**
  * A sidebar group that folds by itself: whether it is open is its own state (remembered under `kept`), so folding
  * it draws its heading and its rows and nothing else. Held by the main window, one fold drew the whole window.
@@ -192,8 +174,8 @@ function useRemembered(key: string, start = false): [boolean, (open: boolean) =>
  * `here`: the page you are on is inside it. Arriving there (⌘K, a link, Back) opens it to show where you are, and it
  * stays open, as Finder reveals a file; pressed while you are there it folds, as its sound says, and stays folded.
  */
-function Folding({ kept, held, here, head, children }: { kept: string; held: boolean; here: boolean; head: (open: boolean, fold: (open: boolean) => void) => React.ReactNode; children: React.ReactNode }): React.JSX.Element {
-  const [open, setOpen] = useRemembered(kept)
+function Folding({ kept, held, here, head, children }: { kept: FoldKey; held: boolean; here: boolean; head: (open: boolean, fold: (open: boolean) => void) => React.ReactNode; children: React.ReactNode }): React.JSX.Element {
+  const [open, setOpen] = useFold(kept)
   useLayoutEffect(() => void (here && setOpen(true)), [here]) // eslint-disable-line react-hooks/exhaustive-deps
   return <>{head(open || held, setOpen)}<Unfold open={open || held}>{children}</Unfold></>
 }
@@ -1082,22 +1064,22 @@ export function Home(): React.JSX.Element {
     setRecentState(off ? null : { until: null, opened: true })
   }
   // Folded away unless you open them, and kept the way you left them.
-  const [tagsKept, keepTags] = useRemembered('sidebar:tags')
+  const [tagsKept, keepTags] = useFold('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
-  const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
+  const [pinsOpen, setPinsOpen] = useFold('sidebar:pinned')
   // A section's heading dragged moves the whole section (lib/side-sections.ts).
   const sectionDrag = useSectionDrag()
   // Recent: the last few notes you opened, under Pinned, a short list (four at most: ⌘K has the rest), kept folded or open as you left it.
-  const [recentOpen, setRecentOpen] = useRemembered('sidebar:recent', true)
+  const [recentOpen, setRecentOpen] = useFold('sidebar:recent')
   // Unread until its first answer: the sidebar waits for it (below), or Recent came in a beat late in the place
   // Tags had been drawn in, and Tags stepped down under it.
   const [recents, setRecents] = useState<Opened[]>(() => unread([]))
   const recentShown = useRef<Opened[]>([])
   // Writing's and Gems' folders, open to start (side-folders.tsx).
-  const [articleKept, keepArticle] = useRemembered('sidebar:folders:article', true)
-  const [nuggetKept, keepNugget] = useRemembered('sidebar:folders:nugget', true)
+  const [articleKept, keepArticle] = useFold('sidebar:folders:article')
+  const [nuggetKept, keepNugget] = useFold('sidebar:folders:nugget')
   // Journal's Week, Month and Year fold as Writing's folders do, open to start.
-  const [journalOpen, setJournalOpen] = useRemembered('sidebar:journal', true)
+  const [journalOpen, setJournalOpen] = useFold('sidebar:journal')
   const [customizing, setCustomizing] = useState(false)
   // Your books, for the menu under the book's name and for ⌘K, kept current as one is made, renamed, coloured or
   // deleted in any window: the open one first, then the others by when each was last opened (main keeps that order).
@@ -1173,6 +1155,8 @@ export function Home(): React.JSX.Element {
   const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const fullMenu = useFullMenu()
   const everyFolder = useFolders()
+  // The button beside the search: every fold in the sidebar at once, Folders' tree too (lib/side-folds.ts).
+  const everyFold = useEveryFold(everyFolder.filter((one) => !one.archived).map((one) => one.id))
   const tags = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
   // Pinned from a tag's page: those first, then the most used.
   // In your order once dragged (tagOrder), the rest by use after them.
@@ -2211,13 +2195,12 @@ export function Home(): React.JSX.Element {
           </button>
           {/* Every fold in the sidebar at once: shut them all while any is open, else open them all. */}
           {!narrow && (() => {
-            const folds: [boolean, (open: boolean) => void][] = [[pinsOpen, setPinsOpen], [recentOpen, setRecentOpen], [articleFolders, setArticleFolders], [nuggetFolders, setNuggetFolders], [journalOpen, setJournalOpen], [tagsOpen, setTagsOpen]]
-            const anyOpen = folds.some(([open]) => open)
+            const anyOpen = everyFold.anyOpen
             const label = anyOpen ? 'Fold everything in the sidebar' : 'Unfold everything in the sidebar'
             return (
               <Tip label={label}>
                 <button type="button" data-side-fold-all={anyOpen ? 'fold' : 'unfold'} aria-label={label}
-                  onClick={() => (chime(anyOpen ? 'fold' : 'slide'), folds.forEach(([open, set]) => open !== !anyOpen && set(!anyOpen)))}
+                  onClick={() => (chime(anyOpen ? 'fold' : 'slide'), everyFold.set(!anyOpen))}
                   className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4">
                   {anyOpen ? <ChevronsDownUp /> : <ChevronsUpDown />}
                 </button>
@@ -2665,7 +2648,7 @@ export function Home(): React.JSX.Element {
                     // Library folds under its heading, folded to start; it stays as you leave it,
                     // and keeps that itself (Folding), so a fold draws the group alone.
                     return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
-                      <Folding kept={`sidebar:${id}`} held={narrow} here={here} head={(open, fold) => heading(head, open, fold)}>
+                      <Folding kept="sidebar:library" held={narrow} here={here} head={(open, fold) => heading(head, open, fold)}>
                         {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
                         <Branches bare={narrow} rows=":scope > [data-drop-list] > *" className={narrow ? '' : 'ml-5'}>{box}</Branches>
                       </Folding>
