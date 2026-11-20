@@ -9,12 +9,15 @@
 //     {"id":5,"op":"roots","texts":["..."]}      {"id":5,"roots":[{"running":"run"},...]}   (many texts, roots only)
 //     {"id":2,"op":"read","text":"..."}           {"id":2,"lang":"en","roots":{"running":"run"},"names":[{"text":"Ada Lovelace","kind":"person"}]}
 //     {"id":3,"op":"write","instructions":"...","prompt":"..."}   {"id":3,"text":"..."}   (Apple Intelligence only)
+//     {"id":8,"op":"shaped","instructions":"...","prompt":"...","schema":{...}}   {"id":8,"content":{...}}   (Apple Intelligence only)
+//       the model fills a shape (guided generation) instead of writing free text; the schema, as `shape` below reads it:
+//       {"type":"object","properties":[{"name":"verdict","description":"...","type":"string","choices":["same","off"]},
+//        {"name":"lines","type":"array","min":0,"max":5,"items":{"type":"int","min":1,"max":80}}, ...]}
 //     {"id":4,"op":"translate","text":"...","from":"es","to":"en"} {"id":4,"text":"..."}  (macOS 26, languages downloaded)
 //   Review and reading, with Apple Intelligence only (study.ai below):
-//     {"id":5,"op":"judge","question":"...","answer":"...","said":"..."}   {"id":5,"verdict":"same|close|partly|off","missing":"..."}
 //     {"id":6,"op":"hint","question":"...","answer":"...","level":1}       {"id":6,"text":"..."}   (never the answer's own words)
 //     {"id":7,"op":"cards","title":"...","text":"[p. 12] ...","count":5}   {"id":7,"cards":[{"question":"...","answer":"...","page":12}]}
-//   With HALIGTREE_QA_CAPS=ai (a probe on a Mac without Apple Intelligence) judge, hint and cards are answered
+//   With HALIGTREE_QA_CAPS=ai (a probe on a Mac without Apple Intelligence) hint and cards are answered
 //   by a stand-in that says so in its words, so the app's side can be driven; nothing else changes.
 //   Anything that cannot be done answers {"id":n,"error":{"code":"...","message":"..."}}.
 import Foundation
@@ -163,8 +166,7 @@ func refuse(_ id: Any, _ code: String, _ message: String) {
   answer(id, ["error": ["code": code, "message": message]])
 }
 
-// Review and reading with Apple Intelligence: an answer judged by what it means, a hint that is never the
-// answer, and cards from a chapter. The model answers in plain lines, read here into fields.
+// Review and reading with Apple Intelligence: a hint that is never the answer, and cards from a chapter.
 let standIn = ProcessInfo.processInfo.environment["HALIGTREE_QA_CAPS"] == "ai"
 
 func flat(_ text: String) -> String {
@@ -197,12 +199,6 @@ func letterHint(_ answer: String, _ level: Int) -> String {
 func standInAnswer(_ op: String, _ request: [String: Any]) -> [String: Any] {
   let answer = request["answer"] as? String ?? ""
   switch op {
-  case "judge":
-    // The stand-in's rule: the same words are the same; "I don't know" and the like are off; anything else close.
-    let said = flat(request["said"] as? String ?? "")
-    if said == flat(answer) { return ["verdict": "same", "missing": ""] }
-    if ["i don t know", "dont know", "no idea", "pass", ""].contains(said) { return ["verdict": "off", "missing": "It does not answer the question (a stand-in's reason)"] }
-    return ["verdict": "close", "missing": ""]
   case "hint":
     let level = request["level"] as? Int ?? 1
     return ["text": "\(letterHint(answer, level)) (A stand-in's hint.)"]
@@ -242,16 +238,6 @@ func study(_ op: String, _ request: [String: Any]) async throws -> [String: Any]
   let answer = String((request["answer"] as? String ?? "").prefix(1500))
   let plain = "Write in the language of the card, plainly, as a kind teacher would. Never add facts that are not given."
   switch op {
-  case "judge":
-    let said = String((request["said"] as? String ?? "").prefix(1500))
-    let reply = try await ask(
-      "You check a student's typed answer to a flashcard against the card's answer, by what it means, not by its wording. Synonyms, paraphrases and other languages that mean the same count. Answer on the first line with one word: SAME (it means what the card says), CLOSE (nearly, a small part missing or vague), PARTLY (some of it right, something important missing or wrong) or OFF (it does not mean what the card says). On a second line, only for PARTLY or OFF, say in under twelve words what is missing or wrong. \(plain)",
-      "Question: \(question)\nThe card's answer: \(answer)\nThe student typed: \(said)")
-    let lines = reply.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-    let word = (lines.first ?? "").uppercased()
-    let verdict = ["SAME", "CLOSE", "PARTLY", "OFF"].first { word.hasPrefix($0) || word.contains($0) }?.lowercased() ?? "partly"
-    let missing = verdict == "partly" || verdict == "off" ? (lines.dropFirst().first ?? "") : ""
-    return ["verdict": verdict, "missing": String(missing.prefix(160))]
   case "hint":
     let level = request["level"] as? Int ?? 1
     let how = level < 2
@@ -288,6 +274,57 @@ func study(_ op: String, _ request: [String: Any]) async throws -> [String: Any]
     return ["cards": cards]
   }
 }
+
+/**
+ * A shape for the model to fill, from the small JSON description main sends (understand.ts `Shape`): a string (or one
+ * of a few choices), a whole number (within min and max), an array of either or of objects (min to max of them), or an
+ * object whose properties come in the order given, the order the model fills them. Each object or choice is named by
+ * where it sits ("Answer", "AnswerCards"), all inline: two of one name fail the whole schema.
+ */
+@available(macOS 26, *)
+func shape(_ spec: [String: Any], _ name: String) -> DynamicGenerationSchema {
+  let lo = spec["min"] as? Int, hi = spec["max"] as? Int
+  switch spec["type"] as? String {
+  case "int":
+    let guides: [GenerationGuide<Int>] = if let lo, let hi { [.range(lo...max(lo, hi))] } else if let lo { [.minimum(lo)] } else if let hi { [.maximum(hi)] } else { [] }
+    return DynamicGenerationSchema(type: Int.self, guides: guides)
+  case "array":
+    return DynamicGenerationSchema(arrayOf: shape(spec["items"] as? [String: Any] ?? [:], name), minimumElements: lo, maximumElements: hi)
+  case "object":
+    return DynamicGenerationSchema(name: name, description: spec["description"] as? String, properties: (spec["properties"] as? [[String: Any]] ?? []).map { field in
+      let key = field["name"] as? String ?? ""
+      return .init(name: key, description: field["description"] as? String, schema: shape(field, name + key.prefix(1).uppercased() + key.dropFirst()), isOptional: field["optional"] as? Bool ?? false)
+    })
+  default:
+    if let choices = spec["choices"] as? [String], !choices.isEmpty { return DynamicGenerationSchema(name: name, anyOf: choices) }
+    return DynamicGenerationSchema(type: String.self)
+  }
+}
+
+/** The shape filled, as JSON: {"content": {...}}. */
+@available(macOS 26, *)
+func shaped(_ request: [String: Any]) async throws -> [String: Any] {
+  let schema = try GenerationSchema(root: shape(request["schema"] as? [String: Any] ?? [:], "Answer"), dependencies: [])
+  let session = LanguageModelSession(instructions: request["instructions"] as? String ?? "")
+  let said = try await session.respond(to: request["prompt"] as? String ?? "", schema: schema, options: GenerationOptions(temperature: 0.3)).content
+  return ["content": try JSONSerialization.jsonObject(with: Data(said.jsonString.utf8))]
+}
+
+/** Why the model could not answer, in plain words: its own description is often only "error 1". */
+@available(macOS 26, *)
+func why(_ error: Error) -> String {
+  guard let error = error as? LanguageModelSession.GenerationError else { return error.localizedDescription }
+  switch error {
+  case .exceededContextWindowSize: return "the words were more than it can read at once"
+  case .guardrailViolation: return "Apple's safety check stopped it"
+  case .unsupportedLanguageOrLocale: return "it does not read this language"
+  case .assetsUnavailable: return "its model is not on this Mac right now"
+  case .rateLimited, .concurrentRequests: return "it is busy with other requests"
+  case .decodingFailure: return "it did not fill in the answer's fields"
+  case .refusal: return "it declined to answer"
+  default: return error.localizedDescription
+  }
+}
 #endif
 
 // Requests are read off the main thread; Apple Intelligence and Translation answer when they are done,
@@ -310,20 +347,19 @@ while let text = readLine(strippingNewline: true) {
     answer(id, ["lang": best?.key.rawValue ?? "und", "confidence": best?.value ?? 0])
   case "roots":
     answer(id, ["roots": (request["texts"] as? [String] ?? []).map { roots(String($0.prefix(4000))) }])
-  case "write":
+  case "write", "shaped":
     #if canImport(FoundationModels)
     if #available(macOS 26, *), aiStatus() == "available" {
       let instructions = request["instructions"] as? String ?? ""
       let prompt = request["prompt"] as? String ?? ""
+      let free = request["op"] as? String == "write"
       group.enter()
       Task.detached {
         defer { group.leave() }
         do {
-          let session = LanguageModelSession(instructions: instructions)
-          let said = try await session.respond(to: prompt)
-          answer(id, ["text": said.content])
+          answer(id, free ? ["text": try await LanguageModelSession(instructions: instructions).respond(to: prompt).content] : try await shaped(request))
         } catch {
-          refuse(id, "failed", "Apple Intelligence could not write it: \(error.localizedDescription)")
+          refuse(id, "failed", "Apple Intelligence could not write it: \(why(error))")
         }
       }
       continue
@@ -355,7 +391,7 @@ while let text = readLine(strippingNewline: true) {
     }
     #endif
     refuse(id, "unavailable", "Translation needs macOS 26")
-  case "judge", "hint", "cards":
+  case "hint", "cards":
     let op = request["op"] as! String
     if standIn {
       // A probe may ask the stand-in to take its time, as a real model does (HALIGTREE_QA_AI_DELAY, in ms).
@@ -375,7 +411,7 @@ while let text = readLine(strippingNewline: true) {
         do {
           answer(id, try await study(op, request))
         } catch {
-          refuse(id, "failed", "Apple Intelligence could not do it: \(error.localizedDescription)")
+          refuse(id, "failed", "Apple Intelligence could not do it: \(why(error))")
         }
       }
       continue

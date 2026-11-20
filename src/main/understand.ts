@@ -102,6 +102,34 @@ export function understand(op: string, body: Record<string, unknown>, lane: Lane
   })
 }
 
+/**
+ * A shape for Apple Intelligence to fill (guided generation, understand.swift `shape`): a string or one of its choices,
+ * a whole number within min and max, an array of min to max of these, or an object whose fields come in this order.
+ * Each description is what the model is told the field holds.
+ */
+export type Shape = { description?: string } & (
+  | { type: 'string'; choices?: string[] }
+  | { type: 'int'; min?: number; max?: number }
+  | { type: 'array'; items: Shape; min?: number; max?: number }
+  | { type: 'object'; properties: (Shape & { name: string; optional?: boolean })[] }
+)
+
+/**
+ * A shape filled by Apple Intelligence on this Mac: its fields, never free words read by patterns, so nothing is lost
+ * to how the model lays out its answer. `stand` answers instead under HALIGTREE_QA_CAPS=ai (a probe on a Mac without
+ * it; HALIGTREE_QA_AI_DELAY, in ms, has it take its time). Past `ms` it says it took too long. Never throws.
+ */
+export async function shaped<T>(instructions: string, prompt: string, schema: Shape, stand?: () => T, ms = 30_000): Promise<T | { error: string }> {
+  if (stand && process.env.HALIGTREE_QA_CAPS === 'ai') return new Promise((done) => setTimeout(() => done(stand()), Number(process.env.HALIGTREE_QA_AI_DELAY ?? 0)))
+  let late: NodeJS.Timeout | undefined
+  const said = await Promise.race([
+    understand('shaped', { instructions, prompt, schema }),
+    new Promise<Answer>((done) => (late = setTimeout(() => done({ error: { code: 'busy', message: `Apple Intelligence took too long (over ${ms / 1000} seconds)` } }), ms)))
+  ]).finally(() => clearTimeout(late))
+  if (said.error) return { error: said.error.message }
+  return said.content && typeof said.content === 'object' ? (said.content as T) : { error: 'Apple Intelligence answered without filling the shape asked for' }
+}
+
 /** The language a person reads in: the Mac's own, as two letters. */
 export const ownLanguage = (): string => (app.getPreferredSystemLanguages()[0] ?? app.getLocale() ?? 'en').split('-')[0].toLowerCase()
 
@@ -187,13 +215,26 @@ export function registerStudyAi(on: () => boolean): void {
   const ask = async (op: string, body: Record<string, unknown>): Promise<Answer | { error: string }> => {
     if (!meets(await caps(), 'ai')) return { error: 'Needs Apple Intelligence' }
     if (!on()) return { error: 'Apple Intelligence is turned off in Settings' }
-    // A test run standing in for a Mac with the model (HALIGTREE_QA_CAPS=ai): a stand-in's verdict, marked as one.
-    if (op === 'judge' && process.env.HALIGTREE_QA_CAPS === 'ai') return { verdict: 'close', missing: "a stand-in's verdict" } as unknown as Answer
     const said = await understand(op, body)
     return said.error ? { error: said.error.message } : said
   }
-  ipcMain.handle('haligtree:ai:judge', (_event, question: unknown, answer: unknown, said: unknown) =>
-    ask('judge', { question: String(question ?? ''), answer: String(answer ?? ''), said: String(said ?? '') }))
+  // A typed answer checked by what it means: the model picks one of the four verdicts (a choice, never a word read out
+  // of its reply), and says what is missing. A test run's stand-in says "off" for "no idea" and the like, else "close".
+  ipcMain.handle('haligtree:ai:judge', async (_event, question: unknown, answer: unknown, typed: unknown) => {
+    if (!meets(await caps(), 'ai')) return { error: 'Needs Apple Intelligence' }
+    if (!on()) return { error: 'Apple Intelligence is turned off in Settings' }
+    const said = await shaped<{ verdict: string; missing: string }>(
+      'You check a student\'s typed answer to a flashcard against the card\'s answer, by what it means, not by its wording. Synonyms, paraphrases and other languages that mean the same count. Write in the language of the card, plainly, as a kind teacher would. Never add facts that are not given.',
+      `Question: ${String(question ?? '').slice(0, 600)}\nThe card's answer: ${String(answer ?? '').slice(0, 1500)}\nThe student typed: ${String(typed ?? '').slice(0, 1500)}`,
+      { type: 'object', properties: [
+        { name: 'verdict', type: 'string', choices: ['same', 'close', 'partly', 'off'], description: 'same: it means what the card says. close: nearly, a small part missing or vague. partly: some of it right, something important missing or wrong. off: it does not mean what the card says' },
+        { name: 'missing', type: 'string', description: 'Only for partly or off: in under twelve words, what is missing or wrong. Empty otherwise' }
+      ] },
+      () => (['i don t know', 'dont know', 'no idea', 'pass', ''].includes(flat(String(typed ?? ''))) ? { verdict: 'off', missing: "It does not answer the question (a stand-in's reason)" } : { verdict: 'close', missing: '' }))
+    if ('error' in said) return said
+    if (!['same', 'close', 'partly', 'off'].includes(said.verdict)) return { error: 'Apple Intelligence gave no verdict' }
+    return { verdict: said.verdict, missing: said.verdict === 'partly' || said.verdict === 'off' ? String(said.missing ?? '').slice(0, 160) : '' }
+  })
   ipcMain.handle('haligtree:ai:hint', (_event, question: unknown, answer: unknown, level: unknown) =>
     ask('hint', { question: String(question ?? ''), answer: String(answer ?? ''), level: Number(level) >= 2 ? 2 : 1 }))
   // Cards: asked with a schema (native/understand.swift, guided generation), so the model fills each card's fields
@@ -223,7 +264,7 @@ export function registerStudyAi(on: () => boolean): void {
 
 /**
  * Study questions drafted from a note (note-questions.ts), phrased better by
- * Apple Intelligence on this Mac: each reworded question kept only if its
+ * Apple Intelligence on this Mac (filling a card's fields, `shaped`): each reworded question kept only if its
  * answer still stands in the line it came from and the question does not say
  * it; any other keeps the note's own draft. `none` on a Mac without it (or
  * with it off in Settings), so nothing there speaks of a model.
@@ -234,23 +275,20 @@ async function phraseDrafts(drafts: unknown[], on: () => boolean): Promise<{ dra
   const given = drafts.filter((one): one is QuestionDraft => !!one && typeof one === 'object' && typeof (one as QuestionDraft).question === 'string' && typeof (one as QuestionDraft).answer === 'string' && typeof (one as QuestionDraft).from === 'string')
   if (!meets(await caps(), 'ai') || !on()) return { none: true }
   if (!given.length) return { drafts: [], phrased: 0 }
-  const stand = process.env.HALIGTREE_QA_CAPS === 'ai' && process.env.HALIGTREE_QA_PHRASE !== 'real'
-  const prompt = given.map((one, n) => `${n + 1}. Q: ${one.question} || A: ${one.answer} || FROM: ${one.from.slice(0, 400)}`).join('\n')
-  const said: Answer = stand
-    ? { text: given.map((one, n) => `${n + 1}. Q: ${one.question.replace(/\?$/, '')}, in a stand-in's words? || A: ${n === 0 ? 'an answer the note never gave' : one.answer}`).join('\n') }
-    : await Promise.race([
-      understand('write', {
-        instructions: 'You rewrite study flashcards a student drafted from their own note, so each question reads as a natural question they would answer from memory and asks for one thing. For example "What does your note say about “Spaced repetition”?" with the answer "Reviewing just before you forget makes each memory last longer" becomes "Why review just before you forget?". Keep "Fill the gap:" questions as they are, with their blank. Keep the same order and the same count. Each answer must use only words from its FROM line, and may be shorter, never longer. Never add a fact, a name or a number that is not in the FROM line, and never put the answer in the question. Start each question with a capital letter. Answer one line per card, in this form and nothing else: N. Q: the question || A: the answer',
-        prompt
-      }),
-      new Promise<Answer>((done) => setTimeout(() => done({ error: { code: 'busy', message: 'Apple Intelligence took too long' } }), 20_000))
-    ])
-  if (said.error || typeof said.text !== 'string') return { error: said.error?.message ?? 'Apple Intelligence gave no answer' }
-  const lines = new Map<number, { question: string; answer: string }>()
-  for (const line of said.text.split('\n')) {
-    const shape = /^\s*(\d+)[.)]\s*Q:\s*(.+?)\s*\|\|\s*A:\s*(.+?)\s*$/.exec(line)
-    if (shape) lines.set(Number(shape[1]) - 1, { question: shape[2].trim(), answer: shape[3].trim() })
-  }
+  type Card = { index: number; question: string; answer: string }
+  const said = await shaped<{ cards: Card[] }>(
+    'You rewrite study flashcards a student drafted from their own note, so each question reads as a natural question they would answer from memory and asks for one thing. For example "What does your note say about “Spaced repetition”?" with the answer "Reviewing just before you forget makes each memory last longer" becomes "Why review just before you forget?". Keep "Fill the gap:" questions as they are, with their blank. Each answer must use only words from its FROM line, and may be shorter, never longer. Never add a fact, a name or a number that is not in the FROM line, and never put the answer in the question. Start each question with a capital letter.',
+    given.map((one, n) => `${n + 1}. Q: ${one.question} || A: ${one.answer} || FROM: ${one.from.slice(0, 400)}`).join('\n'),
+    { type: 'object', properties: [{ name: 'cards', type: 'array', min: 1, max: given.length, description: 'One card for each numbered draft, in order', items: { type: 'object', properties: [
+      { name: 'index', type: 'int', min: 1, max: given.length, description: 'The number of the draft it rewrites' },
+      { name: 'question', type: 'string', description: 'The question, reworded' },
+      { name: 'answer', type: 'string', description: 'Its answer, in words from the FROM line alone' }
+    ] } }] },
+    // The stand-in's first answer is one the note never gave, to show the check at work.
+    process.env.HALIGTREE_QA_PHRASE === 'real' ? undefined : () => ({ cards: given.map((one, n) => ({ index: n + 1, question: `${one.question.replace(/\?$/, '')}, in a stand-in's words?`, answer: n === 0 ? 'an answer the note never gave' : one.answer })) }),
+    20_000)
+  if ('error' in said) return said
+  const lines = new Map((Array.isArray(said.cards) ? said.cards : []).filter((one) => typeof one?.question === 'string' && typeof one.answer === 'string').map((one) => [Number(one.index) - 1, { question: one.question.trim(), answer: one.answer.trim() }]))
   let phrased = 0
   const out = given.map((one, n) => {
     const said = lines.get(n)

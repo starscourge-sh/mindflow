@@ -1,6 +1,6 @@
 // Answers checked by meaning (Apple Intelligence, main/understand.ts "judge"): run as a Mac without it
 // (every: nothing of it drawn, the letters' check as before) and as one with it (ai: a stand-in model in
-// native/understand.swift, as this build Mac has Apple Intelligence turned off). A typed answer in other
+// main/understand.ts, HALIGTREE_QA_CAPS=ai: "no idea" is off, anything else close). A typed answer in other
 // words is said "Close enough: you said …, the card says …" with a suggested grade; the grade stays yours.
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/review-meaning.mjs
 // QA_SHOTS=<folder> keeps frames, light and dark, in both finishes.
