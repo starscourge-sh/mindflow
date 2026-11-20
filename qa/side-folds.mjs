@@ -23,7 +23,8 @@ const shot = async (name) => shots && c.both(`${shots}/${name}`)
 // What is open in the sidebar: every fold's state, and the rows that only an open fold draws.
 const folds = () => h.evaluate(() => {
   const side = document.querySelector('aside')
-  const expanded = [...side.querySelectorAll('nav [aria-expanded]')]
+  // Folds only: a tag's colour dot is a popover's trigger (tag-colour-pick.tsx), its aria-expanded no fold.
+  const expanded = [...side.querySelectorAll('nav [aria-expanded]:not([data-tag-colour])')]
   const name = (one) => one.getAttribute('data-side-section-handle') ?? (one.getAttribute('data-folder-fold') ? 'folder' : null) ?? one.getAttribute('data-folders-fold') ?? one.getAttribute('aria-label')
   return {
     open: expanded.filter((one) => one.getAttribute('aria-expanded') === 'true').map(name),
