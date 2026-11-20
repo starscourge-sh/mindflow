@@ -111,11 +111,11 @@ try {
   await h.evaluate((id) => window.api.haligtree('pin', 'nuggets', id, true), loose.id).catch(() => {})
   await wait(800)
   await one('pinned, opened in Writing: still Writing', { kind: 'place', text: 'Writing', writing: loose.title.slice(0, 10) })
-  await h.locator(`aside [data-drag-open="article:${loose.id}"]`).first().click(); await wait(1000)
+  await h.locator(`aside [data-side-section="pinned"] [data-drag-open="article:${loose.id}"]`).first().click(); await wait(1000)
   await one('opened from Pinned: its row in Pinned', { kind: 'pin', text: loose.title.slice(0, 10) })
-  const pinCurrent = await h.evaluate(() => document.querySelector('aside [data-drag-open][aria-current]')?.getAttribute('aria-current'))
+  const pinCurrent = await h.evaluate(() => document.querySelector('aside [data-side-section="pinned"] [data-drag-open][aria-current]')?.getAttribute('aria-current'))
   check('a pinned row marks aria-current="page"', pinCurrent === 'page', String(pinCurrent))
-  const glide = await h.evaluate(() => { const row = document.querySelector('aside [data-drag-open][aria-current="page"]'); return !!row })
+  const glide = await h.evaluate(() => { const row = document.querySelector('aside [data-side-section="pinned"] [data-drag-open][aria-current="page"]'); return !!row })
   check('the sliding light finds it', glide)
   await h.evaluate((id) => window.api.haligtree('pin', 'nuggets', id, false), loose.id).catch(() => {})
   await wait(600)
@@ -169,7 +169,7 @@ try {
   const alt = (t) => t.click({ modifiers: ['Alt'] })
   const ways = {
     'sidebar place': async () => row('Review'),
-    'pin': async () => h.locator('aside [data-drag-open]').first(),
+    'pin': async () => h.locator('aside [data-side-section="pinned"] [data-drag-open]').first(),
     'folder': async () => h.locator(`[data-side-folder="${folder.id}"]`),
     'recent': async () => { await send('article', loose.id); await wait(800); await go('calendar'); await wait(400); return h.locator('[data-side-recent-row]').first() }
   }
