@@ -3499,15 +3499,16 @@ html[data-book-hue] [data-book-tint] {
 @media (prefers-reduced-motion: reduce) { [data-room] { animation: none; } }
 /* Laid over the whole window even from inside a page that would hold it:
    while the room is open, nothing above it makes its own frame for it. */
-:root[data-in-room] :has([data-room]) {
+/* Each box it sits in is named data-room-way by writing-room.tsx (never a page-wide :has()). */
+:root[data-in-room] [data-room-way] {
   transform: none !important;
   filter: none !important; contain: none !important; container-type: normal !important;
   will-change: auto !important; backdrop-filter: none !important;
   isolation: auto !important; z-index: auto !important; opacity: 1 !important;
 }
 /* Apart, or the minifier folds them into a transform of its own. */
-:root[data-in-room] :where(:has([data-room])) { translate: none !important; }
-:root[data-in-room] :is(:has([data-room])) { scale: none !important; }
+:root[data-in-room] :where([data-room-way]) { translate: none !important; }
+:root[data-in-room] :is([data-room-way]) { scale: none !important; }
 [data-room] [data-room-foot] {
   /* Over the words as they scroll under it (above the page's own layers), and fading them out well before its lines. */
   /* The words blur out under it (BlurEdge bar, writing-room.tsx), over its own height and a fade above. */

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
@@ -51,12 +51,17 @@ export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: ()
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   })
-  // In, the caret goes back into the words; and the page scrolls to it.
-  useEffect(() => {
+  // In, the caret goes back into the words; and the page scrolls to it. Before the first frame, so the room is never
+  // drawn inside the page's frame for a frame.
+  useLayoutEffect(() => {
     if (!on || !editor || editor.isDestroyed) return
     const frame = requestAnimationFrame(() => editor.commands.focus(undefined, { scrollIntoView: true }))
+    // Each box the room sits in is named (data-room-way), so main.css lets it out of their frames. Asked of the page
+    // as `:has([data-room])`, going in made the browser look again at every box in the window.
+    const way: Element[] = []
+    for (let up = domOf(editor)?.closest('[data-room]')?.parentElement; up && up !== document.documentElement; up = up.parentElement) (up.setAttribute('data-room-way', ''), way.push(up))
     document.documentElement.setAttribute('data-in-room', '')
-    return () => (cancelAnimationFrame(frame), document.documentElement.removeAttribute('data-in-room'))
+    return () => (cancelAnimationFrame(frame), way.forEach((one) => one.removeAttribute('data-room-way')), document.documentElement.removeAttribute('data-in-room'))
   }, [on, editor])
   return { on, toggle, room: on ? { 'data-room': '' } : {}, focus }
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -11,9 +11,16 @@ import { useEditorDom } from '@/lib/editor-dom'
  * soundscape builds over about a minute and a half once you start, and goes when
  * you leave, close the window, or stop for two minutes.
  */
-export function useWritingSound(editor: Editor | null, on: boolean): void {
+export function useWritingSound(editor: Editor | null, on: boolean, room = false): void {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const kind = (settings?.writingSound ?? 'off') as Scape
+  // Leaving the writing room hushes it by any way out, even back on today's page, where it comes again only with
+  // the next words written (the user, 20 Nov 2026: "pressed escape, it's still playing").
+  const inRoom = useRef(room)
+  useEffect(() => {
+    if (inRoom.current && !room) scapeStop(1)
+    inRoom.current = room
+  }, [room])
   // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
   const page = useEditorDom(editor ?? null)
   useEffect(() => {

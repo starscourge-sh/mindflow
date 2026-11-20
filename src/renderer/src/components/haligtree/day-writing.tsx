@@ -8,6 +8,7 @@ import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
 import { ofTheWriting } from '@/lib/writing-floats'
+import { scapeStop } from '@/lib/sound'
 import { EASING, still, useStill } from '@/lib/motion'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { read as aimOf } from '@/components/count/word-aim'
@@ -74,7 +75,11 @@ const besides = typeof MutationObserver === 'undefined' ? null : new MutationObs
 function markDayPaths(): void {
   const open = document.querySelectorAll('[data-day-write]')
   const way = new Set<Element>()
-  for (const words of open) for (let up = words.parentElement; up && up !== document.body; up = up.parentElement) way.add(up)
+  // And the way up from what stays at hand while you write (data-day-keep: "Writing room"): faded with the bar, the
+  // first click on it only brought the bar back, and the room seemed to do nothing (the user, 20 Nov 2026).
+  const kept = open.length ? [...document.querySelectorAll('[data-day-keep]')] : []
+  for (const words of [...open, ...kept]) for (let up = words.parentElement; up && up !== document.body; up = up.parentElement) way.add(up)
+  for (const one of kept) way.add(one)
   const aside = new Map<Element, string>()
   if (open.length)
     for (const on of [document.body, ...way])
@@ -133,6 +138,9 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       else if (lines.bottom < high) scroller.scrollTop -= high - lines.bottom
     }
     const back = (): void => {
+      // Leaving writing mode hushes its soundscape, whichever way: Esc ("Esc to leave"), a click away, another page.
+      // It comes again with the next words (the user, 20 Nov 2026: "pressed escape, it's still playing").
+      if (root.hasAttribute('data-day-writing')) scapeStop(1)
       words = 0
       root.removeAttribute('data-day-writing')
       scroller?.removeEventListener('scroll', hold)
@@ -169,7 +177,8 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     const onPress = (event: PointerEvent): void => {
       if (!root.hasAttribute('data-day-writing')) return
       const at = event.target as Element | null
-      if (at?.closest?.('[data-writer-line]') || ofTheWriting(at) || (at && dom.contains(at))) return
+      // "Writing room" kept in sight (data-day-keep) takes the writing on into the room, sound and all.
+      if (at?.closest?.('[data-writer-line], [data-day-keep]') || ofTheWriting(at) || (at && dom.contains(at))) return
       back()
     }
     // Esc brings it all back at once, and is taken: it is not the page's Esc too.
