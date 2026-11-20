@@ -160,7 +160,7 @@ export async function dropOne(one: Pick<Occurrence, 'key' | 'series' | 'id'>): P
   return !!(await changeEvent(events.drop(one.key, scope), scope === 'one' ? 'That time is taken out' : 'That time and the ones after are taken out'))
 }
 
-/** "Notes for this": the note linked to this time, opened, or made and linked first. */
+/** "Write a note about it": the note linked to this time, opened, or made and linked first. */
 async function notesFor(one: Pick<Occurrence, 'key' | 'title' | 'start' | 'end' | 'allDay' | 'place' | 'people'>, open?: (type: string, id: string) => void, fresh = false): Promise<void> {
   const full = await events.one(one.key)
   const there = full?.linked[0]
@@ -232,7 +232,7 @@ function eventMenu(one: Shown, { open, onOpen, calendars = [] }: { open: () => v
     { swatches: SWATCHES.map((color) => ({ color: inkOf(color), label: color, on: one.ink === color, run: () => void changeOne(one, { ink: one.ink === color ? null : color }, one.ink === color ? 'Back to its calendar’s colour' : `Coloured ${color}`) })) },
     'separator',
     { label: 'Open', keys: '↵', run: open },
-    { label: one.noted ? 'Open its notes' : 'Notes for this', icon: <FileText />, run: () => void notesFor(one, onOpen) },
+    { label: one.noted ? 'Open its notes' : 'Write a note about it', icon: <FileText />, run: () => void notesFor(one, onOpen) },
     ...(one.video ? [{ label: 'Join the video call', icon: <Video />, run: () => void events.join(one.video!) }] : []),
     ...(calendars.length > 1 ? [{ label: 'Block on calendar', icon: <CalendarDays />, items: calendars.map((cal) => ({ label: cal.name, icon: <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: calendarInk(cal) }} />, trail: cal.id === one.calendarId ? <Check className="ml-auto size-3.5" /> : undefined, run: () => cal.id !== one.calendarId && void changeOne(one, { calendarId: cal.id }, `On ${cal.name} now`) })) }] : []),
     'separator',
@@ -866,7 +866,7 @@ const plan = 'min-w-0 px-1 text-control'
 /**
  * An event open in the side panel, in TaskDetail's shape: its name to write
  * over, when it is, its notes, and down the side when, repeat, calendar,
- * reminder, place, people and video link, with "Notes for this" and the
+ * reminder, place, people and video link, with "Write a note about it" and the
  * notes already linked. ⌫ outside a field takes it to the Bin; Esc closes.
  */
 export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: string; onKey: (key: string) => void; onClose: () => void; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
@@ -933,10 +933,14 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
         <PlainField key={`notes:${one.notes}`} data-event-notes label="Notes about the event" value={one.notes} placeholder="Add notes: the agenda, what to bring, what to ask"
           onSave={(notes) => void save({ notes }, 'Notes kept')}
           className="page-narrow mx-auto block min-h-[4lh] w-full px-4 @[40rem]/page:px-12 text-body leading-relaxed text-foreground" />
+        {/* Why these words are plain: they live with the event in the Mac's Calendar, which keeps plain text only. */}
+        <p data-event-notes-why className="page-narrow mx-auto w-full px-4 @[40rem]/page:px-12 text-control text-(--mf-muted-strong)">
+          Kept with the event in Calendar, as plain words. For a note of your own, with formatting and pictures, use “Write a note about it”.
+        </p>
         {/* Meeting notes: a note of its own for this time, linked both ways. */}
         <div className="page-narrow mx-auto mt-4 flex w-full flex-col gap-1 px-4 @[40rem]/page:px-12">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" data-event-notes-for onClick={() => void notesFor(one, onOpen)}><FileText /> Notes for this</Button>
+            <Button variant="outline" size="sm" data-event-notes-for onClick={() => void notesFor(one, onOpen)}><FileText /> Write a note about it</Button>
             {one.linked.length > 0 && <Button variant="ghost" size="sm" data-event-notes-another onClick={() => void notesFor(one, onOpen, true)}><Plus /> Another note</Button>}
           </div>
           {one.linked.map((note) => (
