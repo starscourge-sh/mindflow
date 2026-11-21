@@ -12,8 +12,6 @@ import { atomically, changed, database } from './captures'
 import { dayKey } from './dates'
 import { BOOK, SANDBOX, bookRoot, dataRoot, isBookId, readShelf, realRoot, relaunch, sandboxRoot, writeShelf } from './sandbox'
 import { cut } from './clip'
-import { plain } from './card-words'
-import { smallCopy } from './pictures'
 
 /**
  * Books, as the app uses them: the list, a new one, a name changed, one
@@ -270,68 +268,61 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
   }
 }
 
-/** A book's jacket on the shelf (books.tsx BookJacket): a picture from it, else a few lines of its own words. */
-type Jacket = { picture: string | null; words: string }
-/** A stored picture the Mac can make a small copy of (as the asset store's `?w=` does). */
-const JACKET_PICTURE = /haligtree:\/\/assets\/([a-f0-9]{64}\.(?:png|jpe?g|webp|heic|tiff?))/i
-/** Each book's jacket, kept until its file changes: pointing along the shelf again asks nothing of any book. */
-const jackets = new Map<string, { stamp: number; jacket: Promise<Jacket | null> }>()
+/** A book's reader card on the shelf (books.tsx ShelfBook, reader-card.tsx ShelfCover): its seed and the facts behind its stamps. */
+type Card = { seed: number | null; facts: { notes: number; since: string | null; linked: boolean; journal: number; reviewed: boolean } }
+/** Each book's card, kept until its file changes: pointing along the shelf again asks nothing of any book. */
+const cards = new Map<string, { stamp: number; card: Card | null }>()
+/** Books whose card could not be read, said once each in the log. */
+const cardTold = new Set<string>()
 
 /**
- * What a book's cover shows on the shelf, read from its file without opening it here (`peek`): its pinned notes first,
- * then the latest, never a private one or one in the Bin. A picture from the first of them that has one (a small copy
- * at 256, as a data address, since another book's store is not served here); else the first lines of the latest with
- * words. A few bounded reads by the captures' own index, once per book until it changes.
+ * The reader card another book wears on the shelf, read as Settings reads the open book's (haligtree.ts 'reader:card'):
+ * the seed kept in its settings and the counts behind its stamps. Read from its file without opening it here (`peek`).
+ * Each part asked on its own, so a book made by an older build, without the journal or the review log, still shows its
+ * card with what it has. A file that cannot be read at all is said once in the log, with why, and gets no card.
  */
-async function jacketOf(id: BookId): Promise<Jacket | null> {
+function cardOf(id: BookId): Card | null {
   const folder = folderOf(id)
   const file = folder && join(folder, 'haligtree.db')
   if (!folder || !file || !existsSync(file)) return null
   const wal = `${file}-wal`
   const stamp = statSync(file).mtimeMs + (existsSync(wal) ? statSync(wal).mtimeMs : 0)
-  const kept = jackets.get(id)
-  if (kept?.stamp === stamp) return kept.jacket
-  const jacket = (async (): Promise<Jacket | null> => {
-    let rows: { kind: string; body: string | null }[] = []
-    let other: DatabaseSync | null = null
-    try {
-      other = id === here() ? null : peek(file)
-      const db = other ?? database()
-      const open = "status != 'discarded' and private = 0"
-      rows = [
-        ...(db.prepare(`select kind, body from captures where pinned_at is not null and ${open} order by pinned_at desc limit 12`).all() as typeof rows),
-        ...(db.prepare(`select kind, body from captures where ${open} order by captured_at desc limit 60`).all() as typeof rows)
-      ]
-    } catch {
-      // A book made by an older build, or a file another run is writing: no jacket, its name alone.
-      return null
-    } finally {
-      other?.close()
-    }
-    for (const row of rows) {
-      const name = row.body && JACKET_PICTURE.exec(row.body)?.[1]
-      if (!name || !existsSync(join(folder, 'assets', name))) continue
-      const small = await smallCopy(name, 256, false, join(folder, 'assets')).catch(() => null)
-      if (small) return { picture: `data:image/${small.endsWith('.png') ? 'png' : 'jpeg'};base64,${(await readFile(small)).toString('base64')}`, words: '' }
-    }
-    const wordsOf = (row: (typeof rows)[number]): string => {
+  const kept = cards.get(id)
+  if (kept?.stamp === stamp) return kept.card
+  let other: DatabaseSync | null = null
+  let card: Card | null = null
+  try {
+    other = id === here() ? null : peek(file)
+    const db = other ?? database()
+    const one = <T>(sql: string, or: T, read: (row: Record<string, unknown> | undefined) => T): T => {
       try {
-        return plain(row.body ? JSON.parse(row.body) : '').replace(/\s+/g, ' ').trim()
+        return read(db.prepare(sql).get() as Record<string, unknown> | undefined)
       } catch {
-        return String(row.body ?? '').replace(/\s+/g, ' ').trim()
+        return or
       }
     }
-    // Pinned first as for the picture, but words from a note of a few lines at least: read one at a time, as few as it takes.
-    for (const row of rows) {
-      // Its own words: never a quote of someone else's.
-      if (row.kind === 'quote') continue
-      const words = wordsOf(row)
-      if (words.length >= 24) return { picture: null, words: cut(words, 220) }
+    const notes = one("select count(*) n, min(captured_at) first from captures where status != 'discarded'", { n: 0, first: null as string | null }, (row) => ({ n: Number(row?.n ?? 0), first: (row?.first as string | null) ?? null }))
+    const seed = one("select value from settings where key = 'readerSeed'", null as number | null, (row) => {
+      const value = row ? JSON.parse(String(row.value)) : null
+      return typeof value === 'number' ? value : null
+    })
+    card = {
+      seed,
+      facts: {
+        notes: notes.n,
+        since: notes.first,
+        linked: one(`select 1 from captures where status != 'discarded' and (body like '%"noteLink"%' or body like '%[[@%') limit 1`, false, (row) => !!row),
+        journal: one("select count(distinct day) n from journal where answer != ''", 0, (row) => Number(row?.n ?? 0)),
+        reviewed: one('select 1 from review_log limit 1', false, (row) => !!row)
+      }
     }
-    return { picture: null, words: '' }
-  })()
-  jackets.set(id, { stamp, jacket })
-  return jacket
+  } catch (error) {
+    if (!cardTold.has(id)) (cardTold.add(id), console.warn(`The shelf could not read the reader card of ${nameOf(id)} (${file}):`, error instanceof Error ? error.message : error))
+  } finally {
+    other?.close()
+  }
+  cards.set(id, { stamp, card })
+  return card
 }
 
 export function registerBooks(backupBase: () => string, onChange: () => void): void {
@@ -356,7 +347,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     writeShelf({ ...shelf, opened: { ...shelf.opened, [here()]: Date.now() } })
   }
 
-  handle('jacket', (id: unknown) => jacketOf(String(id)))
+  handle('card', (id: unknown) => cardOf(String(id)))
   handle('list', () => ({ current: here(), name: nameOf(here()), books: books(), color: SANDBOX ? null : (books().find((one) => one.current)?.color ?? null) }))
 
   handle('create', async (name: unknown) => {

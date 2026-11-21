@@ -7,7 +7,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import CopyIcon from '@/components/ui/copy-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import { call, haligtree, useLive } from '@/lib/haligtree'
-import { useShelf } from '@/lib/books'
+import { useShelf, type BookCard } from '@/lib/books'
 import { useReading } from '@/lib/reads-in'
 import { useFitText } from '@/lib/fit-text'
 import { chime } from '@/lib/sound'
@@ -271,14 +271,25 @@ export function CardFace({ seed, name, facts, small = false }: { seed: number; n
 }
 
 /**
- * The open book's cover on the sidebar's shelf: its reader card, the same drawing as in Settings, scaled to the shelf
- * book's cover (`high` tall) in the card's own inks. Read as Settings reads it: the seed kept in settings, else the
- * name's, and the stamps from the book.
+ * A book's cover on the sidebar's shelf: its reader card, the same drawing as in Settings, scaled to the shelf book's
+ * cover (`high` tall) in the card's own inks. The open book's read as Settings reads it: the seed kept in settings, else
+ * the name's, and the stamps from the book.
  */
 export function ShelfCover({ name, high }: { name: string; high: number }): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null)
   const facts = useLive(() => call<Facts>('reader:card'), null as Facts | null, [], undefined, 'reader:card')
-  const seed = settings?.readerSeed ?? seedOf(name)
+  return <CardCover name={name} high={high} seed={settings?.readerSeed ?? seedOf(name)} facts={facts} />
+}
+
+/**
+ * Any other book's cover on the shelf: its own reader card, as main read it from that book's file (books:card,
+ * main/books.ts cardOf), so Caelid wears its octagon and Garden its starburst. A book with no file yet: its name's seed, no stamps.
+ */
+export function OtherCover({ name, high, card }: { name: string; high: number; card: BookCard | null }): React.JSX.Element {
+  return <CardCover name={name} high={high} seed={card?.seed ?? seedOf(name)} facts={card?.facts ?? null} />
+}
+
+function CardCover({ name, high, seed, facts }: { name: string; high: number; seed: number; facts: Facts | null }): React.JSX.Element {
   return (
     <div data-shelf-card className="absolute top-0 left-0 flex origin-top-left flex-col py-4 pr-4 pl-[1.75rem]"
       style={{ width: CARD.wide, height: CARD.high, scale: high / CARD.high, color: 'var(--mf-card-c)', ...cardInks(cardOf(seed).hues) }}>

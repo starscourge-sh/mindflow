@@ -3,11 +3,11 @@ import { useSideEnds } from '@/lib/side-ends'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { still } from '@/lib/motion'
 import { BookBox, inked } from './book-box'
-import { ShelfCover } from './reader-card'
+import { OtherCover, ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { HUES, askBook, copyToBook, followBookHue, forgetJackets, hueName, jacketOf, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookRef, type Hue, type Jacket, type RunningAsk } from '@/lib/books'
+import { HUES, askBook, askCards, bookCardNow, bookCardOf, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookCard, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
@@ -250,11 +250,11 @@ export function BookName(): React.JSX.Element {
 /**
  * Your books on a shelf, at the head of the sidebar foot's menu (the user, 17 Nov, of Stripe Press's catalogue: "the
  * books look like they are on a shelf and hover shows a little more"; 20 Nov: "why not actual 3d like the other book?
- * the one on the last page of the welcome"). Each book is the welcome's own book (book-box.tsx), printed flat as a row
- * of design books is (21 Nov, after a reference of one): every spine one height and one solid colour, its own, its
- * name up it in the app's sans in whichever ink reads on it. The one pointed at, or reached by the keys, is pulled
- * out, a little taller, and turns on its spine to face you: the open book wears its reader card, any other a jacket
- * of its own (a picture from it, else a few lines of its words). Under the shelf, its name and whether it is open now
+ * the one on the last page of the welcome"; 21 Nov: "the book in the settings needs to be your reference, and don't
+ * forget about the realistic grain"). Each book is the Settings book (book-box.tsx), scaled: every spine one height, in
+ * cloth of its own colour with a grain and gilt rules, its name up it in gilt or ink, whichever reads on it. The one
+ * pointed at, or reached by the keys, is pulled out, a little taller, and turns on its spine to face you, wearing its
+ * own reader card on the cream cloth cover, as Settings shows it. Under the shelf, its name and whether it is open now
  * or when you were last in it, as a video shelf names the tape it has out. The open book stands turned when nothing
  * is pointed at, so the shelf keeps one width and the spines never move out from under the pointer: the books either
  * side part for the one turning by just what the one turning back gives up, on one spring. A press opens the book
@@ -274,9 +274,10 @@ const EYE = 700
 const PULL = { stiffness: 260, damping: 26 }
 /**
  * Each colour's spine, as OKLCH lightness and strength, the hue the theme's own: deep ones and pale ones, as a real
- * shelf has, every one far enough from its ink (picked by lightness in shelf.css) to read at 5:1 or more.
+ * shelf has, every one far enough from its ink (gilt on the deep, ink on the pale, picked by lightness in shelf.css) to
+ * read at 5:1 or more. The deep ones deep enough for pale gilt, as a leather binding is.
  */
-const SPINE: Record<Hue, [number, number]> = { blue: [0.5, 0.14], purple: [0.48, 0.15], pink: [0.76, 0.11], red: [0.52, 0.17], orange: [0.74, 0.14], yellow: [0.87, 0.14], green: [0.5, 0.11], gray: [0.68, 0.01] }
+const SPINE: Record<Hue, [number, number]> = { blue: [0.45, 0.13], purple: [0.44, 0.14], pink: [0.76, 0.11], red: [0.46, 0.16], orange: [0.74, 0.14], yellow: [0.87, 0.14], green: [0.45, 0.1], gray: [0.68, 0.01] }
 /**
  * The spines' colours along the shelf. A book with no colour wears one of the theme's two neutrals (shelf.css), the
  * two taking turns, so two such books never stand alike; two books of one colour side by side, the second a shade
@@ -292,16 +293,6 @@ function spinesOf(books: Book[]): string[] {
     before = again ? '' : book.color
     return inked(book.color, again ? (light > 0.8 ? light - 0.13 : light < 0.64 ? light - 0.12 : light + 0.1) : light, strength)
   })
-}
-
-/** A book's cover on the shelf when it is not the open one: printed in its colour, its name, and a picture from it or a few lines of its own words. */
-function BookJacket({ name, jacket }: { name: string; jacket: Jacket | null | undefined }): React.JSX.Element {
-  return (
-    <div data-jacket data-jacket-has={jacket?.picture ? 'picture' : jacket?.words ? 'words' : 'name'} className="mf-jacket">
-      <span className="mf-jacket-name">{name}</span>
-      {jacket?.picture ? <img src={jacket.picture} alt="" draggable={false} className="mf-jacket-picture" /> : jacket?.words ? <p className="mf-jacket-words">{jacket.words}</p> : null}
-    </div>
-  )
 }
 
 function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book: Book; said: string; up: boolean; spine: string; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void }): React.JSX.Element {
@@ -333,12 +324,15 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
     out.set(up ? 1 : 0)
     return undefined
   }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Its jacket, asked for the first time it is pulled out (once per book while the menu is up): it fades in on the cover.
-  const [jacket, setJacket] = useState<Jacket | null | undefined>(undefined)
+  // Another book's reader card, read from its file (asked for every book as the shelf opens, so it is there by the time
+  // the book is pulled out) and drawn once it first is: thirty cards drawn behind thirty spines would be work for nothing.
+  const [card, setCard] = useState<BookCard | null | undefined>(() => (book.current ? undefined : bookCardNow(book.id)))
+  const [drawn, setDrawn] = useState(up)
+  if (up && !drawn) setDrawn(true)
   useEffect(() => {
-    if (!up || book.current || jacket !== undefined) return undefined
+    if (!up || book.current) return undefined
     let live = true
-    void jacketOf(book.id).then((one) => live && setJacket(one))
+    void bookCardOf(book.id).then((one) => live && setCard(one))
     return () => void (live = false)
   }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
   const pitch = useMotionValue(0)
@@ -346,12 +340,12 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
     <DropdownMenuItem asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
       onContextMenu={onMenu} onSelect={onPick}>
       <motion.div className="mf-spine" style={{ width, height: SHELF_BOOK.high, y, zIndex, '--mf-spine-bg': spine } as React.ComponentProps<typeof motion.div>['style']}>
-        {/* The open book wears its own reader card (reader-card.tsx ShelfCover), the one Settings shows, scaled. The others
-            a jacket of their own: a book's card is drawn from its own settings and stamps, which only the open book can read. */}
-        <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false} flat
+        {/* Every book wears its own reader card (reader-card.tsx), the one Settings shows, scaled: the open one read as
+            Settings reads it, any other from its own file. */}
+        <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false} shelf
           className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -SHELF_BOOK.wide / 2, transformOrigin: '50% 100%' }}
-          cover={{ className: book.current ? 'mf-card-cover' : 'mf-jacket-cover' }}>
-          {book.current ? <ShelfCover name={book.name} high={SHELF_BOOK.high} /> : <BookJacket name={book.name} jacket={jacket} />}
+          cover={{ className: 'mf-card-cover' }}>
+          {book.current ? <ShelfCover name={book.name} high={SHELF_BOOK.high} /> : drawn && card !== undefined && <OtherCover name={book.name} high={SHELF_BOOK.high} card={card} />}
         </BookBox>
         {book.current && <span data-book-open className="sr-only">Open now</span>}
       </motion.div>
@@ -372,8 +366,8 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   const [pointed, setPointed] = useState<string | null>(null)
   const keyed = useRef(false)
   const lit = useMotionValue(1)
-  // Each opening asks each book's jacket afresh (main answers at once for a book unchanged since).
-  useState(forgetJackets)
+  // Each opening asks every other book's reader card afresh, so each is there before the book is pulled out.
+  useState(() => askCards(books.filter((one) => !one.current).map((one) => one.id)))
   const saidOf = (book: Book, at: number): string => (book.current ? 'Open now' : at === 1 && book.openedAt ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
   const shown = Math.max(0, books.findIndex((one) => (pointed ? one.id === pointed : one.current)))
   const spines = spinesOf(books)

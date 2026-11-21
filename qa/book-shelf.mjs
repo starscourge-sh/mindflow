@@ -1,12 +1,12 @@
-// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the welcome's 3D book printed flat,
-// standing spine out in its own solid colour with its name up it in a readable ink, every spine one height, the open one
+// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the Settings book, in grained cloth,
+// standing spine out in its own colour with its name up it in a readable gilt or ink, every spine one height, the open one
 // turned to its cover, the one pointed at (or reached by the keys) pulled out and
 // turned instead and named under the shelf, the shelf one width throughout; a press on another book opens it. Real
 // pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
 // QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms, and keeps a picture of the menu with
 // the pointer on each of the first books, in the light look and the dark.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 node qa/book-shelf.mjs
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -24,6 +24,15 @@ const HUES = ['blue', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'gra
 const NAMES = ['Thesis', 'Reading year', 'The Long Commonplace Book of Everything I Ever Meant to Remember', 'Greek', 'Recipes', 'Garden', 'Work 2026', 'Anki imports', 'Notes from the Unisa years']
 for (let n = kept.books.length + 1; n < 30; n++) kept.books.push({ id: `b-qa${String(n).padStart(8, '0')}`, name: `${NAMES[n % NAMES.length]}${n > 9 ? ` ${n}` : ''}`, createdAt: '2026-11-01T09:00:00.000Z', ...(HUES[n % 9] && { color: HUES[n % 9] }) })
 writeFileSync(shelfFile, JSON.stringify(kept, null, 2))
+// A closed book full of notes beside the open one, as the user's Garden of Loose Ends stood while Caelid was open (21 Nov:
+// its cover showed only its name): a clone of the copy's real book file (older schema, hundreds of notes) as one of the
+// books made here, so its card is read from a file the app does not have open.
+const real = kept.books.find((one) => existsSync(join(process.env.QA_DATA, 'books', one.id, 'haligtree.db')))
+const closed = real && kept.books.find((one) => one.id.startsWith('b-qa'))
+if (closed) {
+  mkdirSync(join(process.env.QA_DATA, 'books', closed.id), { recursive: true })
+  copyFileSync(join(process.env.QA_DATA, 'books', real.id, 'haligtree.db'), join(process.env.QA_DATA, 'books', closed.id, 'haligtree.db'), constants.COPYFILE_FICLONE)
+}
 const s = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, electron, close, errors } = s
 const shots = process.env.QA_SHOTS
@@ -64,13 +73,17 @@ try {
     const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
     return [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => {
       const title = one.querySelector('[data-spine-title]')
+      const face = one.querySelector('[data-reader-spine-face]')
       const look = getComputedStyle(title)
-      const [ink, ground] = [rgb(look.color), rgb(look.backgroundColor)]
+      // The spine's cloth colour, under its shading and grain.
+      const [ink, ground] = [rgb(look.color), rgb(getComputedStyle(face).backgroundColor)]
       const [a, b] = [lum(ink), lum(ground)]
-      return { name: title.textContent, ground: ground.join(','), ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100, cut: title.scrollHeight > title.clientHeight + 1 || title.scrollWidth > title.clientWidth + 1 ? 'ellipsis' : 'whole', font: look.fontFamily.split(',')[0] }
+      const grain = face.querySelector('[data-spine-grain]')
+      return { name: title.textContent, ground: ground.join(','), ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100, cut: title.scrollHeight > title.clientHeight + 1 || title.scrollWidth > title.clientWidth + 1 ? 'ellipsis' : 'whole', font: look.fontFamily.split(',')[0], grain: !!grain && /url\(/.test(getComputedStyle(grain).backgroundImage) && Number(getComputedStyle(grain).opacity) > 0 }
     })
   })
   check('every spine\'s name reads against its colour at 4.5:1 or more', inks.every((one) => one.ratio >= 4.5), JSON.stringify(inks.filter((one) => one.ratio < 4.5).concat(inks.slice(0, 3))))
+  check('every spine is cloth with a grain, as the Settings book\'s', inks.every((one) => one.grain), JSON.stringify(inks.filter((one) => !one.grain).map((one) => one.name)))
   check('no two neighbouring spines the same colour', inks.every((one, at) => !at || one.ground !== inks[at - 1].ground), JSON.stringify(inks.map((one) => one.ground)))
   check('the names are set in a sans, never wrapping', inks.every((one) => !/Fraunces|Georgia/.test(one.font)), inks[0]?.font)
   // The caption under the shelf: its whole box inside the menu, and neither line cut at its foot (21 Nov: clipped).
@@ -100,12 +113,22 @@ try {
   const still = await h.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-book]')?.getAttribute('data-book'), [box.x + 8, box.y + box.height / 2])
   check('the pointer is still on the book it pointed at', still === other.id, still)
   check('one floating thing: the menu, no card or tip beside it', (await floating()) === 1, String(await floating()))
-  const name = await h.locator(`[data-book-shelf] [data-book="${other.id}"] .mf-jacket-name`).textContent()
-  check('its jacket says its whole name', name === books.books.find((one) => one.id === other.id)?.name, name)
-  // And something of the book itself under the name, read once from its file: a picture, else a few of its own words
-  // (a book made for this run has no file, so its name alone).
-  const has = await h.locator(`[data-book-shelf] [data-book="${other.id}"] [data-jacket]`).getAttribute('data-jacket-has')
-  check('its jacket shows a picture or its own words when the book has any', /picture|words|name/.test(has ?? ''), has)
+  // The book pulled out is the Settings book, wearing its own reader card (21 Nov: "the book in the settings needs to be
+  // your reference"): its name, title and drawn shape on the cream cloth, with the cloth's grain over it.
+  const cardOf = (id) => h.evaluate((id) => { const book = document.querySelector(`[data-book-shelf] [data-book="${id}"]`); const one = book?.querySelector('[data-shelf-card]'); return one && { name: one.querySelector('[data-reader-name]')?.textContent, title: one.querySelector('[data-reader-title]')?.textContent, since: one.querySelector('[data-reader-since]')?.textContent, stamps: one.querySelectorAll('[data-reader-stamp]').length, shape: Math.round(one.querySelector('[data-reader-shape] > svg:not(.size-0)')?.getBoundingClientRect().width ?? 0), grain: !!book.querySelector('[data-reader-grain]') } }, id)
+  const name = books.books.find((one) => one.id === other.id)?.name
+  const otherCard = await cardOf(other.id)
+  check('the book pulled out wears its own reader card: its name, title and drawn shape, on grained cloth', otherCard?.name === name && !!otherCard.title && otherCard.shape >= 45 && otherCard.grain, JSON.stringify(otherCard))
+  // No spine words over the turned cover (21 Nov: the spine's name, squeezed thin, ghosted down the cover's left edge):
+  // the cover's left strip is the cover, and the spine's name is gone once it is turned.
+  const ghost = await h.evaluate((id) => {
+    const book = document.querySelector(`[data-book-shelf] [data-book="${id}"]`)
+    const cover = book.querySelector('.mf-card-cover').getBoundingClientRect()
+    const title = book.querySelector('[data-spine-title]')
+    const strip = [2, 5, 9].map((dx) => document.elementFromPoint(cover.left + dx, cover.top + cover.height / 2))
+    return { strip: strip.map((one) => (one?.closest('[data-spine-title], [data-reader-spine-face]') ? 'spine' : one?.closest('.mf-card-cover') ? 'cover' : one?.tagName ?? 'none')), opacity: getComputedStyle(title).opacity }
+  }, other.id)
+  check('no spine words over the turned cover: its left strip is the cover, the spine\'s name faded to nothing', ghost.strip.every((one) => one === 'cover') && Number(ghost.opacity) === 0, JSON.stringify(ghost))
   const caption = await h.locator('[data-book-caption]').textContent()
   check('and the shelf names it underneath, with when you were in it', caption?.startsWith(name) && /Open now|In it last|Opened|Not opened yet/.test(caption), caption)
   // The keys: the next book turns at once (no swing), the shelf the same width.
@@ -133,6 +156,24 @@ try {
     }
     await s.look('light')
     await h.locator('[aria-label="Haligtree menu"]').click(); await wait(500)
+    await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 3 }); await wait(500)
+  }
+  // Every closed book that has notes wears its own card read from its file: its notes counted (the day begun and its
+  // stamps), not a blank card under its name. Asked of main for each, and seen on the shelf for the clone made above.
+  const full = []
+  for (const one of books.books.filter((book) => !book.current)) {
+    const read = await s.v('books:card', one.id)
+    if (read?.facts?.notes) full.push({ id: one.id, notes: read.facts.notes, since: read.facts.since, seed: read.seed })
+  }
+  check('every closed book with notes has its card read from its file, the day it began with it', !closed || (full.some((one) => one.id === closed.id) && full.every((one) => !!one.since)), JSON.stringify(full))
+  if (closed) {
+    await h.evaluate((id) => document.querySelector(`[data-book-shelf] [data-book="${id}"]`).scrollIntoView({ inline: 'center', block: 'nearest' }), closed.id); await wait(300)
+    const spot = await h.locator(`[data-book-shelf] [data-book="${closed.id}"]`).boundingBox()
+    await h.mouse.move(spot.x + Math.min(8, spot.width / 2), spot.y + spot.height / 2, { steps: 3 }); await wait(700)
+    const shown = await cardOf(closed.id)
+    const asked = full.find((one) => one.id === closed.id)
+    check('pulled out, the closed book full of notes shows its card with the day it began and its stamps', shown?.name === closed.name && /Kept since/.test(shown.since ?? '') && shown.stamps >= (asked?.notes >= 100 ? 1 : 0) && shown.shape >= 45, JSON.stringify({ shown, asked }))
+    await h.evaluate(() => (document.querySelector('[data-book-shelf]').scrollLeft = 0)); await wait(300)
     await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 3 }); await wait(500)
   }
   // A press opens it: the restart is caught, not made.

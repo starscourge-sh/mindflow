@@ -1,6 +1,6 @@
-/* Your books on a shelf (books.tsx BookShelf): the welcome's 3D book (book-box.tsx), printed flat, standing spine out
-   in a row on a ledge, every spine one height and its own solid colour, the one pointed at pulled out and turned to its
-   cover, named under the shelf. Unlayered, so it wins over the menu row's own utilities that the item hands its book. */
+/* Your books on a shelf (books.tsx BookShelf): the Settings book (book-box.tsx), scaled, standing spine out in a row on
+   a ledge, every spine one height in cloth of its own colour, the one pointed at pulled out and turned to its cover (its
+   own reader card), named under the shelf. Unlayered, so it wins over the menu row's own utilities that the item hands its book. */
 .mf-shelf {
   /* The two neutrals a book with no colour wears (books.tsx spinesOf), from the theme's own accent, nearly grey: on a
      light menu a deep one first and a pale one, on a dark menu a pale one first and a mid one, so each stands off the
@@ -33,8 +33,9 @@
 .mf-shelf::-webkit-scrollbar { display: none; }
 /* A book's room on the shelf: its width and lift are the book's own spring (books.tsx ShelfBook); the book stands in it. */
 .mf-shelf .mf-spine {
-  /* Its ink, from its colour's lightness: dark on a pale spine, light on a deep one (5:1 or more on every one, books.tsx SPINE). */
-  --mf-spine-ink: oklch(from var(--mf-spine-bg) clamp(0.22, (0.64 - l) * 999, 0.985) 0.02 h);
+  /* Its ink, from its colour's lightness: pale gilt on a deep spine, as a leather binding is blocked, and a deep ink of
+     its own hue on a pale one (5:1 or more on every one, books.tsx SPINE). */
+  --mf-spine-ink: oklch(from var(--mf-spine-bg) calc(0.22 + 0.71 * clamp(0, (0.64 - l) * 999, 1)) calc(0.03 + 0.04 * clamp(0, (0.64 - l) * 999, 1)) calc(h + (86 - h) * clamp(0, (0.64 - l) * 999, 1)));
   position: relative;
   flex: none;
   display: block;
@@ -48,76 +49,49 @@
 }
 .mf-shelf .mf-spine:active { scale: 0.97; }
 .mf-shelf .mf-spine * { cursor: pointer; }
-/* A flat spine: its colour edge to edge, a faint shade at either edge for its roundness, its name up it from the foot. */
-.mf-flat-spine {
-  background: linear-gradient(to right, oklch(from var(--mf-spine-bg) calc(l - 0.07) c h), var(--mf-spine-bg) 20%, var(--mf-spine-bg) 80%, oklch(from var(--mf-spine-bg) calc(l - 0.07) c h));
+/* A shelf spine: cloth of its own colour, rounded (darker at either hinge, lit down its middle), with a grain. */
+.mf-shelf-spine {
+  background-color: var(--mf-spine-bg);
+  background-image: linear-gradient(to right, rgb(0 0 0 / 0.36), rgb(0 0 0 / 0.06) 22%, rgb(255 255 255 / 0.14) 48%, rgb(255 255 255 / 0.04) 62%, rgb(0 0 0 / 0.1) 80%, rgb(0 0 0 / 0.38));
 }
-/* The menu inks a lit row's words in its own colour: a book keeps its own. */
-.mf-shelf .mf-spine .mf-flat-spine-title {
+/* The cloth's grain at a spine's scale: the cover's weave (book-box.tsx CLOTH) drawn at a third of its size, so on a
+   spine 24 wide it reads as cloth, never as noise; multiplied in, so it darkens the colour as a weave does. */
+.mf-shelf-spine-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.32;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1 2.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 48px 48px;
+}
+/* The gilt rules at its head and foot, in the spine's own ink. */
+.mf-shelf-spine-rule {
+  position: absolute;
+  inset-inline: 4px;
+  height: 3px;
+  border-block: 1px solid var(--mf-spine-ink);
+  opacity: 0.75;
+}
+/* Its name up it from the foot. The menu inks a lit row's words in its own colour: a book keeps its own. */
+.mf-shelf .mf-spine .mf-shelf-spine-title {
+  position: relative;
   writing-mode: vertical-rl;
   rotate: 180deg;
-  /* Turned to read up from the foot, so a layer of its own: the spine face's hidden back does not reach it, and its
-     words showed through the cover of a book turned out (21 Nov). Hidden from behind itself. */
-  backface-visibility: hidden;
   overflow: hidden;
   font: 600 13px/1 var(--mf-shelf-sans);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--mf-spine-ink);
-  /* Its own colour behind its words, as the spine's: the same to the eye, and what a check reads its contrast against. */
-  background: var(--mf-spine-bg);
 }
 .mf-shelf .mf-spine .mf-card-cover * { color: inherit; }
-/* The open book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx ShelfCover). */
+/* Every book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx), on the cream cloth. */
 .mf-card-cover { overflow: hidden; }
 /* Its picture at the card's own size, and its words wrapping as on the card: a menu row draws every svg in it at 14px
    unless told, and keeps its words on one line (dropdown-menu.tsx). */
 .mf-shelf [data-reader-shape] > svg:not(.size-0) { width: 168px; height: 168px; }
 .mf-shelf [data-shelf-card] { white-space: normal; }
-/* Any other book's cover: a jacket printed in its colour, its name at the head and, under it, a picture from the book or
-   a few lines of its own words (books.tsx BookJacket), which fade in as they come. The name never moves when they do. */
-.mf-shelf .mf-jacket-cover { overflow: hidden; background: var(--mf-spine-bg); }
-.mf-jacket {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 10px 9px 9px;
-  white-space: normal;
-}
-.mf-shelf .mf-spine .mf-jacket, .mf-shelf .mf-spine .mf-jacket * { color: var(--mf-spine-ink); }
-.mf-jacket-name {
-  flex: none;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-  font: 700 12px/1.15 var(--mf-shelf-sans);
-  letter-spacing: -0.005em;
-  text-wrap: balance;
-  overflow-wrap: anywhere;
-}
-.mf-jacket-picture {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  object-fit: cover;
-  border-radius: 2px;
-  animation: mf-jacket-in 180ms ease-out;
-}
-.mf-jacket-words {
-  margin: 0;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 6;
-  overflow: hidden;
-  font: italic 400 9.5px/1.35 'Fraunces Variable', Georgia, serif;
-  overflow-wrap: anywhere;
-  animation: mf-jacket-in 180ms ease-out;
-}
-@keyframes mf-jacket-in { from { opacity: 0; } }
 /* The turned book named under the shelf: one line for its name, one for when you were in it, the same height whichever
    book. Its room is kept whole (6 + 18 + 1 + 16 + 8): never squeezed, and each line tall enough for its letters. */
 .mf-shelf-caption {

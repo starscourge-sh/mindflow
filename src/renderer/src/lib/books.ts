@@ -18,17 +18,24 @@ export type BookRef = { table: 'captures' | 'nuggets'; id: string }
 
 export const shelf = (): Promise<Shelf> => window.api.haligtree<Shelf>('books:list')
 
-/** What a book's cover shows on the shelf (main/books.ts jacketOf): a picture from it, else a few lines of its own words. */
-export type Jacket = { picture: string | null; words: string }
-const jackets = new Map<string, Promise<Jacket | null>>()
+/** Another book's reader card on the shelf (main/books.ts cardOf): the seed kept in its settings and the facts behind its stamps. */
+export type BookCard = { seed: number | null; facts: { notes: number; since: string | null; linked: boolean; journal: number; reviewed: boolean } }
+const cards = new Map<string, Promise<BookCard | null>>()
+/** Each card once it has come: a book pulled out after it came wears it in its first frame, never a blank cover first. */
+const cardsCome = new Map<string, BookCard | null>()
 /** Asked once per book while the shelf is up (main keeps each until its file changes). */
-export const jacketOf = (id: string): Promise<Jacket | null> => {
-  let one = jackets.get(id)
-  if (!one) jackets.set(id, (one = window.api.haligtree<Jacket | null>('books:jacket', id).catch(() => null)))
+export const bookCardOf = (id: string): Promise<BookCard | null> => {
+  let one = cards.get(id)
+  if (!one) cards.set(id, (one = window.api.haligtree<BookCard | null>('books:card', id).catch(() => null).then((card) => (cardsCome.set(id, card), card))))
   return one
 }
-/** As the shelf opens: a book changed since shows its new jacket. */
-export const forgetJackets = (): void => jackets.clear()
+/** The card already come, or undefined while it is on its way. */
+export const bookCardNow = (id: string): BookCard | null | undefined => cardsCome.get(id)
+/** As the shelf opens: every other book's card asked afresh (main answers at once for a book unchanged since). */
+export const askCards = (ids: string[]): void => {
+  cards.clear()
+  for (const id of ids) void bookCardOf(id)
+}
 
 // --- a book's colour: Arc's spaces, each with its own ------------------------------------
 
