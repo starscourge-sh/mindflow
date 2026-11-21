@@ -65,7 +65,8 @@ const look = (id) => c.electron.evaluate(async ({ BrowserWindow }, id) => {
       pillAt: pill ? r(pill) : null,
       card,
       ghost: ghost ? { bg: getComputedStyle(ghost).backgroundColor, border: getComputedStyle(ghost).borderTopColor, opacity: Number(getComputedStyle(ghost).opacity) } : null,
-      open: document.documentElement.getAttribute('data-pill-open')
+      open: document.documentElement.getAttribute('data-pill-open'),
+      t: performance.now()
     }
   })()`)
   const add = (b) => b && { x: Math.round(b.x + at.x), y: Math.round(b.y + at.y), w: Math.round(b.w), h: Math.round(b.h) }
@@ -87,7 +88,15 @@ const near = (a, b, by) => !!a && !!b && edges(a).every((v, i) => Math.abs(v - e
 /** What shows as the one surface: the card's shape while it is out, else the pill. */
 const shapeOf = (one) => one?.card ?? one?.pill ?? null
 /** The biggest move of any edge from one reading to the next. */
-const steps = (all) => all.map(shapeOf).filter(Boolean).map((b, i, list) => (i ? Math.max(...edges(b).map((v, k) => Math.abs(v - edges(list[i - 1])[k]))) : 0))
+// Per 50 ms of the page's own clock: a reading takes time of its own (a picture with QA_SHOTS more), so two readings
+// can be 100 ms or more apart, and a raw step between them read a smooth spring as a jump (21 Nov, run 2).
+const steps = (all) => all.filter((one) => shapeOf(one)).map((one, i, list) => {
+  if (!i) return 0
+  const [a, b] = [shapeOf(list[i - 1]), shapeOf(one)]
+  const move = Math.max(...edges(b).map((v, k) => Math.abs(v - edges(a)[k])))
+  return Math.round((move * 50) / Math.max(50, one.t - list[i - 1].t))
+})
+const gaps = (all) => all.slice(1).map((one, i) => Math.round(one.t - all[i].t))
 
 try {
   await wait(2500)
@@ -122,6 +131,7 @@ try {
     const openSteps = steps(opening)
     check(`${theme}: no reading jumps while it grows (each edge under ${STEP} points in 50 ms)`, openSteps.length > 8 && Math.max(...openSteps) < STEP, JSON.stringify(openSteps))
     console.log(`  ${theme} open, 50 ms readings: ${opening.map((one) => JSON.stringify(shapeOf(one))).join(' ')}`)
+    console.log(`  ${theme} open, ms between readings: ${JSON.stringify(gaps(opening.filter(Boolean)))}`)
 
     // Reads it, then moves away: it shrinks back into the pill.
     await wait(400)

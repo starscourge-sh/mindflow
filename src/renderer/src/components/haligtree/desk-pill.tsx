@@ -272,8 +272,10 @@ export function DeskPill(): React.JSX.Element | null {
           // Its ground and lift (main.css [data-desk-pill]): the session bubble's solid, or frosted on the Mac's blur.
           ['--pill-solid' as string]: SOLID,
           ['--pill-lift' as string]: wornStyle() === 'paper' ? 'none' : LIFT,
-          // At the same point of its window folded or open: the card's window starts level with the pill's, on its side.
-          ...(right ? { right: 6 } : { left: 6 }), top: at ? at.y : 2,
+          // Placed from its window's left on either side, where main put it (PILL_ROOM), never from the page's right:
+          // a page still the size of the window it was (a card's 214 points before its first fold had reached it) put
+          // the pill 11 points past where main had it, so the card opened short of the pill's edge.
+          left: at ? at.x : 6, top: at ? at.y : 2,
           // While its card is out the pill is the card: it grew out of the pill's own shape, in its place, so a pill
           // left standing beside it read as a second thing popping out of the first. Folded back into that shape,
           // the pill shows again in the same task as main makes the window a pill.
