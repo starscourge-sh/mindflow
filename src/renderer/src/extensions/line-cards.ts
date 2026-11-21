@@ -12,20 +12,52 @@ import { glideWay } from "@/lib/motion"
 import { changedSpan, linesTyped } from "@/lib/text-edit"
 import { lineText } from "@/lib/note-size"
 import { copyOf } from "@/lib/icon-markup"
+import { canSplit, openAside, openNewTab, takeClick } from "@/lib/split"
+import { chime } from "@/lib/sound"
 
 /** A video file kept in the note, which its times play too. */
 const isVideoFile = (node: ProseMirrorNode): boolean => node.type.name === "attachment" && /\.(mp4|mov|m4v|webm)$/i.test(String(node.attrs.name || node.attrs.src || ""))
 import { num, plural } from "../../../main/dates"
 
-/** A small card, drawn: what marks a line that Review asks you. */
+/**
+ * A small card, drawn: what marks a line that Review asks you, and the way to
+ * that card. Its tip is a `data-title-tip`, never a `title` (see lineMarks).
+ */
 const mark = (): HTMLElement => {
   const span = document.createElement("span")
   span.className = "mf-line-card"
   span.contentEditable = "false"
-  span.setAttribute("aria-label", "A review card")
-  span.title = "A review card: Review asks the words before ::"
+  span.setAttribute("role", "button")
+  span.setAttribute("aria-label", "Open its card")
+  span.dataset.titleTip = "Open its card (⌘-click: new tab)"
   span.append(copyOf('<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="4.5" y="2.5" width="9" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55"/><rect x="2.5" y="4" width="9" height="10" rx="2" fill="var(--background, #fff)" stroke="currentColor" stroke-width="1.4"/><path d="M5 8h4M5 10.5h2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'))
   return span
+}
+
+/** The note a card's `line_of` names, from the editor's `documentId`: `capture:…`, `nugget:…` or `day:…`. */
+export const cardSource = (documentId: string | number | null | undefined): string | null => {
+  const found = /^(capture|item|day)-(.+)$/.exec(String(documentId ?? ""))
+  return found ? `${found[1] === "item" ? "nugget" : found[1]}:${found[2]}` : null
+}
+
+/** The question of a block that is a card line (the block itself, or a list item's first line), or null. */
+export const cardQuestion = (block: ProseMirrorNode | null | undefined): string | null => {
+  const line = block?.isTextblock ? block : block?.firstChild?.isTextblock ? block.firstChild : null
+  return (line && line.type.name !== "codeBlock" && lineCard(lineText(line))?.question) || null
+}
+
+/**
+ * Open the card a line is: beside the note when the window can split (⌘-click: a new tab), in place in a note's own
+ * window. A line typed but not saved yet has no card yet: said plainly, and nothing moves.
+ */
+export async function openLineCard(source: string | null, question: string, how: "aside" | "tab" | null = canSplit() ? (takeClick() === "tab" ? "tab" : "aside") : null): Promise<void> {
+  const say = (text: string): void => void window.dispatchEvent(new CustomEvent("haligtree:toast", { detail: { text, tone: "info" } }))
+  const id = source ? await window.api.haligtree<string | null>("cards:of-line", source, question).catch(() => null) : null
+  if (!id) return say(source ? "This line's card is made when the note saves: try again in a moment" : "Only a saved note's lines are cards")
+  chime("open")
+  if (how === "tab") openNewTab("nugget", id)
+  else if (how === "aside") openAside("nugget", id)
+  else window.api.openInHome("nugget", id)
 }
 
 /** A video time written in a line: [13:03] or [1:02:45]. */
@@ -246,11 +278,16 @@ function pasteCards(view: EditorView, list: NonNullable<ReturnType<typeof cardLi
  * makes it one on save, src/main/line-cards.ts): a small card at the line's
  * end says so, the moment the line reads as one.
  */
-export const LineCards = Extension.create({
+export const LineCards = Extension.create<{ source: () => string | null }>({
   name: "lineCards",
+
+  addOptions() {
+    return { source: () => null }
+  },
 
   addProseMirrorPlugins() {
     const key = new PluginKey<Marked>("lineCards")
+    const { source } = this.options
     return [
       new Plugin({
         key,
@@ -260,6 +297,22 @@ export const LineCards = Extension.create({
         },
         props: {
           decorations: (state) => key.getState(state)?.set,
+          // The card mark opens its card: pressed, the caret stays where it was; clicked, the card opens.
+          handleDOMEvents: {
+            mousedown: (_view, event) => {
+              if (event.button !== 0 || !(event.target as HTMLElement | null)?.closest?.(".mf-line-card")) return false
+              event.preventDefault()
+              return true
+            },
+            click: (view, event) => {
+              const at = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".mf-line-card")
+              if (!at || event.button !== 0) return false
+              event.preventDefault()
+              const question = cardQuestion(view.state.doc.resolve(Math.min(view.posAtDOM(at, 0), view.state.doc.content.size)).parent)
+              if (question) void openLineCard(source(), question)
+              return true
+            },
+          },
           // A click on a time plays the note's own video from it: the first
           // video in the note is told, and comes into view.
           handleClick: (view, _pos, event) => {

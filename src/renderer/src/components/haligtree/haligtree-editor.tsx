@@ -69,7 +69,7 @@ import { TabStays } from "@/extensions/tab-stays"
 import { PlainCopy } from "@/extensions/plain-copy"
 import { CurrentItem } from "@/extensions/current-item"
 import { FullLineHighlight } from "@/extensions/full-line-highlight"
-import { LineCards } from "@/extensions/line-cards"
+import { LineCards, cardSource } from "@/extensions/line-cards"
 import { PropertyLines } from "@/extensions/property-lines"
 import { BlockRoom } from "@/extensions/block-room"
 import { LinkedTasks } from "@/extensions/linked-tasks"
@@ -1451,8 +1451,8 @@ function Surface({
         },
       }),
       ...(has("highlight") ? [Highlight.configure({ multicolor: true }), FullLineHighlight] : []),
-      // "question :: answer": a review card, marked at the line's end.
-      LineCards,
+      // "question :: answer": a review card, marked at the line's end; the mark opens the card.
+      LineCards.configure({ source: () => cardSource(documentId) }),
       // "Author:: Ursula Le Guin": a property, kept on Enter; and the strip of them under the title.
       PropertyLines.configure({ strip: () => hasStrip.current, top: () => stripTop.current, onProperty: (name, value) => propertyLineRef.current?.(name, value) ?? false }),
       // The room over a paragraph, set by the block before it, as a class on it (extensions/block-room.ts says why).

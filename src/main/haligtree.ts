@@ -3230,6 +3230,10 @@ export function registerHaligtree(): void {
     reviews: db.prepare('select reviewed_at as at, grade, ms from review_log where item_id = ? order by reviewed_at').all(id) as { at: string; grade: number; ms: number | null }[],
     dueAt: (db.prepare('select due_at from nuggets where id = ?').get(id) as { due_at: string | null } | undefined)?.due_at ?? null
   }))
+  // The card a "question :: answer" line of a note is, by the note (`capture:…`, `nugget:…`, `day:…`) and the
+  // line's question: what the card mark at the line's end opens. None while the line is not saved yet.
+  handle('cards:of-line', (source: string, question: string) =>
+    (db.prepare("select id from nuggets where tier = 'card' and line_of = ? and archived_at is null and trim(prompt) = ? order by created_at, rowid limit 1").get(source, question.trim()) as { id: string } | undefined)?.id ?? null)
   // Where a card came from, to reread after missing it: the capture it was
   // kept from, or the first nugget an article was made of.
   handle('review:source', (id: string) => {

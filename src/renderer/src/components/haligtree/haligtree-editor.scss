@@ -4354,7 +4354,14 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-contents-landed
   color: var(--tt-color-text-purple, var(--muted-foreground));
   opacity: 0.8;
   user-select: none;
-  cursor: default;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: opacity 80ms ease, background-color 80ms ease;
+}
+// A control: it opens the line's card (extensions/line-cards.ts).
+.tiptap.ProseMirror.haligtree-editor .mf-line-card:hover {
+  opacity: 1;
+  background-color: var(--accent);
 }
 
 // A word aim's hairline over the words (word-aim.tsx): room above the first
