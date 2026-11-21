@@ -482,7 +482,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
           <p data-feed-empty className="py-10 text-body text-foreground">Nothing to show yet. Write a note, keep a quote or highlight a line in a PDF, and it comes back to you here.</p>
         ) : (
           <>
-            {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, new and old together, each resting two weeks once shown. A new set comes every morning." />}
+            {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, new and old together, and more often what you liked, answered or went back to. Each rests two weeks once shown. A new set comes every morning." />}
             {searching && !posts.length && (
               <p data-feed-none className="py-10 text-body text-foreground">
                 <strong className="font-semibold">Nothing in today's Feed has “{query.trim()}”.</strong>{' '}

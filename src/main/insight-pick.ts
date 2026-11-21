@@ -8,6 +8,12 @@
  * shares of about 40% the newest (the last 30 days), 25% the oldest, 20% the middle, and 15% a note with neighbours
  * (one it links to, one that links to it, or one sharing a tag). Never a private note (the pool leaves those out),
  * never one shown in the last 14 days. Within a share, a liked note comes sooner and a faded one later (`weight`).
+ *
+ * What mattered comes back more (21 Nov, the user: "ideas that resurface, not because I indexed them, but because they
+ * mattered"). Each passage carries what the person did with it (`signals`), each fading by half every 60 days
+ * (`matteredOf`). Within a share a passage is drawn by `pullOf`: 1 for one never touched, so a new book's Feed is still
+ * full, plus its mattered score. And about a third of the day's posts (`MATTERED_SHARE`) go to what mattered most and
+ * is not resting. One the person faded ("Less of this") never counts as mattered and drops sharply.
  */
 
 export type Level = 'resurface' | 'connect' | 'reframe'
@@ -16,6 +22,17 @@ export type CardLevel = Exclude<Level, 'resurface'>
 export const LEVELS: CardLevel[] = ['connect', 'reframe']
 export type Lane = 'newest' | 'oldest' | 'middle' | 'linked'
 export const SHARES: Record<Lane, number> = { newest: 0.4, oldest: 0.25, middle: 0.2, linked: 0.15 }
+/** The share of the day's posts that goes to what mattered most; the four shares above split the rest. */
+export const MATTERED_SHARE = 0.35
+/** How much each thing the person did counts, on the day they did it. */
+export const SIGNAL_WEIGHT = { like: 3, reply: 3, open: 1.5, edit: 1.5, link: 1.5 } as const
+/** Days after which a signal counts half. */
+export const HALF_LIFE_DAYS = 60
+/** The least mattered score that puts a passage among "what mattered most": about one open in the last four months. */
+export const MATTERED_LEAST = 0.5
+/** How many of the most mattered the day draws among, so the top few take turns rather than one always first. */
+const MATTERED_TOP = 8
+export type Signal = { kind: keyof typeof SIGNAL_WEIGHT; at: string }
 /** Days a note rests after it was in an insight. */
 export const REST_DAYS = 14
 /** All the passages of one request together, at most: the model's whole budget is about 4,096 tokens. */
@@ -34,6 +51,31 @@ export type Passage = {
   href?: string
   /** How much sooner it comes than others in its share: a heart raises it, "Less of this" lowers it. 1 when unset. */
   weight?: number
+  /** What the person did with it and when: a heart, a reply, an open, an edit, a link from another note. */
+  signals?: Signal[]
+}
+
+/** Faded by "Less of this" (its weight under 1): never mattered, whatever else was done with it. */
+const faded = (one: Passage): boolean => (one.weight ?? 1) < 0.99
+
+/** How much it mattered: each signal's weight, halved for every 60 days since. 0 for one faded or never touched. */
+export const matteredOf = (one: Passage, now: Date): number => {
+  if (faded(one)) return 0
+  let score = 0
+  for (const signal of one.signals ?? []) {
+    const days = Math.max(0, (now.getTime() - new Date(signal.at).getTime()) / 86_400_000)
+    if (Number.isFinite(days)) score += SIGNAL_WEIGHT[signal.kind] * 0.5 ** (days / HALF_LIFE_DAYS)
+  }
+  return score
+}
+
+/**
+ * How strongly it is drawn within its share: its weight (a heart up, "Less of this" down) times one plus how much it
+ * mattered. A faded one has its weight squared, so one "Less of this" takes it from 1 to 0.44.
+ */
+export const pullOf = (one: Passage, now: Date): number => {
+  const weight = one.weight ?? 1
+  return faded(one) ? weight * weight : weight * (1 + matteredOf(one, now))
 }
 
 /** A small seeded random number source (mulberry32), so the same day and turn always pick the same. */
@@ -93,7 +135,12 @@ export const cutTo = (text: string, size: number): string => {
   return flat.length > size ? `${flat.slice(0, size).replace(/\s+\S*$/, '')}…` : flat
 }
 
-export type Picked = { lane: Lane; passages: Passage[] }
+export type Picked = { lane: Lane | 'mattered'; passages: Passage[] }
+
+/** The ones that mattered most, most first (ties by id, so a day always reads the same). */
+export const matteredTop = (pool: Passage[], now: Date, size = MATTERED_TOP): { one: Passage; score: number }[] =>
+  pool.map((one) => ({ one, score: matteredOf(one, now) })).filter((one) => one.score >= MATTERED_LEAST)
+    .sort((a, b) => b.score - a.score || a.one.id.localeCompare(b.one.id)).slice(0, size)
 
 /**
  * The passages for one insight of this level: `turn` is which of the day's insights it is, so each turn of a day
@@ -107,13 +154,15 @@ export function pickPassages(pool: Passage[], level: Level, day: string, turn: n
   if (!fresh.length) return null
   const rng = seeded(`${day}:${turn}:${level}`)
   const lanes = lanesOf(fresh, now)
-  const lane = weighted(Object.fromEntries((Object.keys(shares) as Lane[]).map((one) => [one, lanes[one].length ? shares[one] : 0])) as Record<Lane, number>, rng)
+  // A Feed post: about a third go to what mattered most (none when nothing has yet; the shares then take it all).
+  const top = level === 'resurface' ? matteredTop(fresh, now) : []
+  const lane = weighted<Lane | 'mattered'>({ ...Object.fromEntries((Object.keys(shares) as Lane[]).map((one) => [one, lanes[one].length ? shares[one] * (top.length ? 1 - MATTERED_SHARE : 1) : 0])), mattered: top.length ? MATTERED_SHARE : 0 }, rng)
   if (!lane) return null
-  // By weight inside the share: all at 1, this is the plain even draw, the same number drawn.
-  const list = lanes[lane]
-  const total = list.reduce((sum, one) => sum + (one.weight ?? 1), 0)
-  let at = rng() * total
-  const first = list.find((one) => (at -= one.weight ?? 1) < 0) ?? list.at(-1)!
+  // Inside the share, by pull (pullOf): all untouched, this is the plain even draw, the same number drawn.
+  const list = lane === 'mattered' ? top.map((one) => one.one) : lanes[lane]
+  const pulls = lane === 'mattered' ? top.map((one) => one.score) : list.map((one) => pullOf(one, now))
+  let at = rng() * pulls.reduce((sum, one) => sum + one, 0)
+  const first = list.find((_, index) => (at -= pulls[index]) < 0) ?? list.at(-1)!
   const byId = new Map(fresh.map((one) => [one.id, one]))
   const others = fresh.filter((one) => one.id !== first.id)
   const pickOne = (list: Passage[]): Passage | undefined => list[Math.floor(rng() * list.length)]

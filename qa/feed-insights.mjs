@@ -6,8 +6,11 @@
 // Then a newcomer's book with only notes brought in from elsewhere and lines highlighted in PDFs: a full Feed on day one,
 // without AI, highlights among the posts opening their PDF.
 // Run on a copy of the seeded sandbox: QA_ARGS=--sandbox QA_DATA=<copy> HALIGTREE_QA_AWAY=1 node qa/feed-insights.mjs
+// Last, an everyday reader hearts three old notes and answers one: over four weeks they come back more than old notes
+// left alone, never inside their rest.
 // The shares of what is picked (40/25/20/15 over 100 seeded picks), the 14-day rest and the heart's pull are
-// test/insight-pick.test.ts.
+// test/insight-pick.test.ts; how much what was done with a note counts (hearts, thoughts, opens, edits, links) is
+// test/feed-mattered.test.ts.
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -139,6 +142,75 @@ try {
   }
   const ids = await shownIds(h, v)
   check('no note twice in the newcomer’s Feed', new Set(ids).size === ids.length, `${ids.length} shown`)
+  check('no page errors', !s.errors.length, s.errors.join(' | '))
+} finally {
+  await s.close()
+}
+
+// An everyday reader hearts three old notes in today's Feed and writes a thought on one. Over the next four weeks,
+// those come back more often than the old notes shown beside them that day and left alone, and none of them, nor any
+// other note, comes back inside its 14 days' rest. The book is grown by 400 old notes first, so a fortnight's posts
+// (24 a day) never use the whole book up and the rest is never broken to fill a day. A day passes by moving every dated
+// trace of the Feed (its days, hearts, thoughts, opens) one day back, then asking for the Feed again.
+s = await sandbox({ width: 1400, height: 900 })
+try {
+  const { h, v, go } = s
+  await v('feed')
+  // A reader who has not touched anything yet: no hearts, thoughts or opens from the example book's seeding.
+  for (const table of ['feed_reacts', 'feed_days', 'glosses', 'note_opens']) await sql(s, `delete from ${table}`)
+  try { await sql(s, 'delete from feed_insights') } catch { /* none */ }
+  for (let at = 0; at < 400; at++)
+    await sql(s, "insert into captures (id, title, kind, status, body, captured_at) values (?, '', 'note', 'open', ?, ?)", `qa-old-${at}`, `An old thought kept a while ago, number ${at + 1}, about reading slowly and coming back to it.`, new Date(Date.now() - (40 + at) * 86_400_000).toISOString())
+  await h.reload(); await h.waitForTimeout(2500)
+  await go('feed')
+  await h.locator('[data-feed-post]').first().waitFor({ timeout: 15_000 }).catch(() => {})
+  const month = Date.now() - 30 * 86_400_000
+  const first = (await v('feed')).posts
+  const old = first.filter((one) => (one.type === 'nugget' || one.type === 'capture') && new Date(one.made).getTime() < month).map((one) => one.id)
+  check('today’s Feed holds old notes to heart', old.length >= 5, old.length)
+  const liked = old.slice(0, 3)
+  for (const id of liked) {
+    const post = h.locator(`[data-feed-id="${id}"]`)
+    await post.scrollIntoViewIfNeeded()
+    await post.locator('[data-feed-reaction="like"]').click()
+    await h.waitForTimeout(300)
+  }
+  const answered = h.locator(`[data-feed-id="${liked[0]}"]`)
+  await answered.locator('[data-feed-reply]').click()
+  await h.waitForTimeout(400)
+  await h.keyboard.type('Still how I read now', { delay: 15 })
+  await h.keyboard.press('Enter')
+  await h.waitForTimeout(1200)
+  const hearts = await sql(s, "select key from feed_reacts where reaction = 'like'")
+  check('three hearts and one thought kept', hearts.length === 3 && (await sql(s, 'select id from glosses where item_id = ?', liked[0])).length === 1, `${hearts.length} hearts`)
+  const alone = old.slice(3)
+
+  // Four weeks, a Feed a day: each note's days shown, day 0 being today's.
+  const shownOn = new Map()
+  // The day's notes; a poll or a quiz card is Review's and a decision's own, not a note that rests.
+  const mark = (day, posts) => { for (const one of posts) if (one.type !== 'poll' && one.type !== 'quiz') for (const id of String(one.id).split('+')) shownOn.set(id, [...(shownOn.get(id) ?? []), day]) }
+  mark(0, first)
+  const back = async (table, column, isDay) => {
+    // Through a mark first, so a day moved back never meets one not yet moved (day is part of the key).
+    await sql(s, `update ${table} set ${column} = '~' || ${isDay ? `date(${column}, '-1 day')` : `strftime('%Y-%m-%dT%H:%M:%fZ', ${column}, '-1 day')`}`)
+    await sql(s, `update ${table} set ${column} = substr(${column}, 2)`)
+  }
+  const DAYS = 28
+  for (let day = 1; day <= DAYS; day++) {
+    await back('feed_days', 'day', true)
+    await back('feed_reacts', 'day', true)
+    await back('glosses', 'created_at', false)
+    await back('note_opens', 'at', false)
+    mark(day, (await v('feed')).posts)
+  }
+  const times = (ids) => ids.map((id) => (shownOn.get(id) ?? []).filter((day) => day > 0).length)
+  const mean = (all) => all.reduce((sum, one) => sum + one, 0) / Math.max(1, all.length)
+  const likedTimes = times(liked)
+  const aloneTimes = times(alone)
+  check('what was hearted comes back more than old notes left alone', mean(likedTimes) > mean(aloneTimes) && likedTimes.every((one) => one >= 1),
+    `hearted ${likedTimes.join(', ')} (mean ${mean(likedTimes).toFixed(2)}), left alone ${aloneTimes.join(', ')} (mean ${mean(aloneTimes).toFixed(2)}) over ${DAYS} days`)
+  const inRest = [...shownOn].filter(([, days]) => days.some((day, at) => at && day - days[at - 1] < 14))
+  check('nothing comes back inside its 14 days’ rest, hearted or not', !inRest.length, inRest.slice(0, 3).map(([id, days]) => `${id}: days ${days.join(', ')}`).join('; '))
   check('no page errors', !s.errors.length, s.errors.join(' | '))
 } finally {
   await s.close()

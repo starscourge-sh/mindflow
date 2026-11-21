@@ -15,7 +15,7 @@ import type { FeedPost, FeedSide, Reaction } from './feed'
  * it may show, when each was last in front of you, the day's set picked and
  * each post as it now reads. What comes back is picked as the insights are
  * (insight-pick.ts, from book-insights.ts's one pool): one way things come
- * back, by shares of new and old, each resting 14 days once shown. It reads every gem, quote and page, and to find
+ * back, by shares of new and old leaning on what mattered to you, each resting 14 days once shown. It reads every gem, quote and page, and to find
  * a pair every note of the book, so it is asked of the reading thread
  * (reader.ts) and never holds main; main (feed.ts) keeps the day's set,
  * marks restacks shown, and makes the day's poll and quiz, which are
@@ -240,7 +240,8 @@ export function bookFeed(db: DatabaseSync) {
       const pair = pairOf(filing, rows.filter((row) => !taken.has(row.id) && !rested.has(row.id)), Number(today.replace(/\D/g, '')) || 0)
       for (const id of pair ? keyIds(pair) : []) taken.add(id)
       const room = Math.max(0, SIZE - asks.length - stacked.length - (pair ? 1 : 0))
-      // The day's notes, one pick a turn, as the insights pick: by shares of new and old, a heart sooner, never one resting.
+      // The day's notes, one pick a turn, as the insights pick: by shares of new and old, what mattered to you (hearts,
+      // thoughts, opens, edits, links) drawn more and about a third of the day its own, never one resting.
       const byId = new Map(rows.map((row) => [row.id, row]))
       const never = new Set([...rested, ...taken])
       const voices = new Map<string, number>()
