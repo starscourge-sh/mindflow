@@ -276,12 +276,22 @@ function LeftoverChip({ doc, onBack, onDrop, className, underWords }: { doc: JSO
         <span aria-hidden className="text-muted-foreground/60">·</span>
         <span className="shrink-0 font-medium text-foreground">Bring it back</span>
       </button>
-      <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={onDrop}
-        className="ml-1 inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
-        <X className="size-3.5" />
-      </button>
+      <DropX data-leftover-drop label="Not this one" onClick={onDrop} />
     </div>
   )
+}
+/**
+ * The small round × that takes an offer in the box away: the leftover chip's and the source line's alike, one size,
+ * hover and press (the user, 21 Nov: the source line struck itself through instead, "is it just an inconsistency?").
+ */
+function DropX({ label, tip, onClick, className = '', ...data }: { label: string; tip?: string; onClick: () => void; className?: string } & Record<`data-${string}`, boolean | string>): React.JSX.Element {
+  const button = (
+    <button type="button" {...data} aria-label={label} onMouseDown={(event) => event.preventDefault()} onClick={onClick}
+      className={`ml-1 inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97] ${className}`}>
+      <X className="size-3.5" />
+    </button>
+  )
+  return tip ? <Tip label={tip}>{button}</Tip> : button
 }
 /** What a leftover is, in a few words: its first line, or "Voice note · 0:56" for a recording alone. */
 const leftoverName = (doc: JSONContent): string => {
@@ -2746,13 +2756,10 @@ export default function App(): React.JSX.Element {
                 // Where you were as the box came up: said last on the line, quietly; pressed, it is left off this note.
                 source={started && !lesson && fromKept() ? (alone) => (
                   <span data-box-from={from!.app} className="inline-flex min-w-0 items-center gap-1">
-                    <Tip label="Leave it off this note">
-                      <button type="button" aria-label="Leave it off this note" data-box-from-off onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('off'), setFromOff(true))}
-                        className="inline-flex min-w-0 cursor-pointer items-center gap-1 rounded-sm decoration-foreground/50 transition-colors hover:text-foreground hover:line-through">
-                        <AppWindow aria-hidden className="size-3 shrink-0" />
-                        <span className="truncate">{alone ? 'From' : 'from'} {from!.app}{from!.page || from!.title ? <>: {quoted(from!.page || from!.title, 40)}</> : null}</span>
-                      </button>
-                    </Tip>
+                    <span className="inline-flex min-w-0 items-center gap-1">
+                      <AppWindow aria-hidden className="size-3 shrink-0" />
+                      <span className="truncate">{alone ? 'From' : 'from'} {from!.app}{from!.page || from!.title ? <>: {quoted(from!.page || from!.title, 40)}</> : null}</span>
+                    </span>
                     {from!.ask === 'ask' && (
                       <Tip label={`Keeps the address of the page open in ${from!.browser}. Your Mac asks you once`}>
                         <button type="button" data-box-from-ask onMouseDown={(event) => event.preventDefault()} onClick={askPage} className="shrink-0 cursor-pointer rounded-sm px-1 text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground">Add the page</button>
@@ -2763,6 +2770,8 @@ export default function App(): React.JSX.Element {
                         <button type="button" data-box-from-allow onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('tap'), void window.api.haligtree('site-block:privacy'))} className="shrink-0 cursor-pointer rounded-sm px-1 text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground">Allow the page…</button>
                       </Tip>
                     )}
+                    {/* The same × as every offer in the box that takes itself away; kept inside the line's height. */}
+                    <DropX data-box-from-off label="Leave it off this note" tip="Leave it off this note" className="-my-1" onClick={() => (chime('off'), setFromOff(true))} />
                   </span>
                 ) : null}
                 joins={twin}

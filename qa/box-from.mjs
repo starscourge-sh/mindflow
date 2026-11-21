@@ -2,8 +2,9 @@
 // and its window's name, and a browser's page once that browser has let Haligtree read it. The Mac is stood in for
 // (site-block.ts's test layer reads globalThis.siteBlockFake): no real app, browser or permission is touched.
 // Journey: the chip says it before the send; the note keeps it (lists' "· Preview", Details' "Came from" and "Page");
-// a browser is not read until "Add the page", then read unasked; × leaves it off; a refusal says how to allow it;
-// Haligtree itself in front says nothing.
+// a browser is not read until "Add the page", then read unasked; the line ends in the same small × as the leftover
+// offer and × leaves it off; a refusal says how to allow it; Haligtree itself in front, or an app with no window to
+// be seen (an empty AeroSpace workspace), says nothing.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=<dir>] node qa/box-from.mjs
 import { join } from 'node:path'
 import { checks } from './harness.mjs'
@@ -62,14 +63,38 @@ try {
   const two = await kept('Shelley wrote it at nineteen')
   check('the note keeps the page’s address and name', two?.source === 'Safari' && two?.pageUrl === safari.url && two?.windowTitle === safari.page, JSON.stringify({ source: two?.source, url: two?.pageUrl, title: two?.windowTitle }))
 
+  // 3a. Words left in the box over an hour: offered back with the small × every offer in the box has. Its size is
+  // what the source line's × must match (the user, 21 Nov: "other suggestions show with an x").
+  await open(safari, 'a thought left for an hour')
+  await page.waitForFunction(() => (localStorage.getItem('capture-draft') ?? '').includes('left for an hour'), null, { timeout: 5000 }).catch(() => {})
+  await page.evaluate(() => localStorage.setItem('capture-draft-at', String(Date.now() - 2 * 3600_000)))
+  await page.evaluate(() => window.api.hidePrompt())
+  await page.waitForTimeout(300)
+  await page.evaluate(() => window.api.showPrompt())
+  await page.waitForSelector('[data-leftover-drop]', { timeout: 5000 }).catch(() => {})
+  const size = (selector) => page.$eval(selector, (one) => { const r = one.getBoundingClientRect(); return { w: r.width, h: r.height } }).catch(() => null)
+  const leftoverX = await size('[data-leftover-drop]')
+  check('the leftover is offered with its ×', !!leftoverX)
+  await page.click('[data-leftover-drop]').catch(() => {})
+
   // 3. Safari again: read unasked now, no question.
   const was = (await asks()).length
   const again = await open(safari, 'Geneva in a wet summer')
   check('allowed once, the next capture reads the page unasked', again.includes('“Frankenstein - Wikipedia”') && (await asks()).slice(was).every((patient) => !patient), again)
-  // × leaves it off this note.
+  // The source line ends in the same ×: within 1px of the leftover's, and the line is never struck through on hover.
+  const fromX = await size('[data-box-from-off]')
+  check('the source line ends in an × the size of the leftover’s', !!fromX && !!leftoverX && Math.abs(fromX.w - leftoverX.w) <= 1 && Math.abs(fromX.h - leftoverX.h) <= 1, JSON.stringify({ fromX, leftoverX }))
+  await page.hover(CHIP)
+  await page.waitForTimeout(250)
+  const struck = await page.$$eval(`${CHIP} *`, (all) => all.some((one) => getComputedStyle(one).textDecorationLine.includes('line-through')))
+  check('hovering the source line strikes nothing through', !struck)
+  await shot('x')
+  // × leaves it off this note, and nothing else comes up in its place (no pill, no tip left behind).
   await page.click('[data-box-from-off]')
   await page.waitForTimeout(300)
   check('× takes the chip away', !(await page.$(CHIP)))
+  const surfaces = await page.$$eval('[role="tooltip"], [data-token-hint]', (all) => all.filter((one) => one.getBoundingClientRect().width > 0).length)
+  check('and no other surface appears', surfaces === 0, String(surfaces))
   await sendIt('Geneva in a wet summer')
   const three = await kept('Geneva in a wet summer')
   check('and the note keeps nothing of where it was written', three && !three.source && !three.pageUrl && !three.windowTitle, JSON.stringify({ source: three?.source, url: three?.pageUrl }))
@@ -86,6 +111,12 @@ try {
   // 5. Nothing in front but Haligtree (the stand-in answers nothing): no chip.
   const none = await open(null, 'nothing to say where')
   check('Haligtree itself in front: no chip', !none, none)
+  await page.keyboard.press('Meta+Enter')
+  await page.waitForTimeout(800)
+
+  // 5b. An empty AeroSpace workspace: Ghostty still the Mac's front app, its window slid to the screen's corner.
+  const blank = await open({ app: 'com.mitchellh.ghostty', name: 'Ghostty', title: 'herdr', wins: [{ layer: 0, alpha: 1, x: 1439, y: 899, w: 1200, h: 800, name: 'herdr' }] }, 'on a blank workspace')
+  check('front app with no window to be seen: no chip', !blank, blank)
   await page.keyboard.press('Meta+Enter')
   await page.waitForTimeout(800)
 
