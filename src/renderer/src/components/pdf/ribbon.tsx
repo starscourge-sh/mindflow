@@ -478,7 +478,9 @@ export function Ribbon({
       const depth = depthAt(hold.pointer.y, v)
       if (!depth || Math.sign(depth) !== Math.sign(start) || Math.abs(depth) > Math.abs(start) + 16) armed = true
       const share = Math.min(1.5, Math.abs(depth) / EDGE_ZONE)
-      if (depth && armed) view.scrollTop += Math.sign(depth) * Math.max(1, share * share * EDGE_SPEED)
+      // Scrolled, it is placed again in this same frame: the scroll event comes only in the next one, and the frame
+      // between drew the pages moved with the ribbon where it was, a step off the pointer (16px at speed) each frame.
+      if (depth && armed) (view.scrollTop += Math.sign(depth) * Math.max(1, share * share * EDGE_SPEED)), paints.current()
       edgeRun.current = requestAnimationFrame(step)
     }
     edgeRun.current = requestAnimationFrame(step)

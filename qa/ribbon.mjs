@@ -113,7 +113,8 @@ const OVERHANG = 6
  *  less the overhang, scaled as a pinch scales the pages), how much the pages are scaled, and along the page. */
 const against = (n) => h.evaluate(([n, over]) => {
   const el = document.querySelector('.ribbon:not(.ribbon-tab)')
-  const page = document.querySelector(`.pdf-page[data-page="${n}"]`)
+  // The page in the ribbon's own pages' box (the reader's), never another view of the same book.
+  const page = el?.parentElement.querySelector(`.pdf-page[data-page="${n}"]`)
   if (!el || !page) return null
   // The ribbon's own box before its sway's turn: its offsetParent is the pages' box, as the page's is.
   const pr = page.getBoundingClientRect()
@@ -124,6 +125,18 @@ const against = (n) => h.evaluate(([n, over]) => {
   const left = host.left + Number(at[1]) * scale
   return { off: top - (pr.top - over * scale), scale, share: (left - pr.left) / pr.width, ms: performance.now() }
 }, [n, OVERHANG])
+
+/** The laid ribbon against page `n` once it has come to rest (two reads 100 ms apart agree; at most 1.5 s). */
+async function restedOn(n) {
+  let was = await against(n)
+  for (let i = 0; i < 15; i++) {
+    await wait(100)
+    const now = await against(n)
+    if (now && was && Math.abs(now.off - was.off) < 0.5) return now
+    was = now
+  }
+  return was
+}
 
 /** Page `n`'s top edge brought to about `px` below the top of the pages, by the wheel, as a hand would. */
 async function bringTop(n, px) {
@@ -146,8 +159,9 @@ async function layByMenu(n) {
 
 /** The ribbon lies across page `n`'s top edge: its top in the gap above, its body over the page, inside its width. */
 const onTopOf = (n) => h.evaluate((n) => {
-  const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect()
-  const page = document.querySelector(`.pdf-page[data-page="${n}"]`).getBoundingClientRect()
+  const el = document.querySelector('.ribbon:not(.ribbon-tab)')
+  const r = el.getBoundingClientRect()
+  const page = el.parentElement.querySelector(`.pdf-page[data-page="${n}"]`).getBoundingClientRect()
   const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
   const mid = (r.left + r.right) / 2
   return r.top < page.top && r.bottom > page.top && r.top > box.top && mid > page.left && mid < page.right
@@ -418,7 +432,8 @@ try {
   check('one trackpad tap per page crossed, never repeated', tapped === crossings, `${tapped} taps for ${crossings} crossings`)
   const on7 = await v('ribbon:get', SRC())
   const want7 = await h.evaluate(([sx, scale]) => { const r = document.querySelector('.pdf-page[data-page="7"]').getBoundingClientRect(); return (sx + 11 * scale - r.left) / r.width }, [heldOver7.sx, heldOver7.scale])
-  check('let go over page 7, it lies on page 7, on its top edge', (await ribbon())?.at === '7' && on7?.page === 7 && Math.abs((await against(7))?.off ?? 99) <= 1, `${JSON.stringify(await ribbon())} kept ${JSON.stringify(on7)}`)
+  const edge7 = await restedOn(7)
+  check('let go over page 7, it lies on page 7, on its top edge', (await ribbon())?.at === '7' && on7?.page === 7 && Math.abs(edge7?.off ?? 99) <= 1, `edge ${JSON.stringify(edge7)} ${JSON.stringify(await ribbon())} kept ${JSON.stringify(on7)}`)
   check('where along it it was let go', Math.abs((on7?.across ?? -1) - want7) < 0.03, `kept ${on7?.across} let go at ${want7.toFixed(3)}`)
 
   // And on, to a page far below: held at the foot of the view, the pages scroll under it, while it stays under the
@@ -452,7 +467,8 @@ try {
   console.log('  far: ' + deepChips.join(' '))
   check('held at the foot, the pages scrolled under it, far', scrolled > 1500 && Number(lastHeld?.chip?.slice(3)) >= 16, `scrolled ${Math.round(scrolled)}px, chip ${lastHeld?.chip}`)
   check('and it stayed under the pointer as they scrolled (1:1)', Math.max(...stuck.map((one) => one[1])) - Math.min(...stuck.map((one) => one[1])) <= 2 && Math.max(...stuck.map((one) => one[0])) - Math.min(...stuck.map((one) => one[0])) <= 2, JSON.stringify(stuck.slice(0, 6)))
-  check('let go, it lies on the page the chip named, on its top edge', far?.page === Number(lastHeld.chip.slice(3)) && (await ribbon())?.at === String(far.page) && Math.abs((await against(far.page))?.off ?? 99) <= 1, `kept ${JSON.stringify(far)} chip ${lastHeld.chip}`)
+  const edgeFar = far ? await restedOn(far.page) : null
+  check('let go, it lies on the page the chip named, on its top edge', far?.page === Number(lastHeld.chip.slice(3)) && (await ribbon())?.at === String(far.page) && Math.abs(edgeFar?.off ?? 99) <= 1, `edge ${JSON.stringify(edgeFar)} kept ${JSON.stringify(far)} chip ${lastHeld.chip}`)
   check('one tap per page crossed on the way down', (await taps()) - taps1 === deepCrossings, `${(await taps()) - taps1} taps for ${deepCrossings} crossings`)
 
   // Read back up to page 2: the ribbon lies below, so the pill sits at the FOOT, pointing down, beside the pages.
