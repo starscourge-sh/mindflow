@@ -111,7 +111,9 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       </nav>
       {/* Under its name, its words and link cards, as a Notion page's sit under its title. */}
       {folder && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
-      <p data-folder-fact="" className="mt-2 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
+      {/* Only when there is nothing yet: a folder that holds things says so in its list header ("2 pages") and its tabs;
+          a sentence repeating it read as slapped on (the user, 21 Nov). */}
+      {!shown.length && !inside.length && !unfiled && <p data-folder-fact="" className="mt-2 text-control text-muted-foreground">{fact}</p>}
       {/* Lines in its notes that could be gems: one quiet line, once (folder-gems.tsx). */}
       {folder && <FolderGems key={folder.id} folder={folder} />}
       {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
