@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSideEnds } from '@/lib/side-ends'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { still } from '@/lib/motion'
-import { realMove } from '@/lib/real-move'
+import { onlyRealLeaves, realMove } from '@/lib/real-move'
 import { BookBox, inked } from './book-box'
 import { OtherCover, ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
@@ -348,7 +348,7 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
   const pitch = useMotionValue(0)
   return (
     <DropdownMenuItem asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
-      onContextMenu={onMenu} onSelect={onPick}>
+      onContextMenu={onMenu} onSelect={onPick} onPointerLeave={onlyRealLeaves}>
       <motion.div className="mf-spine" style={{ width, height: SHELF_BOOK.high, y, zIndex, '--mf-spine-bg': spine } as React.ComponentProps<typeof motion.div>['style']}>
         {/* Every book wears its own reader card (reader-card.tsx), the one Settings shows, scaled: the open one read as
             Settings reads it, any other from its own file. */}

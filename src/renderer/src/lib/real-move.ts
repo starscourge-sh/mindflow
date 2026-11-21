@@ -37,6 +37,16 @@ export function realMove(event: Event | { nativeEvent: Event }): boolean {
 }
 
 /**
+ * For a Radix menu row's `onPointerLeave`: a pointer at rest has not left it, the page only moved under it (a shelf
+ * book turning out beside it). Radix gives the menu itself the focus on a leave, and then the arrow keys start again
+ * from the top; prevented, the row keeps it.
+ */
+export function onlyRealLeaves(event: { clientX: number; clientY: number; preventDefault: () => void }): void {
+  const seen = last.pointermove
+  if (seen && seen.x === event.clientX && seen.y === event.clientY) event.preventDefault()
+}
+
+/**
  * For a Radix menu row's `onPointerMove`: Radix leaves the highlight alone
  * once the event is prevented, so a pointer at rest does not take it.
  */

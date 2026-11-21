@@ -132,10 +132,16 @@ try {
   const caption = await h.locator('[data-book-caption]').textContent()
   check('and the shelf names it underneath, with when you were in it', caption?.startsWith(name) && /Open now|In it last|Opened|Not opened yet/.test(caption), caption)
   // The keys: the next book turns at once (no swing), the shelf the same width.
+  const focusedBefore = await h.evaluate(() => { const one = document.activeElement; return one?.closest('[data-book]')?.getAttribute('data-book') ?? `${one?.tagName ?? 'none'}${one?.getAttribute('role') ? `[role=${one.getAttribute('role')}]` : ''}` })
+  check('the book pointed at holds the focus once it has turned out', focusedBefore === other.id, focusedBefore)
   await h.keyboard.press('ArrowDown'); await wait(60)
   const keyed = await spines()
   const next = keyed.find((one) => one.lit)
-  check('a key moves to the next book, turned at once', next && next.id !== other.id && next.w >= 80 && Number(next.face) > 0.9 && keyed.filter((one) => Number(one.face) > 0.5).length === 1, JSON.stringify(next))
+  // The book after the one pointed at, in the order the shelf draws them (the open book first, then the one you were in
+  // last), not the menu's first item: a pointer at rest gave the menu the focus as the books moved under it, and ↓ then
+  // started from the top (21 Nov).
+  const after = at[at.findIndex((one) => one.id === other.id) + 1]?.id
+  check('a key moves to the next book, turned at once', next && next.id === after && next.w >= 80 && Number(next.face) > 0.9 && keyed.filter((one) => Number(one.face) > 0.5).length === 1, JSON.stringify({ next, after, focusedBefore }))
   check('and the shelf keeps one width under the keys', Math.abs(width(keyed) - width(at)) <= 2, `${width(at)} then ${width(keyed)}`)
   await film('keyed', 2)
   // And back up to the book pointed at, which turns out again under the pointer.
