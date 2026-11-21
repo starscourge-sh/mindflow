@@ -2076,7 +2076,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // is). The card fills the window, so the note sits straight in it.
   const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
   // Today's list is a little taller than a note: a few tasks under its title.
-  const size = type === 'goal' ? (glass ? GOAL_GLASS : GOAL_SIZE) : type === 'goals' ? (glass ? GOALS_GLASS : GOALS_SIZE) : type === 'today' ? { width: 280, height: 300 } : { width: 300, height: 220 }
+  const size = madeSize(type, glass)
   builtGlass.set(key, glass)
   // A goal's card and the goals together keep their own size.
   const fixed = type === 'goal' || type === 'goals'
@@ -2993,6 +2993,26 @@ const GOAL_SIZE = { width: 308, height: 368 }
 const GOAL_GLASS = { width: 268, height: 328 }
 const GOALS_SIZE = { width: 340, height: 400 }
 const GOALS_GLASS = { width: 300, height: 360 }
+/** A sticky's window as it is made, by its kind and material (stick). */
+const madeSize = (type: string, glass: boolean): { width: number; height: number } =>
+  type === 'goal' ? (glass ? GOAL_GLASS : GOAL_SIZE) : type === 'goals' ? (glass ? GOALS_GLASS : GOALS_SIZE) : type === 'today' ? { width: 280, height: 300 } : { width: 300, height: 220 }
+/**
+ * A card's own paper width, the one width its pill and the card opened out of it both take (21 Nov: "make pill width
+ * same as card"): a goal's card and the goals' are their design width, always; Today and a note keep the width they
+ * were given (their saved place), never under a note's least (stickySize). Never read from a window, which a pill or a
+ * squeezed card made narrow once and so made every pill and card after it narrow (21 Nov 23:15: "Fini / s…").
+ */
+function cardWide(key: string): number {
+  const inset = insetOf(key)
+  const room = inset.left + inset.right
+  const type = key.slice(0, key.indexOf(':'))
+  const made = madeSize(type, builtGlass.get(key) === true).width - room
+  if (type === 'goal' || type === 'goals') return made
+  const saved = stuckAs(key)?.bounds?.width
+  return saved ? Math.round(Math.max(220 - room, Math.min(480 - room, saved))) : made
+}
+/** A card's own width, for qa/pill-grows.mjs to hold the pill and the card to. */
+;(globalThis as { haligtreeCardWide?: (key: string) => number }).haligtreeCardWide = (key) => cardWide(key)
 /** At most this many goal cards on their own; more share the goals sticky. */
 const GOAL_CARDS = 3
 /** Goals made this close together came in together (an import), not one by one. */
@@ -3154,8 +3174,6 @@ const PILL_H = 28
 const PILL_GAP = 6
 const PILL_IN = 8
 const PILL_ROOM = { side: 6, top: 2, bottom: 6 }
-/** A pill's width when its card's own is not known (never on the desk: every pill keeps its card's place). */
-const PILL_GUESS = 228
 const STACK_TOP = 0.18
 /**
  * Where the stack stands: its edge, its first pill's top, and its screen. The right edge 18% down the main screen to
@@ -3210,12 +3228,10 @@ const carryStack = {
   }
 }
 /**
- * Each pill's width, the one number the pill, its window in the stack, the card it opens into and its page all read:
- * set once as a whole card folds (its window less the room round its paper) and kept through every open and fold
- * back, so the pill opening into its card grows only downward (21 Nov: "make pill width same as card").
+ * Each pill's width: its card's own (cardWide), the one number the pill, its window in the stack, the card it opens
+ * into and its page all read, so the pill grows wider to its card and opening it grows only downward.
  */
-const pillSize = new Map<string, number>()
-const pillWide = (key: string): number => pillSize.get(key) ?? PILL_GUESS
+const pillWide = cardWide
 /**
  * Cards opened out of their pill by the pointer, not pinned: each keeps its place in the stack while it is open, and
  * the window that grew out of the pill holds the card beside the stack and the pill's own column.
@@ -3446,14 +3462,10 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
     if (!peeking.has(key)) {
       madeOver(win)
       // Its whole card's place is kept while it is a pill: a card opened out of its pill keeps the one it had.
-      const whole = openedAt.get(key)
-      if (whole) peeking.set(key, whole)
-      else {
-        const bounds = win.getBounds()
-        const inset = insetOf(key)
-        peeking.set(key, bounds)
-        pillSize.set(key, bounds.width - inset.left - inset.right)
-      }
+      // Always its own width (cardWide), whatever its window was: a card squeezed once never stays squeezed.
+      const whole = openedAt.get(key) ?? win.getBounds()
+      const inset = insetOf(key)
+      peeking.set(key, { ...whole, width: cardWide(key) + inset.left + inset.right })
       openedAt.delete(key)
       fromPill.delete(key)
       stopPeek(key)
@@ -3487,8 +3499,8 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   // place, and the stack does not move.
   const { area } = stackPlaces()
   const inset = insetOf(key)
-  // One width for both, the pill's own (pillWide): the card's paper is exactly as wide and stands exactly where the
-  // pill does, so it grows only downward.
+  // One width for both, the card's own (pillWide is cardWide): the pill was laid that wide, so the card's paper stands
+  // exactly where the pill does and grows only downward, never squeezed to a pill's width.
   const wide = pillWide(key)
   // The pill becomes the card, as the session pill opens out of itself: the card's edge on the stack's side and its
   // top are the pill's own, so it grows from where the pill hangs, over the stack below it while it is out. Its top
@@ -3503,7 +3515,7 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   const x = Math.max(area.x, Math.min(card.x, pill.x))
   const y = Math.min(card.y, pill.y)
   const box = { x, y, width: Math.min(area.x + area.width, Math.max(card.x + card.width, pill.x + pill.width)) - x, height: Math.max(card.y + card.height, pill.y + pill.height) - y }
-  openedAt.set(key, { ...rest, width: card.width })
+  openedAt.set(key, rest)
   fromPill.set(key, card)
   const peek: Peek = { side: stackSide, nudge: false, width: wide, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: wide, height: PILL_H }, size: { width: box.width, height: box.height } } }
   peekSaid.set(key, peek)

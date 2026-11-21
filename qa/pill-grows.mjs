@@ -6,7 +6,8 @@
 // (never the pill's ground and the card's paper on screen at once). (qa/desk-pill-glass.mjs checks the open card is opaque.)
 // The pill is its card's width (21 Nov: "don't like expansion includes width, make pill width same as card"): within
 // 1 point, and through the open and the close, read every 50 ms by the page's own clock, the shape's left and right
-// edges never move; only its height grows and shrinks.
+// edges never move; only its height grows and shrinks. The width is the card's own (main's cardWide): the pill grows to
+// it, whole inside the screen's work area, and the open card's title, days line and next event are never cut.
 // With QA_SHOTS, a picture every 50 ms of each.
 //
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=<dir>] node qa/pill-grows.mjs
@@ -165,6 +166,7 @@ try {
   await wait(1500)
   const goal = await goalWin()
   const page = c.electron.windows().find((p) => p.url() === goal.url)
+  const goalKey = `goal:${new URL(goal.url).searchParams.get('id')}`
   await page.hover('[data-goal-card]').catch(() => {})
   await page.locator('[aria-label="Fold it into its pill"]').first().dispatchEvent('click')
   check('its “–” folds it into its pill', await until(async () => !!(await look(goal.id))?.pill, 4000))
@@ -178,6 +180,14 @@ try {
     const pill = rest.pill
     // Its right edge read whole, not as its rounded left plus its rounded width.
     pill.w = Math.round(rest.pillRight) - pill.x
+    // The pill takes its card's own width, never the card a pill's (21 Nov 23:15: the pill ran off the screen's edge
+    // and its card opened 150 points wide, "Fini / s…"), and stands whole inside the screen's work area.
+    const { design, area } = await c.electron.evaluate(({ screen }, { key, pill }) => ({
+      design: globalThis.haligtreeCardWide(key),
+      area: screen.getDisplayNearestPoint({ x: pill.x + Math.round(pill.w / 2), y: pill.y }).workArea
+    }), { key: goalKey, pill })
+    check(`${theme}: the pill is its card's own width, ${design} points (within 1)`, Math.abs(pill.w - design) <= 1, JSON.stringify({ pill: pill.w, design }))
+    check(`${theme}: the pill stands whole on the screen, inside its work area`, pill.x >= area.x && pill.x + pill.w <= area.x + area.width && pill.y >= area.y, JSON.stringify({ pill, area }))
     // Points at the pill and stays on it: it grows.
     const inWin = await c.electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), goal.id)
     await watchMoves(goal.id)
@@ -199,7 +209,13 @@ try {
     check(`${theme}: open, the card stands where the pill hung (its top and its edge on the stack's side)`, !!last?.card && Math.abs(last.card.y - pill.y) <= NEAR && (Math.abs(last.card.x + last.card.w - (pill.x + pill.w)) <= NEAR || Math.abs(last.card.x - pill.x) <= NEAR) && last.card.w > 200, JSON.stringify({ pill, card: last?.card }))
     const openSteps = steps(opening)
     check(`${theme}: no reading jumps while it grows (each edge under ${STEP} points in 50 ms)`, openSteps.length > 8 && Math.max(...openSteps) < STEP, JSON.stringify(openSteps))
-    check(`${theme}: open, the card is the pill's width (within 1 point)`, !!last?.card && Math.abs(last.card.w - pill.w) <= 1, JSON.stringify({ pill: pill.w, card: last?.card?.w }))
+    check(`${theme}: open, the card is its own width, ${design} points, as the pill is (within 1 point)`, !!last?.card && Math.abs(last.card.w - design) <= 1 && Math.abs(last.card.w - pill.w) <= 1, JSON.stringify({ pill: pill.w, card: last?.card?.w, design }))
+    check(`${theme}: open, the card stands whole on the screen`, !!last?.card && last.card.x >= area.x && last.card.x + last.card.w <= area.x + area.width, JSON.stringify({ card: last?.card, area }))
+    // Nothing in the open card is squeezed: its title, its days line and its next event each fit their own line.
+    const cut = await page.evaluate(() => [['title', '[data-card-title]'], ['days line', '[data-goal-left-said]'], ['event line', '[data-goal-next]'], ['event name', '[data-goal-next] [title]']]
+      .flatMap(([name, sel]) => { const el = document.querySelector(sel); return el ? [{ name, scroll: el.scrollWidth, client: el.clientWidth }] : [] }))
+    // A long event name may end in "…" at the card's own width, as it always could; squeezed, its name was gone.
+    check(`${theme}: open, nothing in the card is cut: title, days line and event line fit (scrollWidth <= clientWidth), the event's name shows`, cut.length >= 2 && cut.every((one) => (one.name === 'event name' ? one.client >= 40 : one.client > 0 && one.scroll <= one.client)), JSON.stringify(cut))
     const openWide = sideways(openEdges, pill)
     check(`${theme}: while it opens it grows only downward: its left and right edges never move (within 1 point, every 50 ms of the page's clock)`, openEdges.filter((one) => one.kind === 'card').length > 6 && openWide <= 1 && openEdges.at(-1).h > pill.h + 60, `${openWide} points sideways; ${openEdges.map((one) => `${one.t}:${one.left}-${one.right}x${one.h}`).join(' ')}`)
     console.log(`  ${theme} open, 50 ms readings:${opening.map((one) => JSON.stringify(shapeOf(one))).join(' ')}`)
