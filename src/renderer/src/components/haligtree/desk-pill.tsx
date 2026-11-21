@@ -33,10 +33,14 @@ const WIDEST = 220
 const REST = 150
 /** The pill's own slide in from the edge (the tabs' own spring before pills). */
 const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 } as const
-/** The pill opening into its card: the session pill's island spring (focus-pill.tsx), about 4% past and settled in about 450ms. */
-const OPEN = { type: 'spring', stiffness: 152, damping: 17.8, mass: 1 } as const
-/** Folding back: quicker and plain, no give (a damping ratio of about 1). */
-const CLOSE = { type: 'spring', stiffness: 420, damping: 41, mass: 1 } as const
+/**
+ * The pill opening into its card: the session pill's island spring in feel (a little give past the end, focus-pill.tsx),
+ * timed for a card ten times the pill's height so the growth is spread over the whole opening (about 480ms, no 50ms
+ * stretch past about 60 points on a 300-point card) rather than gathered into one burst.
+ */
+const OPEN = { type: 'spring', visualDuration: 0.48, bounce: 0.18 } as const
+/** Folding back: quicker and plain, no give, still spread enough that it never jumps. */
+const CLOSE = { type: 'spring', visualDuration: 0.38, bounce: 0 } as const
 type Box = { x: number; y: number; width: number; height: number }
 /** The pill and the card it grows into, in window points, measured once per opening. */
 type Shape = { pill: Box; frame: Box; edge: 'left' | 'right'; round: number; corner: number; card: { width: number; height: number }; dx: number; dy: number; move: { x: number; y: number } }
@@ -108,13 +112,15 @@ export function DeskPill(): React.JSX.Element | null {
       root.style.transformOrigin = `${edge === 'right' ? frame.x + frame.width : frame.x}px ${frame.y}px`
       root.style.transform = `translate(${dx * (1 - t)}px, ${dy * (1 - t)}px)${give > 1 ? ` scale(${give})` : ''}`
       // The card's own words: its first line comes in as the pill's go, the rest once the shape is mostly open.
-      root.style.setProperty('--pill-head', String(clamp((p - 0.2) / 0.35)))
+      root.style.setProperty('--pill-head', String(clamp((p - 0.25) / 0.3)))
       root.style.setProperty('--pill-body', String(clamp((p - 0.55) / 0.4)))
+      // What hangs past the card's edge, once the shape has passed it.
+      root.style.setProperty('--pill-later', String(clamp((p - 0.85) / 0.15)))
       const words = ghost.current
       if (!words) return
       // The pill's words glide to the card's first line as they cross-fade into it.
       const go = clamp(p / 0.6)
-      words.style.opacity = String(1 - clamp((p - 0.05) / 0.35))
+      words.style.opacity = String(1 - clamp(p / 0.25))
       words.style.transform = `translate(${(move.x + dx * (1 - t)) * go}px, ${(move.y + dy * (1 - t)) * go}px)`
     }
     grown.on('change', draw)
@@ -131,6 +137,7 @@ export function DeskPill(): React.JSX.Element | null {
       root.style.transformOrigin = ''
       root.style.removeProperty('--pill-head')
       root.style.removeProperty('--pill-body')
+      root.style.removeProperty('--pill-later')
       if (ghost.current) ghost.current.style.opacity = '0'
     }
     // The card's frame inside the window and the pill's, so the card can start as the pill and grow to itself.

@@ -20,9 +20,9 @@ const until = async (test, ms) => {
   return test()
 }
 const shots = process.env.QA_SHOTS
-/** The most an edge of the shape may move in 50 ms: the island spring's fastest stretch on a card this size is about
- * 1,800 points a second on its height (about 90 in 50 ms); a jump (a snap, a second surface popping in) is far more. */
-const STEP = 110
+/** The most an edge of the shape may move in 50 ms: the opening spring's fastest stretch on a card this size is about
+ * 1,200 points a second on its height (about 60 in 50 ms); a jump (a snap, a second surface popping in) is far more. */
+const STEP = 70
 /** How near the first and last shapes must be to the pill's own box, in points. */
 const NEAR = 3
 

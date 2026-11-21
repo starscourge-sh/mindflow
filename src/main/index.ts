@@ -3477,15 +3477,18 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   const cardWidth = rest.width - inset.left - inset.right
   // The pill becomes the card, as the session pill opens out of itself: the card's edge on the stack's side and its
   // top are the pill's own, so it grows from where the pill hangs, over the stack below it while it is out. Its top
-  // rises only if the screen's foot is nearer.
+  // rises only if the screen's foot is nearer (and drops only under the menu bar). The window never reaches past the
+  // screen: the Mac pushed one that did back in (11 points), so the card stood short of the pill's edge.
   const pillTop = pill.y + PILL_ROOM.top
-  const top = Math.max(area.y - inset.top, Math.min(pillTop - inset.top, area.y + area.height - rest.height + inset.bottom))
+  const top = Math.max(area.y, Math.min(pillTop - inset.top, area.y + area.height - rest.height))
   const cardX = right ? pill.x + pill.width - PILL_ROOM.side - cardWidth - inset.left : pill.x + PILL_ROOM.side - inset.left
   const card = { x: cardX, y: top, width: rest.width, height: rest.height }
-  // The window holds the card and the pill's place both (the card's paper room may reach past the pill's window).
-  const x = Math.min(card.x, pill.x)
+  // The window holds the card and the pill's place both, inside the screen: the card's clear room on the stack's side
+  // is cut to what the screen allows (its page lays the card out past the window there, desk-pill.tsx), so the card's
+  // edge is still the pill's.
+  const x = Math.max(area.x, Math.min(card.x, pill.x))
   const y = Math.min(card.y, pill.y)
-  const box = { x, y, width: Math.max(card.x + card.width, pill.x + pill.width) - x, height: Math.max(card.y + card.height, pill.y + pill.height) - y }
+  const box = { x, y, width: Math.min(area.x + area.width, Math.max(card.x + card.width, pill.x + pill.width)) - x, height: Math.max(card.y + card.height, pill.y + pill.height) - y }
   openedAt.set(key, rest)
   fromPill.set(key, card)
   const peek: Peek = { side: stackSide, nudge: false, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: pill.width - 2 * PILL_ROOM.side, height: PILL_H }, card: card.width, size: { width: box.width, height: box.height } } }

@@ -3641,6 +3641,9 @@ html[data-pill-open='left'] #root { right: 0; }
    line comes in as the pill's words go, the rest once the shape is mostly open (desk-pill.tsx draws the two amounts). */
 #root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > :not([aria-hidden]) { opacity: var(--pill-body, 1); }
 #root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > :nth-child(1 of :not([aria-hidden])) { opacity: var(--pill-head, 1); }
+/* What hangs past the card's edge (its tape, the sandbox badge, the grabber) would be cut by the growing shape: it comes
+   in last, once the shape has passed it. */
+#root[data-growing] :is([data-pill-later], [data-grabber]) { opacity: var(--pill-later, 1); }
 
 /* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: dots or squares in a
    faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */
