@@ -11,11 +11,14 @@ import { dictating } from './dictation'
 import { cut } from './clip'
 import { LEVELS, REST_DAYS, levelOf, newFacts, type CardLevel, type Passage } from './insight-pick'
 import { shownSince } from './book-feed'
+import { checkConnect, checkReframe, sharedWord } from './insight-checks'
 
 /**
- * Insights in the Feed, drawn from the person's own book: Connect (two notes not linked, and one sentence on why they
- * belong together) and Reframe (an idea of theirs said from an unexpected angle), written on this Mac by Apple
- * Intelligence (guided generation, understand.ts `shaped`) from the passages alone. Without it none come: the Feed's
+ * Insights in the Feed, drawn from the person's own book: Connect (two notes not linked, the words both say, and one
+ * sentence on why they belong together) and Reframe (a view a note holds, quoted from it, and the other side of it),
+ * written on this Mac by Apple Intelligence (guided generation, understand.ts `shaped`) from the passages alone. Each
+ * names what it is about, and is checked in code before it is kept (insight-checks.ts): a quote not in its note, or a
+ * line that shares no word that means something with it, and the card is dropped. Decisions are never in them. Without it none come: the Feed's
  * own posts are what comes back (book-feed.ts), picked from the same pool by the same rule (insight-pick.ts), and a
  * note in today's posts or in an insight of the last 14 days is never picked again for another.
  *
@@ -24,7 +27,8 @@ import { shownSince } from './book-feed'
  * while the person types, dictates or records. Kept in the book (feed_insights), so a day's cards stay put.
  */
 export type InsightSource = { type: Passage['type']; id: string; title: string; href?: string }
-export type Insight = { id: string; level: CardLevel; words: string; sources: InsightSource[]; made: string; state: 'kept' | null; gemId: string | null }
+/** `quote` is what it is about, word for word from the notes: the view a Reframe turns around, the words both notes of a Connect say. `words` is the other side, or why they belong. */
+export type Insight = { id: string; level: CardLevel; quote: string; words: string; sources: InsightSource[]; made: string; state: 'kept' | null; gemId: string | null }
 export type Insights = { day: string; cards: Insight[]; done: boolean; ai: boolean }
 
 /** The day's batch. */
@@ -40,6 +44,21 @@ const TYPED = 5
 const LOWER = 0.85
 const FLOOR = 0.3
 
+/**
+ * The stand-ins' answers under HALIGTREE_QA_CAPS=ai (a probe on a Mac without the model): a Connect names a word both
+ * notes really say (none, and it is dropped); a Reframe quotes the note's own first words, and every second one says the
+ * vague line a person once saw ("What if the silence broke..."), which shares no word with its note and is dropped.
+ */
+let qaReframes = 0
+const QA_THREAD = (passages: Passage[]): string => sharedWord(`${passages[0]?.title} ${passages[0]?.text}`, `${passages[1]?.title} ${passages[1]?.text}`) ?? ''
+const QA_REFRAME = (one: Passage): { view: string; other: string } => {
+  const view = one.text.split(/\s+/).filter(Boolean).slice(0, 6).join(' ')
+  const key = [...view.toLowerCase().matchAll(/\p{L}{5,}/gu)].map((word) => word[0]).sort((a, b) => b.length - a.length)[0] ?? 'this'
+  return qaReframes++ % 2
+    ? { view, other: 'What if the silence broke not with a word but with a sound that made the hidden thing visible' }
+    : { view, other: `Seen from the other side, the ${key} is what you would let go of first` }
+}
+
 let typedAt = 0
 /** A key pressed in a Haligtree window (index.ts): no request is made while the person types. */
 export const noteTyped = (): void => void (typedAt = Date.now())
@@ -49,12 +68,14 @@ export function registerInsights(aiOn: () => boolean): void {
   db.exec(`create table if not exists feed_insights (id text primary key, day text not null, turn integer not null, level text not null, words text not null, sources text not null, made_at text not null, state text, gem_id text);
     create index if not exists feed_insights_by_day on feed_insights(day);
     create table if not exists feed_insight_mix (level text primary key, weight real not null)`)
-  type Row = { id: string; day: string; turn: number; level: CardLevel; words: string; sources: string; made_at: string; state: string | null; gem_id: string | null }
+  // What a card is about, quoted from its notes (since 21 Nov); a card made before has none and is not shown.
+  try { db.exec('alter table feed_insights add column quote text') } catch { /* Already there. */ }
+  type Row = { id: string; day: string; turn: number; level: CardLevel; quote: string | null; words: string; sources: string; made_at: string; state: string | null; gem_id: string | null }
   // Only Connect and Reframe: a Resurface card from before the Feed's posts took its place is not shown.
   const rowsOf = (day: string): Row[] => (db.prepare('select * from feed_insights where day = ? order by turn').all(day) as Row[]).filter((row) => LEVELS.includes(row.level))
   const weightOf = (level: CardLevel): number => (db.prepare('select weight from feed_insight_mix where level = ?').get(level) as { weight: number } | undefined)?.weight ?? 1
   const ai = async (): Promise<boolean> => meets(await caps(), 'ai') && aiOn()
-  const shownOf = (rows: Row[], withAi: boolean): Row[] => (withAi ? rows.filter((row) => row.state !== 'failed' && row.state !== 'dismissed') : [])
+  const shownOf = (rows: Row[], withAi: boolean): Row[] => (withAi ? rows.filter((row) => row.state !== 'failed' && row.state !== 'dismissed' && !!row.quote) : [])
   const doneOf = (rows: Row[], withAi: boolean): boolean => !withAi || rows.filter((row) => row.state !== 'failed').length >= DAY_BATCH || rows.length >= TRIES
   // Typing: a key since the making began (the ⌘K search that opened the Feed is not), within the last few seconds.
   const busy = (since: number): boolean => meetingNow() || dictating() || (typedAt > since && Date.now() - typedAt < TYPED * 1000)
@@ -66,43 +87,53 @@ export function registerInsights(aiOn: () => boolean): void {
     const rows = rowsOf(day)
     return {
       day, ai: withAi, done: doneOf(rows, withAi),
-      cards: shownOf(rows, withAi).map((row) => ({ id: row.id, level: row.level, words: row.words, sources: JSON.parse(row.sources) as InsightSource[], made: row.made_at, state: row.state === 'kept' ? 'kept' : null, gemId: row.gem_id }))
+      cards: shownOf(rows, withAi).map((row) => ({ id: row.id, level: row.level, quote: row.quote ?? '', words: row.words, sources: JSON.parse(row.sources) as InsightSource[], made: row.made_at, state: row.state === 'kept' ? 'kept' : null, gemId: row.gem_id }))
     }
   }
 
-  /** Connect and Reframe, asked of Apple Intelligence; null when it said nothing that can be shown. */
-  const write = async (level: CardLevel, passages: Passage[]): Promise<string | null> => {
+  /** The book's own punctuation: a dash the model sets between two thoughts becomes a colon (no em dashes in the app). */
+  const tidy = (said: string): string => said.replace(/\s+/g, ' ').replace(/\s*[—–]\s*/, ': ').replace(/\s*[—–]\s*/g, ', ').trim().replace(/^["“](.*)["”]$/, '$1').replace(/^\p{Ll}/u, (letter) => letter.toUpperCase())
+  /**
+   * Connect and Reframe, asked of Apple Intelligence: what it is about, quoted, and the line on it. Null when it said
+   * nothing that passes the checks in code (insight-checks.ts), and the card is dropped.
+   */
+  const write = async (level: CardLevel, passages: Passage[]): Promise<{ quote: string; words: string } | null> => {
     const given = passages.map((one, at) => `Note ${at + 1}, “${cut(one.title.replace(/\s+/g, ' '), 80)}”:\n${one.text}`).join('\n\n')
     const rules = 'Use only what the notes say. Never add a fact, a name, a date, a number or a quotation from anywhere else. Speak to the person as “you”, plainly, in the language of the notes. No lists, no quotation marks around the whole.'
-    let said: string | null = null
+    let kept: { quote: string; words: string } | null = null
     if (level === 'connect') {
-      const answer = await shaped<{ belong: string; why: string }>(
+      if (passages.length < 2) return null
+      const answer = await shaped<{ belong: string; thread: string; why: string }>(
         `You read two notes from one person's own notebook, written at different times about different things, and find the one real thread between them: a shared idea, a tension, a pattern or a question they both circle. ${rules}`,
         given,
         { type: 'object', properties: [
           { name: 'belong', type: 'string', choices: ['yes', 'no'], description: 'yes when the two notes truly share an idea; no when any link would be forced' },
-          { name: 'why', type: 'string', description: 'One sentence, under 30 words, saying what the two notes share, naming something from each' }
+          { name: 'thread', type: 'string', description: 'A word or short phrase, one to four words, that appears word for word in both notes and names what they share' },
+          { name: 'why', type: 'string', description: 'One plain sentence, under 30 words, saying what the two notes share, naming something from each' }
         ] },
-        () => ({ belong: 'yes', why: `both of these notes, in a stand-in's words, circle the same question from two sides` }))
+        () => ({ belong: 'yes', thread: QA_THREAD(passages), why: `Both notes, in a stand-in's words, come back to ${QA_THREAD(passages)} from two sides` }))
       if ('error' in answer || answer.belong !== 'yes') return null
-      said = answer.why
+      const checked = checkConnect(answer.thread, tidy(answer.why), [`${passages[0].title} ${passages[0].text}`, `${passages[1].title} ${passages[1].text}`])
+      kept = checked && { quote: checked.thread, words: checked.why }
     } else {
-      const answer = await shaped<{ angle: string; words: string }>(
-        `You take one idea from a person's own notebook and turn it so they see it fresh: from far away or very close, from the other side, at another scale, through its opposite, or as a child would see it. Never summarise it and never praise it; turn it. ${rules}`,
+      // The view is the first note's (the others are only what it links to, for context).
+      const note = `${passages[0].title}\n${passages[0].text}`
+      const answer = await shaped<{ view: string; other: string }>(
+        `You take one view a person holds in their own notebook and show them the other side of it. First quote the view, word for word from Note 1, as it is written there. Then say the other side: the same matter seen from the opposite position, plainly and concretely, about the same things the note names. Never summarise it, never praise it, never ask a question that only repeats it. ${rules}`,
         given,
         { type: 'object', properties: [
-          { name: 'angle', type: 'string', choices: ['far away', 'very close', 'the other side', 'another scale', 'its opposite', "a child's eyes"], description: 'The angle the idea is turned to' },
-          { name: 'words', type: 'string', description: 'The idea said from that angle: one or two sentences, under 45 words' }
+          { name: 'view', type: 'string', description: 'The view the note holds: a phrase of 4 to 20 words copied word for word from Note 1' },
+          { name: 'other', type: 'string', description: 'The other side of that view, about the same things, in at most 20 words' }
         ] },
-        () => ({ angle: 'its opposite', words: `turned around, in a stand-in's words: what if the opposite of this note were the thing worth keeping?` }))
+        () => QA_REFRAME(passages[0]))
       if ('error' in answer) return null
-      said = answer.words
+      const checked = checkReframe(answer.view, tidy(answer.other), note)
+      kept = checked && { quote: checked.view, words: checked.other }
     }
-    // The book's own punctuation: a dash the model sets between two thoughts becomes a colon (no em dashes in the app).
-    const words = (said ?? '').replace(/\s+/g, ' ').replace(/\s*[—–]\s*/, ': ').replace(/\s*[—–]\s*/g, ', ').trim().replace(/^["“](.*)["”]$/, '$1').replace(/^\p{Ll}/u, (letter) => letter.toUpperCase())
-    // Too short or long to be what was asked for, or saying something the notes never did: not shown.
-    if (words.length < 20 || words.length > 320 || newFacts(words, passages).length) return null
-    return words
+    if (!kept) return null
+    // Too short to be what was asked for, or saying something the notes never did: not shown.
+    if (kept.words.length < 12 || newFacts(kept.words, passages).length) return null
+    return kept
   }
 
   let making: Promise<void> | null = null
@@ -110,7 +141,8 @@ export function registerInsights(aiOn: () => boolean): void {
   const make = (): Promise<void> => (making ??= (async () => {
     const began = Date.now()
     try {
-      for (let made = 0; made < AT_ONCE; made++) {
+      // Three shown at one go: one dropped by its checks is not one of them (each try is a row, so a day still ends at TRIES).
+      for (let made = 0; made < AT_ONCE;) {
         if (gate().blackout || busy(began)) return
         const day = dayKey()
         const withAi = await ai()
@@ -123,18 +155,19 @@ export function registerInsights(aiOn: () => boolean): void {
         const rested = [...shownSince(db, dayKey(dayjs(day).subtract(REST_DAYS - 1, 'day')))]
         const picked = await ask('feed:insight', [{ day, turn, level, rested }])
         const id = randomUUID()
-        const keep = (words: string, state: string | null, sources: Passage[]): void =>
-          void db.prepare('insert into feed_insights (id, day, turn, level, words, sources, made_at, state) values (?, ?, ?, ?, ?, ?, ?, ?)')
-            .run(id, day, turn, level, words, JSON.stringify(sources.map((one) => ({ type: one.type, id: one.id, title: cut(one.title.replace(/\s+/g, ' ').trim() || 'Untitled', 80), ...(one.href ? { href: one.href } : {}) }))), new Date().toISOString(), state)
+        const keep = (said: { quote: string; words: string } | null, sources: Passage[]): void =>
+          void db.prepare('insert into feed_insights (id, day, turn, level, quote, words, sources, made_at, state) values (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(id, day, turn, level, said?.quote ?? null, said?.words ?? '', JSON.stringify(sources.map((one) => ({ type: one.type, id: one.id, title: cut(one.title.replace(/\s+/g, ' ').trim() || 'Untitled', 80), ...(one.href ? { href: one.href } : {}) }))), new Date().toISOString(), said ? null : 'failed')
         if (!picked) {
           // Nothing left to pick, or a Connect without a second note: a try spent, so the day still ends.
-          keep('', 'failed', [])
+          keep(null, [])
           continue
         }
         // The person may have started typing while the passages were picked.
         if (busy(began)) return
-        const words = await write(level, picked.passages)
-        keep(words ?? '', words ? null : 'failed', picked.passages)
+        const said = await write(level, picked.passages)
+        keep(said, picked.passages)
+        if (said) made++
         changed({ kind: 'item', id: `insight:${id}` })
       }
     } finally {
@@ -155,10 +188,13 @@ export function registerInsights(aiOn: () => boolean): void {
       ? { type: 'text', text: one.title, marks: [{ type: 'link', attrs: { href: one.href } }] }
       : { type: 'noteLink', attrs: { id: one.type === 'capture' ? one.id : one.type === 'day' ? `day:${one.id}` : `nugget:${one.id}`, label: one.title } }
     const from: Node[] = sources.flatMap((one, at) => [...(at ? [{ type: 'text', text: ', ' }] : [{ type: 'text', text: 'From ' }]), linkOf(one)])
-    const doc: Node = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: row.words }] }, { type: 'paragraph', content: from }] }
+    // Both lines, as the card said them: what it is about, quoted, then the other side (or why the two belong).
+    const [lead, rest] = row.level === 'reframe' ? ['Your note says: ', 'The other side: '] : ['Both notes say: ', '']
+    const line = (text: string): Node => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+    const doc: Node = { type: 'doc', content: [...(row.quote ? [line(`${lead}“${row.quote}”`)] : []), line(`${rest}${row.words}`), { type: 'paragraph', content: from }] }
     const gem = randomUUID()
     const at = new Date().toISOString()
-    db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(gem, cut(row.words, 160), JSON.stringify(doc), at, at)
+    db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(gem, cut(row.level === 'reframe' && row.quote ? `The other side of “${row.quote}”` : row.words, 160), JSON.stringify(doc), at, at)
     db.prepare("update feed_insights set state = 'kept', gem_id = ? where id = ?").run(gem, row.id)
     changed({ kind: 'item', id: gem })
     return gem

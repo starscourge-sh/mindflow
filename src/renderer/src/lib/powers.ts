@@ -191,7 +191,7 @@ export const POWERS: Power[] = [
     show: { view: 'review', text: 'The count sits at the top left of Review, and under Done, once you have two days in a row.' } },
 
   // Tasks and time
-  { id: 'checkback', group: 'Tasks and time', name: 'Check back on a date', tryIt: 'In quick capture, pick the kind “Check back”, then set its day and its question under the title.', line: `A decision to look at again, or something to try for a while: give it a date and a question, and on that day ${APP_NAME} asks you. Your answer is kept under it.`,
+  { id: 'checkback', group: 'Tasks and time', name: 'Check back on a date', tryIt: 'In quick capture, pick the kind “Check back”, then set its day and its question under the title.', line: `A decision to look at again, or something to try for a while: give it a date and a question, and on that day ${APP_NAME} asks you. Your answer is kept under it. A decision also comes first in the Feed from two days before its date, with the call you made and the question you said you'd ask, until you say it still holds.`,
     show: { view: 'kind:checkback', at: ROW, text: 'Each Check back, with the day it comes back and what it asks.' }, used: (s) => s.kinds.has('checkback') },
   { id: 'practiseit', group: 'Tasks and time', name: 'Practise a routine', tryIt: 'Open a repeating task and turn on “Practise it”.', line: 'Turn on “Practise it” on a repeating task: at its time it offers 5 minutes, opens with your material, and afterwards writes a line in its log and asks “What stuck?”.',
     show: { view: 'routines', at: ROW, text: 'Open a routine: “Practise it” is in its details.' } },

@@ -6,6 +6,10 @@
 // Then a newcomer's book with only notes brought in from elsewhere and lines highlighted in PDFs: a full Feed on day one,
 // without AI, highlights among the posts opening their PDF.
 // Run on a copy of the seeded sandbox: QA_ARGS=--sandbox QA_DATA=<copy> HALIGTREE_QA_AWAY=1 node qa/feed-insights.mjs
+// A person who decided something and set a date to check back: on the day, the Feed's first post is "Check back" with
+// the call, the question (bold) and what would reopen it, in their own words with no AI; "Still holds" moves the date
+// on and Undo puts it back. And every Reframe card quotes its note ("Your note says"), the quote really in that note;
+// the stand-in's vague line ("What if the silence broke...") is dropped, never shown.
 // Last, an everyday reader hearts three old notes and answers one: over four weeks they come back more than old notes
 // left alone, never inside their rest.
 // The shares of what is picked (40/25/20/15 over 100 seeded picks), the 14-day rest and the heart's pull are
@@ -88,6 +92,50 @@ try {
   const later = await shownIds(h, v)
   check('still no note twice once the day’s insights are all made', new Set(later).size === later.length, `${later.length} shown, ${new Set(later).size} different`)
   check('the end says "That\'s all for today"', (await h.locator('[data-feed-end]').innerText()).includes("That's all for today"))
+
+  // Reframe names what it turns around: "Your note says" a quote that is in its source, then the other side.
+  const reframes = full.cards.filter((one) => one.level === 'reframe')
+  const bodyOf = async (one) => (await sql(s, `select coalesce(title, '') || ' ' || coalesce(body, '') as said from ${one.type === 'capture' ? 'captures' : 'nuggets'} where id = ?`, one.id))[0]?.said ?? ''
+  for (const one of reframes) {
+    const said = (await bodyOf(one.sources[0])).toLowerCase()
+    const words = one.quote.toLowerCase().match(/\p{L}+/gu) ?? []
+    check('a Reframe quotes its note: every word of "Your note says" is in it', words.length >= 4 && words.every((word) => said.includes(word)), `${one.quote} / ${one.sources[0].title}`)
+  }
+  const shownReframe = h.locator('[data-feed-post="insight"][data-insight="reframe"]').first()
+  if (await shownReframe.count()) {
+    check('a Reframe card reads "Your note says" first, then "The other side"', /^Your note says: “.+”/.test((await shownReframe.locator('[data-insight-quote]').innerText()).trim()) && /^The other side: /.test((await shownReframe.locator('[data-insight-words]').innerText()).trim()))
+  }
+  const tried = await sql(s, "select state, words from feed_insights where level = 'reframe' and sources != '[]' and day = ?", full.day)
+  check('the vague other side is dropped, never shown', !full.cards.some((one) => /silence broke/i.test(one.words)) && (tried.length < 2 || tried.some((one) => one.state === 'failed')), `${tried.length} Reframes tried, ${tried.filter((one) => one.state === 'failed').length} dropped`)
+
+  // A decision whose check-back date is today: its own post, first, in its own words.
+  const [party] = await sql(s, "select id from captures where kind = 'checkback' and fields like '%Reopen only if%' limit 1")
+  const noon = new Date(); noon.setHours(12, 0, 0, 0)
+  await sql(s, "update captures set fields = json_remove(json_set(fields, '$.back', ?), '$.heldAt') where id = ?", noon.toISOString(), party.id)
+  await sql(s, 'delete from feed_checkback_off')
+  await h.reload(); await h.waitForTimeout(2000)
+  await go('feed')
+  const back = h.locator('[data-feed-post="checkback"]')
+  await back.first().waitFor({ timeout: 10_000 }).catch(() => {})
+  check('the decision comes back first in the Feed, as "Check back"', (await h.locator('[data-feed-post]').first().getAttribute('data-feed-post')) === 'checkback' && /^Check back:\s*Not saying who spoilt the surprise party/.test((await back.locator('[data-checkback-head]').innerText()).trim()))
+  check('with what was decided, the question in bold and what would reopen it',
+    (await back.locator('[data-checkback-call]').innerText()).includes('You decided: “Say nothing. The cake was still a surprise.”')
+    && (await back.locator('[data-checkback-ask]').innerText()).includes("You said you'd ask: Does saying nothing still hold?")
+    && (await back.locator('[data-checkback-ask]').evaluate((one) => Number(getComputedStyle(one).fontWeight) >= 600))
+    && (await back.locator('[data-checkback-reopen]').innerText()).includes('Reopen only if: It happens at my party.'))
+  check('labelled as the person\'s own words, not as made by Apple Intelligence', (await back.locator('[data-insight-made]').count()) === 0 && /own words/.test(await back.locator('[data-feed-context]').innerText()))
+  const again = await shownIds(h, v)
+  check('the decision is in the Feed once, never among the rest', again.filter((one) => one === party.id).length === 1, `${again.filter((one) => one === party.id).length} times`)
+  await back.locator('[data-checkback-hold]').click()
+  const fieldsOf = async () => JSON.parse((await sql(s, 'select fields from captures where id = ?', party.id))[0].fields)
+  await h.waitForTimeout(600)
+  const held = await fieldsOf()
+  const days = Math.round((new Date(held.back) - noon) / 86_400_000)
+  check('"Still holds" moves the date on by the interval it had (or 30 days) and records the look', days >= 1 && !!held.heldAt && /Still holds: it comes back on/.test(await h.locator('[role="status"]').last().innerText().catch(() => '')), `${days} days on`)
+  await h.locator('[role="status"] button', { hasText: 'Undo' }).first().click()
+  await h.waitForTimeout(600)
+  const undone = await fieldsOf()
+  check('Undo puts the date back', undone.back === noon.toISOString() && !undone.heldAt, undone.back)
 } finally {
   await s.close()
 }
