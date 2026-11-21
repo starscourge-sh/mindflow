@@ -628,10 +628,13 @@ function DragHint({ name, said }: { name: string; said: string }): React.JSX.Ele
 }
 
 
-/** A folder's small drawing, in exactly the box a page's thumbnail takes (row-shape.ts), so the list's left column never changes size. */
-function GroupTile({ group, empty = false, ...rest }: { group: GroupView; empty?: boolean } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+/**
+ * A folder's small drawing, in exactly the box a page's thumbnail takes (row-shape.ts), so the list's left column never
+ * changes size. Writing's folder rows before Folders, and every list of folders since (folder-view.tsx).
+ */
+export function GroupTile({ group, empty = false, className, ...rest }: { group: { icon: string | null; color: string | null }; empty?: boolean } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
-    <span {...rest} data-group-tile="" data-row-mark="" className={ROW_TILE}>
+    <span {...rest} data-group-tile="" data-row-mark="" className={cn(ROW_TILE, className)}>
       <FolderMark icon={group.icon} color={group.color} empty={empty} className="h-[1.75rem] w-9" />
     </span>
   )

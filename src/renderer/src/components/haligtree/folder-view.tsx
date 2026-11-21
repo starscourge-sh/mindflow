@@ -3,22 +3,24 @@ import type { JSONContent } from '@tiptap/react'
 import { HaligtreeEditor } from './haligtree-editor'
 import { saveImage } from '@/extensions/image-drop'
 import { quietly, sayNow } from './ui'
-import { ChevronRight, FileStack, FolderPlus, ImagePlus, PenLine, Text } from 'lucide-react'
+import { ChevronRight, FolderPlus, ImagePlus, PenLine, Text } from 'lucide-react'
 import { FolderGems } from './folder-gems'
-import { FoldItem, MenuRows, Island, Page } from './ui'
+import { Empty, FoldItem, MenuRows, Island, Page } from './ui'
 import { ItemsView } from './items-view'
 import { CapturesView } from './captures-view'
 import { TasksView } from './tasks-view'
 import { TabChips } from './tab-chips'
 import { Button } from '@/components/ui/button'
-import { GroupIcon } from './kept-groups'
+import { FolderMark, GroupIcon, GroupTile } from './kept-groups'
+import { ROW_PAD, ROW_SHAPE } from './row-shape'
+import { cn } from '@/lib/cn'
 import { RowMenu } from './row-menu'
 import { Branches } from './branches'
 import { ListSearch } from './note-list'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { folders, pathOf, useFolders, writeFrom, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
-import { FolderRows, deepCount, folderMenu, newFolderHere } from './side-folder-section'
+import { FolderRows, folderMenu, heldSaid, newFolderHere } from './side-folder-section'
 import { calendarInk, events, useCalendars } from '@/lib/events'
 import { clock } from '@/lib/clock'
 import { dayjs, num, plural } from '../../../../main/dates'
@@ -109,7 +111,9 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       </nav>
       {/* Under its name, its words and link cards, as a Notion page's sit under its title. */}
       {folder && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
-      <p data-folder-fact="" className="mt-2 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
+      {/* Only when there is nothing yet: a folder that holds things says so in its list header ("2 pages") and its tabs;
+          a sentence repeating it read as slapped on (the user, 21 Nov). */}
+      {!shown.length && !inside.length && !unfiled && <p data-folder-fact="" className="mt-2 text-control text-muted-foreground">{fact}</p>}
       {/* Lines in its notes that could be gems: one quiet line, once (folder-gems.tsx). */}
       {folder && <FolderGems key={folder.id} folder={folder} />}
       {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
@@ -219,53 +223,64 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
   const archivedN = all.filter((one) => one.archived).length
   const words = typed.trim().toLowerCase()
   const found = words ? live.filter((one) => one.name.toLowerCase().includes(words)).slice(0, 200) : []
-  const line = (one: Folder, _depth: number, path?: string): React.JSX.Element => {
+  // Writing's folder rows from before Folders (kept-groups.tsx `GroupTile`): the drawn folder with its icon in a page
+  // thumbnail's box, the name on the titles' line, what it holds in words on the right ("41 notes", "4 pages, 2 gems").
+  const line = (one: Folder, path?: string): React.JSX.Element => {
     const kids = live.filter((kid) => kid.parent === one.id)
     const unfolded = open.has(one.id)
+    const folds = !path && kids.length > 0
+    const said = heldSaid(all, one.id)
     return (
       <RowMenu key={one.id} items={() => folderMenu(one, all, () => onPlace(one.id), () => onPlace(one.id))}>
-        <div className="flex items-center">
-          {!path && kids.length > 0 ? (
-            <button type="button" aria-label={unfolded ? `Fold ${one.name}` : `Unfold ${one.name}`} aria-expanded={unfolded} onClick={() => (chime(unfolded ? 'fold' : 'slide'), setOpen((was) => { const next = new Set(was); if (unfolded) next.delete(one.id); else next.add(one.id); return next }))}
-              className="ml-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground">
-              <ChevronRight className={`size-3.5 transition-transform duration-80 ${unfolded ? 'rotate-90' : ''}`} />
-            </button>
-          ) : <span className="ml-1 size-5 shrink-0" />}
+        <div className="group/fold relative">
           <button type="button" data-all-folder={one.id} data-keep-drop={one.id} data-folder-name={one.name} onClick={() => (chime('page'), onPlace(one.id))}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-accent/60">
-            <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />
-            <span className={`min-w-0 truncate ${one.archived ? 'text-muted-foreground' : ''}`}>{one.name}</span>
-            {path && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{path}</span>}
+            className={cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent/60')}>
+            {/* Pointed at, a folder that holds folders gives its picture's place to its fold, as the sidebar's rows do. */}
+            <GroupTile group={one} empty={!said} className={folds ? 'transition-opacity duration-80 group-hover/fold:opacity-0' : undefined} />
+            <span data-folder-row-name="" className={cn('min-w-0 truncate text-control font-medium', !path && 'flex-1', one.archived ? 'text-muted-foreground' : 'text-foreground')}>{one.name}</span>
+            {path && <span className="min-w-0 flex-1 truncate text-meta text-muted-foreground">{path}</span>}
             {one.starred ? <span className="sr-only">starred</span> : null}
-            {deepCount(all, one.id) > 0 && <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">{num(deepCount(all, one.id))}</span>}
+            {said && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums">{said}</span>}
           </button>
+          {folds && (
+            <button type="button" aria-label={unfolded ? `Fold ${one.name}` : `Unfold ${one.name}`} aria-expanded={unfolded} onClick={() => (chime(unfolded ? 'fold' : 'slide'), setOpen((was) => { const next = new Set(was); if (unfolded) next.delete(one.id); else next.add(one.id); return next }))}
+              className="absolute top-1/2 left-[calc(var(--list-ink)-var(--list-edge))] flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+              <ChevronRight className={`size-4 transition-transform duration-80 ${unfolded ? 'rotate-90' : ''}`} />
+            </button>
+          )}
         </div>
       </RowMenu>
     )
   }
   // Each level hung off a trunk under its folder, as the sidebar's are (children look like children).
   const tree = (parent: string | null): React.JSX.Element[] =>
-    live.filter((one) => (one.parent ?? null) === parent).flatMap((one) => [line(one, 0), ...(open.has(one.id) ? [<div key={`${one.id}:in`} data-no-twig=""><Branches className="ml-6 flex flex-col">{tree(one.id)}</Branches></div>] : [])])
+    live.filter((one) => (one.parent ?? null) === parent).flatMap((one) => [line(one), ...(open.has(one.id) ? [<div key={`${one.id}:in`} data-no-twig=""><Branches className="ml-6 flex flex-col">{tree(one.id)}</Branches></div>] : [])])
   return (
     <Page title="Folders" count={live.length} unit={['folder', 'folders']}
       // The lists' own search field (note-list.tsx `ListSearch`); ↵ opens the first folder found.
-      search={<span data-find-folder="" className="contents"><ListSearch value={typed} onChange={setTyped} onDone={() => found[0] && onPlace(found[0].id)} placeholder="Find a folder" /></span>}
+      search={all.length ? <span data-find-folder="" className="contents"><ListSearch value={typed} onChange={setTyped} onDone={() => found[0] && onPlace(found[0].id)} placeholder="Find a folder" /></span> : undefined}
       actions={<><Button variant="ghost" data-folders-new-page="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button><MenuRows><FoldItem icon={FolderPlus} label="New folder" keys="⌃⌘N" onSelect={() => newFolderHere(null)} /></MenuRows></>}>
-      <p className="mt-1 mb-4 px-1 text-[1.0625rem] leading-snug text-foreground">
-        {all.length ? 'Where things live. A folder holds any kind: pages, notes, gems and tasks.' : 'Folders hold anything you keep. ⌃⌘N makes one.'}
-      </p>
-      {all.length > 0 && (
-        <Island>
-          {words ? (found.length ? found.map((one) => line(one, 0, pathOf(all, one.parent).map((up) => up.name).join(' / '))) : <p className="px-3 py-2 text-body text-muted-foreground">No folder is named like “{typed.trim()}”.</p>) : <div className="flex flex-col py-1">{tree(null)}
-            <div aria-hidden className="mx-2 my-1 border-t" />
-            <button type="button" data-all-unfiled="" onClick={() => (chime('page'), onPlace('unfiled'))}
-              className="flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 pl-8 text-left hover:bg-accent/60">
-              <FileStack aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 truncate">Not in a folder</span>
-              {unfiled !== null && <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">{num(unfiled)}</span>}
-            </button>
-          </div>}
-        </Island>
+      {!all.length ? (
+        // No folders yet: the app's own empty page, a folder drawn hollow over it, and the one thing to do.
+        <Empty title="No folders yet" art={<FolderMark icon={null} color={null} empty className="h-11 w-14" />}
+          action={<Button size="sm" data-folders-first="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button>}>
+          A folder keeps pages, notes, gems and tasks together, whatever their kind. ⌃⌘N makes one anywhere.
+        </Empty>
+      ) : words ? (
+        <div data-all-folders="" className="list-edge my-2 flex flex-col">
+          {found.length ? found.map((one) => line(one, pathOf(all, one.parent).map((up) => up.name).join(' / '))) : <p className="list-ink py-2 text-body text-muted-foreground">No folder is named like “{typed.trim()}”.</p>}
+        </div>
+      ) : (
+        <div data-all-folders="" className="list-edge my-2 flex flex-col">
+          {tree(null)}
+          {/* What has no folder, last, in the folders' own shape: a folder drawn hollow, with no icon on it. */}
+          <button type="button" data-all-unfiled="" onClick={() => (chime('page'), onPlace('unfiled'))}
+            className={cn(ROW_SHAPE, ROW_PAD, 'mt-1 cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
+            <GroupTile group={{ icon: null, color: null }} empty />
+            <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">Not in a folder</span>
+            {!!unfiled && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(unfiled, 'page or gem', 'pages and gems')}</span>}
+          </button>
+        </div>
       )}
       {archivedN > 0 && (
         <button type="button" onClick={() => (chime(showArchived ? 'fold' : 'slide'), setShowArchived(!showArchived))} className="mt-4 flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 text-control text-muted-foreground hover:text-foreground">

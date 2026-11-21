@@ -61,7 +61,7 @@ try {
   await wait(500)
   await h.locator(`[data-side-thing][data-type="nugget"]`).first().click()
   await wait(1500)
-  check('a gem opened from under its folder in the sidebar opens in that folder', (await h.locator('[data-folder-fact]').count()) > 0)
+  check('a gem opened from under its folder in the sidebar opens in that folder', (await h.locator('[data-folder-head]').count()) > 0)
   check('↓↑ step through Space only', (await stepper()) === '1 / 2', await stepper())
   await shot('space-from-sidebar')
   const lit = await h.evaluate(() => {
@@ -83,8 +83,9 @@ try {
   // Space from the sidebar: its tabs, its fact, its rows' signs.
   await h.locator(`[data-side-folder="${space.id}"]`).click()
   await wait(1200)
-  const fact = (await h.locator('[data-folder-fact]').textContent())?.trim()
-  check('the fact says "2 gems" once', fact === 'Space holds 2 gems.', fact)
+  // A folder that holds things says so in its list's own header, never in a sentence under its name.
+  const head = (await h.evaluate(() => document.querySelector('[data-folder-head]')?.closest('[data-pane]')?.querySelector('[data-list-count], header')?.textContent ?? ''))
+  check('no sentence repeating what it holds, its count in the list header', (await h.locator('[data-folder-fact]').count()) === 0 && /2 gems/.test(head), head)
   const tabs = await h.evaluate(() => [...document.querySelectorAll('[data-folder-kinds] button')].map((one) => one.textContent))
   check('no kind tab with nothing in it (one kind: no tabs at all)', tabs.length === 0, JSON.stringify(tabs))
   await h.locator('button[data-row]').first().click()
