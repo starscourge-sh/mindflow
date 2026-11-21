@@ -64,7 +64,9 @@ function Desk({ shown, children, onEnter, onLeave }: { shown: number; children: 
   return (
     <motion.div
       key={shown}
-      initial={still() ? false : { opacity: 0, transform: shift('translateY(8px) scale(0.98)') }}
+      // A card that is its pill, or grown out of it, has the pill's own motion: never a second fade of its own,
+      // which showed it see-through over the windows behind as it came.
+      initial={still() || document.querySelector('[data-desk-pill]') ? false : { opacity: 0, transform: shift('translateY(8px) scale(0.98)') }}
       animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
       transition={{ duration: 0.24, ease: EASE }}
       // Paper keeps room round the card for its shadow (main's insetOf); glass is the card.
@@ -76,9 +78,9 @@ function Desk({ shown, children, onEnter, onLeave }: { shown: number; children: 
     >
       <div className="relative h-full">
         {children}
-        <div className="pointer-events-none absolute inset-0 z-30"><SandboxStamp /></div>
+        <div data-pill-later className="pointer-events-none absolute inset-0 z-30"><SandboxStamp /></div>
         {/* The tape holding it to the desk. */}
-        <div className="pointer-events-none absolute inset-0 z-30"><Tape inside={GLASS} /></div>
+        <div data-pill-later className="pointer-events-none absolute inset-0 z-30"><Tape inside={GLASS} /></div>
         {/* The pointer on the card: the grabber that moves it, in the tape's place, as on every floating card. */}
         <Grabber label="Move this card" inside={GLASS} style={DRAG} />
       </div>
@@ -173,7 +175,7 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
       <div className="flex items-start gap-1.5">
         <Flag data-goal-flag className="mt-[0.2em] size-3.5 shrink-0" style={{ color: goalInk(goal) }} />
         {/* The whole goal, over two lines if it needs them: a goal cut short is not the goal. */}
-        <p className="private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance">{goal.title}</p>
+        <p data-card-title className="private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance">{goal.title}</p>
         {/* Steps aside while the controls are out, so they never sit over it. */}
         <span className="flex shrink-0 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0"><SandboxStamp inline /></span>
         {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
@@ -341,7 +343,7 @@ export function GoalsSticky(): React.JSX.Element {
         {!GLASS && <Frost />}
         <div className="flex items-center gap-1.5">
           <Flag className="size-3.5 shrink-0 text-muted-foreground" />
-          <p className="min-w-0 flex-1 truncate font-medium">Goals</p>
+          <p data-card-title className="min-w-0 flex-1 truncate font-medium">Goals</p>
           <span className="flex shrink-0 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0"><SandboxStamp inline /></span>
           <span className="text-meta leading-none font-medium text-foreground tabular-nums transition-opacity duration-200 group-hover:opacity-0">
             {goals.length === 1 ? '1 goal' : `${num(goals.length)} goals`}
