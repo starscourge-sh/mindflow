@@ -4,14 +4,16 @@ import { Gem } from '@/components/ui/icons'
 import { openItems } from '@/lib/split'
 import { Branches } from './branches'
 import { NameInPlace } from './name-in-place'
-import { GroupIcon, IconChoice } from './kept-groups'
+import { GroupIcon, GroupTile, IconChoice } from './kept-groups'
+import { ROW_PAD, ROW_SHAPE } from './row-shape'
+import { cn } from '@/lib/cn'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { useFold, useTreeFolds } from '@/lib/side-folds'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
 import { SortableList, SortableRow } from './sortable'
-import { age, num } from '../../../../main/dates'
+import { age, num, plural } from '../../../../main/dates'
 import { haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { FOLDER_DEPTH, askFolder, askFolderFor, folders, writeFrom, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
@@ -29,6 +31,17 @@ export const newFolderHere = (parent: string | null = null): void => void window
 /** What one folder holds, its folders' too, every kind, in sight. */
 export const deepCount = (all: Folder[], id: string): number =>
   all.reduce((sum, one) => sum + (one.id === id ? heldIn(one) : one.parent === id ? deepCount(all, one.id) : 0), 0)
+
+/** The kinds a folder holds, writing first. */
+const KINDS_SAID = [['pages', 'page'], ['notes', 'note'], ['gems', 'gem'], ['tasks', 'task']] as const
+/**
+ * What one folder holds, its folders' too, in words by kind, as Writing's folder rows said "4 pages": "41 notes",
+ * "4 pages, 2 gems". Nothing for an empty folder (a "0" reads as something to see to).
+ */
+export const heldSaid = (all: Folder[], id: string): string => {
+  const deep = (at: string, kind: (typeof KINDS_SAID)[number][0]): number => all.reduce((sum, one) => sum + (one.id === at ? one[kind] : one.parent === at ? deep(one.id, kind) : 0), 0)
+  return KINDS_SAID.map(([kind, one]) => [deep(id, kind), one] as const).filter(([n]) => n > 0).map(([n, one]) => plural(n, one)).join(', ')
+}
 
 /**
  * The sidebar's Folders, under its places, as Tags keeps your favourite tags: only the folders you starred (and the
@@ -235,10 +248,10 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
   }
   if (naming)
     return (
-      <div className="flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2">
-        <span className="flex size-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
+      <div className={page ? cn(ROW_SHAPE, ROW_PAD) : 'flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2'}>
+        {page ? <GroupTile group={folder} empty={!n} /> : <span className="flex size-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>}
         <NameInPlace initial={folder.name} data-folder-name={folder.id} label="Folder name" placeholder="Name the folder" onDone={name}
-          className="min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40" />
+          className={cn('min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40', page && 'text-control font-medium')} />
       </div>
     )
   // The app's one chooser for its icon (emoji, icons, a picture of your own), from its menu: pointed at, the icon
@@ -261,17 +274,31 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
       <div className="group/fold relative flex flex-col">
         <button type="button" data-side-row={page ? undefined : ''} data-side-folder={page ? undefined : folder.id} data-folder-open={page ? folder.id : undefined} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
           onClick={() => (chime('page'), onOpen())}
-          className={`flex w-full min-w-0 items-baseline gap-2 rounded-md pr-2 pl-2 ${page ? 'cursor-pointer py-2 text-body hover:bg-accent/60' : 'py-1'} ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
-          <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
-          <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
-          {/* An empty folder shows no count: a "0" reads as something to see to. */}
-          {!!n && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
+          className={page
+            ? cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]')
+            : `flex w-full min-w-0 items-baseline gap-2 rounded-md pr-2 pl-2 py-1 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
+          {page ? (
+            // On a folder's page, Writing's folder row from before Folders (kept-groups.tsx `GroupTile`): the drawn folder
+            // with its icon in a page thumbnail's box, the name on the titles' line, what it holds in words on the right.
+            <>
+              <GroupTile group={folder} empty={!n} className={cn('transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100')} />
+              <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{folder.name}</span>
+              {!!n && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100">{heldSaid(all, folder.id)}</span>}
+            </>
+          ) : (
+            <>
+              <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
+              <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
+              {/* An empty folder shows no count: a "0" reads as something to see to. */}
+              {!!n && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
+            </>
+          )}
         </button>
         <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
-          className={`absolute ${page ? 'top-[0.5625rem]' : 'top-[0.1875rem]'} left-1.5 flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
+          className={`absolute ${page ? 'top-1/2 left-2 size-9 -translate-y-1/2' : 'top-[0.1875rem] left-1.5 size-5'} flex cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <ChevronRight className={`size-3.5 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
         </button>
-        <span className={`absolute ${page ? 'top-[0.5625rem]' : 'top-[0.1875rem]'} right-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
+        <span className={`absolute ${page ? 'top-1/2 right-2 -translate-y-1/2' : 'top-[0.1875rem] right-1.5'} flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <Tip label="More">
             <button type="button" data-folder-more={folder.id} aria-label={`${folder.name} menu`} onClick={openFromGrip}
               className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
