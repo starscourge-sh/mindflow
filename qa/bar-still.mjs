@@ -34,8 +34,9 @@ try {
   await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   const scrolled = () => h.evaluate((sel) => { const s = document.querySelector(sel); return { top: Math.round(s.scrollTop), end: s.scrollHeight - s.clientHeight } }, SCROLLER)
   // Down to the end, a wheel's push at a time (capped), then back to the top.
-  for (let i = 0; i < 120 && (await scrolled()).top < (await scrolled()).end - 2; i++) { await h.mouse.wheel(0, 160); await wait(60) }
+  for (let i = 0; i < 120 && (await scrolled()).top < (await scrolled()).end - 2; i++) { await h.mouse.wheel(0, 160); await wait(60); if (i === 4 && process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/bar-mid.png` }) }
   const atEnd = await scrolled()
+  if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/bar-end.png` })
   await wait(400)
   // The heading fade, read with the page scrolled: as tall as a heading's line.
   // Against 2.5rem in the page's own root size ("App size" sets it: 17px at 106%, so 42.5px).
