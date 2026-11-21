@@ -838,7 +838,20 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // the reading done since the hand-up, so only a page from elsewhere is gone to.
   useEffect(() => {
     if (!doc) return
-    if (start) return void ((start !== told.current && go(start)), (placed.current = true))
+    if (start) {
+      // Opened at its ribbon's page (Continue reading, the library): the page read on to beyond it is offered as from a
+      // plain open, and kept until you read on by hand. Held until the ribbon is read, so the landing never overwrites it.
+      holdPlace.current = true
+      if (start !== told.current) go(start)
+      placed.current = true
+      const total = doc.numPages
+      void Promise.all([call<{ page: number } | null>("pdf:place", src), readRibbon(src)]).then(([place, laid]) => {
+        if (laid?.page === start) return void (place && place.page > start && setReadOn(place.page))
+        // Not the ribbon's page: the page opened at is kept, as before.
+        if (holdPlace.current) (holdPlace.current = false), void call("pdf:read", src, start, total)
+      })
+      return
+    }
     // Opened with no page of its own: at the ribbon, when one is laid; else where you last left it. The page kept as you
     // read, further on than the ribbon, is offered in one line, and kept as it was until you read on by hand.
     void Promise.all([call<{ page: number } | null>("pdf:place", src), readRibbon(src)]).then(([place, laid]) => {
@@ -1255,8 +1268,13 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             return r ? { x: r.right - 44, y: r.top - 12 } : null
           }}
           spotAt={(_x, y) => {
-            const sheet = sheetAt(scroller.current?.querySelector(".pdf-pages"), (r) => r.bottom + 6 > y)
-            const n = Number(sheet?.dataset.page)
+            // A ribbon lies between the leaves: the gap nearest its end (the top of the page below it), and so that page.
+            const pages = scroller.current?.querySelector(".pdf-pages")
+            const below = sheetAt(pages, (r) => r.top > y)
+            const above = below ? (below.previousElementSibling as HTMLElement | null) : (pages?.lastElementChild as HTMLElement | null)
+            const near = [below, above?.dataset.page ? above : null].filter((one): one is HTMLElement => !!one)
+              .sort((a, b) => Math.abs(a.getBoundingClientRect().top - y) - Math.abs(b.getBoundingClientRect().top - y))[0]
+            const n = Number(near?.dataset.page)
             return n ? { key: String(n), label: `p. ${label(n)}` } : null
           }}
           homeX={() => {

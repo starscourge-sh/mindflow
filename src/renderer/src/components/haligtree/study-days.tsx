@@ -56,7 +56,7 @@ export function BookChip({ book, style }: { book: Book; style?: React.CSSPropert
   const name = book.title || book.name.replace(/\.pdf$/i, '')
   return (
     <button type="button" data-study-book={book.src} aria-label={`${name}, page ${num(book.page ?? 1)}${book.pages ? ` of ${num(book.pages)}` : ''}: done by this day at your pace`}
-      onClick={(event) => (event.stopPropagation(), chime('page'), openPdf(book.src, book.name))}
+      onClick={(event) => (event.stopPropagation(), chime('page'), openPdf(book.src, book.name, book.ribbon ?? book.page ?? undefined))}
       className={`${CHIP} hover:brightness-95 dark:hover:brightness-125`} style={{ ...TINT, ...style }}>
       <BookOpen aria-hidden className="size-3.5 shrink-0" style={{ color: STUDY_INK }} />
       <span className="min-w-0 truncate">{name}</span>

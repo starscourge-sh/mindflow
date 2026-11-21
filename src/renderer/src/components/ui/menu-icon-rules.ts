@@ -25,6 +25,10 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^in my words$/i, PenLine],
   [/^make it a card$/i, Layers],
   [/^pull the quote$/i, Quote],
+  // A book's ribbon (pdf/ribbon.tsx): laid, gone to, taken out.
+  [/^lay the ribbon/i, BookmarkPlus],
+  [/^go to the ribbon/i, Bookmark],
+  [/^take the ribbon out/i, BookmarkMinus],
   // Files: the pictures most like this one (picture-sight.ts).
   [/^more like this$/i, Images],
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).

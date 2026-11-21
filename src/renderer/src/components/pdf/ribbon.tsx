@@ -168,11 +168,12 @@ export function Ribbon({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at, ready])
 
-  /** The page or paragraph under the held ribbon's end: where it would lie if let go now. */
+  /** Where the held ribbon would lie if let go now: read at its end (the cut tip), as a real ribbon falls where its end lies. */
   const spotUnder = (pointer: Point): (RibbonSpot & { y: number }) | null => {
     const box = frame.current?.getBoundingClientRect()
     if (!box || pointer.y < box.top + 24 || pointer.y > box.bottom || pointer.x < box.left || pointer.x > box.right) return null
-    const spot = spotAt(pointer.x, pointer.y)
+    const end = drawn.current ? box.top + drawn.current.y + len.get() : pointer.y
+    const spot = spotAt(pointer.x, Math.min(end, box.bottom))
     if (!spot) return null
     const place = placeOf(spot.key)
     return place ? { ...spot, y: place.y - box.top } : null
@@ -253,7 +254,14 @@ export function Ribbon({
     const spot = spotUnder({ x: event.clientX, y: event.clientY })
     // Back to where it rests (the spot it had, or the top) until the reader says where it is now: then it glides on.
     settle()
-    if (spot) return spot.key === atNow.current ? undefined : onLay(spot.key)
+    if (spot) {
+      // Its spot not wholly on screen: the pages glide to show it, and the ribbon with them (it is drawn from its spot).
+      const box = frame.current?.getBoundingClientRect()
+      const place = placeOf(spot.key)
+      if (box && place && (place.y < box.top + 8 || place.y + LAID > box.bottom - 8))
+        scroller.current?.scrollBy({ top: place.y - box.top - box.height / 3, behavior: motionNow() === 'all' ? 'smooth' : 'auto' })
+      return spot.key === atNow.current ? undefined : onLay(spot.key)
+    }
     if (atNow.current) onLay(null)
   }
 

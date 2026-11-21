@@ -57,6 +57,9 @@ const landedOn = () => h.evaluate(() => {
   return best?.page ?? null
 })
 
+/** The page the reader says you are on: the number in its bar (the file's own pages here, no printed labels). */
+const shownPage = () => h.evaluate(() => Number(document.querySelector('.pdf-reader-page [data-scrub-field]')?.value) || null)
+
 /** Out to the note and the book opened again from its card, as a reader closes and reopens it. */
 async function reopen(note) {
   await s.send('article', note); await wait(1200)
@@ -95,18 +98,20 @@ try {
   check('a new book shows the ribbon hanging at the top', hanging?.state === 'hanging' && hanging.y < 4 && hanging.h <= 40, JSON.stringify(hanging))
   check('it shows the hand', (await h.evaluate(() => getComputedStyle(document.querySelector('.ribbon')).cursor)) === 'pointer')
 
-  // Page 3 brought into view by hand, with room above it, then the ribbon carried down onto it.
+  // Page 3's top edge brought to about 400px down by hand, then the ribbon carried so its end lies in the gap above
+  // page 3 (between pages 2 and 3), as a ribbon lies between the leaves: it marks page 3.
   const scroller = await h.locator('.pdf-reader-scroll').boundingBox()
   await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + scroller.height / 2)
   for (let i = 0; i < 40; i++) {
     const top = await h.evaluate(() => document.querySelector('.pdf-page[data-page="3"]').getBoundingClientRect().top - document.querySelector('.pdf-reader-scroll').getBoundingClientRect().top)
-    if (top < 260) break
-    await h.mouse.wheel(0, Math.min(200, top - 240)); await wait(60)
+    if (Math.abs(top - 400) < 40) break
+    await h.mouse.wheel(0, Math.max(-200, Math.min(200, top - 400))); await wait(60)
   }
   await wait(500)
   const tab = await h.locator('.ribbon').boundingBox()
-  const target = await h.evaluate(() => { const r = document.querySelector('.pdf-page[data-page="3"]').getBoundingClientRect(); return { x: r.right - 37, y: r.top + 30 } })
   const from = { x: tab.x + tab.width / 2, y: tab.y + 10 }
+  // Held 10px below its top, a 92px ribbon's end is 82px under the pointer: the pointer goes there, read from page 3 now.
+  const target = await h.evaluate(() => { const r = document.querySelector('.pdf-page[data-page="3"]').getBoundingClientRect(); return { x: r.right - 37, y: r.top - 6 - 82 } })
   const stop = sampler('drag')
   await h.mouse.move(from.x, from.y)
   await h.mouse.down()
@@ -127,11 +132,17 @@ try {
   check('held, it follows the pointer 1:1', Math.max(...gaps) - Math.min(...gaps) <= 2, `gap ${Math.min(...gaps).toFixed(1)} to ${Math.max(...gaps).toFixed(1)}px`)
   check('held over page 3, it says so', tip === 'p. 3', tip)
   const steps = frames.slice(1).map((one, at) => Math.hypot(one.x - frames[at].x, one.y - frames[at].y))
-  // The pointer is carried about 13px a frame (30 moves over ~400px); no sample may move more than a carry's 50 ms at
-  // that pace and a half again: a jump is a step with nothing between.
+  // The pointer is carried at most about 20px a move (30 moves); no sample may move more than a carry's 50 ms at that
+  // pace and a half again: a jump is a step with nothing between (21 Nov, frame 008: 827px, to a page top off screen).
   check('through the drag and settle, no jump (every 50 ms)', Math.max(...steps) < 90, `largest step ${Math.max(...steps).toFixed(1)}px over ${frames.length} samples`)
   const laid = await ribbon()
   check('let go, it lies on page 3', laid?.state === 'laid' && laid.at === '3', JSON.stringify(laid))
+  check('in the gap above page 3, on screen', await h.evaluate(() => {
+    const r = document.querySelector('.ribbon').getBoundingClientRect()
+    const page = document.querySelector('.pdf-page[data-page="3"]').getBoundingClientRect()
+    const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
+    return r.top < page.top && r.bottom > page.top && r.top > box.top
+  }))
   const settled = frames.slice(-4)
   check('and comes to rest', settled.every((one) => Math.abs(one.x - laid.x) < 1 && Math.abs(one.y - laid.y) < 1), JSON.stringify(settled.map((one) => [one.x, one.y])))
 
@@ -140,14 +151,14 @@ try {
   check('opened again, it lands on the ribbon, page 3', (await landedOn()) === 3, `landed on ${await landedOn()}`)
   check('with no "read on" line: nothing was read past it', !(await h.locator('[data-ribbon-read-on]').count()))
 
-  // Read on by hand to page 5, then opened again: page 3, with the line offering page 5.
+  // Read on by hand to page 5 (until the bar says 5), then opened again: page 3, with the line offering page 5.
   await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + scroller.height / 2)
-  for (let i = 0; i < 60 && (await landedOn()) !== 5; i++) {
+  for (let i = 0; i < 60 && (await shownPage()) !== 5; i++) {
     const top = await h.evaluate(() => document.querySelector('.pdf-page[data-page="5"]').getBoundingClientRect().top - document.querySelector('.pdf-reader-scroll').getBoundingClientRect().top)
-    if (Math.abs(top) < 30) break
-    await h.mouse.wheel(0, Math.max(-200, Math.min(200, top))); await wait(60)
+    await h.mouse.wheel(0, Math.max(-120, Math.min(120, top + 20))); await wait(80)
   }
   await wait(1200)
+  check('read on by hand, the bar says page 5', (await shownPage()) === 5, `bar says ${await shownPage()}`)
   await reopen(note)
   check('read on to page 5, opened again: still page 3', (await landedOn()) === 3, `landed on ${await landedOn()}`)
   const line = await h.locator('[data-ribbon-read-on]').textContent().catch(() => '')
