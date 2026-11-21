@@ -307,7 +307,9 @@ try {
   await h.keyboard.press('Escape'); await wait(300)
   await h.locator('[data-tag-more]').click(); await wait(400)
   const more = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((one) => one.textContent.trim()))
-  check('⋯ has Rename and Colour, and no Backdrop', more.some((one) => one.startsWith('Rename')) && more.some((one) => one.startsWith('Colour')) && !more.some((one) => /Backdrop/.test(one)), more.join(' / '))
+  // Its colour in the menu itself, under "Colour of #tag", never a submenu (the user, 21 Nov).
+  const hues = await h.evaluate(() => ({ heading: document.querySelector('[role="menu"] [data-tag-colour-menu]')?.textContent ?? '', swatches: document.querySelectorAll('[role="menu"] [role="menuitemradio"][data-tag-swatch]').length, sub: document.querySelectorAll('[role="menu"] [aria-haspopup="menu"]').length }))
+  check('⋯ has Rename and its colours in the menu itself, and no Backdrop', more.some((one) => one.startsWith('Rename')) && /^Colour of #/.test(hues.heading) && hues.swatches === 9 && hues.sub === 0 && !more.some((one) => /Backdrop/.test(one)), `${more.join(' / ')} ${JSON.stringify(hues)}`)
   await h.screenshot({ path: `${dir}/after-more-menu.png` })
   await h.keyboard.press('Escape'); await wait(300)
 

@@ -14,11 +14,11 @@ import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
 import { rowBody } from '@/lib/row-body'
 import { taggedBlocks } from '@/lib/tagged-blocks'
-import { quoted } from '../../../../main/clip'
+import { cut, quoted } from '../../../../main/clip'
 import { chime } from '@/lib/sound'
 import { Decoded, Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey, whyFailed } from './ui'
 import { Button } from '@/components/ui/button'
-import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
+import { RowMenu, Swatch, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DOT_IN_LINE, SessionDot, TaskSpentWords, useTaskTime } from './task-time'
 import { ReadThrough, type Readable } from './read-through'
@@ -27,7 +27,7 @@ import { PlayButton, ViewSwitch, pictureIn } from './collection-header'
 import { NoteList, type Entry as NoteEntry } from './note-list'
 import { age } from '../capture-list'
 import type { Picking } from '@/lib/pick-range'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { glance } from './note-preview'
@@ -754,19 +754,18 @@ function TagMenu({ tag, color, onTag, onShuffle, homeHidden }: {
         {onShuffle && <DropdownMenuItem onSelect={onShuffle}>Read in a random order</DropdownMenuItem>}
         <DropdownMenuItem onSelect={() => void renameTag(tag, onTag)}>Rename or merge…</DropdownMenuItem>
         <DropdownMenuItem data-tag-side onSelect={side.run}>{side.label}</DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger data-tag-colour-menu>Colour</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-44">
-            <DropdownMenuRadioGroup value={color ?? ''} onValueChange={colourTo}>
-              {COLOURS.map((one) => (
-                <DropdownMenuRadioItem key={one} value={one} data-tag-swatch={one}>
-                  <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${one})` }} />
-                  <span className="capitalize">{one}</span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+        {/* Its colour in the menu itself under a small heading, as a book's is (row-menu.tsx lines): a submenu of it was a
+            second step for nothing (the user, 21 Nov: "why did color have to be a submenu"). Picking the one worn takes it off. */}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel data-tag-colour-menu>Colour of #{cut(tag, 28)}</DropdownMenuLabel>
+        <div role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
+          {COLOURS.map((one) => (
+            <DropdownMenuItem key={one} aria-label={one[0].toUpperCase() + one.slice(1)} aria-checked={color === one} role="menuitemradio" data-tag-swatch={one} onSelect={() => colourTo(one)}
+              className="flex size-6 min-h-0 items-center justify-center rounded-md p-0 focus:bg-accent">
+              <Swatch color={`var(--tt-color-text-${one})`} on={color === one} />
+            </DropdownMenuItem>
+          ))}
+        </div>
         <DropdownMenuSeparator />
         {!decks.includes(tag) && <DropdownMenuItem data-tag-deck onSelect={() => void madeDeck(tag)}>Make a deck of its cards</DropdownMenuItem>}
         {/* The way back for a row taken off Home, and the same choice made from here. */}
