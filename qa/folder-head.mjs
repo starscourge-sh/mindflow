@@ -2,8 +2,8 @@
 // times, by the path's own words. The path row ("Folders", or "Folders › Films and books") and the first row of what is
 // under it sit at the same height on both pages, within 1px, in every 50 ms frame of each move (the user, 21 Nov: the
 // page "kinda moves between pages"). "Add a cover" and "Add words" are never chips: nothing offers them until the head
-// is pointed at, and then they are quiet icons among the head's actions. A folder's gems line and a drag tip are
-// never both up. Frames of both pages, light and dark, and the head pointed at, go to QA_SHOTS.
+// is pointed at, and then they are quiet icons among the head's actions. A folder's gem offer, when up, is on the
+// path's own line, never a line of its own over the list. Frames of both pages, light and dark, and the head pointed at, go to QA_SHOTS.
 //
 //   cp -cR <seeded sandbox> <copy>
 //   QA_DATA=<copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/folder-head.mjs
@@ -20,11 +20,12 @@ const h = c.h
 const wait = (ms) => h.waitForTimeout(ms)
 const shot = async (name) => shots && c.both(`${shots}/${name}`)
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
-// The path row's top and the first row under it: a folder's own subfolders first, else its list's first row.
+// The path row's top and the first thing of the list under it: a folder's own subfolders first, else its list's first
+// line, which is a date heading ("Previous 7 days") where the list is grouped, as Folders' first row is its first line.
 const tops = () => h.evaluate(() => {
   const top = (node) => (node ? Math.round(node.getBoundingClientRect().top * 10) / 10 : null)
   const path = document.querySelector('[data-folder-path]')
-  const first = document.querySelector('[data-all-folder], [data-folder-rows] > *, [data-page="folders"] button[data-row]')
+  const first = document.querySelector('[data-all-folder], [data-folder-rows] > *, [data-page="folders"] [data-group-head], [data-page="folders"] button[data-row]')
   return { path: top(path), row: top(first), title: path?.textContent ?? '' }
 })
 // Every 50 ms for 700 ms after a move: the path's top in each frame it is drawn.
@@ -37,7 +38,7 @@ const frames = async () => {
 const offered = () => h.evaluate(() => [...document.querySelectorAll('[data-folder-path] *, [data-folder-head] *')]
   .filter((one) => /^(Add a cover|Add words)$/.test(one.textContent?.trim() ?? '') && one.getBoundingClientRect().width > 0)
   .filter((one) => { let node = one; while (node) { if (Number(getComputedStyle(node).opacity) < 0.5) return false; node = node.parentElement } return true }).length)
-const tipsUp = () => h.evaluate(() => (document.querySelector('[data-folder-gems-line]') ? 1 : 0) + (document.querySelector('[data-drag-hint]') ? 1 : 0))
+const offerPlaced = () => h.evaluate(() => { const offer = document.querySelector('[data-folder-gems-line]'); return !offer || !!offer.closest('[data-folder-path]') })
 try {
   await c.v('settings:set', { hintRate: 0, rotCount: 0, sounds: false })
   // An everyday user: the lists' first-visit drag tips were seen on an earlier day (a first visit draws one over the
@@ -68,7 +69,7 @@ try {
     if (off.length) drift.push(`in ${round}: path ${off.map((one) => one.path).join(',')} vs ${home.path}`)
     if (inside.row === null || Math.abs(inside.row - home.row) > 1) drift.push(`in ${round}: first row ${inside.row} vs ${home.row}`)
     check(`round ${round}: no "Add a cover" or "Add words" chip until asked`, (await offered()) === 0)
-    check(`round ${round}: never a gems line and a drag tip both up`, (await tipsUp()) <= 1)
+    check(`round ${round}: a gem offer, if any, sits on the path's own line`, await offerPlaced())
     if (round === 1) {
       await shot('folder-page')
       await h.locator('[data-folder-path]').hover()

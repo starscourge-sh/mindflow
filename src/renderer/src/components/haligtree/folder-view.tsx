@@ -4,7 +4,7 @@ import { HaligtreeEditor } from './haligtree-editor'
 import { saveImage } from '@/extensions/image-drop'
 import { quietly, sayNow } from './ui'
 import { ChevronRight, FolderPlus, ImagePlus, PenLine, Text } from 'lucide-react'
-import { FolderGems } from './folder-gems'
+import { FolderGems, FolderGemsOffer } from './folder-gems'
 import { Empty, Island, Page, Tip } from './ui'
 import { ItemsView } from './items-view'
 import { CapturesView } from './captures-view'
@@ -60,6 +60,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   const items = useLive(() => folders.items(id), null as FolderItem[] | null, [id], undefined, `folders:items:${id}`)
   // "Add words" asked for from the head's actions: the words' editor opens under the path, the caret in it.
   const [writing, setWriting] = useState(false)
+  // The lines its gem offer opened ("See them"), under the head.
+  const [gemsOpen, setGemsOpen] = useState(false)
   const ofCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
   const ofTasks = useLive(() => folders.of('tasks'), {} as Record<string, string>, [], undefined, 'folders:of:tasks')
   useCalendars()
@@ -98,6 +100,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       {/* Over its name, its cover, as a Notion page's. */}
       {folder?.cover && <FolderFront key={`${folder.id}:cover`} folder={folder} part="cover" />}
       <FolderPath trail={path.slice(0, -1)} onPlace={onPlace} here={<>{folder && <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />}{name}</>}>
+        {/* Lines in its notes that could be gems: offered once, here on the head's own line, so it moves nothing in. */}
+        {folder && <FolderGemsOffer key={`${folder.id}:offer`} folder={folder} onSee={() => setGemsOpen(true)} />}
         {folder && !folder.cover && (
           <Tip label="Add a cover"><CoverPick folder={folder} data-folder-cover-add="" aria-label="Add a cover" className={quiet}><ImagePlus aria-hidden className="size-3.5" /></CoverPick></Tip>
         )}
@@ -117,8 +121,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       {/* Only when there is nothing yet: a folder that holds things says so in its list header ("2 pages") and its tabs;
           a sentence repeating it read as slapped on (the user, 21 Nov). */}
       {!shown.length && !inside.length && !unfiled && <p data-folder-fact="" className="mt-2 text-control text-muted-foreground">{fact}</p>}
-      {/* Lines in its notes that could be gems: one quiet line, once (folder-gems.tsx). */}
-      {folder && <FolderGems key={folder.id} folder={folder} />}
+      {/* The lines it offered, opened with "See them" (folder-gems.tsx). */}
+      {folder && <FolderGems key={folder.id} folder={folder} open={gemsOpen} onClose={() => setGemsOpen(false)} />}
       {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
       {/* The calendars that keep their notes here: their next four weeks, each opening on the Calendar. */}
       {!!coming?.calendars.length && (
@@ -153,7 +157,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
  */
 function FolderPath({ trail, here, onPlace, children }: { /** The folders above this one; null on the Folders page itself. */ trail: Folder[] | null; here: React.ReactNode; onPlace: (id: string | null) => void; children?: React.ReactNode }): React.JSX.Element {
   return (
-    <nav aria-label={trail ? 'Where this folder is' : 'Folders'} data-folder-path="" className="-ml-1.5 flex min-h-7 min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
+    <nav aria-label={trail ? 'Where this folder is' : 'Folders'} data-folder-path="" className="-ml-1.5 flex h-7 min-w-0 items-center gap-1 text-control text-muted-foreground">
       {trail && <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>}
       {trail?.map((one) => (
         <span key={one.id} className="flex min-w-0 items-center gap-1"><ChevronRight className="size-3 shrink-0" /><button type="button" onClick={() => onPlace(one.id)} className="cursor-pointer truncate rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">{one.name}</button></span>

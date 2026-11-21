@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { positionalKeys, usePresence, type MotionProps, type TargetAndTransition, type Transition, type Variants } from 'motion/react'
 
 /**
@@ -213,20 +213,6 @@ export function hush(id: string): void {
   voice = null
   clearTimeout(quiet)
   document.documentElement.removeAttribute('data-voice')
-}
-
-/**
- * First-visit tips on screen now, by kind (the user, 21 Nov: a folder's gems line over a list's drag tip read as
- * stacked chrome). Whichever arrives first keeps its place; the other is not shown on that visit and comes another.
- */
-const tipsUp = new Map<string, number>()
-export const tipUp = (kind: string): boolean => (tipsUp.get(kind) ?? 0) > 0
-export function useTipUp(kind: string, up: boolean): void {
-  useLayoutEffect(() => {
-    if (!up) return
-    tipsUp.set(kind, (tipsUp.get(kind) ?? 0) + 1)
-    return () => void tipsUp.set(kind, (tipsUp.get(kind) ?? 1) - 1)
-  }, [kind, up])
 }
 
 const visited = new Set<string>()

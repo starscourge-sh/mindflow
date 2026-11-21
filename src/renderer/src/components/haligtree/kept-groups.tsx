@@ -21,7 +21,7 @@ import { chime, click } from '@/lib/sound'
 import { pastEdge } from '@/lib/drag-edge'
 import { moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
-import { byKeys, still, tipUp, useTipUp } from '@/lib/motion'
+import { byKeys, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -607,11 +607,8 @@ function DragHint({ name, said }: { name: string; said: string }): React.JSX.Ele
   // the list changes kind under a line that is showing (a row let go in a sorted list turns it to your own order).
   // Then the new kind's line takes the old one's place, so the rows do not jump up by a line under the row just let
   // go (qa/group-drag-hints.mjs, "it sits where the room was": 26px off before this).
-  // Not under a folder's gems line already up on the same page (lib/motion.ts `useTipUp`): the two never stack. It is
-  // not put away by that, so it shows on a later visit.
-  const [up, setUp] = useState(() => ({ name, on: !said_(name) && !tipUp('folder-gems') }))
+  const [up, setUp] = useState(() => ({ name, on: !said_(name) }))
   if (up.name !== name) setUp({ name, on: up.on || !said_(name) })
-  useTipUp('drag', up.on && up.name === name)
   if (!up.on || up.name !== name) return null
   const done = (): void => {
     setUp({ name, on: false })
