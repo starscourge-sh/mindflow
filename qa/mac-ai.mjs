@@ -54,26 +54,23 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
     // A question's clue.
     const question = await v('question:new', 'What did the Stoics think about judgement?')
     await send('question', question)
-    let why = null
-    for (let t = 0; t < 12000 && why === null; t += 300) {
-      await wait(300)
-      const state = await h.evaluate(() => ({ clues: document.querySelectorAll('[data-offer-clue]').length, why: document.querySelector('[data-ai-why]')?.textContent ?? null }))
-      if (state.why || (!ai && state.clues)) why = state.why ?? ''
-    }
-    check(`${level}: a clue offered for a question ${ai ? 'says why it may help, written on this Mac' : 'has no why line'}`, ai ? /stand-in's reason/.test(why ?? '') && /Written on this Mac/.test(why) : why === '', why)
-    // Ask your book: every Mac gets the notes; with the model, one sentence from those notes only, the notes named.
+    // Each clue offered shows its own sentence that matches the question, on every Mac, never a model's reason. (Each
+    // round asks the same question again in one book, so the earlier asks come up as clues too, with no words to quote.)
+    let clues = []
+    for (let t = 0; t < 12000 && !clues.some((one) => one.line); t += 300) (await wait(300), (clues = await h.evaluate(() => [...document.querySelectorAll('[data-offer-clue]')].map((one) => ({ name: one.querySelector('[data-offer-note]')?.textContent ?? '', line: one.querySelector('[data-clue-line]')?.textContent ?? '' })))))
+    const notes = clues.filter((one) => !/^What did the Stoics think/.test(one.name))
+    check(`${level}: each clue offered quotes its own matching line, and no Mac-written reason`, clues.length > 0 && (notes.length > 0 || level === 'ai') && notes.every((one) => /^“.+”$/.test(one.line)) && !(await h.$('[data-ai-why]')), JSON.stringify(clues).slice(0, 300))
+    // Ask your book: every Mac gets the notes; with the model, one short sentence from those notes only.
     let answer = null
-    for (let t = 0; t < 8000 && ai && !/stand-in's answer|Not answered/.test(answer ?? ''); t += 300) (await wait(300), (answer = await h.evaluate(() => document.querySelector('[data-ai-answer]')?.textContent ?? null)))
+    for (let t = 0; t < 8000 && ai && !/stand-in|Not answered|do not answer/.test(answer ?? ''); t += 300) (await wait(300), (answer = await h.evaluate(() => document.querySelector('[data-ai-answer]')?.textContent ?? null)))
     if (!ai) answer = await h.evaluate(() => document.querySelector('[data-ai-answer]')?.textContent ?? null)
-    const named = await h.evaluate(() => [...document.querySelectorAll('[data-offer-clue] [data-offer-note]')].slice(0, 3).map((one) => one.textContent.trim()))
-    check(`${level}: the question's notes ${ai ? 'come with one sentence from them, naming them, written on this Mac' : 'come alone, no answer line'}`,
-      ai ? /stand-in's answer/.test(answer ?? '') && named.every((title) => (answer ?? '').includes(`“${title}”`)) && /written on this Mac/.test(answer ?? '') : answer === null, `${answer} | ${named.join(' / ')}`)
-    // Held to two lines for good (20 Nov), so nothing under them moves when the Mac's words come in late: a longer one
-    // ends in "…", whole on pointing (its title). One answer and a why line per clue shown, so two or more.
+    check(`${level}: the question's notes ${ai ? 'come with one sentence from them, said in full on pointing' : 'come alone, no answer line'}`,
+      ai ? /^Your notes say: /.test(answer ?? '') && /Written on this Mac/.test(await h.$eval('[data-ai-answer]', (one) => one.title)) : answer === null, answer)
+    // Held to two lines for good (20 Nov), so nothing under it moves when the Mac's words come in late.
     if (ai) {
       await wait(400)
-      const held = await h.evaluate(() => [...document.querySelectorAll('[data-ai-answer], [data-ai-why]')].map((one) => ({ lines: one.clientHeight / parseFloat(getComputedStyle(one).lineHeight), whole: one.title === one.textContent.trim() })))
-      check(`${level}: the answer and the why line keep two lines, the whole words on pointing`, held.length >= 2 && held.every((one) => Math.abs(one.lines - 2) < 0.1 && one.whole), JSON.stringify(held))
+      const held = await h.evaluate(() => [...document.querySelectorAll('[data-ai-answer]')].map((one) => one.clientHeight / parseFloat(getComputedStyle(one).lineHeight)))
+      check(`${level}: the answer keeps two lines`, held.length === 1 && Math.abs(held[0] - 2) < 0.1, JSON.stringify(held))
     }
     if (ai && process.env.SHOT) await c.both(`${process.env.SHOT}/ai-why`)
     // What Haligtree can do.

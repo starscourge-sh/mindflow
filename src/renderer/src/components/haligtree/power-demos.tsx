@@ -2007,17 +2007,17 @@ const CallsDemo: Demo = ({ live }) => {
   )
 }
 
-/** A note offered for a question, and the line on why it may help. */
+/** Notes offered for a question, each with its own matching line, then one answer from them. */
 const ClueWhyDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 2800], live, 1)
   return (
     <Col>
       <div className="rounded-xl border bg-background px-3 py-2.5">
         <div className="font-heading text-control font-semibold text-foreground">Who is the real monster?</div>
-        <div className="mt-1.5 text-meta text-muted-foreground">May help answer it</div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-control text-foreground"><FileText className="size-3.5 shrink-0 text-muted-foreground" />Notes on Frankenstein, chapter 15</div>
+        <div className="mt-1.5 flex items-center gap-1.5 text-control text-foreground"><FileText className="size-3.5 shrink-0 text-muted-foreground" />Notes on Frankenstein, chapter 15</div>
+        <p className="text-meta text-muted-foreground">“The creature is kind until he is turned away.”</p>
         <motion.div initial={false} animate={{ height: at === 1 ? 'auto' : 0, opacity: at === 1 ? 1 : 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
-          <p className="pt-1 text-meta text-muted-foreground"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />The creature is kind until he is turned away. Written on this Mac.</p>
+          <p className="pt-1.5 text-control text-foreground"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px] text-muted-foreground" />Victor, who turns away the creature he made.</p>
         </motion.div>
       </div>
     </Col>

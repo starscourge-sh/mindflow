@@ -742,7 +742,7 @@ function PlaceBox({ box, label, icon, attrs }: { box: { left: number; top: numbe
       initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }}
       transition={{ type: 'spring', duration: 0.22, bounce: 0 }}>
       <span aria-hidden className="absolute inset-2 rounded-[15px] border-2 border-dashed border-[var(--tt-brand-color-400)] bg-[color-mix(in_oklab,var(--tt-brand-color-400)_6%,transparent)]" />
-      <span className="relative flex items-center gap-2 rounded-full border bg-popover px-3.5 py-2 font-medium text-control text-foreground shadow-(--mf-panel-shadow) [&_svg]:size-4 [&_svg]:text-[var(--tt-brand-color-400)]">
+      <span className="relative flex shrink-0 items-center gap-2 rounded-full border bg-popover px-3.5 py-2 font-medium text-control text-foreground shadow-(--mf-panel-shadow) [&_svg]:size-4 [&_svg]:text-[var(--tt-brand-color-400)]">
         {icon}{label}
       </span>
     </motion.div>

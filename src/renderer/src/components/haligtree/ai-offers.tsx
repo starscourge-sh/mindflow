@@ -57,30 +57,6 @@ export function WeekParagraph({ monday, had, onKeep }: { monday: string; had: st
 const WORDS_ROOM = 'h-[2lh] overflow-hidden'
 const WORDS_CUT = 'block line-clamp-2'
 
-/** Under a clue offered for a question: one line on why it may help, written on this Mac. */
-export function WhyLine({ question, note }: { question: string; note: string }): React.JSX.Element | null {
-  // Whether this Mac can write it is known before the page shows, so its room is there from the first frame or never.
-  const caps = useCaps()
-  useReading(caps === null)
-  const has = meets(caps, 'ai')
-  const [said, setSaid] = useState<Written | null>(null)
-  useEffect(() => {
-    if (!has) return
-    let live = true
-    setSaid(null)
-    void window.api.haligtree<Written>('ai:why', question, note).then((one) => live && setSaid(one), (error: Error) => live && setSaid({ error: error.message }))
-    return () => void (live = false)
-  }, [has, question, note])
-  if (!has) return null
-  // Two lines held from the first frame: the orb while this Mac writes, then its words in that same room (WORDS_ROOM).
-  const words = said && 'text' in said ? `${said.text} Written on this Mac.` : said ? `Not written: ${said.error}.` : null
-  return (
-    <p data-mac-needs="ai" data-ai-why data-room-held title={words ?? undefined} className={`${WORDS_ROOM} text-meta text-muted-foreground`}>
-      {words === null ? <Orb label="Asking this Mac why…" /> : <span className={WORDS_CUT}><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{words}</span>}
-    </p>
-  )
-}
-
 /**
  * Ask your book, on a question's page: one sentence answering it from the notes found for it, those only, each named.
  * Only where the Mac has Apple Intelligence; elsewhere the notes alone are the answer (offers-about.tsx).
@@ -99,13 +75,14 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
     return () => void (live = false)
   }, [has, question, asked.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!has) return null
-  const from = [...new Set(notes.map((one) => one.title))].slice(0, 3).map((title) => `“${title}”`)
-  const named = from.length > 1 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from[0]
-  const words = said && 'text' in said ? `${said.text} From ${named}, written on this Mac.` : said ? `Not answered: ${said.error}.` : null
+  // The notes it read are the list just above, so the answer alone: naming them again after it ran it past two lines,
+  // cut mid-word ("…written on"). When the notes do not answer it, the page says so in its own few words.
+  const words = said && 'text' in said ? said.text || 'Your notes do not answer this yet.' : said ? `Not answered: ${said.error}.` : null
+  const answered = !!said && 'text' in said && !!said.text
   return (
-    // Two lines held from the first frame, as WhyLine holds its room: the orb while this Mac writes, then the answer.
-    <p data-mac-needs="ai" data-ai-answer data-room-held title={words ?? undefined} className={`mt-1 ${WORDS_ROOM} text-body text-foreground`}>
-      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span className={WORDS_CUT}><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
+    // Two lines held from the first frame: the orb while this Mac writes, then the answer in that same room.
+    <p data-mac-needs="ai" data-ai-answer data-room-held title={answered ? `${words} Written on this Mac from the notes above.` : words ?? undefined} className={`mt-1 ${WORDS_ROOM} text-body ${answered ? 'text-foreground' : 'text-muted-foreground'}`}>
+      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span className={`${WORDS_CUT} animate-in fade-in-0 duration-200`}>{answered && <Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />}{words}</span>}
     </p>
   )
 }

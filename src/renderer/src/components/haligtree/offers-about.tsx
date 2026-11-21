@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AnswerLine, WhyLine } from './ai-offers'
+import { AnswerLine } from './ai-offers'
 import { BookOpen, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
@@ -29,6 +29,23 @@ const gone = (): Set<string> => {
   }
 }
 const putAway = (id: string): void => localStorage.setItem(SEEN, JSON.stringify([...gone(), id].slice(-500)))
+
+/**
+ * The note's own sentence that shares the most words with the question: why it was offered, shown, never guessed. The
+ * Mac's model was asked for a reason once, and argued against its own offer ("may not answer the question because…").
+ */
+const rootsOf = (text: string): Set<string> => new Set((text.toLowerCase().match(/\p{L}{4,}/gu) ?? []).map((word) => word.slice(0, 5)))
+export const matchingLine = (question: string, words: string): string => {
+  const asked = rootsOf(question)
+  const lines = words.split(/(?<=[.!?…])\s+/).map((one) => one.trim()).filter(Boolean)
+  let best = lines[0] ?? ''
+  let most = -1
+  for (const line of lines) {
+    const shared = [...rootsOf(line)].filter((root) => asked.has(root)).length
+    if (shared > most) (most = shared), (best = line)
+  }
+  return best
+}
 
 function useAbout(text: string | null, leave?: string): About[] | null {
   // Found for which words: a line found for the note before is never shown under this one.
@@ -61,7 +78,7 @@ export function QuestionClues({ id, title, onOpen }: { id: string; title: string
           <li key={one.key} data-offer-clue={one.key} className="flex items-center gap-2">
             <span className="flex min-w-0 flex-1 flex-col">
               <OfferNote link={one.key} onOpen={onOpen} className="cursor-pointer truncate rounded-sm text-left text-body text-foreground hover:underline">{one.title}</OfferNote>
-              <WhyLine question={title} note={`${one.title}. ${one.words}`} />
+              {one.words && <span data-clue-line className="line-clamp-2 text-meta text-muted-foreground">“{matchingLine(title, one.words)}”</span>}
             </span>
             <button type="button" data-offer-keep className="mf-note-offer-button" onClick={() => void haligtree.addClue(id, `${one.title}: ${one.words}`).then((clue) => (chime('clue'), putAway(`${id}|${one.key}`), setShown(gone()), toast('Kept as a clue', clue ? () => void haligtree.dropClue(clue) : undefined)))}>Keep as a clue</button>
             <button type="button" aria-label="Not it" title="Not it" className="mf-note-offer-close" onClick={() => (chime('fold'), putAway(`${id}|${one.key}`), setShown(gone()))}><X className="size-3.5" /></button>

@@ -2960,7 +2960,7 @@ html[data-resizing], [data-carry-cursor='col-resize'] { cursor: col-resize !impo
 @media (prefers-reduced-motion: reduce) { .mf-note-offer { animation: none; } }
 :root[data-motion="off"] .mf-note-offer { animation: none; }
 .mf-note-offer-icon { flex: none; display: grid; color: var(--muted-foreground); }
-.mf-note-offer-button { flex: none; cursor: pointer; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-weight: 500; color: var(--foreground); background: color-mix(in oklab, var(--foreground) 7%, transparent); transition: background-color 150ms ease, transform 100ms ease; }
+.mf-note-offer-button { flex: none; cursor: pointer; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: var(--text-control); line-height: var(--text-control--line-height); font-weight: 500; color: var(--foreground); background: color-mix(in oklab, var(--foreground) 7%, transparent); transition: background-color 150ms ease, transform 100ms ease; }
 .mf-note-offer-button:hover:not(:disabled) { background: color-mix(in oklab, var(--foreground) 11%, transparent); }
 .mf-note-offer-button:active:not(:disabled), .mf-note-offer-close:active { transform: scale(0.97); }
 /* An offer of several with none ticked: its button says so ("None ticked"), at half strength, and does nothing. */

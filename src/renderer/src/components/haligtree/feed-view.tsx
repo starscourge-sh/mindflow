@@ -933,7 +933,7 @@ function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: str
       </Tip>
       <div className="flex gap-3">
         <div className="flex w-9 shrink-0 flex-col items-center">
-          <span aria-hidden className="mt-0.5 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_6%,var(--background))] text-(--mf-muted-strong)">
+          <span aria-hidden className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--foreground)_6%,var(--background))] text-(--mf-muted-strong)">
             {card.level === 'connect' ? <Link2 className="size-4" /> : <Sparkles className="size-4" />}
           </span>
         </div>

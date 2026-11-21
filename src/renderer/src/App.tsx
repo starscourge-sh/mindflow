@@ -238,6 +238,51 @@ const readLeftover = (): JSONContent | null => {
     return null
   }
 }
+/** The draft from earlier, offered back: what it is, then what a click does, in words, and × to let it go. */
+function LeftoverChip({ doc, onBack, onDrop, className, underWords }: { doc: JSONContent; onBack: () => void; onDrop: () => void; className: string; underWords?: boolean }): React.JSX.Element {
+  // In the box it follows the editor, whose own room under the line (its padding, a line held for the caret) left it
+  // 45px below the words: lifted to 8px under the last line, read before paint and on every change of the words'
+  // height (a hint typing onto a second line), gliding there, never jumping.
+  const row = useRef<HTMLDivElement>(null)
+  const [lift, setLift] = useState(0)
+  const [gliding, setGliding] = useState(false)
+  React.useLayoutEffect(() => {
+    const box = row.current
+    const words = box?.parentElement?.parentElement?.querySelector<HTMLElement>('.ProseMirror')
+    if (!underWords || !box || !words) return
+    const read = (): void => {
+      const last = words.lastElementChild?.getBoundingClientRect().bottom ?? 0
+      // Its place as laid out: the box as drawn, less the lift already on it.
+      const top = box.getBoundingClientRect().top + Number(box.dataset.lift ?? 0)
+      const next = Math.max(0, Math.round(top - last))
+      box.dataset.lift = String(next)
+      setLift(next)
+    }
+    read()
+    // Placed at once as it shows; only a later change of the words' height glides.
+    const glide = requestAnimationFrame(() => setGliding(true))
+    const watch = new ResizeObserver(read)
+    watch.observe(words)
+    if (words.lastElementChild) watch.observe(words.lastElementChild)
+    return () => (cancelAnimationFrame(glide), watch.disconnect())
+  }, [underWords])
+  return (
+    <div ref={row} data-leftover-row className={className} style={underWords ? { transform: `translateY(${-lift}px)`, transition: gliding ? 'transform 200ms var(--mf-ease, ease)' : 'none' } : undefined}>
+      {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
+      <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={onBack}
+        className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+        <span className="shrink-0">Unsaved from earlier:</span>
+        <span className="truncate text-(--mf-muted-strong)">{leftoverName(doc)}</span>
+        <span aria-hidden className="text-muted-foreground/60">·</span>
+        <span className="shrink-0 font-medium text-foreground">Bring it back</span>
+      </button>
+      <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={onDrop}
+        className="ml-1 inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+        <X className="size-3.5" />
+      </button>
+    </div>
+  )
+}
 /** What a leftover is, in a few words: its first line, or "Voice note · 0:56" for a recording alone. */
 const leftoverName = (doc: JSONContent): string => {
   const line = shownName(firstLine(doc))
@@ -2636,7 +2681,11 @@ export default function App(): React.JSX.Element {
                 {/* Made just now by a link to a name found nowhere: why it is empty, said under its name (captures-view.tsx says it over its words). */}
                 {madeByLink(editing.id) && <p data-made-by-link className="mt-1 text-body text-foreground"><strong className="font-semibold">A new note:</strong> {madeByLink(editing.id)}</p>}
                 <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} />
-              </> : definition && <DefineGhost definition={meaningWaits ? { ...definition, state: 'looking' } : definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
+              </> : leftover && !started && glance === 'write' && !(pill && window.api.room.left)
+                // Grown into the box, the chip sits right under the writing line, in the room after the words: as its own
+                // row under the writing's room it floated mid-box, a blank of three lines over it and two rows under it.
+                ? <LeftoverChip underWords doc={leftover} onBack={leftoverBack} onDrop={dropLeftover} className="flex items-center px-[4.75rem] pt-2" />
+                : definition && <DefineGhost definition={meaningWaits ? { ...definition, state: 'looking' } : definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
               onSource={() => setSource((open) => !open)}
               // A tag opens its page in the main window, as a note link opens there.
               onTag={(tag) => (chime('open'), window.api.openInHome('tag', tag))}
@@ -2658,37 +2707,7 @@ export default function App(): React.JSX.Element {
             {/* A draft left an hour or more: a small chip, never the top of the box. */}
             {/* While it is the pill (in quick capture's room), the chip is drawn outside the writing's scroller, in the
                 page's own layer, so it is never overflow there for the caret to scroll the words away to (main.css). */}
-            {leftover && !editing && !started && glance === 'write' && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="flex items-center px-[4.75rem] pt-1.5">
-                {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
-                  <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
-                    className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
-                    {/* What it is, then what a click does, in words: "Still to keep" left a newcomer guessing at both. */}
-                    <span className="shrink-0">Unsaved from earlier:</span>
-                    <span className="truncate text-(--mf-muted-strong)">{leftoverName(leftover)}</span>
-                    <span aria-hidden className="text-muted-foreground/60">·</span>
-                    <span className="shrink-0 font-medium text-foreground">Bring it back</span>
-                  </button>
-                  <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={dropLeftover}
-                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full shrink-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
-                    <X className="size-3.5" />
-                  </button>
-              </div>, document.body) : (
-              <div data-leftover-row className="flex items-center px-[4.75rem] pt-1.5">
-                {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
-                  <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
-                    className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
-                    {/* What it is, then what a click does, in words: "Still to keep" left a newcomer guessing at both. */}
-                    <span className="shrink-0">Unsaved from earlier:</span>
-                    <span className="truncate text-(--mf-muted-strong)">{leftoverName(leftover)}</span>
-                    <span aria-hidden className="text-muted-foreground/60">·</span>
-                    <span className="shrink-0 font-medium text-foreground">Bring it back</span>
-                  </button>
-                  <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={dropLeftover}
-                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full shrink-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
-                    <X className="size-3.5" />
-                  </button>
-              </div>
-            ))}
+            {leftover && !editing && !started && glance === 'write' && pill && window.api.room.left && createPortal(<LeftoverChip doc={leftover} onBack={leftoverBack} onDrop={dropLeftover} className="flex items-center px-[4.75rem] pt-1.5" />, document.body)}
             {/* Reading another capture with a note half written: the way back
                 to it stays in view, so a link followed never loses the draft. */}
             {waiting && (
