@@ -13,10 +13,10 @@ import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import { warmBin } from '@/lib/fly-home'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react'
 import { wearFinish } from './components/haligtree/review-toolbar'
-import { BookOpen, Check, ChevronsDownUp, ChevronsUpDown, Compass, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
+import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, byPointer, keyedMotion, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/haligtree/glide'
@@ -104,7 +104,7 @@ import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
 import { askBook, switchBook, useShelf, type Book } from '@/lib/books'
 import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
-import { BookMark, BookName, BookShelf, askNewBook, bookMenu, colourChoices } from '@/components/haligtree/books'
+import { BookMark, BookName, BookShelf, askNewBook, bookMenu, colourChoices, colourSwatches } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint, pageSaid } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
@@ -125,7 +125,7 @@ import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
 import { Term, WordNotes } from '@/components/haligtree/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
-import { copyLinkItem, openFromGrip, RowMenu } from '@/components/haligtree/row-menu'
+import { copyLinkItem, openFromGrip, RowMenu, Swatch } from '@/components/haligtree/row-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/haligtree/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
@@ -161,7 +161,7 @@ import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligt
 import { kMeansLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
 import { countUse, takeWay, via, type Via } from '@/lib/usage'
-import { quoted } from '../../main/clip'
+import { cut, quoted } from '../../main/clip'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -2759,20 +2759,22 @@ export function Home(): React.JSX.Element {
               {!!shelfNow?.books.length && <BookShelf books={shelfNow.books} onMenu={openBookMenu}
                 onPick={(book) => (book.current ? setView({ id: 'settings', focus: `book:${book.id}`, nonce: Date.now() }) : void switchBook(book.id))} />}
               {!SANDBOX && <DropdownMenuItem data-peek="new-book" onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
-              {/* The open book's colour, where a person looks for it first: under the books, the nine as in Settings and ⌘K. */}
+              {/* The open book's colour, where a person looks for it first: under the books, the nine in the menu itself
+                  under a small heading, as its right-click menu has them (row-menu.tsx lines). A submenu holding one row of
+                  swatches was a second step for nothing (the user, 21 Nov: "why did color have to be a submenu"). */}
               {!SANDBOX && openBook && (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger data-book-colour>Book colour</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {colourChoices(openBook).map((one) => (
-                      <DropdownMenuItem key={one.label} aria-current={one.note ? true : undefined} className={one.note ? 'pr-8' : undefined} onSelect={one.run}>
-                        {one.mark}
-                        <span className="min-w-0 flex-1 truncate">{one.label}</span>
-                        {one.note && <span className="pointer-events-none absolute right-2 flex items-center justify-center"><Check aria-label="Worn now" /></span>}
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel data-book-colour>Colour of {cut(openBook.name, 28)}</DropdownMenuLabel>
+                  <div role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
+                    {colourSwatches(openBook).map((one) => (
+                      <DropdownMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
+                        className="flex size-6 min-h-0 items-center justify-center rounded-md p-0 focus:bg-accent">
+                        <Swatch color={one.color} on={one.on} />
                       </DropdownMenuItem>
                     ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                  </div>
+                </>
               )}
               <DropdownMenuSeparator />
               {/* Customize leads (the user's ask, 928); Settings closes the menu, its ⌘, still beside it. */}

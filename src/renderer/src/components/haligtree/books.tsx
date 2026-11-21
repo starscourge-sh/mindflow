@@ -60,6 +60,10 @@ export function colourBook(book: Book, hue: Hue | null): void {
   toast(hue ? `${cut(book.name, 40)} is ${hueName(hue).toLowerCase()} now` : `${cut(book.name, 40)} wears the theme’s own colour now`, () => pickBookColor(book, book.color), 'info')
 }
 
+/** A book's nine as swatches, the one worn ticked: in its right-click menu, its row's menu in Settings and the sidebar's book menu. */
+export const colourSwatches = (book: Book): { color: string; label: string; on: boolean; run: () => void }[] =>
+  NINE.map(({ hue, label, ink }) => ({ color: ink, label, on: hue === book.color, run: () => colourBook(book, hue) }))
+
 /** “Book colour…” in ⌘K: the nine as its second step, each marked as the book would be, the one worn said. */
 export const colourChoices = (book: Book): { label: string; note?: string; mark: React.JSX.Element; run: () => void }[] =>
   NINE.map(({ hue, label }) => ({ label, note: hue === book.color ? 'worn now' : undefined, mark: <BookMark hue={hue} />, run: () => colourBook(book, hue) }))
@@ -72,7 +76,7 @@ export const colourChoices = (book: Book): { label: string; note?: string; mark:
 export const bookMenu = (book: Book, inSettings: (rename: boolean) => void): RowItem[] => [
   ...(SANDBOX ? [] : [
     { heading: `Colour of ${cut(book.name, 28)}` },
-    { swatches: NINE.map(({ hue, label, ink }) => ({ color: ink, label, on: hue === book.color, run: () => colourBook(book, hue) })) },
+    { swatches: colourSwatches(book) },
     'separator' as const,
     { label: 'Rename…', run: () => inSettings(true) }
   ]),
@@ -89,7 +93,7 @@ export const bookRowMenu = (book: Book, { rename, remove }: { rename: () => void
   // The colours in the menu itself, as the sidebar's book menu has them: a submenu holding one row of swatches was a
   // second step for nothing (the user, 21 Nov: "why did color have to be a submenu").
   { heading: book.current ? 'Colour: tints the sidebar and accent' : 'Colour: tints the sidebar once open' },
-  { swatches: NINE.map(({ hue, label, ink }) => ({ color: ink, label, on: hue === book.color, run: () => colourBook(book, hue) })) },
+  { swatches: colourSwatches(book) },
   'separator',
   { label: 'Rename…', run: rename },
   { label: 'Delete…', danger: true, can: () => !book.current && book.id !== 'default', run: remove }

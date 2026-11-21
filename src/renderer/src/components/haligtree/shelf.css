@@ -56,6 +56,9 @@
 .mf-shelf .mf-spine .mf-flat-spine-title {
   writing-mode: vertical-rl;
   rotate: 180deg;
+  /* Turned to read up from the foot, so a layer of its own: the spine face's hidden back does not reach it, and its
+     words showed through the cover of a book turned out (21 Nov). Hidden from behind itself. */
+  backface-visibility: hidden;
   overflow: hidden;
   font: 600 13px/1 var(--mf-shelf-sans);
   letter-spacing: 0.01em;
