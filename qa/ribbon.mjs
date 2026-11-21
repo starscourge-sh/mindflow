@@ -482,7 +482,6 @@ try {
   check('and it stayed under the pointer as they scrolled (1:1)', Math.max(...stuck.map((one) => one[1])) - Math.min(...stuck.map((one) => one[1])) <= 2 && Math.max(...stuck.map((one) => one[0])) - Math.min(...stuck.map((one) => one[0])) <= 2, JSON.stringify(stuck.slice(0, 6)))
   const edgeFar = far ? await restedOn(far.page) : null
   check('let go, it lies on the page the chip named, on its top edge', far?.page === Number(lastHeld.chip.slice(3)) && (await ribbon())?.at === String(far.page) && Math.abs(edgeFar?.off ?? 99) <= 1, `edge ${JSON.stringify(edgeFar)} kept ${JSON.stringify(far)} chip ${lastHeld.chip}`)
-  check('the "You read on" line and the notice were both up, and never over each other', floats.some((one) => one.both) && floats.every((one) => !one.overlap), JSON.stringify(floats.filter((one) => one.both).slice(-3)))
   check('one tap per page crossed on the way down', (await taps()) - taps1 === deepCrossings, `${(await taps()) - taps1} taps for ${deepCrossings} crossings`)
 
   // Read back up to page 2: the ribbon lies below, so the pill sits at the FOOT, pointing down, beside the pages.
@@ -513,6 +512,17 @@ try {
   check('"Go to it" from far away lands with the ribbon in view', await h.evaluate(() => { const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect(); const b = document.querySelector('.pdf-reader-scroll').getBoundingClientRect(); return r.top >= b.top && r.bottom <= b.bottom }))
   check('and it bounces: stretched above 1, back to 1 within 700 ms', up >= 0 && backAt > up && bf[backAt].ms - bf[up].ms <= 700, `up at ${up}, back at ${backAt}, ${backAt > up ? Math.round(bf[backAt].ms - bf[up].ms) : '-'} ms`)
   check('only once the pages came to rest, never while they moved', up >= 0 && bf.slice(Math.max(0, up - 1)).every((one, i, all) => !i || Math.abs(one.sy - all[i - 1].sy) < 1), JSON.stringify(bf.slice(Math.max(0, up - 2), up + 4).map((one) => [Math.round(one.sy), one.stretch.toFixed(3)])))
+  // "Go to it" lands past where you read: "You read on" comes up at the foot, often with a notice; they never overlap.
+  for (let i = 0; i < 20; i++) {
+    floats.push(await h.evaluate(() => {
+      const a = document.querySelector('[data-ribbon-read-on]')?.getBoundingClientRect()
+      const b = document.querySelector('[data-toast]')?.getBoundingClientRect()
+      if (!a?.width || !b?.width) return { both: false }
+      return { both: true, overlap: a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top, gap: Math.round(b.top - a.bottom) }
+    }))
+    await wait(100)
+  }
+  check('the "You read on" line and the notice were both up, and never over each other', floats.some((one) => one.both) && floats.every((one) => !one.overlap), JSON.stringify(floats.filter((one) => one.both).slice(-3)))
 
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pdf-layout', { detail: 'continuous' })))
   await wait(600)
