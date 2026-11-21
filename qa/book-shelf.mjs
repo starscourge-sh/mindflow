@@ -1,6 +1,6 @@
 // The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the Settings book, in grained cloth,
-// standing spine out in its own colour with its name up it in a readable gilt or ink, every spine one height, the open one
-// turned to its cover, the one pointed at (or reached by the keys) pulled out and
+// standing spine out in its own colour with its name up it in a readable gilt or ink, turned a little so a sliver of its
+// cover shows, every book one height on one foot line, the open one turned to its cover, the one pointed at (or reached by the keys) pulled out and
 // turned instead and named under the shelf, the shelf one width throughout; a press on another book opens it. Real
 // pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
 // QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms, and keeps a picture of the menu with
@@ -59,13 +59,17 @@ try {
   // Its cover is its reader card (reader-card.tsx ShelfCover), as Settings draws it, the picture at its size.
   const card = await h.evaluate(() => { const one = document.querySelector('[data-book-shelf] [aria-current] [data-shelf-card]'); return one && { name: one.querySelector('[data-reader-name]')?.textContent, title: one.querySelector('[data-reader-title]')?.textContent, since: one.querySelector('[data-reader-since]')?.textContent, shape: Math.round(one.querySelector('[data-reader-shape] > svg:not(.size-0)')?.getBoundingClientRect().width ?? 0) } })
   check('the open book wears its own reader card: its name, title, day begun and picture', card?.name === books.books.find((one) => one.current)?.name && !!card.title && /Kept since|Not begun/.test(card.since) && card.shape >= 45, JSON.stringify(card))
-  // Every spine one height; the turned book a little taller (6%), its foot on the ledge with theirs (the user, 21 Nov:
-  // short spines of many heights, a cover towering over them).
-  const tall = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => { const face = (one.getAttribute('aria-current') ? one.querySelector('[data-shelf-card]')?.parentElement : one.querySelector('[data-reader-spine-face]'))?.getBoundingClientRect(); return { open: !!one.getAttribute('aria-current'), w: Math.round(face?.width ?? 0), h: Math.round(face?.height ?? 0), bottom: Math.round(face?.bottom ?? 0) } }))
+  // Every spine one height; the turned book on the same line, as the user's references stand theirs (21 Nov: "still
+  // don't get why active book is lifted"): its foot on the ledge with theirs, its head no higher. And every book at rest
+  // turned a little, a sliver of its cover showing at its spine's right ("rather than look dead straight into the side").
+  const tall = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => { const face = (one.getAttribute('aria-current') ? one.querySelector('[data-shelf-card]')?.parentElement : one.querySelector('[data-reader-spine-face]'))?.getBoundingClientRect(); const spine = one.querySelector('[data-reader-spine-face]').getBoundingClientRect(); const cover = one.querySelector('.mf-card-cover').getBoundingClientRect(); return { open: !!one.getAttribute('aria-current'), w: Math.round(face?.width ?? 0), h: Math.round(face?.height ?? 0), top: face?.top ?? 0, bottom: face?.bottom ?? 0, sliver: Math.round(cover.width * 10) / 10, side: Math.round(cover.left - spine.right), card: !!one.querySelector('.mf-card-cover [data-shelf-card]') } }))
   const spinesTall = tall.filter((one) => !one.open)
   const turnedTall = tall.find((one) => one.open)
   check('every spine stands one height, within 1px, about six times as tall as it is wide', Math.max(...spinesTall.map((one) => one.h)) - Math.min(...spinesTall.map((one) => one.h)) <= 1 && spinesTall.every((one) => one.h >= one.w * 5 && one.h <= one.w * 7), JSON.stringify(spinesTall.slice(0, 6)))
-  check('the turned book only a little taller than the spines (under 10%), its foot on the ledge with theirs', turnedTall.h > spinesTall[0].h && turnedTall.h <= spinesTall[0].h * 1.1 && spinesTall.every((one) => Math.abs(one.bottom - turnedTall.bottom) <= 7), JSON.stringify({ turned: turnedTall, spine: spinesTall[0] }))
+  const spineTop = Math.min(...spinesTall.map((one) => one.top))
+  check('the turned book stands on the ledge with the spines, not lifted: one foot line within 1px, its head at most 2px above theirs', spinesTall.every((one) => Math.abs(one.bottom - turnedTall.bottom) <= 1) && turnedTall.top >= spineTop - 2, JSON.stringify({ turned: turnedTall, spine: spinesTall[0] }))
+  const slivered = (one) => one.sliver >= 2 && one.sliver <= 10 && Math.abs(one.side) <= 2 && one.card
+  check('every book at rest shows a sliver of its cover (2 to 10px) at its spine\'s right, its card on it', spinesTall.every(slivered), JSON.stringify(spinesTall.filter((one) => !slivered(one)).concat(spinesTall.slice(0, 3))))
   // Each spine's name against its own colour, read as the screen shows them (a 1px canvas turns any colour to sRGB).
   const inks = await h.evaluate(() => {
     const paint = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
@@ -89,7 +93,7 @@ try {
   // The caption under the shelf: its whole box inside the menu, and neither line cut at its foot (21 Nov: clipped).
   const captionRoom = await h.evaluate(() => { const one = document.querySelector('[data-book-caption]'); const menu = one.closest('[role="menu"]').getBoundingClientRect(); const box = one.getBoundingClientRect(); return { inside: box.top >= menu.top && box.bottom <= menu.bottom && box.left >= menu.left && box.right <= menu.right, lines: [...one.children].map((line) => line.scrollHeight - line.clientHeight), box: [Math.round(box.top), Math.round(box.bottom)], menu: [Math.round(menu.top), Math.round(menu.bottom)] } })
   check('the caption sits wholly inside the menu, neither of its lines cut', captionRoom.inside && captionRoom.lines.every((over) => over <= 0), JSON.stringify(captionRoom))
-  check('the others stand as spines',at.filter((one) => !one.open).every((one) => one.w <= 30), JSON.stringify(at.map((one) => one.w)))
+  check('the others stand as spines', at.filter((one) => !one.open).every((one) => one.w <= 36), JSON.stringify(at.map((one) => one.w)))
   check('every spine shows the hand', at.every((one) => one.cursor === 'pointer'))
   const width = (list) => list.reduce((sum, one) => sum + one.w, 0)
   const room = await h.evaluate(() => { const one = document.querySelector('[data-book-shelf]'); const menu = one.closest('[role="menu"]'); return { shelf: one.clientWidth, holds: one.scrollWidth, menu: menu.getBoundingClientRect().width, fade: getComputedStyle(one).maskImage, win: window.innerWidth, right: menu.getBoundingClientRect().right } })
@@ -108,7 +112,7 @@ try {
   const lit = await spines()
   const pulled = lit.find((one) => one.id === other.id)
   check('the book pointed at is pulled out and turned', pulled?.w >= 80 && Number(pulled.face) > 0.9, JSON.stringify(pulled))
-  check('and the open one goes back to a spine', lit.find((one) => one.open)?.w <= 30, JSON.stringify(lit.find((one) => one.open)))
+  check('and the open one goes back to a spine', lit.find((one) => one.open)?.w <= 36, JSON.stringify(lit.find((one) => one.open)))
   check('the shelf keeps one width', Math.abs(width(lit) - width(at)) <= 2, `${width(at)} then ${width(lit)}`)
   const still = await h.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-book]')?.getAttribute('data-book'), [box.x + 8, box.y + box.height / 2])
   check('the pointer is still on the book it pointed at', still === other.id, still)
@@ -149,7 +153,7 @@ try {
   const backed = await spines()
   const focused = await h.evaluate(() => { const one = document.activeElement; return one?.closest('[data-book]')?.getAttribute('data-book') ?? `${one?.tagName ?? 'none'}${one?.getAttribute('role') ? `[role=${one.getAttribute('role')}]` : ''}` })
   check('the key back turns the book before it out again', backed.find((one) => one.id === other.id)?.w >= 80,
-    JSON.stringify({ wanted: other.id, from: next?.id, width: backed.find((one) => one.id === other.id)?.w, lit: backed.findIndex((one) => one.lit), litId: backed.find((one) => one.lit)?.id, focused, wide: backed.filter((one) => one.w > 30).map((one) => `${one.id}:${one.w}`) }))
+    JSON.stringify({ wanted: other.id, from: next?.id, width: backed.find((one) => one.id === other.id)?.w, lit: backed.findIndex((one) => one.lit), litId: backed.find((one) => one.lit)?.id, focused, wide: backed.filter((one) => one.w > 36).map((one) => `${one.id}:${one.w}`) }))
   if (shots) {
     await h.keyboard.press('Escape'); await wait(300)
     for (const name of ['light', 'dark']) {

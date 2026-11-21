@@ -15,8 +15,8 @@
   flex: none;
   align-items: flex-end;
   gap: 4px;
-  /* A spine (144) on its foot room (4), the pulled-out book's lift over it (about 11: 6% taller and 5 up), and a little air. */
-  height: 168px;
+  /* A book (144, spine or cover: one height, never raised) on its foot room (4), and a little air. */
+  height: 156px;
   margin: 2px 0 0;
   padding: 0 8px;
   overflow-x: auto;
@@ -31,7 +31,7 @@
   --mf-spine-plain-1: oklch(from var(--mf-theme-accent, var(--primary)) 0.45 0.015 h);
 }
 .mf-shelf::-webkit-scrollbar { display: none; }
-/* A book's room on the shelf: its width and lift are the book's own spring (books.tsx ShelfBook); the book stands in it. */
+/* A book's room on the shelf: its width is the book's own spring (books.tsx ShelfBook); the book stands in it. */
 .mf-shelf .mf-spine {
   /* Its ink, from its colour's lightness: pale gilt on a deep spine, as a leather binding is blocked, and a deep ink of
      its own hue on a pale one (5:1 or more on every one, books.tsx SPINE). */
@@ -92,6 +92,9 @@
    unless told, and keeps its words on one line (dropdown-menu.tsx). */
 .mf-shelf [data-reader-shape] > svg:not(.size-0) { width: 168px; height: 168px; }
 .mf-shelf [data-shelf-card] { white-space: normal; }
+/* A card read from its file after the shelf opened fades in where it lies, at the edge of its spine, never pops. */
+.mf-shelf [data-shelf-card] { animation: mf-shelf-card-in 180ms ease-out both; }
+@keyframes mf-shelf-card-in { from { opacity: 0; } }
 /* The turned book named under the shelf: one line for its name, one for when you were in it, the same height whichever
    book. Its room is kept whole (6 + 18 + 1 + 16 + 8): never squeezed, and each line tall enough for its letters. */
 .mf-shelf-caption {
