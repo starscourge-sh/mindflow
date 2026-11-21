@@ -3,7 +3,7 @@ import { startTransition, useEffect, useLayoutEffect, useRef, useState } from 'r
 import { useStepped } from '@/lib/nav'
 import { heroAround, heroOpen } from '@/lib/hero'
 import { hoverNote, hoverThought } from './note-preview'
-import { ArrowLeft, ArrowUpRight, Check, FileText, Heart, CornerDownRight, EyeOff, ImageDown, Link2, MessageCircle, Repeat2, RefreshCcw, Share, Sparkles, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, CalendarCheck, Check, FileText, Heart, CornerDownRight, EyeOff, ImageDown, Link2, MessageCircle, Repeat2, RefreshCcw, Share, Sparkles, Trash2, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { thumbsRead, useThumb } from '@/lib/notes'
@@ -11,7 +11,7 @@ import { useDecoded } from '@/lib/decoded'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { TabChips } from './tab-chips'
-import { ago, dayjs, num, plural } from '../../../../main/dates'
+import { ago, dayMonth, dayjs, num, plural } from '../../../../main/dates'
 import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../../main/feed'
 import type { Insight, Insights } from '../../../../main/insights'
 import { useGrades } from './review-view'
@@ -90,7 +90,7 @@ const SAMPLE_POSTS: FeedPost[] = ([
 }))
 const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | null> => call<Reaction | null>('feed:react', `${post.type}:${post.id}`, reaction)
 
-const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', highlight: 'Highlight', poll: 'Poll', quiz: 'Quiz card', pair: 'Thread', insight: 'Insight' }
+const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', highlight: 'Highlight', poll: 'Poll', quiz: 'Quiz card', pair: 'Thread', insight: 'Insight', checkback: 'Check back' }
 export const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
 
 /** A date: "4 Mar", with the year once it is not this year's, or always (`years`) in a thread that spans years. */
@@ -397,7 +397,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
       return false
     }
   })
-  const plain = preview || feed.safe ? -1 : posts.findIndex((post) => !post.poll && !post.quiz && !post.insight)
+  const plain = preview || feed.safe ? -1 : posts.findIndex((post) => !post.poll && !post.quiz && !post.insight && !post.checkback)
   useEffect(() => {
     if (!explain || plain < 0) return
     try {
@@ -433,6 +433,12 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
       if (post.insight) {
         if (event.key === 'Backspace' || event.key === 'Delete') press('[data-insight-dismiss]')
         else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) press('[data-insight-source]')
+        return
+      }
+      // A check back: Enter opens the decision, ⌫ dismisses it.
+      if (post.checkback) {
+        if (event.key === 'Backspace' || event.key === 'Delete') press('[data-checkback-dismiss]')
+        else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) press('[data-checkback-open]')
         return
       }
       if (post.poll || post.pair) return
@@ -483,7 +489,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
           <p data-feed-empty className="py-10 text-body text-foreground">Nothing to show yet. Write a note, keep a quote or highlight a line in a PDF, and it comes back to you here.</p>
         ) : (
           <>
-            {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, new and old together, and more often what you liked, answered or went back to. Each rests two weeks once shown. A new set comes every morning." />}
+            {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, new and old together, and more often what you liked, answered or went back to. Each rests two weeks once shown. A decision near its check-back date comes first, in your own words. A new set comes every morning." />}
             {searching && !posts.length && (
               <p data-feed-none className="py-10 text-body text-foreground">
                 <strong className="font-semibold">Nothing in today's Feed has “{query.trim()}”.</strong>{' '}
@@ -496,6 +502,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
                 const mark = { at, cursor: at === cursor, onPoint: () => startTransition(() => setCursor(at)) }
                 return post.insight ? <InsightPost key={`insight:${post.id}`} card={post.insight} mark={mark} onOpen={open} />
                   : post.pair ? <PairPost key={`pair:${post.id}`} post={post} mark={mark} onOpen={open} />
+                  : post.checkback ? <CheckBackPost key={`checkback:${post.id}`} post={post} mark={mark} onOpen={open} />
                   : post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
                   : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} mark={mark} onOpen={() => open('nugget', post.id)} />
                   : <Post key={`${post.type}:${post.id}`} post={post} mark={mark} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} explain={explain && at === plain} />
@@ -900,8 +907,8 @@ const pairSaid = (why: NonNullable<FeedPost['pair']>['why']): React.ReactNode =>
 
 /** Each insight's quiet label, and what its tip says it is. */
 const INSIGHT: Record<Insight['level'], { label: string; tip: string }> = {
-  connect: { label: 'Connect', tip: 'Two of your notes not linked yet, and why they may belong together' },
-  reframe: { label: 'Reframe', tip: 'An idea of yours, turned to an unexpected angle' }
+  connect: { label: 'Connect', tip: 'Two of your notes not linked yet: the words both say, and why they may belong together' },
+  reframe: { label: 'Reframe', tip: 'A view one of your notes holds, quoted, and the other side of it' }
 }
 /** The made-by line on an AI card's panel. */
 const MADE_BY = 'Made by Apple Intelligence from your notes'
@@ -941,7 +948,11 @@ function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: str
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div data-insight-panel className="flex flex-col gap-1 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] px-3.5 py-3">
             <p data-insight-made className="text-meta font-medium text-muted-foreground">{MADE_BY}</p>
-            <p data-insight-words className="text-body leading-relaxed text-(--mf-muted-strong)">{card.words}</p>
+            {/* What it is about first, quoted from the note (checked in code to be there), then what the model made of it. */}
+            <p data-insight-quote className="text-body leading-relaxed text-foreground">
+              {card.level === 'reframe' ? 'Your note says: ' : 'Both notes say: '}<span className="font-medium">“{card.quote}”</span>
+            </p>
+            <p data-insight-words className="text-body leading-relaxed text-(--mf-muted-strong)">{card.level === 'reframe' && 'The other side: '}{card.words}</p>
           </div>
           {/* The notes it came from, one a line under "From", each opening its note. */}
           <div data-insight-sources className="flex min-w-0 items-baseline gap-2 text-control text-muted-foreground">
@@ -987,6 +998,78 @@ function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: str
                 <Tip label={`Dismiss: ${INSIGHT[card.level].label} cards come a little less often (⌫)`}>
                   <button type="button" data-insight-dismiss onClick={() => void dismiss()}
                     className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+                    <X className="size-4 shrink-0" /> Dismiss
+                  </button>
+                </Tip>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+/**
+ * A decision near its check-back date (feed.ts `checkBacks`): the call, the question it said to ask and what would
+ * reopen it, each only when the note holds it, all in the person's own words and made by the app alone, so it reads as
+ * theirs (their avatar, no made-by panel). "Still holds" moves its date on by the interval it had, with Undo.
+ */
+function CheckBackPost({ post, onOpen, mark }: { post: FeedPost; onOpen: (type: string, id: string) => void; mark?: Mark }): React.JSX.Element {
+  const back = post.checkback!
+  const key = post.id
+  const [gone, setGone] = useState<string | null>(null)
+  const hold = async (): Promise<void> => {
+    const done = await call<{ back: string; was: Record<string, unknown> } | null>('feed:checkback:hold', key)
+    if (!done) return toast('That decision could not be moved on', undefined, 'error')
+    chime('decided')
+    setGone(`Still holds. It comes back on ${dayMonth(done.back)}.`)
+    toast(`Still holds: it comes back on ${dayMonth(done.back)}`, () => void call('feed:checkback:unhold', key, done.was).then(() => (setGone(null), chime('undo'))), 'success')
+  }
+  const dismiss = async (): Promise<void> => {
+    await call('feed:checkback:dismiss', key, back.back, true)
+    chime('tap')
+    setGone('Dismissed for this date.')
+    toast('Dismissed: it comes back on its next date', () => void call('feed:checkback:dismiss', key, back.back, false).then(() => (setGone(null), chime('undo'))), 'success')
+  }
+  // Done today (main keeps it in place for the day): said where the buttons were.
+  const said = gone ?? (back.done === 'held' ? `Still holds. It comes back on ${dayMonth(back.back)}.` : back.done === 'dismissed' ? 'Dismissed for this date.' : null)
+  const near = dayjs(back.back)
+  const when = near.isSame(dayjs(), 'day') ? 'today' : near.isBefore(dayjs(), 'day') ? `since ${dayMonth(back.back)}` : `on ${dayMonth(back.back)}`
+  return (
+    <li data-feed-post="checkback" data-feed-id={post.id} data-feed-at={mark?.at} onPointerDown={mark?.onPoint} className="relative isolate flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+      <CursorRing on={!!mark?.cursor} />
+      <p data-feed-context className="pl-12 text-control text-muted-foreground">Your decision, in your own words · check back {when}</p>
+      <div className="flex gap-3">
+        <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <h3 data-checkback-head className="flex min-w-0 items-baseline gap-1.5 text-body font-semibold text-foreground">
+            <CalendarCheck className="size-4 shrink-0 self-center text-muted-foreground" />
+            <span className="shrink-0">Check back:</span>
+            <OfferNote link={`${back.open.type}:${back.open.id}`} onOpen={onOpen} className="min-w-0 cursor-pointer truncate rounded-sm text-left underline-offset-2 hover:underline">
+              <span data-checkback-title className="truncate">{post.title}</span>
+            </OfferNote>
+          </h3>
+          {back.call && <p data-checkback-call className="text-body hyphens-auto [overflow-wrap:break-word] text-foreground/90">You decided: “{back.call}”</p>}
+          {back.ask && <p data-checkback-ask className="text-body font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground">You said you'd ask: {back.ask}</p>}
+          {back.reopen && <p data-checkback-reopen className="text-body hyphens-auto [overflow-wrap:break-word] text-foreground/90">Reopen only if: {back.reopen}</p>}
+          {/* Always the same height: the buttons give way to what was done, so nothing below moves. */}
+          <div data-feed-actions className="-ml-2 flex h-7 items-center gap-1 whitespace-nowrap text-muted-foreground">
+            {said ? <p data-checkback-done className="px-2 text-control text-muted-foreground">{said}</p> : (
+              <>
+                <Tip label="It still holds: asked again after the same time">
+                  <button type="button" data-checkback-hold onClick={() => void hold()}
+                    className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+                    <Check className="size-4 shrink-0" /> Still holds
+                  </button>
+                </Tip>
+                <button type="button" data-checkback-open onClick={() => onOpen(back.open.type, back.open.id)}
+                  className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+                  <ArrowUpRight className="size-4 shrink-0" /> Open it
+                </button>
+                <Tip label="Dismiss: not shown again for this date (⌫)">
+                  <button type="button" data-checkback-dismiss onClick={() => void dismiss()}
+                    className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
                     <X className="size-4 shrink-0" /> Dismiss
                   </button>
                 </Tip>

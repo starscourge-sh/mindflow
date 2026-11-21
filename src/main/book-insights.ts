@@ -6,6 +6,10 @@ import { mentionsIn } from './links-in'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
 import { pickPassages, type Level, type Passage, type Picked, type Signal } from './insight-pick'
+import { forInsights, isDecision, sharedWord } from './insight-checks'
+
+/** Pairs drawn for one Connect before the turn is given up. */
+const CONNECT_DRAWS = 8
 
 /**
  * The Feed's one pool, read from the book (no Electron in it): every note, gem, page, question, capture, Journal day
@@ -15,7 +19,7 @@ import { pickPassages, type Level, type Passage, type Picked, type Signal } from
  */
 export type InsightAsk = { day: string; turn: number; level: Level; rested: string[] }
 /** A passage with what a post shows of it: its kind, its words as stored, who said it, when last opened, its weight, and whether an importer brought it. */
-export type Kept = Passage & { kind: string; body: string | null; who: string | null; visited: string | null; weight: number; archive: boolean }
+export type Kept = Passage & { kind: string; body: string | null; who: string | null; visited: string | null; weight: number; archive: boolean; decision?: boolean }
 
 const textOf = (body: string | null): string => {
   try { return plain(JSON.parse(body ?? '')) } catch { return cardWords(body ?? '') }
@@ -52,18 +56,18 @@ export function bookInsights(db: DatabaseSync) {
   }
 
   const pool = (): Kept[] => {
-    type Row = { type: Passage['type']; id: string; kind: string; title: string; body: string | null; made: string; who: string | null; visited: string | null; weight: number | null; archive: number; edited?: string | null }
-    const days = (db.prepare(`select 'day' as type, day as id, 'day' as kind, day as title, body, day as made, null as who, null as visited, 0 as archive,
+    type Row = { type: Passage['type']; id: string; kind: string; title: string; body: string | null; made: string; who: string | null; visited: string | null; weight: number | null; archive: number; edited?: string | null; fields: string | null }
+    const days = (db.prepare(`select 'day' as type, day as id, 'day' as kind, day as title, body, day as made, null as who, null as visited, 0 as archive, null as fields,
         (select count(*) from feed_reacts r where r.key = 'day:' || day_pages.day and r.reaction = 'like') as weight
       from day_pages where day < ? and length(coalesce(body, '')) > 40`).all(dayKey(dayjs().subtract(DAY_AFTER, 'day'))) as Row[])
       // A day keeps no weight of its own: each like in the Feed is a step up, as a note's heart is.
       .map((day) => ({ ...day, weight: Math.min(4, 1.5 ** (day.weight ?? 0)) }))
     const rows = [
       ...db.prepare(`select case when tier = 'question' then 'question' when tier = 'article' then 'article' else 'nugget' end as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, created_at as made,
-          attribution as who, last_visited_at as visited, surfacing_weight as weight, (coalesce(source, '') != '') as archive, updated_at as edited
+          attribution as who, last_visited_at as visited, surfacing_weight as weight, (coalesce(source, '') != '') as archive, updated_at as edited, fields
         from nuggets where tier in ('nugget', 'question', 'article') and private = 0 and suspended = 0 and binned_at is null and superseded_by is null and archived_at is null and (tier != 'question' or closed_at is null)`).all(),
       // A capture already kept as a gem comes as the gem.
-      ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, captured_at as made, attribution as who, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive from captures
+      ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, captured_at as made, attribution as who, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive, fields from captures
         where kind != 'task' and private = 0 and status != 'discarded' and archived_at is null and id not in (select capture_id from nuggets where capture_id is not null)`).all(),
       ...days
     ] as Row[]
@@ -77,8 +81,11 @@ export function bookInsights(db: DatabaseSync) {
       if (tags.includes('bit') || tags.includes(LEARN_TAG)) continue
       // Its name as the card shows it, its #tags taken out ("Primavera #renaissance" reads "Primavera").
       const title = row.type === 'day' ? row.title : row.title.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gu, '').replace(/\s+/g, ' ').trim() || row.title
+      let fields: Record<string, unknown> | null = null
+      try { fields = row.fields ? JSON.parse(row.fields) as Record<string, unknown> : null } catch { /* None to read. */ }
       out.push({
         type: row.type, id: row.id, kind: row.kind, title, text, body: row.body, made: row.made, who: row.who, visited: row.visited, weight: row.weight ?? 1, archive: !!row.archive, tags, signals: signals(row.id),
+        ...(isDecision(row.kind, fields) ? { decision: true } : {}),
         links: [...mentionsIn(row.body).keys()].map((link) => (link.includes(':') ? link.slice(link.indexOf(':') + 1) : link))
       })
     }
@@ -106,6 +113,20 @@ export function bookInsights(db: DatabaseSync) {
     for (const one of out) one.links = [...new Set([...one.links, ...(back.get(one.id) ?? [])])]
     return out
   }
-  const pick = ({ day, turn, level, rested }: InsightAsk): Picked | null => pickPassages(pool(), level, day, turn, new Set(rested))
+  // A decision is never Connected or Reframed: its call is the person's own, and comes back as itself, as a "Check back"
+  // post on its date (feed.ts) with the words it was decided in.
+  // A Connect is only asked of two notes that share a word that means something (a fact the app finds, insight-checks.ts
+  // `sharedWord`): up to eight pairs are drawn for the turn, each the same every time, before the turn is given up.
+  const pick = ({ day, turn, level, rested }: InsightAsk): Picked | null => {
+    const from = forInsights(pool(), level)
+    if (level !== 'connect') return pickPassages(from, level, day, turn, new Set(rested))
+    for (let draw = 0; draw < CONNECT_DRAWS; draw++) {
+      const picked = pickPassages(from, level, day, turn + draw * 1000, new Set(rested))
+      if (!picked) return null
+      const [a, b] = picked.passages
+      if (a && b && sharedWord(`${a.title} ${a.text}`, `${b.title} ${b.text}`)) return picked
+    }
+    return null
+  }
   return { pool, pick }
 }

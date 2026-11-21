@@ -13,6 +13,7 @@ import { LESS, bookFeed, fadedSteps, likedSteps, tableOf, type Row, type Table, 
 import { ask } from './reader'
 import { named } from './stalls'
 import type { Insight } from './insights'
+import { checkBackOf, holdNext, localDay, type CheckBack } from './insight-checks'
 
 /**
  * The Feed: about twenty of your own things a day, picked once and kept for
@@ -23,7 +24,7 @@ import type { Insight } from './insights'
  * once shown. Never private, never a #bit, nothing at all in Safe mode.
  */
 export type FeedPost = {
-  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'highlight' | 'poll' | 'quiz' | 'pair' | 'insight'
+  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'highlight' | 'poll' | 'quiz' | 'pair' | 'insight' | 'checkback'
   id: string
   kind: string
   title: string
@@ -56,6 +57,8 @@ export type FeedPost = {
   restack: { type: FeedPost['type']; id: string; title: string; text: string; who: string | null; kind: string } | null
   /** A decision made weeks ago, asked about again: what you said today, and every answer you have given it. */
   poll?: { open: { type: 'capture' | 'nugget'; id: string }; answer: PollAnswer | null; answers: Record<PollAnswer, number> }
+  /** A decision's check-back date near: its call, the question it said to ask, what would reopen it, in its own words. No model. */
+  checkback?: CheckBack & { open: { type: 'capture' | 'nugget'; id: string } }
   /** A Review card due, asked here: its question, its answer, each grade's next date, and today's grade once given. */
   quiz?: { prompt: string; answer: string; intervals: Record<number, string>; graded: { grade: number; due: string } | null }
   /** "Two subjects, one thread": two notes with no tag in common, and what they share (feed-pair.ts). */
@@ -220,6 +223,69 @@ export function registerFeed(): void {
     return answersOf(key)
   })
 
+  // --- check backs: a decision near its check-back date, in its own words, made by the app alone (insight-checks.ts).
+  db.exec('create table if not exists feed_checkback_off (key text primary key, at text not null)')
+  type Decided = { table: 'captures' | 'nuggets'; id: string; title: string; kind: string; fields: string; made: string }
+  const decidedRows = (table?: 'captures' | 'nuggets', id?: string): Decided[] => {
+    const where = "private = 0 and archived_at is null and json_valid(fields) and coalesce(json_extract(fields, '$.back'), json_extract(fields, '$.\"Check back on\"')) is not null"
+    const one = id ? 'and id = ?' : ''
+    const args = id ? [id] : []
+    return [
+      ...(table !== 'nuggets' ? db.prepare(`select 'captures' as \`table\`, id, ${LABEL} as title, kind, fields, captured_at as made from captures where ${where} and status != 'discarded' and id not in (select capture_id from nuggets where capture_id is not null) ${one}`).all(...args) : []),
+      ...(table !== 'captures' ? db.prepare(`select 'nuggets' as \`table\`, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, fields, created_at as made from nuggets where ${where} and binned_at is null and superseded_by is null ${one}`).all(...args) : [])
+    ] as Decided[]
+  }
+  const parsed = (fields: string): Record<string, unknown> => { try { return JSON.parse(fields) as Record<string, unknown> } catch { return {} } }
+  const offKey = (table: string, id: string, back: string): string => `${table}:${id}:${localDay(back)}`
+  const offOn = db.prepare('select at from feed_checkback_off where key = ?')
+  /** Today's check backs, each a post of its own, first in the Feed. */
+  const checkBacks = (today: string): FeedPost[] => decidedRows().flatMap((one) => {
+    const fields = parsed(one.fields)
+    const back = String(fields.back ?? fields['Check back on'] ?? '')
+    const off = back ? (offOn.get(offKey(one.table, one.id, back)) as { at: string } | undefined) : undefined
+    const found = checkBackOf(one.kind, fields, today, off ? localDay(off.at) : null)
+    if (!found) return []
+    const type = one.table === 'captures' ? 'capture' : 'nugget'
+    return [{ ...blank, type: 'checkback', id: `${one.table}:${one.id}`, kind: 'decision', title: one.title.replace(/\s+/g, ' ').trim() || 'Untitled', text: '', made: one.made, checkback: { ...found, open: { type, id: one.id } } }]
+  })
+  const writeFields = (table: 'captures' | 'nuggets', id: string, fields: Record<string, unknown>): void => {
+    db.prepare(`update ${table} set fields = ? where id = ?`).run(JSON.stringify(fields), id)
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+  }
+  // "Still holds": looked at today, and its date moved on by the interval it had (or 30 days). Its date and last look
+  // before are handed back, for Undo.
+  ipcMain.handle('haligtree:feed:checkback:hold', (_event, key: string): { back: string; was: Record<string, unknown> } | null => {
+    const [table, id] = split(String(key)) as ['captures' | 'nuggets', string]
+    if (table !== 'captures' && table !== 'nuggets') return null
+    const one = decidedRows(table, id)[0]
+    if (!one) return null
+    const fields = parsed(one.fields)
+    const name = 'back' in fields ? 'back' : 'Check back on'
+    const next = holdNext({ ...fields, back: fields[name] }, one.made)
+    const was = { [name]: fields[name] ?? null, heldAt: fields.heldAt ?? null }
+    writeFields(table, id, { ...fields, [name]: next.back, heldAt: next.heldAt })
+    return { back: next.back, was }
+  })
+  ipcMain.handle('haligtree:feed:checkback:unhold', (_event, key: string, was: Record<string, unknown>): boolean => {
+    const [table, id] = split(String(key)) as ['captures' | 'nuggets', string]
+    if (table !== 'captures' && table !== 'nuggets') return false
+    const row = db.prepare(`select fields from ${table} where id = ?`).get(id) as { fields: string | null } | undefined
+    if (!row) return false
+    const fields = parsed(row.fields ?? '{}')
+    for (const [name, value] of Object.entries(was ?? {})) if (name === 'back' || name === 'Check back on' || name === 'heldAt') value == null ? delete fields[name] : (fields[name] = value)
+    writeFields(table, id, fields)
+    return true
+  })
+  // Dismissed: not shown again for this date; a later date brings it back.
+  ipcMain.handle('haligtree:feed:checkback:dismiss', (_event, key: string, back: string, off: boolean): boolean => {
+    const [table, id] = split(String(key))
+    const at = offKey(table, id, String(back))
+    if (off) db.prepare('insert or replace into feed_checkback_off (key, at) values (?, ?)').run(at, new Date().toISOString())
+    else db.prepare('delete from feed_checkback_off where key = ?').run(at)
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return true
+  })
+
   // --- quizzes: a Review card due, asked in the Feed and graded by Review's own grading.
   const pickQuiz = (): string[] => {
     const due = dueCards().map((one) => one.id)
@@ -306,7 +372,12 @@ export function registerFeed(): void {
         // Kept for the day only from the Feed's goal (feed-view.tsx, FEED_NOTES): below it each look picks afresh, so the day it is met starts full.
         if (read.pooled >= 20) db.prepare('insert or replace into feed_days (day, keys, mode) values (?, ?, ?)').run(today, read.keys, mode)
       }
-      const posts = read.posts.flatMap((post) => ('asked' in post ? asked(today, post.asked) : [post]))
+      // A decision near its check-back date comes first, once, and never again among the rest that day.
+      const backs = checkBacks(today)
+      const backIds = new Set(backs.map((one) => one.checkback!.open.id))
+      // It takes one of the day's places, not one more: the day's count stays as it was.
+      const day = read.posts.flatMap((post) => ('asked' in post ? asked(today, post.asked) : [post]))
+      const posts = [...backs, ...day.filter((post) => !String(post.id).split('+').some((one) => backIds.has(one.slice(one.lastIndexOf(':') + 1))))].slice(0, Math.max(day.length, backs.length))
       // Now and then, one note kept three months or more and never linked, set among the rest: opening it is the way to link it.
       if (read.lone) posts.splice(Math.min(posts.length, 6), 0, read.lone)
       return { day: today, posts, safe: false }
