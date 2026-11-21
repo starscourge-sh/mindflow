@@ -10,7 +10,7 @@ import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Swatch } from "@/components/haligtree/row-menu"
-import { HUES, hueName, type Hue } from "@/lib/books"
+import { hueName, type Hue } from "@/lib/books"
 import { ChapterCards } from "./chapter-cards"
 import { useStudyAi } from "@/lib/study-ai"
 import { Roll } from "@/lib/roll"
@@ -31,10 +31,8 @@ import { ScanDetail, ScanLine } from "./pdf-scan"
 import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, showPage, wordsIn, type PdfMark } from "./pdf-pages"
 import { pressAway } from "./reader-select"
 import { FitActions, listEnd, quietly, toast } from "@/components/haligtree/ui"
-import { ReadOnLine, Ribbon, keepRibbon, readRibbon, ribbonInk, type RibbonPlace } from "./ribbon"
+import { RIBBON_HUES, ReadOnLine, Ribbon, RibbonMenuRows, keepRibbon, readRibbon, ribbonInk, type RibbonPlace } from "./ribbon"
 
-/** A ribbon's colours: its own deep red first, then a book's (lib/books.ts HUES). */
-const RIBBON_HUES: (Hue | null)[] = [null, ...HUES]
 import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
@@ -911,17 +909,19 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (was) toast(`Ribbon moved to p. ${label(next.page)}`, back)
     else quietly(back)
   }
-  /** Slid along its page's top edge by hand (in two pages, across its row onto the other page): kept there, as a share
-   *  of the page's width, with ⌘Z to slide it back; onto the other page of the row, said, as laying it there is. */
+  /** Carried by hand onto a page (or along its own top edge), or the hanging tab carried onto one: kept there, as a
+   *  share of the page's width, with ⌘Z to take it back; onto another page, said, as laying it there is. */
   const slideRibbon = (across: number, key: string): void => {
     const was = ribbon
-    if (!was) return
-    const next = { ...was, page: Number(key) || was.page, across }
+    const page = Number(key)
+    if (!page) return
+    const next = was ? { ...was, page, across } : { page, block: null, words: null, across, hue: null }
     setRibbon(next)
+    if (!was) setReadOn(null)
     const saved = keepRibbon(src, next)
     const back = (): void => void saved.then(() => keepRibbon(src, was)).then(() => (setRibbon(was), chime("undo")))
     pageTurn(true)
-    if (next.page !== was.page) toast(`Ribbon moved to p. ${label(next.page)}`, back)
+    if (was && next.page !== was.page) toast(`Ribbon moved to p. ${label(next.page)}`, back)
     else quietly(back)
   }
   /** Its colour, one of a book's (the same nine less the theme's own: its own deep red is the first). Pointed at in the
@@ -938,8 +938,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     quietly(() => void saved.then(() => keepRibbon(src, was)).then(() => (setRibbon(was), chime("undo"))))
   }
   /** Back to the ribbon: the pages glide to its page, its top edge and the ribbon a little below the top. */
+  const [ribbonBounce, setRibbonBounce] = useState(0)
   const goRibbon = (): void => {
     if (!ribbon) return
+    // Arrived, it bounces a little (ribbon.tsx, once the pages come to rest), so the eye finds it.
+    setRibbonBounce((n) => n + 1)
     const box = scroller.current
     const sheet = box?.querySelector<HTMLElement>(`.pdf-page[data-page="${ribbon.page}"]`)
     if (!box || !sheet || motionNow() !== "all") return go(ribbon.page)
@@ -1314,36 +1317,36 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           across={ribbon?.across ?? null}
           hue={ribbonPeek !== undefined ? ribbonPeek : (ribbon?.hue ?? null)}
           host={() => scroller.current?.querySelector<HTMLElement>(".pdf-pages") ?? null}
-          trackOf={(key) => {
-            // In two pages, the row: its page and the one beside it (the same top), left to right.
-            const sheet = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)
-            if (!sheet) return []
-            const row = [sheet.previousElementSibling, sheet, sheet.nextElementSibling].filter((one): one is HTMLElement => one instanceof HTMLElement && !!one.dataset.page && one.offsetTop === sheet.offsetTop)
-            return row.map(sheetEdge)
+          spotAt={(x, y) => {
+            // The page under a point of the pages' own box, by x and y alike (in two pages, the left or the right one);
+            // between pages, the nearest. Both pages of a row share one top, so y alone picks the wrong one.
+            let best: HTMLElement | null = null
+            let far = Infinity
+            for (const one of scroller.current?.querySelectorAll<HTMLElement>(".pdf-pages .pdf-page[data-page]") ?? []) {
+              const dx = Math.max(one.offsetLeft - x, x - one.offsetLeft - one.offsetWidth, 0)
+              const dy = Math.max(one.offsetTop - y, y - one.offsetTop - one.offsetHeight, 0)
+              const d = dx * dx + dy * dy
+              if (d < far) (best = one), (far = d)
+              if (!d) break
+            }
+            return best ? sheetEdge(best) : null
           }}
+          nameOf={(key) => `p. ${label(Number(key))}`}
+          desk={() => {
+            // The row you are reading: its page and the one beside it in two pages, on screen.
+            const sheet = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${page}"]`)
+            if (!sheet) return null
+            const row = [sheet.previousElementSibling, sheet, sheet.nextElementSibling].filter((one): one is HTMLElement => one instanceof HTMLElement && !!one.dataset.page && one.offsetTop === sheet.offsetTop).map((one) => one.getBoundingClientRect())
+            return { left: Math.min(...row.map((one) => one.left)), right: Math.max(...row.map((one) => one.right)) }
+          }}
+          bounce={ribbonBounce}
           away={ribbon ? { label: `p. ${label(ribbon.page)}`, go: goRibbon } : undefined}
           edgeOf={(key) => {
             // Its own page's top edge, found by its number (the left or the right page of a spread alike).
             const sheet = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)
             return sheet ? sheetEdge(sheet) : null
           }}
-          menu={ribbon && (
-            <>
-              <DropdownMenuLabel>Ribbon colour</DropdownMenuLabel>
-              {/* Pointed at, a colour shows on the ribbon at once; the menu closed without a pick, it goes back. */}
-              <div role="group" aria-label="Ribbon colour" className="flex items-center gap-1 px-1.5 py-1" data-ribbon-colours onPointerLeave={() => setRibbonPeek(undefined)}>
-                {RIBBON_HUES.map((hue) => (
-                  <DropdownMenuItem key={hue ?? "own"} aria-label={hue ? hueName(hue) : "Ribbon red"} aria-checked={(ribbon.hue ?? null) === hue} role="menuitemradio" data-ribbon-hue-pick={hue ?? "own"}
-                    onPointerEnter={() => setRibbonPeek(hue)} onFocus={() => setRibbonPeek(hue)} onSelect={() => colourRibbon(hue)}
-                    className="flex size-6 cursor-pointer items-center justify-center rounded-md p-0 focus:bg-accent">
-                    <span data-ribbon-hue={hue ?? undefined} style={ribbonInk(hue)} className="contents"><Swatch color="var(--mf-ribbon)" on={(ribbon.hue ?? null) === hue} /></span>
-                  </DropdownMenuItem>
-                ))}
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem data-ribbon-out-own onSelect={() => layRibbon(null)}>Take the ribbon out</DropdownMenuItem>
-            </>
-          )}
+          menu={ribbon && <RibbonMenuRows hue={ribbon.hue ?? null} onPeek={setRibbonPeek} onPick={colourRibbon} onOut={() => layRibbon(null)} />}
           onMenuOpen={(open) => void (!open && setRibbonPeek(undefined))}
           onSlide={slideRibbon}
           homeX={() => {

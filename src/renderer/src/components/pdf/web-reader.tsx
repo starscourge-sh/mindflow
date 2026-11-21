@@ -44,8 +44,8 @@ import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
 import { Orb } from '@/components/haligtree/orb'
 import { listEnd, quietly, stopJob, toast } from '@/components/haligtree/ui'
-import { ReadOnLine, Ribbon, keepRibbon, readRibbon, type RibbonPlace } from './ribbon'
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { ReadOnLine, Ribbon, RibbonMenuRows, keepRibbon, readRibbon, type RibbonPlace } from './ribbon'
+import type { Hue } from '@/lib/books'
 import { markRoom } from '@/extensions/block-room'
 import { minutesToRead } from '@/lib/note-size'
 import { useReadTime } from '@/lib/read-time'
@@ -202,6 +202,34 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     if (at === null) return
     if (at === ribbonAt) return said('The ribbon already lies on this paragraph', true, undefined, { cue: 'tap' })
     layRibbon(at)
+  }
+  /** Its colour, as in a PDF: pointed at in its menu it shows in place; picked, it is kept, with ⌘Z. */
+  const [ribbonPeek, setRibbonPeek] = useState<Hue | null | undefined>(undefined)
+  const colourRibbon = (hue: Hue | null): void => {
+    const was = ribbon
+    setRibbonPeek(undefined)
+    if (!was || (was.hue ?? null) === hue) return
+    const next = { ...was, hue }
+    setRibbon(next)
+    chime('tap')
+    const saved = keepRibbon(href, next)
+    quietly(() => void saved.then(() => keepRibbon(href, was)).then(() => (setRibbon(was), chime('undo'))))
+  }
+  /** Back to the ribbon: the article glides to its paragraph, and once it rests the ribbon bounces (ribbon.tsx). */
+  const [ribbonBounce, setRibbonBounce] = useState(0)
+  const goRibbon = (): void => {
+    const top = ribbonAt === null ? null : blockTop(ribbonAt)
+    if (top === null) return
+    setRibbonBounce((n) => n + 1)
+    scroller.current?.scrollTo({ top, behavior: still() ? 'auto' : 'smooth' })
+  }
+  /** How far through the article the ribbon's paragraph is, for the pill when it is out of sight ("62% through"). */
+  const ribbonShare = (): string => {
+    const one = ribbonAt === null ? null : blocks()[ribbonAt]
+    const all = body.current
+    if (!one || !all) return 'Ribbon'
+    const share = (one.getBoundingClientRect().top - all.getBoundingClientRect().top) / Math.max(1, all.scrollHeight)
+    return `${Math.max(1, Math.min(99, Math.round(share * 100)))}% through`
   }
   const [menuBlock, setMenuBlock] = useState<number | null>(null)
   const main = useRef<HTMLDivElement>(null)
@@ -963,17 +991,32 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           frame={main}
           scroller={scroller}
           at={ribbonAt === null ? null : String(ribbonAt)}
-          hue={ribbon?.hue ?? null}
-          menu={<DropdownMenuItem data-ribbon-out-own onSelect={() => layRibbon(null)}>Take the ribbon out</DropdownMenuItem>}
+          hue={ribbonPeek !== undefined ? ribbonPeek : (ribbon?.hue ?? null)}
+          menu={ribbon && <RibbonMenuRows hue={ribbon.hue ?? null} onPeek={setRibbonPeek} onPick={colourRibbon} onOut={() => layRibbon(null)} />}
+          onMenuOpen={(open) => void (!open && setRibbonPeek(undefined))}
           ready={ribbonRead && drawnFor === article}
-          placeOf={(key) => {
+          host={() => scroller.current?.querySelector<HTMLElement>('.web-reader-page') ?? null}
+          edgeOf={(key) => {
+            // In the right margin beside its paragraph, never over its words and never in the gutter by the contents:
+            // just right of the words, its top standing a few px above the paragraph's first line, as a PDF's ribbon
+            // stands above its page's top edge. Drawn in the page's own box, so it scrolls with the words.
             const one = blocks()[Number(key)]
-            const column = body.current?.getBoundingClientRect()
-            const frame = main.current?.getBoundingClientRect()
-            if (!one || !column || !frame) return null
-            // In the margin beside its paragraph, its top a little above the paragraph's first line.
-            return { x: Math.max(frame.left + 4, column.left - 36), y: one.getBoundingClientRect().top - 6 }
+            const page = scroller.current?.querySelector<HTMLElement>('.web-reader-page')
+            const words = body.current
+            if (!one || !page || !words) return null
+            const p = page.getBoundingClientRect()
+            const right = words.getBoundingClientRect().right
+            // In the middle of the margin when it is narrow (a split pane's 24px), 10px clear of the words when wide.
+            const room = (one.closest('.web-reader-column')?.getBoundingClientRect().right ?? right + 44) - right
+            const x = right - p.left + Math.max(1, Math.min(10, (room - 22) / 2))
+            return { left: x, right: x, top: one.getBoundingClientRect().top - p.top }
           }}
+          desk={() => {
+            const words = body.current?.getBoundingClientRect()
+            return words ? { left: words.left, right: words.right } : null
+          }}
+          away={ribbon ? { label: ribbonShare(), go: goRibbon } : undefined}
+          bounce={ribbonBounce}
           homeX={() => {
             const column = body.current?.getBoundingClientRect()
             const frame = main.current?.getBoundingClientRect()

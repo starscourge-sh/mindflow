@@ -673,6 +673,8 @@
 /* The page: the pane's width to set its margins by (100cqi), the article's own size to set its words by (em), and the
    scroll area's whole height at least, so the lines run from the bar to the foot however short the article. */
 .web-reader-page {
+  /* The box a laid ribbon is drawn in (ribbon.tsx), beside its paragraph, so it scrolls with the words. */
+  position: relative;
   container: web-page / inline-size;
   display: flex;
   flex-direction: column;
@@ -2747,7 +2749,7 @@ html.dark-pages {
     repeating-linear-gradient(90deg, rgb(0 0 0 / 0.06) 0 1px, transparent 1px 2px),
     linear-gradient(90deg, rgb(0 0 0 / 0.22), rgb(255 255 255 / 0.14) 38%, rgb(255 255 255 / 0.04) 55%, rgb(0 0 0 / 0.18)),
     var(--mf-ribbon);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%);
 }
 /* A ribbon in one of a book's colours: its hue taken down toward the ink as the red is, so it reads on the cream page,
    and toward the ground on a dark desk. Set on the reader's ribbon and on every mark of it (the details' line, the strip). */
@@ -2772,27 +2774,83 @@ html.dark-pages {
     var(--mf-ribbon);
 }
 
-/* The page a ribbon out of sight lies on, beside the tab. */
-.ribbon-away-label {
+/* Laid out of sight: a small pill in the desk beside the pages, at the foot of the view when the ribbon lies further on
+   and at the top when before, never over a page's words. Its mark is the ribbon's colour; it fades as the ribbon comes
+   into view (ribbon.tsx places it). */
+.ribbon-away {
   position: absolute;
-  top: 8px;
-  right: calc(100% + 6px);
-  padding: 2px 7px;
-  border-radius: 6px;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.4375rem;
+  border-radius: 0.5rem;
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--popover-foreground);
   background: var(--popover);
-  box-shadow: 0 0 0 1px var(--border), 0 2px 6px -2px rgb(0 0 0 / 0.2);
-  white-space: nowrap;
+  box-shadow: 0 0 0 1px var(--border), 0 4px 12px -6px rgb(0 0 0 / 0.28);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms var(--mf-ease, ease), background-color 120ms ease-out;
 }
 
-.ribbon-tab:not([data-ribbon="away"]) .ribbon-away-label {
-  display: none;
+.ribbon-away[data-shown] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.ribbon-tab[data-ribbon="away"]:hover .ribbon-away-label {
+.ribbon-away:hover {
   background: color-mix(in oklab, var(--popover) 88%, var(--foreground));
+}
+
+.ribbon-away-mark {
+  flex: none;
+  width: 7px;
+  height: 13px;
+  background: var(--mf-ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 3px), 0 100%);
+}
+
+.ribbon-away-arrow {
+  color: var(--muted-foreground);
+}
+
+/* Carried: the page it will lie on, beside it, in the app's own surface. */
+.ribbon-chip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.125rem 0.4375rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: 0 0 0 1px var(--border), 0 4px 12px -6px rgb(0 0 0 / 0.28);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms var(--mf-ease, ease);
+}
+
+.ribbon-chip[data-ribbon-chip] {
+  opacity: 1;
+}
+
+/* Gone to with reduce motion: no bounce, its shade lifts and fades back once. */
+.ribbon[data-flash] .ribbon-satin {
+  animation: ribbon-flash 700ms var(--mf-ease, ease);
+}
+
+@keyframes ribbon-flash {
+  40% {
+    filter: brightness(1.35) saturate(1.1);
+  }
 }
 
 /* Where a laid ribbon was clicked: its menu opens from here. */

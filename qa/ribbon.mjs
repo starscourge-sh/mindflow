@@ -1,10 +1,16 @@
-// The ribbon (pdf/ribbon.tsx), as readers use it. In a PDF, one column: right-click page 3, "Lay the ribbon here"; closed
-// and opened again it lands on page 3; read on by hand to page 5 (the tab at the top then says "p. 3"), opened again:
-// still page 3, with the line "You read on to p. 5, past your ribbon"; ⇧⌘D goes back to it. Slid along page 3's top
-// edge it follows the pointer 1:1 sideways and never leaves its edge; Esc mid-slide glides it back. In two pages: laid
-// by the menu on the LEFT page of a row (4) and the RIGHT page of the next (7), each on its own page's top edge; slid
-// across its row it lies on the other page (6); right-click it for a colour (blue, shown as pointed at, kept); Details
-// says "Ribbon on p. 6" with a mark on the strip, and "Go to it" goes there. In a saved article: ⌘D lays it on the
+// The ribbon (pdf/ribbon.tsx), as readers use it. In a PDF, one column: right-click page 3, "Lay the ribbon here" (about
+// 84px long); closed and opened again it lands on page 3; read on by hand to page 5 (a pill at the TOP of the view, beside
+// the pages and never over one, then says "p. 3 ↑"), opened again: still page 3, with the line "You read on to p. 5,
+// past your ribbon"; ⇧⌘D goes back to it. Dragged along page 3's top edge, the hand drifting, it follows the pointer
+// 1:1 both ways and lies on page 3 again; Esc mid-drag glides it back. In two pages: laid by the menu on the LEFT page
+// of a row (4) and the RIGHT page of the next (7), each on its own page's top edge; dragged across its row it lies on
+// the other page (6); right-click it for a colour (blue, shown as pointed at, kept); Details says "Ribbon on p. 6" with
+// a mark on the strip, and "Go to it" goes there. Then a power user drags it from p. 4 (left) to p. 7 (the right page of
+// the next row): the "p. N" chip names the page under its top end at every step, one trackpad tap per page crossed; and
+// on, held at the foot of the view, the pages scroll under it to a page far below, where it lies on that page's top
+// edge. Read back up, the pill sits at the FOOT ("p. N ↓"), beside the pages; at the ribbon, it is gone; read past it,
+// at the top. From far away "Go to it" lands with the ribbon in view and it bounces (its stretch above 1, back to 1
+// within 700 ms). In a saved article: ⌘D lays it on the
 // paragraph being read; right-click, "Take the ribbon out", then ⌘Z puts it back. The ribbon's place is read every
 // 50 ms by the page's clock through each slide and settle. QA_SHOTS=<folder> keeps a picture every 50 ms.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/ribbon.mjs
@@ -26,12 +32,42 @@ const { h, v, electron, close } = s
 const wait = (ms) => h.waitForTimeout(ms)
 const EDITOR = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 
-/** Where the ribbon is drawn (its translate, so a sway's turn does not count as a move), and how it lies. */
+/** Where the ribbon is drawn (its translate, so a sway's turn does not count as a move), and how it lies: `sx`, `sy`
+ *  its top left on screen (its room's place plus its translate, scaled as the pages are), `stretch` its bounce, `chip`
+ *  what the chip beside it says while it is carried. */
 const ribbon = () => h.evaluate(() => {
   const el = document.querySelector('.ribbon:not(.ribbon-tab)') ?? document.querySelector('.ribbon-tab')
   const at = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(el?.style.transform ?? '')
+  const room = el?.parentElement
+  const r = room?.getBoundingClientRect()
+  const scale = room && r && room.offsetWidth ? r.width / room.offsetWidth : 1
+  const stretch = Number(/scaleY\(([\d.]+)\)/.exec(el?.style.transform ?? '')?.[1] ?? 1)
   // `ms`: the page's own clock as it was read, so the time between samples is the real one, however slow the run.
-  return el && at ? { x: Number(at[1]), y: Number(at[2]), state: el.dataset.ribbon, at: el.dataset.ribbonAt, h: parseFloat(el.style.height), ms: performance.now() } : null
+  return el && at && r ? { x: Number(at[1]), y: Number(at[2]), sx: r.left + Number(at[1]) * scale, sy: r.top + Number(at[2]) * scale, scale, stretch, state: el.dataset.ribbon, at: el.dataset.ribbonAt, h: parseFloat(el.style.height), chip: document.querySelector('[data-ribbon-chip]')?.getAttribute('data-ribbon-chip') ?? null, ms: performance.now() } : null
+})
+
+/** The page under a point on screen (by x and y), or the nearest: what the chip should name. */
+const pageAt = (x, y) => h.evaluate(([x, y]) => {
+  let best = null
+  for (const one of document.querySelectorAll('.pdf-reader .pdf-page[data-page]')) {
+    const r = one.getBoundingClientRect()
+    const d = Math.max(r.left - x, x - r.right, 0) ** 2 + Math.max(r.top - y, y - r.bottom, 0) ** 2
+    if (!best || d < best.d) best = { page: Number(one.dataset.page), d }
+  }
+  return best?.page ?? null
+}, [x, y])
+
+/** Trackpad taps asked for so far (main counts them under HALIGTREE_QA_AWAY and never plays one). */
+const taps = () => electron.evaluate(() => globalThis.haligtreeTapKinds().length)
+
+/** The out-of-sight pill: shown or not, which way it points, its words, its box, and whether it lies over any page. */
+const pill = () => h.evaluate(() => {
+  const el = document.querySelector('.ribbon-away')
+  if (!el) return null
+  const r = el.getBoundingClientRect()
+  const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
+  const over = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page]')].some((one) => { const p = one.getBoundingClientRect(); return r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top })
+  return { shown: el.hasAttribute('data-shown') && getComputedStyle(el).opacity === '1', side: el.getAttribute('data-ribbon-away'), text: el.textContent, top: r.top - box.top, bottom: box.bottom - r.bottom, over }
 })
 
 /** Every 50 ms until stopped: the ribbon's place, and with QA_SHOTS a picture. At most 200 samples (10 s). */
@@ -146,7 +182,7 @@ try {
   const pdf = await PDFDocument.create()
   pdf.setTitle('The Ribbon Probe')
   const font = await pdf.embedFont(StandardFonts.Helvetica)
-  for (let n = 1; n <= 8; n++) {
+  for (let n = 1; n <= 24; n++) {
     const page = pdf.addPage([400, 560])
     for (let line = 0; line < 30; line++) page.drawText(`Page ${n}, line ${line + 1}`, { x: 40, y: 510 - line * 15, size: 11, font })
   }
@@ -184,6 +220,9 @@ try {
   await layByMenu(3)
   const laid = await ribbon()
   check('laid by the menu, it lies on page 3', laid?.state === 'laid' && laid.at === '3', JSON.stringify(laid))
+  await wait(400)
+  const length = (await ribbon())?.h
+  check('a laid ribbon is about 84px long (no longer 138)', Math.abs(length - 84) <= 2, String(length))
   check('across page 3\'s top edge, inside its width, on screen', await onTopOf(3))
   const edge = await against(3)
   check('its top is on page 3\'s own top edge, standing a few px above it (not in the gap)', edge && Math.abs(edge.off) <= 1, JSON.stringify(edge))
@@ -238,8 +277,9 @@ try {
   }
   await wait(1200)
   check('read on by hand, the bar says page 5', (await shownPage()) === 5, `bar says ${await shownPage()}`)
-  // Out of sight, the tab at the top names its page.
-  check('scrolled past it, the tab at the top says "p. 3"', await h.evaluate(() => { const t = document.querySelector('[data-ribbon-away]'); return !!t && getComputedStyle(t).opacity === '1' && /p\. 3/.test(t.textContent) }))
+  // Out of sight above, a pill at the top of the view names its page, beside the pages, never over one's words.
+  const above = await pill()
+  check('scrolled past it, a pill at the TOP says "p. 3 ↑", beside the pages, over none', above?.shown && above.side === 'up' && /p\. 3/.test(above.text) && /↑/.test(above.text) && above.top < 40 && !above.over, JSON.stringify(above))
   await reopen(note)
   check('read on to page 5, opened again: still page 3', (await landedOn()) === 3, `landed on ${await landedOn()}`)
   const line = await h.locator('[data-ribbon-read-on]').textContent().catch(() => '')
@@ -252,7 +292,9 @@ try {
   await h.keyboard.press('Meta+Shift+KeyD'); await wait(1200)
   check('⇧⌘D goes back to the ribbon, page 3', (await landedOn()) === 3, `landed on ${await landedOn()}`)
 
-  // Slid by hand along page 3's top edge: x follows the pointer 1:1, y and the page never change, no jump.
+  // Dragged by hand along page 3's top edge, the hand drifting up and down: it follows the pointer 1:1 both ways, and
+  // let go it lies on page 3's edge again, no jump. (Brought down the view first, clear of the edge where it scrolls.)
+  await bringTop(3, 300)
   const before = await ribbon()
   const band = await h.locator(LAID).boundingBox()
   const grip = { x: band.x + band.width / 2, y: band.y + 30 }
@@ -265,19 +307,20 @@ try {
     // A hand drifts down and up as it slides: the ribbon stays on its edge.
     await h.mouse.move(x, grip.y + (i % 2 ? 40 : -10))
     await wait(16)
-    if (i > 3) held.push({ x, at: await ribbon() })
+    if (i > 3) held.push({ x, y: grip.y + (i % 2 ? 40 : -10), at: await ribbon() })
   }
   await h.mouse.up()
   const letGo = await h.evaluate(() => performance.now())
   await wait(800)
   const slid = await slide()
-  const gaps = held.map(({ x, at }) => x - at.x)
-  check('slid, it follows the pointer 1:1 sideways', Math.max(...gaps) - Math.min(...gaps) <= 2, `gap ${Math.min(...gaps).toFixed(1)} to ${Math.max(...gaps).toFixed(1)}px`)
-  check('and stays on its edge (y never moves)', held.every(({ at }) => Math.abs(at.y - before.y) < 1), JSON.stringify(held.map(({ at }) => at.y)))
+  const gaps = held.map(({ x, at }) => x - at.sx)
+  const gapsY = held.map(({ y, at }) => y - at.sy)
+  check('dragged, it follows the pointer 1:1 sideways', Math.max(...gaps) - Math.min(...gaps) <= 2, `gap ${Math.min(...gaps).toFixed(1)} to ${Math.max(...gaps).toFixed(1)}px`)
+  check('and 1:1 up and down as the hand drifts', Math.max(...gapsY) - Math.min(...gapsY) <= 2, `gap ${Math.min(...gapsY).toFixed(1)} to ${Math.max(...gapsY).toFixed(1)}px`)
   noJump('slide', slid, letGo)
   const after = await ribbon()
   const keptSlid = await v('ribbon:get', SRC())
-  check('let go, it rests where it was slid, still on page 3', after.at === '3' && after.x < before.x - 100 && keptSlid?.page === 3 && keptSlid.across > 0 && keptSlid.across < 0.9, `${JSON.stringify(after)} kept ${JSON.stringify(keptSlid)}`)
+  check('let go, it rests where it was slid, still on page 3, on its top edge', after.at === '3' && after.x < before.x - 100 && Math.abs(after.y - before.y) < 1 && keptSlid?.page === 3 && keptSlid.across > 0 && keptSlid.across < 0.9, `${JSON.stringify(after)} kept ${JSON.stringify(keptSlid)}`)
 
   // Esc mid-slide: it glides back to where it lay.
   const band2 = await h.locator(LAID).boundingBox()
@@ -345,6 +388,102 @@ try {
   check('and the strip marks its page', (await h.locator('[data-book-ribbon-tick="6"]').count()) === 1)
   await h.click('[data-book-ribbon-go]'); await wait(1200)
   check('"Go to it" goes to the ribbon\'s row', [6, 7].includes(await landedOn()), `landed on ${await landedOn()}`)
+
+  // A power user drags it in two pages: from p. 4 (a left page) to p. 7 (the right page of the next row). At every
+  // step the chip names the page under its top end, and each page crossed is one tap on the trackpad, never repeated.
+  await bringTop(4, 220)
+  await layByMenu(4)
+  const b4 = await h.locator(LAID).boundingBox()
+  const p7 = await h.locator('.pdf-page[data-page="7"]').boundingBox()
+  const take = { x: b4.x + b4.width / 2, y: b4.y + 30 }
+  // Let go with its top end over page 7, a third of the way along it, 40px below its top (it is held 30px down it).
+  const drop7 = { x: p7.x + p7.width / 3, y: p7.y + 40 + 30 }
+  const taps0 = await taps()
+  const named = []
+  await h.mouse.move(take.x, take.y)
+  await h.mouse.down()
+  for (let i = 1; i <= 40; i++) {
+    await h.mouse.move(take.x + ((drop7.x - take.x) * i) / 40, take.y + ((drop7.y - take.y) * i) / 40)
+    await wait(30)
+    const now = await ribbon()
+    if (i > 2 && now?.chip) named.push({ chip: now.chip, under: await pageAt(now.sx + 11 * now.scale, now.sy + 6 * now.scale) })
+  }
+  const heldOver7 = await ribbon()
+  await h.mouse.up()
+  await wait(900)
+  const crossings = named.filter((one, i) => i > 0 && one.chip !== named[i - 1].chip).length
+  const tapped = (await taps()) - taps0
+  check('carried, the chip always names the page under its top end', named.length >= 30 && named.every((one) => one.chip === `p. ${one.under}`), JSON.stringify(named.filter((one) => one.chip !== `p. ${one.under}`).slice(0, 4)))
+  check('it crossed pages on the way (4, then over the gutter or the next row, to 7)', named[0]?.chip === 'p. 4' && named.at(-1)?.chip === 'p. 7' && crossings >= 2, named.map((one) => one.chip).join(' '))
+  check('one trackpad tap per page crossed, never repeated', tapped === crossings, `${tapped} taps for ${crossings} crossings`)
+  const on7 = await v('ribbon:get', SRC())
+  const want7 = await h.evaluate(([sx, scale]) => { const r = document.querySelector('.pdf-page[data-page="7"]').getBoundingClientRect(); return (sx + 11 * scale - r.left) / r.width }, [heldOver7.sx, heldOver7.scale])
+  check('let go over page 7, it lies on page 7, on its top edge', (await ribbon())?.at === '7' && on7?.page === 7 && Math.abs((await against(7))?.off ?? 99) <= 1, `${JSON.stringify(await ribbon())} kept ${JSON.stringify(on7)}`)
+  check('where along it it was let go', Math.abs((on7?.across ?? -1) - want7) < 0.03, `kept ${on7?.across} let go at ${want7.toFixed(3)}`)
+
+  // And on, to a page far below: held at the foot of the view, the pages scroll under it, while it stays under the
+  // pointer; let go, it lies on the page the chip named.
+  const b7 = await h.locator(LAID).boundingBox()
+  const view = await h.locator('.pdf-reader-scroll').boundingBox()
+  const take7 = { x: b7.x + b7.width / 2, y: b7.y + 30 }
+  const foot = { x: take7.x, y: view.y + view.height - 10 }
+  const scroll0 = await h.evaluate(() => document.querySelector('.pdf-reader-scroll').scrollTop)
+  const taps1 = await taps()
+  const deep = []
+  await h.mouse.move(take7.x, take7.y)
+  await h.mouse.down()
+  const moving = []
+  for (let i = 1; i <= 20; i++) { await h.mouse.move(take7.x, take7.y + ((foot.y - take7.y) * i) / 20); await wait(20); moving.push(await ribbon()) }
+  // Held still at the foot, every 50 ms, until the chip names page 16 or later (at most 160 samples).
+  for (let i = 0; i < 160; i++) {
+    const now = await ribbon()
+    deep.push(now)
+    if (Number(now?.chip?.slice(3)) >= 16) break
+    await wait(50)
+  }
+  const lastHeld = await ribbon()
+  await h.mouse.up()
+  await wait(1200)
+  const far = await v('ribbon:get', SRC())
+  const scrolled = (await h.evaluate(() => document.querySelector('.pdf-reader-scroll').scrollTop)) - scroll0
+  const deepChips = [...moving, ...deep].map((one) => one?.chip).filter(Boolean)
+  const deepCrossings = deepChips.filter((one, i) => (i ? one !== deepChips[i - 1] : one !== 'p. 7')).length
+  const stuck = deep.map((one) => [foot.x - one.sx, foot.y - one.sy])
+  console.log('  far: ' + deepChips.join(' '))
+  check('held at the foot, the pages scrolled under it, far', scrolled > 1500 && Number(lastHeld?.chip?.slice(3)) >= 16, `scrolled ${Math.round(scrolled)}px, chip ${lastHeld?.chip}`)
+  check('and it stayed under the pointer as they scrolled (1:1)', Math.max(...stuck.map((one) => one[1])) - Math.min(...stuck.map((one) => one[1])) <= 2 && Math.max(...stuck.map((one) => one[0])) - Math.min(...stuck.map((one) => one[0])) <= 2, JSON.stringify(stuck.slice(0, 6)))
+  check('let go, it lies on the page the chip named, on its top edge', far?.page === Number(lastHeld.chip.slice(3)) && (await ribbon())?.at === String(far.page) && Math.abs((await against(far.page))?.off ?? 99) <= 1, `kept ${JSON.stringify(far)} chip ${lastHeld.chip}`)
+  check('one tap per page crossed on the way down', (await taps()) - taps1 === deepCrossings, `${(await taps()) - taps1} taps for ${deepCrossings} crossings`)
+
+  // Read back up to page 2: the ribbon lies below, so the pill sits at the FOOT, pointing down, beside the pages.
+  await bringTop(2, 100)
+  const below = await pill()
+  check(`the ribbon below the view: a pill at the FOOT says "p. ${far.page} ↓", over no page`, below?.shown && below.side === 'down' && below.text.includes(`p. ${far.page}`) && /↓/.test(below.text) && below.bottom < 40 && !below.over, JSON.stringify(below))
+  // At the ribbon, the pill is gone.
+  await bringTop(far.page, 200)
+  await wait(300)
+  check('with the ribbon in view, the pill is gone', !(await pill())?.shown, JSON.stringify(await pill()))
+  // Read past it: the pill at the top, pointing up.
+  await bringTop(Math.min(24, far.page + 5), 100)
+  const past = await pill()
+  check('read past it, the pill is at the top, pointing up, over no page', past?.shown && past.side === 'up' && /↑/.test(past.text) && past.top < 40 && !past.over, JSON.stringify(past))
+
+  // "Go to it" from far away (page 2): it glides there, the ribbon in view, and once the pages rest it bounces: its
+  // stretch goes above 1 and back to 1 within 700 ms, sampled every 50 ms by the page's clock.
+  await bringTop(2, 100)
+  if (!(await h.$('.read-details'))) await h.click('.pdf-reader button[aria-label="Details"]')
+  await h.waitForSelector('[data-book-ribbon-go]', { timeout: 8000 }).catch(() => {})
+  const bounceFrames = sampler('bounce')
+  await h.click('[data-book-ribbon-go]')
+  await wait(2600)
+  const bf = await bounceFrames()
+  const up = bf.findIndex((one) => one.stretch > 1.02)
+  const backAt = up < 0 ? -1 : bf.findIndex((one, i) => i > up && Math.abs(one.stretch - 1) < 0.005 && bf.slice(i).every((later) => Math.abs(later.stretch - 1) < 0.005))
+  console.log('  bounce: ' + bf.map((one) => one.stretch.toFixed(3)).join(' '))
+  check('"Go to it" from far away lands with the ribbon in view', await h.evaluate(() => { const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect(); const b = document.querySelector('.pdf-reader-scroll').getBoundingClientRect(); return r.top >= b.top && r.bottom <= b.bottom }))
+  check('and it bounces: stretched above 1, back to 1 within 700 ms', up >= 0 && backAt > up && bf[backAt].ms - bf[up].ms <= 700, `up at ${up}, back at ${backAt}, ${backAt > up ? Math.round(bf[backAt].ms - bf[up].ms) : '-'} ms`)
+  check('only once the pages came to rest, never while they moved', up >= 0 && bf.slice(Math.max(0, up - 1)).every((one, i, all) => !i || Math.abs(one.sy - all[i - 1].sy) < 1), JSON.stringify(bf.slice(Math.max(0, up - 2), up + 4).map((one) => [Math.round(one.sy), one.stretch.toFixed(3)])))
+
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pdf-layout', { detail: 'continuous' })))
   await wait(600)
 
@@ -373,6 +512,32 @@ try {
     const p = document.querySelector('.web-reader-scroll').getBoundingClientRect()
     return r.top > p.top && r.top < p.top + p.height / 2
   }))
+  // The same ribbon as in a PDF, in a place that makes sense on a page with no edges: in the right margin at its
+  // paragraph's top (a few px above the first line), never over any of its lines, never in the gutter by the contents.
+  const byPara = await h.evaluate(() => {
+    const el = document.querySelector('.ribbon:not(.ribbon-tab)')
+    const r = el.getBoundingClientRect()
+    const one = [...document.querySelectorAll('.web-reader-body :is(p, h1, h2, h3, h4, h5, h6, li, blockquote, figure, pre, table)')].find((b) => Math.abs(b.getBoundingClientRect().top - (r.top + 6)) <= 3)
+    if (!one) return { found: false, top: r.top }
+    const range = document.createRange()
+    range.selectNodeContents(one)
+    const lines = [...range.getClientRects()].filter((l) => l.width > 1)
+    const over = lines.some((l) => r.left < l.right && r.right > l.left && r.top < l.bottom && r.bottom > l.top)
+    const words = document.querySelector('.web-reader-body').getBoundingClientRect()
+    return { found: true, over, right: r.left >= words.right, h: r.height, satin: getComputedStyle(el.querySelector('.ribbon-satin')).clipPath }
+  })
+  check('in the article it lies at its paragraph\'s top, right of the words, over none of its lines', byPara.found && !byPara.over && byPara.right, JSON.stringify(byPara))
+  check('as short as in a PDF, with the same V cut', byPara.h <= 90 && /6px/.test(byPara.satin ?? ''), JSON.stringify(byPara))
+  // A first-timer clicks it: the same menu as a PDF's, beside it: nine colours and "Take the ribbon out".
+  const ar = await h.locator(LAID).boundingBox()
+  await h.mouse.click(ar.x + ar.width / 2, ar.y + 30); await wait(500)
+  const near = await h.evaluate(() => {
+    const m = document.querySelector('[data-ribbon-menu]')?.getBoundingClientRect()
+    const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect()
+    return m ? Math.hypot(Math.max(r.left - m.right, m.left - r.right, 0), Math.max(r.top - m.bottom, m.top - r.bottom, 0)) : null
+  })
+  check('a click opens the same menu, nine colours and "Take the ribbon out", within 40px of it', (await h.locator('[data-ribbon-menu] [data-ribbon-hue-pick]').count()) === 9 && (await h.locator('[data-ribbon-menu] [data-ribbon-out-own]').count()) === 1 && near !== null && near <= 40, `${near}px away`)
+  await h.keyboard.press('Escape'); await wait(400)
 
   // Right-click a paragraph: "Take the ribbon out", then ⌘Z puts it back.
   const para = await h.locator('.web-reader-body p').nth(7).boundingBox()
