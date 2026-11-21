@@ -2964,6 +2964,11 @@ html[data-resizing], [data-carry-cursor='col-resize'] { cursor: col-resize !impo
 }
 @media (prefers-reduced-motion: reduce) { .mf-note-offer { animation: none; } }
 :root[data-motion="off"] .mf-note-offer { animation: none; }
+/* Anything that arrives late under words (an offer read in after the page, a line counted by Apple Intelligence):
+   its room opens from nothing so what is under it eases down, then it fades in, as an offer does. Never a pop. */
+.mf-grow-in { interpolate-size: allow-keywords; animation: mf-offer-in 280ms var(--mf-ease) both; }
+@media (prefers-reduced-motion: reduce) { .mf-grow-in { animation: mf-fade 160ms ease both; } }
+:root[data-motion="off"] .mf-grow-in { animation: none; }
 .mf-note-offer-icon { flex: none; display: grid; color: var(--muted-foreground); }
 .mf-note-offer-button { flex: none; cursor: pointer; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: var(--text-control); line-height: var(--text-control--line-height); font-weight: 500; color: var(--foreground); background: color-mix(in oklab, var(--foreground) 7%, transparent); transition: background-color 150ms ease, transform 100ms ease; }
 .mf-note-offer-button:hover:not(:disabled) { background: color-mix(in oklab, var(--foreground) 11%, transparent); }

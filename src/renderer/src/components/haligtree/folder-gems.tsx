@@ -29,7 +29,7 @@ export function FolderGems({ folder }: { folder: Folder }): React.JSX.Element | 
     if (ideas.offered || answered || !lines.length) return null
     const answer = (): void => (setAnswered(true), void folders.gemsOffered(folder.id))
     return (
-      <p data-folder-gems-line="" className="mt-2 flex items-center gap-1.5 text-body text-muted-foreground">
+      <p data-folder-gems-line="" className="mf-grow-in mt-2 flex items-center gap-1.5 text-body text-muted-foreground">
         <Gem aria-hidden className="size-3.5 shrink-0" />
         <span className="text-foreground">{plural(lines.length, 'line')} here could be gems</span>
         <span aria-hidden>·</span>
