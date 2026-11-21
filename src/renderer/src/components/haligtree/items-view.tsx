@@ -2145,8 +2145,10 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       // Asked from its name field (a new group, "Rename…"): put in the field, picked, while it is open; left before the
       // answer with the counting name kept, the group takes it all the same (before, it stayed "Group 3" for good).
       if (loud && live.current.renaming === group.id) return void setSuggested({ id: group.id, name })
+      // Written only if the group still has the counting name seen here (main/groups.ts `ifName`): a name you typed and
+      // kept while the answer was on its way reaches main first, and this one is then dropped (22 Nov, qa/groups.mjs).
       namedByApp(group.id, name)
-      void noteGroupsApi.set(group.id, { name })
+      void noteGroupsApi.set(group.id, { name, ifName: now.name })
     }
     const local = naming(members, !!group.folder)
     if (!AUTO.test(local)) return apply(local)

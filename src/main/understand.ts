@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, ipcMain, shell } from 'electron'
 import helper from '../../resources/understand?asset&asarUnpack'
+import { groupNamed } from './groups'
 import { meets, standIn, type Caps } from './needs'
 import { answerInNote, flat, givesAway, type QuestionDraft } from './note-questions'
 import { VOICES, leadFor, standLine, wrapInstructions, wrapPrompt, wrapSchema, type Voice, type WrapPage } from './wrap-lines'
@@ -252,12 +253,18 @@ export function registerStudyAi(on: () => boolean): void {
   ipcMain.handle('haligtree:ai:wrap', (_event, id: unknown, pages: unknown, keptOnly: unknown, voice: unknown) =>
     wrapLeads(String(id ?? ''), pages, keptOnly === true, typeof voice === 'string' && voice in VOICES ? (voice as Voice) : 'warm', on))
   ipcMain.handle('haligtree:ai:phrase', (_event, drafts: unknown) => phraseDrafts(Array.isArray(drafts) ? drafts.slice(0, 5) : [], on))
+  let lateOnce = 0
   // A new group's first name, offered in its name field. Never an error: no answer simply leaves the name it has.
   ipcMain.handle('haligtree:ai:group-name', async (_event, titles: unknown): Promise<string | null> => {
     if (!meets(await caps(), 'ai') || !on() || !Array.isArray(titles)) return null
     const stand = process.env.HALIGTREE_QA_GROUP_NAME
     const prompt = `Titles:\n${titles.slice(0, 12).map((one) => `- ${String(one).slice(0, 80)}`).join('\n')}`
-    const said = stand
+    // HALIGTREE_QA_GROUP_NAME_MS=typed: the first group's answer arrives the moment you have named it yourself (the race
+    // qa/groups.mjs lost 15 of 87 checks to, 22 Nov); later groups get no answer, as on a Mac without the model.
+    const late = process.env.HALIGTREE_QA_GROUP_NAME_MS === 'typed'
+    const said = stand && late
+      ? lateOnce++ ? Promise.resolve({ error: 'no' }) : new Promise<{ name: string }>((done) => groupNamed.once('named', () => done({ name: stand })))
+      : stand
       ? new Promise<{ name: string } | { error: string }>((done) => setTimeout(() => done(stand === 'fail' ? { error: 'no' } : { name: stand }), Number(process.env.HALIGTREE_QA_GROUP_NAME_MS ?? 300)))
       // Asked for "the topic" with the titles laid out: asked for "a name", it answered "Notes from titles" (19 Nov).
       : shaped<{ name: string }>('You name a folder that holds some notes, the way a person names a folder on their desk. Read the note titles and find the one topic they share.', prompt,

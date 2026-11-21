@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
+import { EventEmitter } from 'events'
 
 import { atomically, changed, database } from './captures'
 import { ask } from './reader'
@@ -17,6 +18,9 @@ import { ask } from './reader'
  *
  * Every channel here starts `haligtree:`, so the preload passes it through.
  */
+
+/** Said after you name a group (not the app): qa/groups.mjs has its stand-in name arrive just after, the late answer that raced it (understand.ts). */
+export const groupNamed = new EventEmitter()
 
 export type Group = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; parent: string | null; folder: number }
 /** A list as it should be: its top level in order (notes and `g:` groups), and each group's notes in order. */
@@ -105,7 +109,13 @@ export function registerGroups(): void {
     return true
   })
 
-  handle('groups:set', (id: string, patch: { name?: string; icon?: string | null; color?: string | null; folded?: boolean; folder?: boolean }) => {
+  handle('groups:set', (id: string, patch: { name?: string; icon?: string | null; color?: string | null; folded?: boolean; folder?: boolean; ifName?: string }) => {
+    // A name the app offers (Apple Intelligence, late) says the name it saw: if the group has been named since, by you,
+    // it is dropped here, at the moment of writing, so a slow answer never overwrites what you typed (22 Nov).
+    if (patch.ifName !== undefined) {
+      const now = db.prepare('select name from note_groups where id = ?').get(id) as { name: string } | undefined
+      if (!now || now.name !== patch.ifName) return false
+    }
     // A group made a folder, or a folder a group ("Make it a folder", 16 Nov): only where that kind can stand. A folder
     // stands at the top or in a folder, never inside a group; a folder with a folder inside it stays a folder.
     if (patch.folder !== undefined) {
@@ -120,6 +130,7 @@ export function registerGroups(): void {
     if (!fields.length) return false
     db.prepare(`update note_groups set ${fields.map(([key]) => `${key} = ?`).join(', ')} where id = ?`).run(...fields.map(([, value]) => value as string | number | null), id)
     changed()
+    if (patch.name?.trim() && patch.ifName === undefined) groupNamed.emit('named', id)
     return true
   })
 

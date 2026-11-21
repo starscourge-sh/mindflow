@@ -92,7 +92,12 @@ const memberTitles = async (c, name) => {
   return (group?.members ?? []).map((id) => items.find((one) => one.id === id)?.title)
 }
 
+// The first group's suggested name (Apple Intelligence, a stand-in here) arrives the moment you have named it yourself:
+// the late answer that, on 22 Nov, overwrote "Memory" with "Memory Palaces" in 2 runs of 3. This launch only.
+const AI = { HALIGTREE_QA_CAPS: 'ai', HALIGTREE_QA_GROUP_NAME: 'Memory Palaces', HALIGTREE_QA_GROUP_NAME_MS: 'typed' }
+Object.assign(process.env, AI)
 let c = process.env.ONLY ? null : await open()
+for (const key of Object.keys(AI)) delete process.env[key]
 if (c) try {
   await c.theme('light')
   await c.size(1100, 1000)
@@ -126,6 +131,9 @@ if (c) try {
   await c.h.keyboard.press('Enter')
   await c.h.waitForTimeout(400)
   check('renamed in place', !!(await named(c, 'Memory')))
+  // The suggestion came just after Enter: what you typed stays, and stays after a moment more.
+  await c.h.waitForTimeout(600)
+  check('a suggested name arriving late never replaces the one you typed', !!(await named(c, 'Memory')) && !(await named(c, 'Memory Palaces')), (await groupsNow(c)).map((one) => one.name).join(' | '))
 
   // 3. Near a row's edge: only the line, no preview, no lift.
   await carry(c, row(c, 'Interleaving beats blocking'), row(c, 'Reading list for October'), 0.1, {

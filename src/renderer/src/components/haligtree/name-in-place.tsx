@@ -8,7 +8,7 @@ import { still } from '@/lib/motion'
  * (null). Answers once. Writing's folders and groups, the sidebar's folders,
  * Review's decks and Settings' books all name things with this one field.
  */
-export function NameInPlace({ initial = '', suggested, placeholder, label, onDone, className, ...rest }: {
+export function NameInPlace({ initial = '', suggested, placeholder, label, onDone, className, onInput, ...rest }: {
   initial?: string
   /** A better first name, arrived while the field is open: taken only if nothing has been typed; Esc still keeps `initial`. */
   suggested?: string | null
@@ -20,9 +20,12 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
 } & Omit<React.ComponentProps<'input'>, 'onBlur' | 'onKeyDown' | 'defaultValue' | 'onFocus'>): React.JSX.Element {
   const settled = useRef(false)
   const field = useRef<HTMLInputElement>(null)
+  // A key pressed in the field: from then the words are yours, and a suggestion arriving late is dropped, even if what
+  // you typed reads as `initial` again.
+  const touched = useRef(false)
   useEffect(() => {
     const el = field.current
-    if (!el || !suggested || el.value !== initial) return
+    if (!el || !suggested || touched.current || settled.current || el.value !== initial) return
     el.value = suggested
     el.select()
     if (!still()) el.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' })
@@ -43,6 +46,7 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
       onFocus={(event) => event.currentTarget.select()}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
+      onInput={(event) => ((touched.current = true), onInput?.(event))}
       onKeyDown={(event) => {
         event.stopPropagation()
         if (event.key === 'Enter') (event.preventDefault(), done(event.currentTarget.value.trim()))
