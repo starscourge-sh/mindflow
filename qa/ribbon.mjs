@@ -1,8 +1,12 @@
-// The ribbon (pdf/ribbon.tsx), as a reader uses it. In a PDF: the ribbon dragged from the top of the pages onto page 3,
-// the book closed and opened again lands on page 3; read on by hand to page 5, opened again: still page 3, with the
-// line "You read on to p. 5, past your ribbon". In a saved article: ⌘D lays it on the paragraph being read; right-click,
-// "Take the ribbon out", then ⌘Z puts it back. The ribbon's place is read every 50 ms through the drag and its settle:
-// it follows the pointer 1:1 and never jumps. QA_SHOTS=<folder> keeps a picture every 50 ms of the drag and settle.
+// The ribbon (pdf/ribbon.tsx), as readers use it. In a PDF, one column: right-click page 3, "Lay the ribbon here"; closed
+// and opened again it lands on page 3; read on by hand to page 5 (the tab at the top then says "p. 3"), opened again:
+// still page 3, with the line "You read on to p. 5, past your ribbon"; ⇧⌘D goes back to it. Slid along page 3's top
+// edge it follows the pointer 1:1 sideways and never leaves its edge; Esc mid-slide glides it back. In two pages: laid
+// by the menu on the LEFT page of a row (4) and the RIGHT page of the next (7), each on its own page's top edge; slid
+// across its row it lies on the other page (6); right-click it for a colour (blue, shown as pointed at, kept); Details
+// says "Ribbon on p. 6" with a mark on the strip, and "Go to it" goes there. In a saved article: ⌘D lays it on the
+// paragraph being read; right-click, "Take the ribbon out", then ⌘Z puts it back. The ribbon's place is read every
+// 50 ms by the page's clock through each slide and settle. QA_SHOTS=<folder> keeps a picture every 50 ms.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/ribbon.mjs
 import { mkdirSync } from 'fs'
 import { join } from 'path'
@@ -61,6 +65,53 @@ const landedOn = () => h.evaluate(() => {
 /** The page the reader says you are on: the number in its bar (the file's own pages here, no printed labels). */
 const shownPage = () => h.evaluate(() => Number(document.querySelector('.pdf-reader-page [data-scrub-field]')?.value) || null)
 
+/** The PDF's own key in the store (its attachment's src in the note), read once it is dropped in. */
+let pdfSrc = null
+const SRC = () => pdfSrc
+
+/** Page `n`'s top edge brought to about `px` below the top of the pages, by the wheel, as a hand would. */
+async function bringTop(n, px) {
+  const box = await h.locator('.pdf-reader-scroll').boundingBox()
+  await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  for (let i = 0; i < 40; i++) {
+    const top = await h.evaluate((n) => document.querySelector(`.pdf-page[data-page="${n}"]`).getBoundingClientRect().top - document.querySelector('.pdf-reader-scroll').getBoundingClientRect().top, n)
+    if (Math.abs(top - px) < 40) break
+    await h.mouse.wheel(0, Math.max(-200, Math.min(200, top - px))); await wait(60)
+  }
+  await wait(500)
+}
+
+/** Right-click on page `n`, a little into it, and "Lay the ribbon here". */
+async function layByMenu(n) {
+  const r = await h.locator(`.pdf-page[data-page="${n}"]`).boundingBox()
+  await h.mouse.click(r.x + r.width * 0.3, r.y + 80, { button: 'right' }); await wait(400)
+  await h.click('[data-ribbon-lay-menu]'); await wait(900)
+}
+
+/** The ribbon lies across page `n`'s top edge: its top in the gap above, its body over the page, inside its width. */
+const onTopOf = (n) => h.evaluate((n) => {
+  const r = document.querySelector('.ribbon').getBoundingClientRect()
+  const page = document.querySelector(`.pdf-page[data-page="${n}"]`).getBoundingClientRect()
+  const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
+  const mid = (r.left + r.right) / 2
+  return r.top < page.top && r.bottom > page.top && r.top > box.top && mid > page.left && mid < page.right
+}, n)
+
+/** The satin's colour as drawn. */
+const satin = () => h.evaluate(() => getComputedStyle(document.querySelector('.ribbon-satin')).backgroundColor + getComputedStyle(document.querySelector('.ribbon-layer')).getPropertyValue('--mf-ribbon'))
+
+/** Where it moves on its own (not held: settling, or gliding back on Esc), each step scaled to a real 50 ms by the
+ *  page's clock: a glide moves well under 60px in 50 ms; a jump is far over. And still by 700 ms after `t0`. */
+function noJump(name, frames, t0) {
+  const own = frames.slice(1).map((one, at) => [frames[at], one]).filter(([a, b]) => a.state !== 'held' && b.state !== 'held' && a.ms >= t0 - 60)
+  const rates = own.map(([a, b]) => (Math.hypot(b.x - a.x, b.y - a.y) * 50) / Math.max(1, b.ms - a.ms))
+  console.log(`  ${name}: ${frames.length} samples, ms between them: ${frames.slice(1).map((one, at) => Math.round(one.ms - frames[at].ms)).join(' ')}`)
+  check(`${name}: no jump on its own (px per 50 ms)`, own.length >= 3 && Math.max(...rates) < 60, `${own.length} steps, fastest ${Math.max(0, ...rates).toFixed(1)}px per 50 ms`)
+  const last = frames[frames.length - 1]
+  const late = frames.filter((one) => one.ms >= t0 + 700)
+  check(`${name}: comes to rest by 700 ms`, late.length >= 1 && late.every((one) => Math.abs(one.x - last.x) < 1 && Math.abs(one.y - last.y) < 1), JSON.stringify(frames.filter((one) => one.ms >= t0).map((one) => [Math.round(one.ms - t0), one.x, one.y])))
+}
+
 /** Out to the note and the book opened again from its card, as a reader closes and reopens it. */
 async function reopen(note) {
   await s.send('article', note); await wait(1200)
@@ -91,69 +142,29 @@ try {
     ed.view.dom.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: box.left + 20, clientY: box.top + 10 }))
   }, [EDITOR, bytes])
   await h.waitForSelector('.is-pdf button[aria-label="Open ribbon-probe.pdf"]', { timeout: 15000 })
+  // The PDF's key in the store: the src its attachment carries in the note.
+  pdfSrc = await h.evaluate((sel) => {
+    let found = null
+    const walk = (node) => { if (found) return; const src = node?.attrs?.src; if (typeof src === 'string' && /\.pdf/i.test(src)) found = src; (node?.content ?? []).forEach(walk) }
+    walk(document.querySelector(sel).editor.getJSON())
+    return found
+  }, EDITOR)
+  check('the PDF is in the note', !!pdfSrc, String(pdfSrc))
   await h.click('.is-pdf button[aria-label="Open ribbon-probe.pdf"]')
   await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"]', { timeout: 15000 }); await wait(1000)
 
   // A first look: the ribbon hangs from the top of the pages, a short tab with the hand.
   const hanging = await ribbon()
-  check('a new book shows the ribbon hanging at the top', hanging?.state === 'hanging' && hanging.y < 4 && hanging.h <= 40, JSON.stringify(hanging))
+  check('a new book shows the ribbon hanging at the top', hanging?.state === 'hanging' && hanging.y < 4 && hanging.h <= 60, JSON.stringify(hanging))
   check('it shows the hand', (await h.evaluate(() => getComputedStyle(document.querySelector('.ribbon')).cursor)) === 'pointer')
 
-  // Page 3's top edge brought to about 400px down by hand, then the ribbon carried so its end lies in the gap above
-  // page 3 (between pages 2 and 3), as a ribbon lies between the leaves: it marks page 3.
+  // An everyday reader: page 3 brought to about 400px down by hand, then right-click on it, "Lay the ribbon here".
   const scroller = await h.locator('.pdf-reader-scroll').boundingBox()
-  await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + scroller.height / 2)
-  for (let i = 0; i < 40; i++) {
-    const top = await h.evaluate(() => document.querySelector('.pdf-page[data-page="3"]').getBoundingClientRect().top - document.querySelector('.pdf-reader-scroll').getBoundingClientRect().top)
-    if (Math.abs(top - 400) < 40) break
-    await h.mouse.wheel(0, Math.max(-200, Math.min(200, top - 400))); await wait(60)
-  }
-  await wait(500)
-  const tab = await h.locator('.ribbon').boundingBox()
-  const from = { x: tab.x + tab.width / 2, y: tab.y + 10 }
-  // Held 10px below its top, a 92px ribbon's end is 82px under the pointer: the pointer goes there, read from page 3 now.
-  const target = await h.evaluate(() => { const r = document.querySelector('.pdf-page[data-page="3"]').getBoundingClientRect(); return { x: r.right - 37, y: r.top - 6 - 82 } })
-  const stop = sampler('drag')
-  await h.mouse.move(from.x, from.y)
-  await h.mouse.down()
-  const held = []
-  for (let i = 1; i <= 30; i++) {
-    const x = from.x + ((target.x - from.x) * i) / 30
-    const y = from.y + ((target.y - from.y) * i) / 30
-    await h.mouse.move(x, y)
-    await wait(16)
-    if (i > 3) held.push({ pointer: { x, y }, at: await ribbon() })
-  }
-  const tip = await h.evaluate(() => document.querySelector('[data-ribbon-tip]')?.textContent ?? '')
-  await h.mouse.up()
-  const letGo = await h.evaluate(() => performance.now())
-  await wait(900)
-  const frames = await stop()
-  // 1:1: the gap from the pointer to the ribbon's top stays the same as it is carried (to within a pixel or two).
-  const gaps = held.map(({ pointer, at }) => pointer.y - at.y)
-  check('held, it follows the pointer 1:1', Math.max(...gaps) - Math.min(...gaps) <= 2, `gap ${Math.min(...gaps).toFixed(1)} to ${Math.max(...gaps).toFixed(1)}px`)
-  check('held over page 3, it says so', tip === 'p. 3', tip)
-  // Held, it is wherever the pointer is (the 1:1 check above): a big step then is the pointer's own. Judged are the steps
-  // where it moves by itself, hanging before the pick-up and laid as it settles, each scaled to a real 50 ms by the
-  // page's clock. A glide moves well under 60px in 50 ms; a jump (21 Nov, frame 008: 827px to a page top off screen) is far over.
-  const gapsMs = frames.slice(1).map((one, at) => Math.round(one.ms - frames[at].ms))
-  console.log(`  samples ${frames.length}, ms between them: ${gapsMs.join(' ')}`)
-  const own = frames.slice(1).map((one, at) => [frames[at], one]).filter(([a, b]) => a.state !== 'held' && b.state !== 'held')
-  const rates = own.map(([a, b]) => (Math.hypot(b.x - a.x, b.y - a.y) * 50) / Math.max(1, b.ms - a.ms))
-  console.log('  own steps: ' + own.map(([a, b]) => `${a.state}(${Math.round(a.x)},${Math.round(a.y)})→${b.state}(${Math.round(b.x)},${Math.round(b.y)}) in ${Math.round(b.ms - a.ms)}ms`).join(' | '))
-  check('picked up and settling, no jump (px per 50 ms)', own.length >= 3 && Math.max(...rates) < 60, `${own.length} steps on its own, fastest ${Math.max(0, ...rates).toFixed(1)}px per 50 ms`)
+  await bringTop(3, 400)
+  await layByMenu(3)
   const laid = await ribbon()
-  check('let go, it lies on page 3', laid?.state === 'laid' && laid.at === '3', JSON.stringify(laid))
-  check('in the gap above page 3, on screen', await h.evaluate(() => {
-    const r = document.querySelector('.ribbon').getBoundingClientRect()
-    const page = document.querySelector('.pdf-page[data-page="3"]').getBoundingClientRect()
-    const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
-    return r.top < page.top && r.bottom > page.top && r.top > box.top
-  }))
-  // The settle swings once or twice, then is still: by 700 ms after letting go every sample is the laid place.
-  const still = (one) => Math.abs(one.x - laid.x) < 1 && Math.abs(one.y - laid.y) < 1
-  const late = frames.filter((one) => one.ms >= letGo + 700)
-  check('and comes to rest by 700 ms', late.length >= 1 && late.every(still) && frames.slice(-2).every(still), JSON.stringify(frames.filter((one) => one.ms >= letGo).map((one) => [Math.round(one.ms - letGo), one.x, one.y])))
+  check('laid by the menu, it lies on page 3', laid?.state === 'laid' && laid.at === '3', JSON.stringify(laid))
+  check('across page 3\'s top edge, inside its width, on screen', await onTopOf(3))
 
   // Closed and opened again: page 3, where the ribbon is.
   await reopen(note)
@@ -168,12 +179,115 @@ try {
   }
   await wait(1200)
   check('read on by hand, the bar says page 5', (await shownPage()) === 5, `bar says ${await shownPage()}`)
+  // Out of sight, the tab at the top names its page.
+  check('scrolled past it, the tab at the top says "p. 3"', await h.evaluate(() => { const t = document.querySelector('[data-ribbon-away]'); return !!t && t.hasAttribute('data-shown') && /p\. 3/.test(t.textContent) }))
   await reopen(note)
   check('read on to page 5, opened again: still page 3', (await landedOn()) === 3, `landed on ${await landedOn()}`)
   const line = await h.locator('[data-ribbon-read-on]').textContent().catch(() => '')
   check('and a line says how far you read', /You read on to p\. 5, past your ribbon/.test(line ?? ''), line)
   await h.click('[data-ribbon-read-on-go]'); await wait(900)
   check('"Go there" goes to page 5', (await landedOn()) === 5, `landed on ${await landedOn()}`)
+
+  // A power user's way back: ⇧⌘D glides to the ribbon's page.
+  await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + scroller.height / 2)
+  await h.keyboard.press('Meta+Shift+KeyD'); await wait(1200)
+  check('⇧⌘D goes back to the ribbon, page 3', (await landedOn()) === 3, `landed on ${await landedOn()}`)
+
+  // Slid by hand along page 3's top edge: x follows the pointer 1:1, y and the page never change, no jump.
+  const before = await ribbon()
+  const band = await h.locator('.ribbon').boundingBox()
+  const grip = { x: band.x + band.width / 2, y: band.y + 30 }
+  const slide = sampler('slide')
+  await h.mouse.move(grip.x, grip.y)
+  await h.mouse.down()
+  const held = []
+  for (let i = 1; i <= 30; i++) {
+    const x = grip.x - (120 * i) / 30
+    // A hand drifts down and up as it slides: the ribbon stays on its edge.
+    await h.mouse.move(x, grip.y + (i % 2 ? 40 : -10))
+    await wait(16)
+    if (i > 3) held.push({ x, at: await ribbon() })
+  }
+  await h.mouse.up()
+  const letGo = await h.evaluate(() => performance.now())
+  await wait(800)
+  const slid = await slide()
+  const gaps = held.map(({ x, at }) => x - at.x)
+  check('slid, it follows the pointer 1:1 sideways', Math.max(...gaps) - Math.min(...gaps) <= 2, `gap ${Math.min(...gaps).toFixed(1)} to ${Math.max(...gaps).toFixed(1)}px`)
+  check('and stays on its edge (y never moves)', held.every(({ at }) => Math.abs(at.y - before.y) < 1), JSON.stringify(held.map(({ at }) => at.y)))
+  noJump('slide', slid, letGo)
+  const after = await ribbon()
+  const keptSlid = await v('ribbon:get', SRC())
+  check('let go, it rests where it was slid, still on page 3', after.at === '3' && after.x < before.x - 100 && keptSlid?.page === 3 && keptSlid.across > 0 && keptSlid.across < 0.9, `${JSON.stringify(after)} kept ${JSON.stringify(keptSlid)}`)
+
+  // Esc mid-slide: it glides back to where it lay.
+  const band2 = await h.locator('.ribbon').boundingBox()
+  const esc = sampler('esc')
+  await h.mouse.move(band2.x + band2.width / 2, band2.y + 30)
+  await h.mouse.down()
+  for (let i = 1; i <= 15; i++) { await h.mouse.move(band2.x + band2.width / 2 + 4 * i, band2.y + 30); await wait(16) }
+  const midway = await ribbon()
+  await h.keyboard.press('Escape')
+  const escAt = await h.evaluate(() => performance.now())
+  await wait(800)
+  await h.mouse.up()
+  const backFrames = await esc()
+  const home = await ribbon()
+  check('held, it had moved with the pointer', midway.state === 'held' && midway.x > after.x + 40, JSON.stringify(midway))
+  check('Esc: it glides back to where it lay, and the reader stays open', Math.abs(home.x - after.x) < 1 && home.state === 'laid' && (await h.locator('.pdf-reader').count()) > 0, JSON.stringify(home))
+  noJump('esc', backFrames, escAt)
+  check('and its place is not changed', (await v('ribbon:get', SRC()))?.across === keptSlid.across)
+
+  // Two pages: an everyday reader switches to the spread, lays the ribbon on the LEFT page of a row (page 4, of 4|5).
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pdf-layout', { detail: 'spread' })))
+  await h.waitForSelector('.pdf-pages.is-spread', { timeout: 8000 }); await wait(900)
+  await bringTop(4, 200)
+  await layByMenu(4)
+  check('in two pages, laid on the left page: page 4', (await ribbon())?.at === '4' && (await v('ribbon:get', SRC()))?.page === 4, JSON.stringify(await ribbon()))
+  check('on page 4\'s top edge, never over page 5', await onTopOf(4))
+  // And on the RIGHT page of the next row (page 7, of 6|7).
+  await bringTop(7, 200)
+  await layByMenu(7)
+  check('laid on the right page: page 7', (await ribbon())?.at === '7', JSON.stringify(await ribbon()))
+  check('on page 7\'s top edge, never over page 6', await onTopOf(7))
+
+  // Slid across its row from the right page to the left: let go over page 6, it lies on page 6.
+  const onRight = await h.locator('.ribbon').boundingBox()
+  const leftMid = await h.evaluate(() => { const r = document.querySelector('.pdf-page[data-page="6"]').getBoundingClientRect(); return r.left + r.width / 2 })
+  const across = sampler('row')
+  const from = { x: onRight.x + onRight.width / 2, y: onRight.y + 30 }
+  await h.mouse.move(from.x, from.y)
+  await h.mouse.down()
+  for (let i = 1; i <= 30; i++) { await h.mouse.move(from.x + ((leftMid - from.x) * i) / 30, from.y); await wait(16) }
+  await h.mouse.up()
+  const rowGo = await h.evaluate(() => performance.now())
+  await wait(800)
+  noJump('row', await across(), rowGo)
+  check('slid across the row, it lies on the left page: page 6', (await ribbon())?.at === '6' && (await v('ribbon:get', SRC()))?.page === 6, JSON.stringify(await ribbon()))
+  check('on page 6\'s top edge', await onTopOf(6))
+  check('a notice says it moved', /Ribbon moved to p\. 6/.test(await h.evaluate(() => document.body.innerText)))
+
+  // Its colour: right-click the ribbon, point at blue (shown at once), pick it (kept and drawn).
+  const red = await satin()
+  const r6 = await h.locator('.ribbon').boundingBox()
+  await h.mouse.click(r6.x + r6.width / 2, r6.y + 40, { button: 'right' }); await wait(500)
+  check('right-click on the ribbon shows its colours', (await h.locator('[data-ribbon-colours] [data-ribbon-hue-pick]').count()) === 9)
+  await h.hover('[data-ribbon-hue-pick="blue"]'); await wait(250)
+  const peek = await satin()
+  check('pointing at blue shows it on the ribbon at once', peek !== red, `${red} → ${peek}`)
+  await h.click('[data-ribbon-hue-pick="blue"]'); await wait(500)
+  check('picked: kept as blue and drawn blue', (await v('ribbon:get', SRC()))?.hue === 'blue' && (await satin()) === peek, `${await satin()} kept ${JSON.stringify(await v('ribbon:get', SRC()))}`)
+
+  // The details panel: "Ribbon on p. 6", a mark on the strip, and "Go to it" takes you there.
+  await bringTop(2, 100)
+  if (!(await h.$('.read-details'))) await h.click('.pdf-reader button[aria-label="Details"]')
+  await h.waitForSelector('[data-book-ribbon]', { timeout: 8000 }).catch(() => {})
+  check('Details says where the ribbon lies', /Ribbon on p\. 6/.test((await h.locator('[data-book-ribbon]').textContent().catch(() => '')) ?? ''))
+  check('and the strip marks its page', (await h.locator('[data-book-ribbon-tick="6"]').count()) === 1)
+  await h.click('[data-book-ribbon-go]'); await wait(1200)
+  check('"Go to it" goes to the ribbon\'s row', [6, 7].includes(await landedOn()), `landed on ${await landedOn()}`)
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pdf-layout', { detail: 'continuous' })))
+  await wait(600)
 
   // An article, saved in the reader: ⌘D lays the ribbon on the paragraph being read.
   await electron.evaluate((_, [site, cdn, page, pic]) => {
