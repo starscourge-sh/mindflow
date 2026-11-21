@@ -38,7 +38,8 @@ try {
   const atEnd = await scrolled()
   await wait(400)
   // The heading fade, read with the page scrolled: as tall as a heading's line.
-  const fade = await h.evaluate((sel) => getComputedStyle(document.querySelector(sel)).getPropertyValue('--mf-top-fade').trim(), SCROLLER)
+  // Against 2.5rem in the page's own root size ("App size" sets it: 17px at 106%, so 42.5px).
+  const fade = await h.evaluate((sel) => ({ is: parseFloat(getComputedStyle(document.querySelector(sel)).getPropertyValue('--mf-top-fade')), want: 2.5 * parseFloat(getComputedStyle(document.documentElement).fontSize) }), SCROLLER)
   for (let i = 0; i < 120 && (await scrolled()).top > 0; i++) { await h.mouse.wheel(0, -160); await wait(60) }
   await wait(400)
   const samples = await h.evaluate(() => (clearInterval(window.__barTimer), window.__bar))
@@ -54,8 +55,10 @@ try {
   for (const [key, what] of [['arrows', 'Back and Forward'], ['tab', 'the open tab'], ['add', '"+"']]) {
     check(`${what} never moved while the page scrolled`, moved(key) <= 0.5, `moved ${moved(key)}px across ${samples.length} samples`)
   }
-  check('a heading under the title fades out over 2.5rem (40px), not cut in half', fade === '40px', fade)
-  check('no errors on the page', errors.length === 0, errors.join(' | '))
+  check('a heading under the title fades out over 2.5rem, not cut in half', Math.abs(fade.is - fade.want) < 0.5, JSON.stringify(fade))
+  // The drawings on the page (Excalidraw) log their font subsetting falling back to the main thread: theirs, on main too.
+  const own = errors.filter((one) => !/subsetting/i.test(one))
+  check('no errors on the page', own.length === 0, own.join(' | '))
 } finally {
   await c.close()
 }

@@ -2115,6 +2115,10 @@ function Surface({
   useEffect(() => {
     if (!onTitleOut || !editor) return
     let watched: Element | null = null
+    // The box the first line scrolls in: under a page's own title (a piece of Writing) its top edge is far below the
+    // bar's 48px, so a line scrolled out of it was still "under 48px" from the window's top and never counted as
+    // gone; the page's name showed in the bar only when a fast scroll happened to carry it past 48px (21 Nov).
+    let scroller: Element | null = null
     let gone = false
     let told: string | null = null
     const tell = (): void => {
@@ -2124,7 +2128,7 @@ function Surface({
       // coming back (a long note is drawn off the page and put back).
       if (line && watched) {
         const box = watched.getBoundingClientRect()
-        gone = box.bottom <= 48 || !box.height
+        gone = box.bottom <= Math.max(48, scroller?.getBoundingClientRect().top ?? 0) || !box.height
         if (!gone) line = null
         if (line === told) return
       }
@@ -2133,7 +2137,8 @@ function Surface({
     }
     const watch = new IntersectionObserver(
       ([entry]) => {
-        gone = !entry.isIntersecting && entry.boundingClientRect.top < 48
+        // Out of sight and not below it: the first line only leaves by going up, or by not being drawn at all.
+        gone = !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.bottom ?? innerHeight)
         tell()
       },
       { rootMargin: "-48px 0px 0px 0px" }
@@ -2145,6 +2150,8 @@ function Surface({
       if (first !== watched) {
         if (watched) watch.unobserve(watched)
         watched = first
+        scroller = null
+        for (let up = first?.parentElement; up; up = up.parentElement) if (/auto|scroll/.test(getComputedStyle(up).overflowY)) { scroller = up; break }
         if (first) watch.observe(first)
       }
       if (gone) tell()
