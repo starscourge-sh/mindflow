@@ -132,7 +132,7 @@ try {
   await h.waitForTimeout(600)
   const held = await fieldsOf()
   const days = Math.round((new Date(held.back) - noon) / 86_400_000)
-  check('"Still holds" moves the date on by the interval it had (or 30 days) and records the look', days >= 1 && !!held.heldAt && /Still holds: it comes back on/.test(await h.locator('[role="status"]').last().innerText().catch(() => '')), `${days} days on`)
+  check('"Still holds" moves the date on by the interval it had (or 30 days) and records the look', days >= 1 && !!held.heldAt && (await h.locator('[role="status"]').allInnerTexts()).some((one) => /Still holds: it comes back on/.test(one)), `${days} days on`)
   await h.locator('[role="status"] button', { hasText: 'Undo' }).first().click()
   await h.waitForTimeout(600)
   const undone = await fieldsOf()
