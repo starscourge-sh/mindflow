@@ -2672,6 +2672,15 @@ html.dark-pages {
     var(--mf-ribbon);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%);
 }
+/* Laid, it comes out from between the leaves: its top in the shade of the page above, so it reads as tucked under
+   that page's edge rather than cut off flat in the gap. */
+.ribbon[data-ribbon="laid"] .ribbon-satin::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 14px;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.42), rgb(0 0 0 / 0.12) 45%, transparent);
+}
 
 /* Where it would lie if let go now: a faint line across, and the page or paragraph by the held end. */
 .ribbon-guide {

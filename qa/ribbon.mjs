@@ -154,6 +154,15 @@ try {
   const still = (one) => Math.abs(one.x - laid.x) < 1 && Math.abs(one.y - laid.y) < 1
   const late = frames.filter((one) => one.ms >= letGo + 700)
   check('and comes to rest by 700 ms', late.length >= 1 && late.every(still) && frames.slice(-2).every(still), JSON.stringify(frames.filter((one) => one.ms >= letGo).map((one) => [Math.round(one.ms - letGo), one.x, one.y])))
+  // Laid, in both looks, for the eye: its top in the shade of the page above, the same deep red on the paper.
+  if (shots) {
+    for (const t of ['light', 'dark']) {
+      await s.look(t); await wait(600)
+      const r = await h.locator('.ribbon').boundingBox()
+      await h.screenshot({ path: `${shots}/ribbon-laid-${t}.png`, clip: { x: r.x - 160, y: r.y - 80, width: 260, height: r.height + 140 } })
+    }
+    await s.look('light'); await wait(400)
+  }
 
   // Closed and opened again: page 3, where the ribbon is.
   await reopen(note)

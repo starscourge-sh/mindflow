@@ -204,8 +204,9 @@
   --accent: var(--secondary);
   --accent-foreground: var(--foreground);
   --destructive: var(--tt-color-text-red, oklch(0.704 0.191 22.216));
-  /* On a dark desk the ribbon's red sinks toward the ground, so it reads without glowing. */
-  --mf-ribbon: color-mix(in oklab, var(--destructive) 68%, var(--background));
+  /* The ribbon lies on the page, and pages are paper in both looks: the same deep satin red as the light look's. Dark's
+     own red is a light salmon (for words on a dark ground), and the ribbon came out pink on the cream page. */
+  --mf-ribbon: oklch(0.45 0.14 25);
   --border: var(--tt-gray-dark-a-200, oklch(1 0 0 / 10%));
   --input: var(--tt-gray-dark-a-300, oklch(1 0 0 / 15%));
   --ring: var(--primary);
