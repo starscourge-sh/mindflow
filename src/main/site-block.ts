@@ -11,6 +11,7 @@ import { blockPrefs } from './haligtree'
 import { dueAt } from './session-log'
 import { blockedSite, hostOf } from './site-hosts'
 import { onHandOff, realRoot } from './sandbox'
+import { seenTitle, type SeenWindow } from './front-window'
 import cat from '../../resources/blocked-cat.gif?asset'
 import meow from '../../resources/blocked-cat-meow.mp3?asset'
 
@@ -132,10 +133,17 @@ function from(kinds) {
   var front = $.NSWorkspace.sharedWorkspace.frontmostApplication
   if (!front) return {}
   var id = ObjC.unwrap(front.bundleIdentifier) || '', pid = front.processIdentifier
-  // The front window's name, which macOS gives only with Screen Recording allowed (never asked for here): else none.
+  // Its windows the Mac calls on screen, front to back, with where they are (no permission needed) and their names
+  // (given only with Screen Recording allowed, never asked for here), and the displays in the same top-left
+  // coordinates: front-window.ts decides whether any of them can really be seen.
   var list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, $.kCGNullWindowID))) || []
-  var win = list.find(function (one) { return one.kCGWindowOwnerPID === pid && one.kCGWindowLayer === 0 && one.kCGWindowName })
-  var said = { app: id, name: ObjC.unwrap(front.localizedName) || '', pid: pid, title: win ? win.kCGWindowName : '' }
+  var wins = list.filter(function (one) { return one.kCGWindowOwnerPID === pid }).map(function (one) {
+    var b = one.kCGWindowBounds || {}
+    return { layer: one.kCGWindowLayer, alpha: one.kCGWindowAlpha, x: b.X, y: b.Y, w: b.Width, h: b.Height, name: one.kCGWindowName || '' }
+  })
+  var screens = $.NSScreen.screens.js, top = screens.length ? screens[0].frame.size.height : 0
+  var displays = screens.map(function (one) { var f = one.frame; return { x: f.origin.x, y: top - f.origin.y - f.size.height, w: f.size.width, h: f.size.height } })
+  var said = { app: id, name: ObjC.unwrap(front.localizedName) || '', pid: pid, wins: wins, displays: displays }
   var kind = kinds[id]
   if (!kind) return said
   try {
@@ -214,7 +222,7 @@ const realLayer: Layer = {
   from: (browsers, patient) => ask(['from', browsers], patient ? 90_000 : 2500)
 }
 /** `win`, `tab`: which tab is in front; `back`: what putting a tab back finds, by default its tab still blank (restored). */
-type Fake = { app: string; url?: string | null; denied?: boolean; win?: number; tab?: number; back?: Back; name?: string; title?: string; page?: string }
+type Fake = { app: string; url?: string | null; denied?: boolean; win?: number; tab?: number; back?: Back; name?: string; title?: string; page?: string; wins?: SeenWindow[] }
 const fake = (): Fake | null => (globalThis as { siteBlockFake?: Fake | null }).siteBlockFake ?? null
 const fakeLayer: Layer = {
   // Each look counted, so a test can see one run a tick.
@@ -247,7 +255,11 @@ const fakeLayer: Layer = {
     const store = globalThis as { boxFromAsks?: { patient: boolean; at: number }[] }
     ;(store.boxFromAsks ??= []).push({ patient, at: Date.now() })
     if (!now) return null
-    const said: Record<string, unknown> = { app: now.app, name: now.name ?? '', title: now.title ?? '', pid: 0 }
+    // Its windows as the Mac would list them: by default one in plain view, named as the stand-in says.
+    const said: Record<string, unknown> = {
+      app: now.app, name: now.name ?? '', pid: 0, displays: [{ x: 0, y: 0, w: 1440, h: 900 }],
+      wins: now.wins ?? [{ layer: 0, alpha: 1, x: 100, y: 60, w: 900, h: 700, name: now.title ?? '' }]
+    }
     return now.app in JSON.parse(browsers) ? { ...said, ...(now.denied ? { denied: true } : { url: now.url ?? '', page: now.page ?? '' }) } : said
   }
 }
@@ -277,6 +289,9 @@ export async function boxFrom(asking: boolean): Promise<BoxFrom | null> {
   let said = await layer.from(kindsOf(allowed), false)
   const id = typeof said?.app === 'string' ? said.app : ''
   if (!said || !id || said.pid === process.pid) return null
+  // In front, but none of its windows to be seen (an empty AeroSpace workspace): not where you were.
+  const title = seenTitle(Array.isArray(said.wins) ? said.wins : [], Array.isArray(said.displays) ? said.displays : [])
+  if (title === null) return null
   const browser = BROWSERS[id]
   if (asking && browser && !allowed.includes(id)) said = (await layer.from(kindsOf([id]), true)) ?? said
   const url = typeof said.url === 'string' && /^https?:\/\//i.test(said.url) ? said.url : ''
@@ -286,7 +301,7 @@ export async function boxFrom(asking: boolean): Promise<BoxFrom | null> {
   const text = (value: unknown): string => (typeof value === 'string' ? value.trim().slice(0, 300) : '')
   return {
     app: text(said.name) || browser?.name || '',
-    title: text(said.title),
+    title: text(title),
     url,
     page: url ? text(said.page) : '',
     browser: browser?.name ?? '',
