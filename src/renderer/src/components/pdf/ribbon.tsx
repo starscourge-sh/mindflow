@@ -57,6 +57,10 @@ const NEAR_RIGHT = 0.9
 const INSET = 14
 /** How far a laid ribbon stands above its page's top edge, coming out of the top of the book. */
 export const OVERHANG = 6
+/** The point that picks the page a carried ribbon will lie on: its middle, this far below its top (18px into the page
+ *  it rests on). Its very top sat on the page's top edge, so a hand drifting up a few px put it in the gap between
+ *  pages, nearer the page above, and a slide along page 3 laid it on page 2. */
+const AIM_DOWN = OVERHANG + 18
 /** Held this near the top or the foot of the view, the pages scroll under it, faster the nearer; at most this fast. */
 const EDGE_ZONE = 64
 const EDGE_SPEED = 22
@@ -134,7 +138,7 @@ export function Ribbon({
   menu?: ReactNode
   onMenuOpen?: (open: boolean) => void
   /** Laid out of sight: what the pill says ("p. 95"), and going there. */
-  away?: { label: string; go: () => void }
+  away?: { label: string; short?: string; go: () => void }
   /** Counted up each time it is gone to: once the pages come to rest, it bounces. */
   bounce?: number
 }): React.JSX.Element {
@@ -183,6 +187,9 @@ export function Ribbon({
   const [side, setSide] = useState<Side | null>(null)
   const sideNow = useRef<Side | null>(null)
   const lastSide = useRef<Side>('down')
+  /** The pill's width, wide and stood on end, measured once each (0: not yet); measured again when its words change. */
+  const pillW = useRef({ wide: 0, narrow: 0 })
+  useLayoutEffect(() => void (pillW.current = { wide: 0, narrow: 0 }), [away?.label])
   const [menuAt, setMenuAt] = useState<Point | null>(null)
 
   /** The laid ribbon's own room: the pages' box (its unscaled px, and how much a pinch scales it now), or the frame. */
@@ -232,18 +239,18 @@ export function Ribbon({
     const hold = held.current
     return hold?.kind === 'tab' && hold.moved ? { x: hold.pointer.x - hold.grab.x, y: hold.pointer.y - hold.grab.y } : null
   }
-  /** The spot under the carried ribbon's top end (its middle, where it comes out of the page), and where along it. */
+  /** The spot under the carried ribbon's top end (its middle, AIM_DOWN below its top), and where along it. */
   const under = (): { spot: RibbonSpot; share: number } | null => {
     const hold = held.current
     if (!hold?.moved) return null
     let top: Point | null = null
     if (hold.kind === 'band') {
       const p = heldAt()
-      top = p && { x: p.x + WIDTH / 2, y: p.y + OVERHANG }
+      top = p && { x: p.x + WIDTH / 2, y: p.y + AIM_DOWN }
     } else {
       const p = tabHeldAt()
       const r = room()
-      top = p && r && { x: (p.x + WIDTH / 2 - r.left) / r.scale, y: (p.y + OVERHANG - r.top) / r.scale }
+      top = p && r && { x: (p.x + WIDTH / 2 - r.left) / r.scale, y: (p.y + AIM_DOWN - r.top) / r.scale }
     }
     const spot = top && reads.current.spotAt?.(top.x, top.y)
     return top && spot ? { spot, share: Math.max(0, Math.min(1, (top.x - spot.left) / Math.max(1, spot.right - spot.left))) } : null
@@ -311,10 +318,29 @@ export function Ribbon({
     if (p && view && box) {
       const v = view.getBoundingClientRect()
       const right = v.left + view.clientWidth
-      const w = p.offsetWidth
       const cols = reads.current.desk?.() ?? null
-      // In the desk beside the pages: right of them, else left of them; only when the pages fill the view, at its edge.
-      const x = !cols ? right - w - 8 : right - cols.right >= w + 16 ? cols.right + 10 : cols.left - v.left >= w + 16 ? cols.left - 10 - w : right - w - 6
+      const roomR = cols ? right - cols.right : 0
+      const roomL = cols ? cols.left - v.left : 0
+      // Wide ("p. 92 ↓") when the desk beside the pages has room for it; in the narrow gutter of pages fitted to the
+      // width, the same pill stood on end (its mark, "92", the arrow), centred in the gutter. Widths are read once per
+      // form and kept, so a scroll never measures it.
+      if (!pillW.current.wide) (delete p.dataset.narrow, (pillW.current.wide = p.offsetWidth))
+      const narrow = !!cols && Math.max(roomR, roomL) < pillW.current.wide + 16
+      if (narrow !== (p.dataset.narrow !== undefined)) narrow ? (p.dataset.narrow = '') : delete p.dataset.narrow
+      if (narrow && !pillW.current.narrow) pillW.current.narrow = p.offsetWidth
+      const w = narrow ? pillW.current.narrow : pillW.current.wide
+      const fits = (room: number): boolean => room >= w + (narrow ? 4 : 8)
+      const x = !cols
+        ? right - w - 8
+        : !narrow && fits(roomR)
+          ? cols.right + 10
+          : !narrow && fits(roomL)
+            ? cols.left - 10 - w
+            : fits(roomR)
+              ? cols.right + (roomR - w) / 2
+              : fits(roomL)
+                ? v.left + (roomL - w) / 2
+                : right - w - 6
       const y = lastSide.current === 'up' ? v.top + 12 : v.top + view.clientHeight - p.offsetHeight - 12
       p.style.transform = `translate3d(${x - box.left}px, ${y - box.top}px, 0)`
     }
@@ -575,6 +601,8 @@ export function Ribbon({
         // Taken from the tab, it grows to a laid ribbon's length as it comes away.
         to(tabLen, LAID, GROW)
       }
+      // The chip names the page it lies on from the moment it is taken up (taken from the tab, the first page under it).
+      setChip(hold.key !== null ? (reads.current.nameOf?.(hold.key) ?? null) : null)
       setHolding(true)
       edgeScroll()
     }
@@ -685,8 +713,12 @@ export function Ribbon({
           onClick={() => away.go()}
         >
           <span className="ribbon-away-mark" aria-hidden />
-          <span>{away.label}</span>
-          <span aria-hidden className="ribbon-away-arrow">{shownSide === 'up' ? '↑' : '↓'}</span>
+          <span className="ribbon-away-words">
+            {away.label} <span className="ribbon-away-arrow">{shownSide === 'up' ? '↑' : '↓'}</span>
+          </span>
+          {/* Stood on end in a narrow gutter: the page alone, the arrow under it. */}
+          <span className="ribbon-away-short" aria-hidden>{away.short ?? away.label}</span>
+          <span className="ribbon-away-short ribbon-away-arrow" aria-hidden>{shownSide === 'up' ? '↑' : '↓'}</span>
         </button>
       )}
       {laid && (inHost && hostEl ? createPortal(laid, hostEl) : laid)}

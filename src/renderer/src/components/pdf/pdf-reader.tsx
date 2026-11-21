@@ -1340,7 +1340,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             return { left: Math.min(...row.map((one) => one.left)), right: Math.max(...row.map((one) => one.right)) }
           }}
           bounce={ribbonBounce}
-          away={ribbon ? { label: `p. ${label(ribbon.page)}`, go: goRibbon } : undefined}
+          away={ribbon ? { label: `p. ${label(ribbon.page)}`, short: label(ribbon.page), go: goRibbon } : undefined}
           edgeOf={(key) => {
             // Its own page's top edge, found by its number (the left or the right page of a spread alike).
             const sheet = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)

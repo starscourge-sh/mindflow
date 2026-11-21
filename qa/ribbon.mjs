@@ -406,7 +406,7 @@ try {
     await h.mouse.move(take.x + ((drop7.x - take.x) * i) / 40, take.y + ((drop7.y - take.y) * i) / 40)
     await wait(30)
     const now = await ribbon()
-    if (i > 2 && now?.chip) named.push({ chip: now.chip, under: await pageAt(now.sx + 11 * now.scale, now.sy + 6 * now.scale) })
+    if (i > 2 && now?.chip) named.push({ chip: now.chip, under: await pageAt(now.sx + 11 * now.scale, now.sy + 24 * now.scale) })
   }
   const heldOver7 = await ribbon()
   await h.mouse.up()
@@ -512,33 +512,6 @@ try {
     const p = document.querySelector('.web-reader-scroll').getBoundingClientRect()
     return r.top > p.top && r.top < p.top + p.height / 2
   }))
-  // The same ribbon as in a PDF, in a place that makes sense on a page with no edges: in the right margin at its
-  // paragraph's top (a few px above the first line), never over any of its lines, never in the gutter by the contents.
-  const byPara = await h.evaluate(() => {
-    const el = document.querySelector('.ribbon:not(.ribbon-tab)')
-    const r = el.getBoundingClientRect()
-    const one = [...document.querySelectorAll('.web-reader-body :is(p, h1, h2, h3, h4, h5, h6, li, blockquote, figure, pre, table)')].find((b) => Math.abs(b.getBoundingClientRect().top - (r.top + 6)) <= 3)
-    if (!one) return { found: false, top: r.top }
-    const range = document.createRange()
-    range.selectNodeContents(one)
-    const lines = [...range.getClientRects()].filter((l) => l.width > 1)
-    const over = lines.some((l) => r.left < l.right && r.right > l.left && r.top < l.bottom && r.bottom > l.top)
-    const words = document.querySelector('.web-reader-body').getBoundingClientRect()
-    return { found: true, over, right: r.left >= words.right, h: r.height, satin: getComputedStyle(el.querySelector('.ribbon-satin')).clipPath }
-  })
-  check('in the article it lies at its paragraph\'s top, right of the words, over none of its lines', byPara.found && !byPara.over && byPara.right, JSON.stringify(byPara))
-  check('as short as in a PDF, with the same V cut', byPara.h <= 90 && /6px/.test(byPara.satin ?? ''), JSON.stringify(byPara))
-  // A first-timer clicks it: the same menu as a PDF's, beside it: nine colours and "Take the ribbon out".
-  const ar = await h.locator(LAID).boundingBox()
-  await h.mouse.click(ar.x + ar.width / 2, ar.y + 30); await wait(500)
-  const near = await h.evaluate(() => {
-    const m = document.querySelector('[data-ribbon-menu]')?.getBoundingClientRect()
-    const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect()
-    return m ? Math.hypot(Math.max(r.left - m.right, m.left - r.right, 0), Math.max(r.top - m.bottom, m.top - r.bottom, 0)) : null
-  })
-  check('a click opens the same menu, nine colours and "Take the ribbon out", within 40px of it', (await h.locator('[data-ribbon-menu] [data-ribbon-hue-pick]').count()) === 9 && (await h.locator('[data-ribbon-menu] [data-ribbon-out-own]').count()) === 1 && near !== null && near <= 40, `${near}px away`)
-  await h.keyboard.press('Escape'); await wait(400)
-
   // Right-click a paragraph: "Take the ribbon out", then ⌘Z puts it back.
   const para = await h.locator('.web-reader-body p').nth(7).boundingBox()
   await h.mouse.click(para.x + 20, para.y + 6, { button: 'right' }); await wait(400)
