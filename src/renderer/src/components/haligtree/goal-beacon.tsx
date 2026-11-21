@@ -172,7 +172,7 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
       {/* The once-only light of a full road: the goal's warmth all round the card, coming and going. */}
       <span ref={glow} aria-hidden className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-0"
         style={{ boxShadow: `0 0 0 2px color-mix(in oklab, ${warm} 70%, transparent), 0 0 24px 2px color-mix(in oklab, ${warm} 45%, transparent), inset 0 0 18px color-mix(in oklab, ${warm} 22%, transparent)` }} />
-      <div className="flex items-start gap-1.5">
+      <div data-card-head className="flex items-start gap-1.5">
         <Flag data-goal-flag className="mt-[0.2em] size-3.5 shrink-0" style={{ color: goalInk(goal) }} />
         {/* The whole goal, over two lines if it needs them: a goal cut short is not the goal. */}
         <p data-card-title className="private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance">{goal.title}</p>
@@ -341,7 +341,7 @@ export function GoalsSticky(): React.JSX.Element {
     <Desk shown={shown}>
       <div data-goals-sticky style={{ ...DRAG, backgroundImage: PAPER, backgroundColor: GLASS ? undefined : 'Canvas', boxShadow: SHADOW }} className={CARD}>
         {!GLASS && <Frost />}
-        <div className="flex items-center gap-1.5">
+        <div data-card-head className="flex items-center gap-1.5">
           <Flag className="size-3.5 shrink-0 text-muted-foreground" />
           <p data-card-title className="min-w-0 flex-1 truncate font-medium">Goals</p>
           <span className="flex shrink-0 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0"><SandboxStamp inline /></span>
