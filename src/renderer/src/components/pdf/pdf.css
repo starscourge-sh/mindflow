@@ -2749,15 +2749,16 @@ html.dark-pages {
     var(--mf-ribbon);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
 }
-
 /* A ribbon in one of a book's colours: its hue taken down toward the ink as the red is, so it reads on the cream page,
    and toward the ground on a dark desk. Set on the reader's ribbon and on every mark of it (the details' line, the strip). */
 [data-ribbon-hue] {
   --mf-ribbon: color-mix(in oklab, var(--ribbon-hue) 62%, var(--foreground));
 }
 
+/* The page is paper in both looks, so the dark look's colour is taken down the same way: toward a dark ink, never toward
+   the dark ground (dark's book colours are light, and mixed with the ground they came out washed, as the red did). */
 .dark [data-ribbon-hue] {
-  --mf-ribbon: color-mix(in oklab, var(--ribbon-hue) 68%, var(--background));
+  --mf-ribbon: color-mix(in oklab, var(--ribbon-hue) 62%, oklch(0.22 0.02 40));
 }
 
 /* Laid, it comes out of its page's top edge: the few px above stand clear, and where it tucks over the edge the satin
