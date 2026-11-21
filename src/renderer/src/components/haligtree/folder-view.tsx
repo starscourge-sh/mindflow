@@ -5,7 +5,7 @@ import { saveImage } from '@/extensions/image-drop'
 import { quietly, sayNow } from './ui'
 import { ChevronRight, FolderPlus, ImagePlus, PenLine, Text } from 'lucide-react'
 import { FolderGems } from './folder-gems'
-import { Empty, FoldItem, MenuRows, Island, Page } from './ui'
+import { Empty, Island, Page, Tip } from './ui'
 import { ItemsView } from './items-view'
 import { CapturesView } from './captures-view'
 import { TasksView } from './tasks-view'
@@ -58,6 +58,8 @@ export const tabOfKind = (type: string): KindTab | undefined => KIND_TABS.find((
  */
 function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string; note?: string; all: Folder[]; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string, folder?: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const items = useLive(() => folders.items(id), null as FolderItem[] | null, [id], undefined, `folders:items:${id}`)
+  // "Add words" asked for from the head's actions: the words' editor opens under the path, the caret in it.
+  const [writing, setWriting] = useState(false)
   const ofCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
   const ofTasks = useLive(() => folders.of('tasks'), {} as Record<string, string>, [], undefined, 'folders:of:tasks')
   useCalendars()
@@ -88,29 +90,30 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       <TabChips name="folder-kinds" tabs={tabs.map((one) => ({ value: one.id, label: one.label, count: one.n }))} value={on} onChange={(next) => onTab(next)} />
     </div>
   ) : undefined
+  // Asked for, never offered as chips: quiet icons in the head's actions, seen while the head is pointed at (the user,
+  // 21 Nov: "Add a cover" over the path and "Add words" under it read as bolted on). Their room is kept, so nothing moves.
+  const quiet = 'flex size-6 cursor-pointer items-center justify-center rounded-md opacity-0 transition-opacity duration-150 group-hover/head:opacity-100 focus-within:opacity-100 focus-visible:opacity-100 hover:bg-accent hover:text-foreground'
   const said = (
-    <div data-folder-head="" className="mb-3">
+    <div data-folder-head="" className="group/head">
       {/* Over its name, its cover, as a Notion page's. */}
-      {folder && <FolderFront key={`${folder.id}:cover`} folder={folder} part="cover" />}
-      <nav aria-label="Where this folder is" data-folder-path="" className="-ml-1.5 flex min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
-        <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>
-        {path.slice(0, -1).map((one) => (
-          <span key={one.id} className="flex min-w-0 items-center gap-1"><ChevronRight className="size-3 shrink-0" /><button type="button" onClick={() => onPlace(one.id)} className="cursor-pointer truncate rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">{one.name}</button></span>
-        ))}
-        <ChevronRight className="size-3 shrink-0" />
-        <h1 data-folder-title="" className="flex min-w-0 items-center gap-1.5 truncate px-1 text-control font-medium text-foreground">
-          {folder && <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />}{name}
-        </h1>
+      {folder?.cover && <FolderFront key={`${folder.id}:cover`} folder={folder} part="cover" />}
+      <FolderPath trail={path.slice(0, -1)} onPlace={onPlace} here={<>{folder && <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />}{name}</>}>
+        {folder && !folder.cover && (
+          <Tip label="Add a cover"><CoverPick folder={folder} data-folder-cover-add="" aria-label="Add a cover" className={quiet}><ImagePlus aria-hidden className="size-3.5" /></CoverPick></Tip>
+        )}
+        {folder && !folder.front && !writing && (
+          <Tip label="Add words"><button type="button" data-folder-words-add="" aria-label="Add words" onClick={() => (chime('tap'), setWriting(true))} className={quiet}><Text aria-hidden className="size-3.5" /></button></Tip>
+        )}
         {/* A page in Writing with what this folder keeps beside it to quote from; the folder stays a folder. */}
         {folder && (
-          <button type="button" data-folder-write-from="" onClick={() => void writeFrom(folder)} className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><PenLine className="size-3.5" />Write from this folder</button>
+          <button type="button" data-folder-write-from="" onClick={() => void writeFrom(folder)} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><PenLine className="size-3.5" />Write from this folder</button>
         )}
         {!unfiled && path.length < 6 && (
-          <button type="button" data-folder-new-inside="" onClick={() => newFolderHere(id)} className={`${folder ? '' : 'ml-auto '}flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground`}><FolderPlus className="size-3.5" />New folder</button>
+          <button type="button" data-folder-new-inside="" onClick={() => newFolderHere(id)} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><FolderPlus className="size-3.5" />New folder</button>
         )}
-      </nav>
+      </FolderPath>
       {/* Under its name, its words and link cards, as a Notion page's sit under its title. */}
-      {folder && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
+      {folder && (!!folder.front || writing) && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
       {/* Only when there is nothing yet: a folder that holds things says so in its list header ("2 pages") and its tabs;
           a sentence repeating it read as slapped on (the user, 21 Nov). */}
       {!shown.length && !inside.length && !unfiled && <p data-folder-fact="" className="mt-2 text-control text-muted-foreground">{fact}</p>}
@@ -131,7 +134,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
         </Island>
       )}
       {/* The folders inside it, as the first rows of its list: the sidebar tree's own rows, at the list's size. */}
-      {!unfiled && <div className="mt-3"><FolderRows parent={id} onPlace={(one) => onPlace(one)} onOpenItem={onOpen} /></div>}
+      {/* 16px under the path, as the Folders page's first row is under its own path (FolderPath): in and out, nothing moves. */}
+      {!unfiled && <div className="mt-4"><FolderRows parent={id} onPlace={(one) => onPlace(one)} onOpenItem={onOpen} /></div>}
     </div>
   )
   const box = { id, name }
@@ -142,12 +146,53 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
 }
 
 /**
+ * The one head of Folders and of each folder's page: where you are on the left ("Folders" alone, or "Folders › 🎬 Films
+ * and books"), what to do here on the right, drawn alike at the same place on both, so going in and out moves nothing
+ * (the user, 21 Nov: the page "kinda moves between pages"; qa/folder-head.mjs measures it).
+ */
+function FolderPath({ trail, here, onPlace, children }: { /** The folders above this one; null on the Folders page itself. */ trail: Folder[] | null; here: React.ReactNode; onPlace: (id: string | null) => void; children?: React.ReactNode }): React.JSX.Element {
+  return (
+    <nav aria-label={trail ? 'Where this folder is' : 'Folders'} data-folder-path="" className="-ml-1.5 flex min-h-7 min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
+      {trail && <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>}
+      {trail?.map((one) => (
+        <span key={one.id} className="flex min-w-0 items-center gap-1"><ChevronRight className="size-3 shrink-0" /><button type="button" onClick={() => onPlace(one.id)} className="cursor-pointer truncate rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">{one.name}</button></span>
+      ))}
+      {trail && <ChevronRight className="size-3 shrink-0" />}
+      {/* On the Folders page its word sits where the way back to it sits on a folder's (the same 6px in). */}
+      <h1 {...(trail ? { 'data-folder-title': '' } : { 'data-folders-title': '' })} className={cn('flex min-w-0 items-center gap-1.5 truncate text-control font-medium text-foreground', trail ? 'px-1' : 'px-1.5')}>{here}</h1>
+      <span data-folder-actions="" className="ml-auto flex shrink-0 items-center gap-1">{children}</span>
+    </nav>
+  )
+}
+
+/** A folder's cover, set or taken away, said with Undo. */
+function setCover(folder: Folder, src: string | null): void {
+  const was = folder.cover
+  chime(src ? 'promote' : 'separate')
+  sayNow(folders.set(folder.id, { cover: src }), src ? `${folder.name} has a cover` : `Took ${folder.name}'s cover away`, () => void folders.set(folder.id, { cover: was }))
+}
+
+/** The folder icon's own upload (kept-groups.tsx `IconChoice`): the Mac's file sheet, the picture kept as a page's is. */
+function CoverPick({ folder, children, 'aria-label': named, ...rest }: { folder: Folder; children: React.ReactNode } & React.LabelHTMLAttributes<HTMLLabelElement> & { ref?: React.Ref<HTMLLabelElement> } & Record<`data-${string}`, string>): React.JSX.Element {
+  return (
+    <label {...rest}>
+      {children}
+      <input type="file" aria-label={named} accept="image/png,image/jpeg,image/gif,image/webp,image/avif" className="sr-only"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0]
+          event.currentTarget.value = ''
+          if (file) void saveImage(file).then((src) => src && setCover(folder, src), () => chime('nope'))
+        }} />
+    </label>
+  )
+}
+
+/**
  * A folder's front, as the top of a Notion page: a cover picture and a few words with link cards, both optional,
- * nothing at all until asked for, and then only a quiet "Add a cover · Add words" while pointed at. The words are a
- * page's own editor (link cards, pictures, every way a page is written), kept with the folder as it is left.
+ * nothing at all until asked for from the head's actions (FolderPath). The words are a page's own editor (link cards,
+ * pictures, every way a page is written), kept with the folder as it is left.
  */
 function FolderFront({ folder, part }: { folder: Folder; /** The cover goes over the folder's name, its words under it (Notion's page). */ part: 'cover' | 'words' }): React.JSX.Element {
-  const [writing, setWriting] = useState(false)
   const doc = useMemo(() => { try { return folder.front ? (JSON.parse(folder.front) as JSONContent) : null } catch { return null } }, [folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const latest = useRef<JSONContent | null>(doc)
   // Read off the editor itself as it is left: a change it has not yet told (a dev build's slower editor) is kept too.
@@ -165,42 +210,18 @@ function FolderFront({ folder, part }: { folder: Folder; /** The cover goes over
   const saveRef = useRef(save)
   saveRef.current = save
   useEffect(() => () => saveRef.current(), [])
-  const cover = (src: string | null): void => {
-    const was = folder.cover
-    chime(src ? 'promote' : 'separate')
-    sayNow(folders.set(folder.id, { cover: src }), src ? `${folder.name} has a cover` : `Took ${folder.name}'s cover away`, () => void folders.set(folder.id, { cover: was }))
-  }
-  const words = !!doc || writing
-  const upload = (label: string): React.JSX.Element => (
-    // The folder icon's own upload (kept-groups.tsx `IconChoice`): the Mac's file sheet, the picture kept as a page's is.
-    <label data-folder-cover-add="" className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">
-      <ImagePlus aria-hidden className="size-3.5" />{label}
-      <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" className="sr-only"
-        onChange={(event) => {
-          const file = event.currentTarget.files?.[0]
-          event.currentTarget.value = ''
-          if (file) void saveImage(file).then((src) => src && cover(src), () => chime('nope'))
-        }} />
-    </label>
-  )
   return (
     <div data-folder-front={part} className="group/front">
       {part === 'cover' && folder.cover && (
         <div className="relative mb-3">
           <img data-folder-cover="" src={folder.cover} alt="" draggable={false} className="h-36 w-full rounded-xl object-cover" />
           <span className="absolute right-2 bottom-2 flex gap-1 rounded-lg bg-popover p-0.5 text-control text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
-            {upload('Change cover')}
-            <button type="button" onClick={() => cover(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Remove</button>
+            <CoverPick folder={folder} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><ImagePlus aria-hidden className="size-3.5" />Change cover</CoverPick>
+            <button type="button" onClick={() => setCover(folder, null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Remove</button>
           </span>
         </div>
       )}
-      {((part === 'cover' && !folder.cover) || (part === 'words' && !words)) && (
-        <div className="-ml-1.5 flex h-6 items-center gap-1 text-control text-muted-foreground opacity-0 transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
-          {part === 'cover' && upload('Add a cover')}
-          {part === 'words' && <button type="button" data-folder-words-add="" onClick={() => (chime('tap'), setWriting(true))} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><Text aria-hidden className="size-3.5" />Add words</button>}
-        </div>
-      )}
-      {part === 'words' && words && (
+      {part === 'words' && (
         <div data-folder-words="" onBlur={save} style={{ '--mf-padding': '0.25rem 0' } as React.CSSProperties}>
           <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} lineNumbers={false} handles={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
             // Asked for by "Add words": the caret in it at once, as a new page's is (once ready, StrictMode's second editor too).
@@ -258,8 +279,15 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
   return (
     <Page title="Folders" count={live.length} unit={['folder', 'folders']}
       // The lists' own search field (note-list.tsx `ListSearch`); ↵ opens the first folder found.
-      search={all.length ? <span data-find-folder="" className="contents"><ListSearch value={typed} onChange={setTyped} onDone={() => found[0] && onPlace(found[0].id)} placeholder="Find a folder" /></span> : undefined}
-      actions={<><Button variant="ghost" data-folders-new-page="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button><MenuRows><FoldItem icon={FolderPlus} label="New folder" keys="⌃⌘N" onSelect={() => newFolderHere(null)} /></MenuRows></>}>
+      search={all.length ? <span data-find-folder="" className="contents"><ListSearch value={typed} onChange={setTyped} onDone={() => found[0] && onPlace(found[0].id)} placeholder="Find a folder" /></span> : undefined}>
+      {/* The head a folder's page has, in the same place: "Folders" alone, "New folder" on its right (one home for it). */}
+      <div data-folders-head="" className="list-words pt-4 pb-2">
+        <FolderPath trail={null} onPlace={onPlace} here="Folders">
+          {!!all.length && (
+            <button type="button" data-folders-new-page="" onClick={() => newFolderHere(null)} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><FolderPlus className="size-3.5" />New folder</button>
+          )}
+        </FolderPath>
+      </div>
       {!all.length ? (
         // No folders yet: the app's own empty page, a folder drawn hollow over it, and the one thing to do.
         <Empty title="No folders yet" art={<FolderMark icon={null} color={null} empty className="h-11 w-14" />}

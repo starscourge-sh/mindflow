@@ -215,6 +215,13 @@ export function hush(id: string): void {
   document.documentElement.removeAttribute('data-voice')
 }
 
+/**
+ * One kind of tip a launch (the user, 21 Nov: a gems line over a drag tip read as stacked chrome): the first kind
+ * shown holds the session, any other waits for the next launch. Asking again for the kind that holds it says yes.
+ */
+let tipOfSession: string | null = null
+export const tipTurn = (kind: string): boolean => (tipOfSession ??= kind) === kind
+
 const visited = new Set<string>()
 /** True the first time `key` is reached this session (rule 4); a revisit arrives settled. */
 export function useFirstVisit(key: string): boolean {

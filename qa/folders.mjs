@@ -181,14 +181,14 @@ try {
   await c.v('folders:file', [{ type: 'article', id: page }], null)
   await c.v('folders:file', [{ type: 'article', id: pages[0] }], null)
   check('the empty folder says so', await until(async () => /Nothing in Thesis yet/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
-  // Its front: nothing until asked; pointed at, "Add a cover" and "Add words"; words typed are kept as it is left.
+  // Its front: nothing until asked; the head pointed at, "Add a cover" and "Add words" as quiet icons among its actions
+  // (never chips over or under the path); words typed are kept as it is left.
   check('its front is empty to start', (await h.locator('[data-folder-words]').count()) === 0 && (await h.locator('[data-folder-cover]').count()) === 0)
-  await h.locator('[data-folder-front="cover"]').hover()
-  await wait(200)
-  const coverOffered = await h.locator('[data-folder-cover-add]').isVisible()
-  await h.locator('[data-folder-front="words"]').hover()
-  await wait(200)
-  check('pointed at, it offers a cover over its name and words under it', coverOffered && (await h.locator('[data-folder-words-add]').isVisible()) && (await h.evaluate(() => document.querySelector('[data-folder-front="cover"]').getBoundingClientRect().bottom <= document.querySelector('[data-folder-title]').getBoundingClientRect().top + 1)))
+  const shown = (sel) => h.evaluate((s) => Number(getComputedStyle(document.querySelector(s)).opacity) > 0.9, sel)
+  const hiddenFirst = !(await shown('[data-folder-cover-add]')) && !(await shown('[data-folder-words-add]'))
+  await h.locator('[data-folder-path]').hover()
+  await wait(300)
+  check('pointed at, the head offers a cover and words among its actions, on the path\'s own line', hiddenFirst && (await shown('[data-folder-cover-add]')) && (await shown('[data-folder-words-add]')) && (await h.evaluate(() => !!document.querySelector('[data-folder-actions] [data-folder-cover-add]') && !!document.querySelector('[data-folder-actions] [data-folder-words-add]'))))
   await h.locator('[data-folder-words-add]').click()
   await wait(500)
   const focused = await h.evaluate(() => !!document.activeElement?.closest('[data-folder-words]'))

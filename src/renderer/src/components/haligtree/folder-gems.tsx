@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { Gem } from '@/components/ui/icons'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
+import { tipTurn } from '@/lib/motion'
 import { folders, type Folder, type GemIdea } from '@/lib/folders'
 import { Island, Pressed, toast } from './ui'
 import { num, plural } from '../../../../main/dates'
@@ -26,16 +27,18 @@ export function FolderGems({ folder }: { folder: Folder }): React.JSX.Element | 
   if (!ideas) return null
   const by = ideas.by === 'ai' ? 'Read by Apple Intelligence, on this Mac' : 'Read by the capture box’s own word rules'
   if (!open) {
-    if (ideas.offered || answered || !lines.length) return null
+    // A tip, so one kind a launch (lib/motion.ts `tipTurn`): never stacked over the list's drag tip.
+    if (ideas.offered || answered || !lines.length || !tipTurn('folder-gems')) return null
     const answer = (): void => (setAnswered(true), void folders.gemsOffered(folder.id))
+    // One quiet line in the breadcrumb's own size, its gem on the content's left edge, grown in as it arrives.
     return (
-      <p data-folder-gems-line="" className="mf-grow-in mt-2 flex items-center gap-1.5 text-body text-muted-foreground">
+      <p data-folder-gems-line="" className="mf-grow-in mt-1 flex min-h-7 items-center gap-1.5 text-control text-muted-foreground">
         <Gem aria-hidden className="size-3.5 shrink-0" />
         <span className="text-foreground">{plural(lines.length, 'line')} here could be gems</span>
         <span aria-hidden>·</span>
-        <button type="button" data-folder-gems-see="" onClick={() => (chime('open'), answer(), setOpen(true))} className="cursor-pointer rounded-md px-1 font-medium text-foreground underline-offset-2 hover:underline">See them</button>
-        <span className="text-meta">({by.replace('Read by ', '')})</span>
-        <button type="button" aria-label="Not now" data-folder-gems-off="" onClick={() => (chime('tuck'), answer())} className="ml-1 cursor-pointer rounded-md p-0.5 hover:bg-accent hover:text-foreground"><X className="size-3.5" /></button>
+        <button type="button" data-folder-gems-see="" onClick={() => (chime('open'), answer(), setOpen(true))} className="cursor-pointer rounded-md font-medium text-foreground underline-offset-2 hover:underline">See them</button>
+        <span>({by.replace('Read by ', '')})</span>
+        <button type="button" aria-label="Not now" data-folder-gems-off="" onClick={() => (chime('tuck'), answer())} className="ml-0.5 flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-accent hover:text-foreground"><X className="size-3.5" /></button>
       </p>
     )
   }

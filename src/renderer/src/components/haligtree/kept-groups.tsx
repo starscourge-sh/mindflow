@@ -21,7 +21,7 @@ import { chime, click } from '@/lib/sound'
 import { pastEdge } from '@/lib/drag-edge'
 import { moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
-import { byKeys, still } from '@/lib/motion'
+import { byKeys, still, tipTurn } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -607,17 +607,21 @@ function DragHint({ name, said }: { name: string; said: string }): React.JSX.Ele
   // the list changes kind under a line that is showing (a row let go in a sorted list turns it to your own order).
   // Then the new kind's line takes the old one's place, so the rows do not jump up by a line under the row just let
   // go (qa/group-drag-hints.mjs, "it sits where the room was": 26px off before this).
-  const [up, setUp] = useState(() => ({ name, on: !said_(name) }))
-  if (up.name !== name) setUp({ name, on: up.on || !said_(name) })
-  if (!up.on || up.name !== name) return null
-  const done = (): void => {
-    setUp({ name, on: false })
+  // A first-visit tip: shown once, never again after that visit (Got it or not), and only when no other kind of tip
+  // has been shown this launch (lib/motion.ts `tipTurn`): a folder's gems line and this never stack (the user, 21 Nov).
+  const [up, setUp] = useState(() => ({ name, on: !said_(name) && tipTurn('drag') }))
+  if (up.name !== name) setUp({ name, on: up.on || (!said_(name) && tipTurn('drag')) })
+  const keep = (): void => {
     try {
       localStorage.setItem(`hint:${name}`, '1')
     } catch {
       // Not kept: it shows again next time, which is harmless.
     }
   }
+  // Said once it is shown: the next visit opens without it.
+  useEffect(() => void (up.on && up.name === name && keep()), [up.on, up.name, name]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!up.on || up.name !== name) return null
+  const done = (): void => (setUp({ name, on: false }), keep())
   return (
     <p data-drag-hint={name} {...(name === OWN_ORDER.name ? { 'data-own-order-hint': '' } : {})} className="mb-1 flex items-center gap-2 px-2 text-xs text-muted-foreground animate-in fade-in-0 duration-300">
       <GripVertical aria-hidden className="size-3 shrink-0" />

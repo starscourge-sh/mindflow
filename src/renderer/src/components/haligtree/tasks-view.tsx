@@ -1331,7 +1331,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
  title={mode} lead={several.bar ? undefined : givenLead ?? lead} search={!example && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder={`Find in ${TASK_TABS.find((one) => one.id === mode)?.label ?? 'Tasks'}`} className="w-40" />} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
-        {said}
+        {/* A folder's head, where it sits on its Pages and Notes (list-words, 16px down), so switching tabs moves nothing. */}
+        {said && <div data-kind-chips="" className="list-words pt-4 pb-2">{said}</div>}
 
         <form
           className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
