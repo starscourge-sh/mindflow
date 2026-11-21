@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSideEnds } from '@/lib/side-ends'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { still } from '@/lib/motion'
+import { realMove } from '@/lib/real-move'
 import { BookBox, inked } from './book-box'
 import { OtherCover, ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
@@ -374,7 +375,6 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   // The book the pointer or the keys are on (the menu lights a row by focusing it), else none and the open one stands turned.
   const [pointed, setPointed] = useState<string | null>(null)
   const keyed = useRef(false)
-  const lastAt = useRef([NaN, NaN])
   const lit = useMotionValue(1)
   // Each opening asks every other book's reader card afresh, so each is there before the book is pulled out.
   useState(() => askCards(books.filter((one) => !one.current).map((one) => one.id)))
@@ -387,11 +387,7 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
         onWheel={(event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) event.currentTarget.scrollLeft += event.deltaY }}
         onKeyDownCapture={() => void (keyed.current = true)}
         // Only a pointer that really moved takes over from the keys: the page also sends one, unmoved, as the books part under it.
-        onPointerMove={(event) => {
-          if (event.clientX === lastAt.current[0] && event.clientY === lastAt.current[1]) return
-          lastAt.current = [event.clientX, event.clientY]
-          keyed.current = false
-        }}
+        onPointerMove={(event) => void (realMove(event) && (keyed.current = false))}
         onFocus={(event) => setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
         onBlur={(event) => !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}>
         {books.map((book, at) => (

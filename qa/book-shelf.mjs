@@ -140,7 +140,10 @@ try {
   await film('keyed', 2)
   // And back up to the book pointed at, which turns out again under the pointer.
   await h.keyboard.press('ArrowUp'); await wait(60)
-  check('the key back turns the book before it out again', (await spines()).find((one) => one.id === other.id)?.w >= 80)
+  const backed = await spines()
+  const focused = await h.evaluate(() => { const one = document.activeElement; return one?.closest('[data-book]')?.getAttribute('data-book') ?? `${one?.tagName ?? 'none'}${one?.getAttribute('role') ? `[role=${one.getAttribute('role')}]` : ''}` })
+  check('the key back turns the book before it out again', backed.find((one) => one.id === other.id)?.w >= 80,
+    JSON.stringify({ wanted: other.id, from: next?.id, width: backed.find((one) => one.id === other.id)?.w, lit: backed.findIndex((one) => one.lit), litId: backed.find((one) => one.lit)?.id, focused, wide: backed.filter((one) => one.w > 30).map((one) => `${one.id}:${one.w}`) }))
   if (shots) {
     await h.keyboard.press('Escape'); await wait(300)
     for (const name of ['light', 'dark']) {

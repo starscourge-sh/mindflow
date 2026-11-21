@@ -174,7 +174,7 @@ async function shareCard(card: HTMLElement | null, save: boolean, name: string, 
  * under it, and glides with them on “Randomize”. Pictured at one size, so the
  * card never changes.
  */
-function ShapePicture({ shape, rise }: { shape: Shape; rise: boolean }): React.JSX.Element {
+function ShapePicture({ shape, rise, grain = true }: { shape: Shape; rise: boolean; grain?: boolean }): React.JSX.Element {
   // Its own filter, so two cards on one page (Settings' and the shelf's) each tint by their own inks.
   const tint = `mf-card-tint${useId().replace(/:/g, '')}`
   return (
@@ -200,11 +200,13 @@ function ShapePicture({ shape, rise }: { shape: Shape; rise: boolean }): React.J
           <feComposite in="c" in2="wc" operator="arithmetic" k1="1" result="pc" />
           <feComposite in="pa" in2="pb" operator="arithmetic" k2="1" k3="1" result="pab" />
           <feComposite in="pab" in2="pc" operator="arithmetic" k2="1" k3="1" result="mixed" />
-          {/* A film grain, cut back to the shape. */}
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" seed="7" result="noise" />
-          <feColorMatrix in="noise" type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 0 0.55" result="speckle" />
-          <feBlend in="speckle" in2="mixed" mode="overlay" result="grained" />
-          <feComposite in="grained" in2="SourceGraphic" operator="in" />
+          {/* A film grain, cut back to the shape. Not on the shelf's small card: drawn at a third of its size its grain is
+              finer than a pixel, and its noise, worked out afresh each time a turned book shows, can hold the next
+              frame back past a turn by the keys. */}
+          {grain && <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" seed="7" result="noise" />}
+          {grain && <feColorMatrix in="noise" type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 0 0.55" result="speckle" />}
+          {grain && <feBlend in="speckle" in2="mixed" mode="overlay" result="grained" />}
+          <feComposite in={grain ? 'grained' : 'mixed'} in2="SourceGraphic" operator="in" />
         </filter>
       </svg>
       {/* A new shape comes up softly, while the colours glide. */}
@@ -234,7 +236,7 @@ export function CardFace({ seed, name, facts, small = false }: { seed: number; n
   const stamps = facts ? stampsOf(facts) : []
   return (
     <>
-      <ShapePicture shape={shape} rise={!small} />
+      <ShapePicture shape={shape} rise={!small} grain={!small} />
       {/* Smaller the longer the name, so every name up to the field's 60 letters shows whole, in up to three lines. */}
       <p ref={nameLine} data-reader-name className="mt-3 line-clamp-3 leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif", fontSize: 22 }}>{name || ' '}</p>
       {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
