@@ -889,7 +889,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const layRibbon = (to: number | null): void => {
     const was = ribbon
     if ((was?.page ?? null) === to) return
-    const next = to ? { page: to, block: null, words: null } : null
+    // Laid on another page, it keeps where along the top it was slid to.
+    const next = to ? { page: to, block: null, words: null, across: was?.across ?? null } : null
     setRibbon(next)
     setReadOn(null)
     const saved = keepRibbon(src, next)
@@ -898,6 +899,16 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     pageTurn(true)
     if (was) toast(`Ribbon moved to p. ${label(next.page)}`, back)
     else quietly(back)
+  }
+  /** Slid along its page's top edge by hand: kept there (a share of the page's width), with ⌘Z to slide it back. */
+  const slideRibbon = (across: number): void => {
+    const was = ribbon
+    if (!was) return
+    const next = { ...was, across }
+    setRibbon(next)
+    const saved = keepRibbon(src, next)
+    pageTurn(true)
+    quietly(() => void saved.then(() => keepRibbon(src, was)).then(() => (setRibbon(was), chime("undo"))))
   }
   const ribbonHere = (at = page): void => (ribbon?.page === at ? said(`The ribbon already lies on p. ${label(at)}`, true, undefined, { cue: "tap" }) : layRibbon(at))
   const [readOn, setReadOn] = useState<number | null>(null)
@@ -1262,27 +1273,19 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           scroller={scroller}
           at={ribbon ? String(ribbon.page) : null}
           ready={ribbonRead}
-          placeOf={(key) => {
+          across={ribbon?.across ?? null}
+          edgeOf={(key) => {
+            // Its own page's top edge, found by its number (the left or the right page of a spread alike), its top in
+            // the gap above as if between the leaves.
             const r = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)?.getBoundingClientRect()
-            // Across the top of its page, in from its right edge, its top in the gap above as if between the leaves.
-            return r ? { x: r.right - 44, y: r.top - 12 } : null
+            return r ? { left: r.left, right: r.right, top: r.top - 12 } : null
           }}
-          spotAt={(_x, y) => {
-            // A ribbon lies between the leaves: the gap nearest its end (the top of the page below it), and so that page.
-            const pages = scroller.current?.querySelector(".pdf-pages")
-            const below = sheetAt(pages, (r) => r.top > y)
-            const above = below ? (below.previousElementSibling as HTMLElement | null) : (pages?.lastElementChild as HTMLElement | null)
-            const near = [below, above?.dataset.page ? above : null].filter((one): one is HTMLElement => !!one)
-              .sort((a, b) => Math.abs(a.getBoundingClientRect().top - y) - Math.abs(b.getBoundingClientRect().top - y))[0]
-            const n = Number(near?.dataset.page)
-            return n ? { key: String(n), label: `p. ${label(n)}` } : null
-          }}
+          onSlide={slideRibbon}
           homeX={() => {
             const frame = main.current?.getBoundingClientRect()
             const r = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${page}"]`)?.getBoundingClientRect()
             return frame ? Math.min(r?.right ?? frame.right, frame.right - 16) : null
           }}
-          onLay={(key) => layRibbon(key ? Number(key) : null)}
           onLayHere={() => ribbonHere()}
         />
       )}

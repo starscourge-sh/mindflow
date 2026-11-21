@@ -204,11 +204,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   }
   const [menuBlock, setMenuBlock] = useState<number | null>(null)
   const main = useRef<HTMLDivElement>(null)
-  /** A paragraph's first words, as a held ribbon says where it would lie. */
-  const blockLabel = (one: HTMLElement): string => {
-    const words = (one.textContent ?? '').trim().split(/\s+/).slice(0, 5).join(' ')
-    return words ? `“${words}…”` : one.matches('figure') ? 'The figure' : 'Here'
-  }
 
   // Where you were: kept as you read (and leave), put back once the article is drawn tall enough to hold it.
   const placed = useRef(false)
@@ -974,24 +969,13 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             const frame = main.current?.getBoundingClientRect()
             if (!one || !column || !frame) return null
             // In the margin beside its paragraph, its top a little above the paragraph's first line.
-            return { x: Math.max(frame.left + 4, column.left - 30), y: one.getBoundingClientRect().top - 6 }
-          }}
-          spotAt={(_x, y) => {
-            const all = blocks()
-            let low = 0, high = all.length - 1, found = -1
-            while (low <= high) {
-              const mid = (low + high) >> 1
-              if (all[mid].getBoundingClientRect().bottom + 8 > y) (found = mid, (high = mid - 1))
-              else low = mid + 1
-            }
-            return found >= 0 ? { key: String(found), label: blockLabel(all[found]) } : null
+            return { x: Math.max(frame.left + 4, column.left - 36), y: one.getBoundingClientRect().top - 6 }
           }}
           homeX={() => {
             const column = body.current?.getBoundingClientRect()
             const frame = main.current?.getBoundingClientRect()
             return frame ? Math.min(column?.right ?? frame.right, frame.right - 16) : null
           }}
-          onLay={(key) => layRibbon(key === null ? null : Number(key))}
           onLayHere={() => ribbonHere()}
         />
       )}
