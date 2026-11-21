@@ -14,18 +14,24 @@ const { h, v, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 
 const BAR = '[data-thought-dock] [data-composer]'
+// The note's own editor: a piece of Writing's title is a field written in the same editor (PlainField, .is-plain),
+// and a bare '.note-pane .ProseMirror' found the title first ("Two Lines"), so the caret and scroll were read there.
+const BOX = '.note-pane .haligtree-editor-wrapper:not(.is-line, .is-plain) > .haligtree-editor-content'
+const DOC = `${BOX} > .ProseMirror`
+// Its last block of words, never the offer's place ProseMirror draws after it (extensions/offer-slot.ts).
+const LAST = `${DOC} > :not(.mf-offer-holder, .ProseMirror-widget, [contenteditable=false])`
 /** Where the foot is: the bar, the thoughts, the pane and the note's last line, in px. */
-const where = () => h.evaluate((BAR) => {
+const where = () => h.evaluate(([BAR, DOC, LAST]) => {
   const r = (el) => el && el.getBoundingClientRect()
   const pane = r(document.querySelector('.note-pane[data-open]'))
   const bar = r(document.querySelector(BAR))
   const thoughts = r(document.querySelector('.note-pane [data-page-thoughts]'))
-  const last = r(document.querySelector('.note-pane .ProseMirror > :last-child'))
-  const words = r(document.querySelector('.note-pane .ProseMirror'))
+  const last = r([...document.querySelectorAll(LAST)].filter((one) => one.getClientRects().length).at(-1))
+  const words = r(document.querySelector(DOC))
   const round = (one) => one && { top: Math.round(one.top), bottom: Math.round(one.bottom), left: Math.round(one.left), width: Math.round(one.width) }
   return { pane: round(pane), bar: round(bar), thoughts: round(thoughts), last: round(last), words: round(words) }
-}, BAR)
-const lastLine = () => h.evaluate(() => document.querySelector('.note-pane .ProseMirror > :last-child')?.textContent ?? '')
+}, [BAR, DOC, LAST])
+const lastLine = () => h.evaluate((LAST) => [...document.querySelectorAll(LAST)].at(-1)?.textContent ?? '', LAST)
 
 const short = async (name, id) => {
   await send('article', id); await wait(2000)
@@ -48,10 +54,10 @@ const long = async (name, id) => {
   const at = await where()
   check(`${name}, long note: the bar holds to the pane's foot`, !!at.bar && at.pane.bottom - at.bar.bottom <= 24 && at.pane.bottom - at.bar.bottom >= 0, JSON.stringify(at))
   // Scrolled to the end, whichever box scrolls (the editor's own, wide; the whole pane, narrow).
-  await h.evaluate(async () => {
-    for (const box of [document.querySelector('.note-pane[data-open]'), document.querySelector('.note-pane .haligtree-editor-content')]) box && box.scrollTo({ top: box.scrollHeight, behavior: 'instant' })
+  await h.evaluate(async (BOX) => {
+    for (const box of [document.querySelector('.note-pane[data-open]'), document.querySelector(BOX)]) box && box.scrollTo({ top: box.scrollHeight, behavior: 'instant' })
     await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)))
-  })
+  }, BOX)
   await wait(300)
   const end = await where()
   check(`${name}, long note: scrolled to the end, the thoughts and the bar come after the last line`, !!end.last && !!end.thoughts && end.last.bottom <= end.thoughts.top && end.thoughts.bottom <= end.bar.top, JSON.stringify(end))
