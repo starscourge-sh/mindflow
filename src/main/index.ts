@@ -3471,17 +3471,24 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   // Pointed at, the card opens out of its pill beside the stack, level with it, in the card's own size. The window
   // takes in the pill's column too: the card grows out of the pill (drawn by its page), the pill stays lit in its
   // place, and the stack does not move.
-  const { area, at } = stackPlaces()
+  const { area } = stackPlaces()
   const inset = insetOf(key)
   const right = stackSide === 'right'
-  const widest = Math.max(PILL_MIN, pill.width - 2 * PILL_ROOM.side, ...[...at.values()].map((one) => one.width))
-  const inner = right ? area.x + area.width - PILL_IN - widest - PILL_IN : area.x + PILL_IN + widest + PILL_IN
   const cardWidth = rest.width - inset.left - inset.right
-  // Its window's top level with the pill's (so the pill stands at the same point of both windows), unless the screen's foot is nearer.
-  const top = Math.max(area.y, Math.min(pill.y, area.y + area.height - rest.height + inset.bottom))
-  const card = { x: (right ? inner - cardWidth : inner) - inset.left, y: top, width: rest.width, height: rest.height }
-  const x = right ? card.x : pill.x
-  const box = { x, y: card.y, width: (right ? pill.x + pill.width : card.x + card.width) - x, height: Math.max(card.height, pill.y + pill.height - card.y) }
+  // The pill becomes the card, as the session pill opens out of itself: the card's edge on the stack's side and its
+  // top are the pill's own, so it grows from where the pill hangs, over the stack below it while it is out. Its top
+  // rises only if the screen's foot is nearer (and drops only under the menu bar). The window never reaches past the
+  // screen: the Mac pushed one that did back in (11 points), so the card stood short of the pill's edge.
+  const pillTop = pill.y + PILL_ROOM.top
+  const top = Math.max(area.y, Math.min(pillTop - inset.top, area.y + area.height - rest.height))
+  const cardX = right ? pill.x + pill.width - PILL_ROOM.side - cardWidth - inset.left : pill.x + PILL_ROOM.side - inset.left
+  const card = { x: cardX, y: top, width: rest.width, height: rest.height }
+  // The window holds the card and the pill's place both, inside the screen: the card's clear room on the stack's side
+  // is cut to what the screen allows (its page lays the card out past the window there, desk-pill.tsx), so the card's
+  // edge is still the pill's.
+  const x = Math.max(area.x, Math.min(card.x, pill.x))
+  const y = Math.min(card.y, pill.y)
+  const box = { x, y, width: Math.min(area.x + area.width, Math.max(card.x + card.width, pill.x + pill.width)) - x, height: Math.max(card.y + card.height, pill.y + pill.height) - y }
   openedAt.set(key, rest)
   fromPill.set(key, card)
   const peek: Peek = { side: stackSide, nudge: false, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: pill.width - 2 * PILL_ROOM.side, height: PILL_H }, card: card.width, size: { width: box.width, height: box.height } } }
@@ -3490,6 +3497,8 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   win.setMaximumSize(4000, 4000)
   placed.set(win, { x: box.x, y: box.y })
   win.setBounds(box)
+  // Over the pills below it in the stack, which it covers while it is out.
+  win.moveTop()
   stopPeek(key)
   // Gone from it for half a second, the card is told to fold back into its pill (one motion, drawn by its page), and
   // made the pill again only once that is drawn (beacon:folded). The pointer back on it midway: it opens out again.
