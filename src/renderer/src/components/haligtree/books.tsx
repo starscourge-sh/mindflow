@@ -315,8 +315,17 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
   // Reduce Motion or Motion off, or reached by the keys: there at once. Otherwise it swings round on the spring.
   // A passive effect, after the transforms above have listened again for this render: set in a layout effect, a book
   // reached by the keys changed while they were between listeners and stood still as a spine.
+  // Whether the keys did it is read as the change is drawn, in the key's own update: read later, in the effect, a
+  // pointer event the page sends as the books part under a pointer that has not moved could come first and make a
+  // key's turn a slow swing.
+  const byKeys = useRef(false)
+  const was = useRef(up)
+  if (was.current !== up) {
+    was.current = up
+    byKeys.current = keyed()
+  }
   useEffect(() => {
-    if (!(flat || keyed())) {
+    if (!(flat || byKeys.current)) {
       const swing = animate(out, up ? 1 : 0, { type: 'spring', ...PULL, restDelta: 0.001 })
       return () => swing.stop()
     }
@@ -365,6 +374,7 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   // The book the pointer or the keys are on (the menu lights a row by focusing it), else none and the open one stands turned.
   const [pointed, setPointed] = useState<string | null>(null)
   const keyed = useRef(false)
+  const lastAt = useRef([NaN, NaN])
   const lit = useMotionValue(1)
   // Each opening asks every other book's reader card afresh, so each is there before the book is pulled out.
   useState(() => askCards(books.filter((one) => !one.current).map((one) => one.id)))
@@ -375,7 +385,13 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
     <>
       <div ref={row} role="group" aria-label="Your books" data-book-shelf data-unlit className="mf-shelf" style={style}
         onWheel={(event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) event.currentTarget.scrollLeft += event.deltaY }}
-        onKeyDownCapture={() => void (keyed.current = true)} onPointerMove={() => void (keyed.current = false)}
+        onKeyDownCapture={() => void (keyed.current = true)}
+        // Only a pointer that really moved takes over from the keys: the page also sends one, unmoved, as the books part under it.
+        onPointerMove={(event) => {
+          if (event.clientX === lastAt.current[0] && event.clientY === lastAt.current[1]) return
+          lastAt.current = [event.clientX, event.clientY]
+          keyed.current = false
+        }}
         onFocus={(event) => setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
         onBlur={(event) => !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}>
         {books.map((book, at) => (

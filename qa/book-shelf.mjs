@@ -173,8 +173,13 @@ try {
     const shown = await cardOf(closed.id)
     const asked = full.find((one) => one.id === closed.id)
     check('pulled out, the closed book full of notes shows its card with the day it began and its stamps', shown?.name === closed.name && /Kept since/.test(shown.since ?? '') && shown.stamps >= (asked?.notes >= 100 ? 1 : 0) && shown.shape >= 45, JSON.stringify({ shown, asked }))
+    // Off the shelf first, so the open book stands turned again and every spine is back where `box` was measured: moved
+    // straight back, the books before the clone stood closer (the open one a spine), and `box` lay on the clone itself.
+    await h.mouse.move(5, 5); await wait(500)
     await h.evaluate(() => (document.querySelector('[data-book-shelf]').scrollLeft = 0)); await wait(300)
-    await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 3 }); await wait(500)
+    await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 4 }); await wait(500)
+    const back = await h.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-book]')?.getAttribute('data-book'), [box.x + 8, box.y + box.height / 2])
+    check('back on the first book pointed at before the press', back === other.id, back)
   }
   // A press opens it: the restart is caught, not made.
   await electron.evaluate(({ app }) => {
