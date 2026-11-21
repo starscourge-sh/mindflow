@@ -3640,7 +3640,8 @@ html[data-pill-open='left'] #root { right: 0; }
 /* While the pill grows into its card (and folds back), the card's paper is the shape from the first frame; its first
    line comes in as the pill's words go, the rest once the shape is mostly open (desk-pill.tsx draws the two amounts). */
 #root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > :not([aria-hidden]) { opacity: var(--pill-body, 1); }
-#root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > :nth-child(1 of :not([aria-hidden])) { opacity: var(--pill-head, 1); }
+/* The title row is named (goal-beacon.tsx data-card-head), never found by its place among the card's blocks. */
+#root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > [data-card-head] { opacity: var(--pill-head, 1); }
 /* What hangs past the card's edge (its tape, the sandbox badge, the grabber) would be cut by the growing shape: it comes
    in last, once the shape has passed it. */
 #root[data-growing] :is([data-pill-later], [data-grabber]) { opacity: var(--pill-later, 1); }
