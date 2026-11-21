@@ -10,6 +10,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { LABEL, bookStamp, database } from './captures'
 import { ask } from './reader'
 import { PDF_TITLES as TITLES, fileLink } from './find-files'
+import { HUES } from './books'
 
 export { fileLink }
 
@@ -120,19 +121,23 @@ export function registerPdfHighlights(): void {
   // `across`: where along its page's top edge it lies, slid by hand, as a share of the page's width (null: the default,
   // near the right edge), so it holds at any zoom and in one column or two.
   db.exec('create table if not exists ribbons (src text not null, slot integer not null default 0, page integer not null default 0, block integer, words text, laid_at text not null, primary key (src, slot))')
-  if (!(db.prepare('pragma table_info(ribbons)').all() as { name: string }[]).some((one) => one.name === 'across')) db.exec('alter table ribbons add column across real')
+  // `hue`: the ribbon's colour, one of a book's colours (books.ts HUES), null for its own deep red.
+  const has = new Set((db.prepare('pragma table_info(ribbons)').all() as { name: string }[]).map((one) => one.name))
+  if (!has.has('across')) db.exec('alter table ribbons add column across real')
+  if (!has.has('hue')) db.exec('alter table ribbons add column hue text')
   ipcMain.handle('haligtree:ribbon:get', (_event, src: unknown) =>
-    db.prepare('select page, block, words, across, laid_at as laidAt from ribbons where src = ? and slot = 0').get(String(src ?? '')) ?? null)
+    db.prepare('select page, block, words, across, hue, laid_at as laidAt from ribbons where src = ? and slot = 0').get(String(src ?? '')) ?? null)
   ipcMain.handle('haligtree:ribbon:lay', (_event, src: unknown, place: unknown) => {
     if (typeof src !== 'string' || !src) return false
-    const given = place as { page?: number; block?: number | null; words?: string | null; across?: number | null } | null
+    const given = place as { page?: number; block?: number | null; words?: string | null; across?: number | null; hue?: string | null } | null
     if (!given) return db.prepare('delete from ribbons where src = ? and slot = 0').run(src).changes > 0
     const page = Number.isInteger(given.page) ? (given.page as number) : 0
     const block = Number.isInteger(given.block) ? (given.block as number) : null
     if (page < 1 && block === null) return false
     const across = typeof given.across === 'number' && Number.isFinite(given.across) ? Math.max(0, Math.min(1, given.across)) : null
-    db.prepare('insert or replace into ribbons (src, slot, page, block, words, across, laid_at) values (?, 0, ?, ?, ?, ?, ?)')
-      .run(src, page, block, typeof given.words === 'string' ? given.words.slice(0, 80) : null, across, new Date().toISOString())
+    const hue = (HUES as readonly unknown[]).includes(given.hue) ? (given.hue as string) : null
+    db.prepare('insert or replace into ribbons (src, slot, page, block, words, across, hue, laid_at) values (?, 0, ?, ?, ?, ?, ?, ?)')
+      .run(src, page, block, typeof given.words === 'string' ? given.words.slice(0, 80) : null, across, hue, new Date().toISOString())
     return true
   })
   // What a book's Details and the library's inspector list: every note, gem and card that holds it or

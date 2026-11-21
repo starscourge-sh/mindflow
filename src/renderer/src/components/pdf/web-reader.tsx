@@ -187,7 +187,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const layRibbon = (at: number | null): void => {
     const was = ribbon
     if (at !== null && at === ribbonAt) return
-    const next = at === null ? null : { page: 0, block: at, words: (blocks()[at]?.textContent ?? '').trim().slice(0, 80) || null }
+    const next = at === null ? null : { page: 0, block: at, words: (blocks()[at]?.textContent ?? '').trim().slice(0, 80) || null, hue: was?.hue ?? null }
     setRibbon(next)
     setReadOn(null)
     const saved = keepRibbon(href, next)
@@ -962,6 +962,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           frame={main}
           scroller={scroller}
           at={ribbonAt === null ? null : String(ribbonAt)}
+          hue={ribbon?.hue ?? null}
           ready={ribbonRead && drawnFor === article}
           placeOf={(key) => {
             const one = blocks()[Number(key)]

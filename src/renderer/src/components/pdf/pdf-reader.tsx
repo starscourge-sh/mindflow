@@ -8,7 +8,9 @@ import { BookOpen, Check, ChevronDown, ChevronUp, Copy, Gem, Minus, PanelLeft, P
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { Swatch } from "@/components/haligtree/row-menu"
+import { HUES, hueName, type Hue } from "@/lib/books"
 import { ChapterCards } from "./chapter-cards"
 import { useStudyAi } from "@/lib/study-ai"
 import { Roll } from "@/lib/roll"
@@ -29,14 +31,17 @@ import { ScanDetail, ScanLine } from "./pdf-scan"
 import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, showPage, wordsIn, type PdfMark } from "./pdf-pages"
 import { pressAway } from "./reader-select"
 import { FitActions, listEnd, quietly, toast } from "@/components/haligtree/ui"
-import { ReadOnLine, Ribbon, keepRibbon, readRibbon, type RibbonPlace } from "./ribbon"
+import { ReadOnLine, Ribbon, keepRibbon, readRibbon, ribbonInk, type RibbonPlace } from "./ribbon"
+
+/** A ribbon's colours: its own deep red first, then a book's (lib/books.ts HUES). */
+const RIBBON_HUES: (Hue | null)[] = [null, ...HUES]
 import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
 import { PageLabel, usePageLabels } from "./pdf-labels"
 import { cleanTitle } from "@/lib/clean-title"
 import { drawing } from "./pdf-draw"
-import { still } from "@/lib/motion"
+import { motionNow, still } from "@/lib/motion"
 import { plural, num } from '../../../../main/dates'
 import { isYouTube } from '../../../../main/video-thumbs'
 
@@ -366,6 +371,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
         event.preventDefault()
         event.stopPropagation()
         return ribbonHere()
+      }
+      // ⇧⌘D: back to the ribbon.
+      if (event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === "KeyD" && !writing() && doc) {
+        event.preventDefault()
+        event.stopPropagation()
+        return ribbon ? goRibbon() : said("No ribbon is laid in this book yet: right-click a page, or press ⌘D", true, undefined, { cue: "nope" })
       }
       if (!stepping && !(plain && event.key === "/") && !(event.metaKey && !event.altKey && !event.shiftKey && event.code === "KeyF")) return
       event.preventDefault()
@@ -890,7 +901,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const was = ribbon
     if ((was?.page ?? null) === to) return
     // Laid on another page, it keeps where along the top it was slid to.
-    const next = to ? { page: to, block: null, words: null, across: was?.across ?? null } : null
+    const next = to ? { page: to, block: null, words: null, across: was?.across ?? null, hue: was?.hue ?? null } : null
     setRibbon(next)
     setReadOn(null)
     const saved = keepRibbon(src, next)
@@ -900,15 +911,46 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (was) toast(`Ribbon moved to p. ${label(next.page)}`, back)
     else quietly(back)
   }
-  /** Slid along its page's top edge by hand: kept there (a share of the page's width), with ⌘Z to slide it back. */
-  const slideRibbon = (across: number): void => {
+  /** Slid along its page's top edge by hand (in two pages, across its row onto the other page): kept there, as a share
+   *  of the page's width, with ⌘Z to slide it back; onto the other page of the row, said, as laying it there is. */
+  const slideRibbon = (across: number, key: string): void => {
     const was = ribbon
     if (!was) return
-    const next = { ...was, across }
+    const next = { ...was, page: Number(key) || was.page, across }
     setRibbon(next)
     const saved = keepRibbon(src, next)
+    const back = (): void => void saved.then(() => keepRibbon(src, was)).then(() => (setRibbon(was), chime("undo")))
     pageTurn(true)
+    if (next.page !== was.page) toast(`Ribbon moved to p. ${label(next.page)}`, back)
+    else quietly(back)
+  }
+  /** Its colour, one of a book's (the same nine less the theme's own: its own deep red is the first). Pointed at in the
+   *  menu, it shows in place; picked, it is kept. */
+  const [ribbonPeek, setRibbonPeek] = useState<Hue | null | undefined>(undefined)
+  const colourRibbon = (hue: Hue | null): void => {
+    const was = ribbon
+    setRibbonPeek(undefined)
+    if (!was || (was.hue ?? null) === hue) return
+    const next = { ...was, hue }
+    setRibbon(next)
+    chime("tap")
+    const saved = keepRibbon(src, next)
     quietly(() => void saved.then(() => keepRibbon(src, was)).then(() => (setRibbon(was), chime("undo"))))
+  }
+  /** Back to the ribbon: the pages glide to its page, its top edge and the ribbon a little below the top. */
+  const goRibbon = (): void => {
+    if (!ribbon) return
+    const box = scroller.current
+    const sheet = box?.querySelector<HTMLElement>(`.pdf-page[data-page="${ribbon.page}"]`)
+    if (!box || !sheet || motionNow() !== "all") return go(ribbon.page)
+    byHandScroll.current = false
+    box.scrollBy({ top: sheet.getBoundingClientRect().top - box.getBoundingClientRect().top - 24, behavior: "smooth" })
+  }
+  /** The ribbon's own menu, from a right-click on it: the page's menu, opened on its page, with its rows. */
+  const ribbonMenu = (event: React.MouseEvent): void => {
+    const sheet = ribbon && scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${ribbon.page}"]`)
+    if (!sheet) return
+    sheet.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: event.clientX, clientY: event.clientY, button: 2 }))
   }
   const ribbonHere = (at = page): void => (ribbon?.page === at ? said(`The ribbon already lies on p. ${label(at)}`, true, undefined, { cue: "tap" }) : layRibbon(at))
   const [readOn, setReadOn] = useState<number | null>(null)
@@ -1157,7 +1199,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       <DropdownMenuSeparator />
       <DropdownMenuLabel>Ribbon</DropdownMenuLabel>
       <DropdownMenuItem data-ribbon-lay disabled={!doc} onSelect={() => ribbonHere()}>Lay the ribbon here<DropdownMenuShortcut>⌘D</DropdownMenuShortcut></DropdownMenuItem>
-      {ribbon && <DropdownMenuItem data-ribbon-go onSelect={() => go(ribbon.page)}>Go to the ribbon<DropdownMenuShortcut>p. {label(ribbon.page)}</DropdownMenuShortcut></DropdownMenuItem>}
+      {ribbon && <DropdownMenuItem data-ribbon-go onSelect={goRibbon}>Go to the ribbon, p. {label(ribbon.page)}<DropdownMenuShortcut>⇧⌘D</DropdownMenuShortcut></DropdownMenuItem>}
       {ribbon && <DropdownMenuItem data-ribbon-out onSelect={() => layRibbon(null)}>Take the ribbon out</DropdownMenuItem>}
     </>
   )
@@ -1274,6 +1316,17 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           at={ribbon ? String(ribbon.page) : null}
           ready={ribbonRead}
           across={ribbon?.across ?? null}
+          hue={ribbonPeek !== undefined ? ribbonPeek : (ribbon?.hue ?? null)}
+          trackOf={(key) => {
+            // In two pages, the row: its page and the one beside it (the same top), left to right.
+            const sheet = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)
+            if (!sheet) return []
+            const top = sheet.getBoundingClientRect().top
+            const row = [sheet.previousElementSibling, sheet, sheet.nextElementSibling].filter((one): one is HTMLElement => one instanceof HTMLElement && !!one.dataset.page && Math.abs(one.getBoundingClientRect().top - top) < 2)
+            return row.map((one) => { const r = one.getBoundingClientRect(); return { key: one.dataset.page!, left: r.left, right: r.right, top: r.top - 12 } })
+          }}
+          onMenu={ribbonMenu}
+          away={ribbon ? { label: `p. ${label(ribbon.page)}`, go: goRibbon } : undefined}
           edgeOf={(key) => {
             // Its own page's top edge, found by its number (the left or the right page of a spread alike), its top in
             // the gap above as if between the leaves.
@@ -1326,7 +1379,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </div>
         </div>
       )}
-      <ContextMenu>
+      <ContextMenu onOpenChange={(open) => !open && setRibbonPeek(undefined)}>
         <ContextMenuTrigger asChild>
           <div
             ref={scroller}
@@ -1457,13 +1510,29 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             <>
               {ai && <ContextMenuSeparator />}
               <ContextMenuItem data-ribbon-lay-menu onSelect={() => ribbonHere(menuPage)}>Lay the ribbon here<ContextMenuShortcut>⌘D</ContextMenuShortcut></ContextMenuItem>
+              {ribbon && <ContextMenuItem data-ribbon-go-menu onSelect={goRibbon}>Go to the ribbon, p. {label(ribbon.page)}<ContextMenuShortcut>⇧⌘D</ContextMenuShortcut></ContextMenuItem>}
               {ribbon && <ContextMenuItem data-ribbon-out-menu onSelect={() => layRibbon(null)}>Take the ribbon out</ContextMenuItem>}
+              {ribbon && (
+                <>
+                  <ContextMenuLabel>Ribbon colour</ContextMenuLabel>
+                  {/* Pointed at, a colour shows on the ribbon at once; the menu closed without a pick, it goes back. */}
+                  <div role="group" aria-label="Ribbon colour" className="flex items-center gap-1 px-1.5 py-1" data-ribbon-colours onPointerLeave={() => setRibbonPeek(undefined)}>
+                    {RIBBON_HUES.map((hue) => (
+                      <ContextMenuItem key={hue ?? "own"} aria-label={hue ? hueName(hue) : "Ribbon red"} aria-checked={(ribbon.hue ?? null) === hue} role="menuitemradio" data-ribbon-hue-pick={hue ?? "own"}
+                        onPointerEnter={() => setRibbonPeek(hue)} onFocus={() => setRibbonPeek(hue)} onSelect={() => colourRibbon(hue)}
+                        className="flex size-6 cursor-pointer items-center justify-center rounded-md p-0 focus:bg-accent">
+                        <span data-ribbon-hue={hue ?? undefined} style={ribbonInk(hue)} className="contents"><Swatch color="var(--mf-ribbon)" on={(ribbon.hue ?? null) === hue} /></span>
+                      </ContextMenuItem>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </ContextMenuContent>
       </ContextMenu>
       </div>
-      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={async (question, answer, at) => void (await cardOf(question, answer, at, true))} /> : detailsOut && detailsFit && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
+      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={async (question, answer, at) => void (await cardOf(question, answer, at, true))} /> : detailsOut && detailsFit && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} ribbon={ribbon ? { page: ribbon.page, hue: ribbon.hue ?? null, go: goRibbon } : null} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
       </div>
       </PageLabel.Provider>
     </div>

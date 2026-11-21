@@ -3,6 +3,10 @@ import { AnimatePresence, animate, motion, useMotionValue, type AnimationPlaybac
 import { X } from 'lucide-react'
 import { EASE, motionNow } from '@/lib/motion'
 import { call } from '@/lib/haligtree'
+import { hueVar, type Hue } from '@/lib/books'
+
+/** The paint for a ribbon in a hue (pdf.css [data-ribbon-hue]): its own deep red when it has none. */
+export const ribbonInk = (hue: Hue | null | undefined): Record<string, string> | undefined => (hue ? { '--ribbon-hue': hueVar(hue) } : undefined)
 
 /**
  * The ribbon: a book's one sewn marker, laid where you mean to come back to, as a planner's satin ribbon lies between
@@ -20,7 +24,7 @@ import { call } from '@/lib/haligtree'
 
 /** A book's ribbon as the store keeps it (main/pdf-highlights.ts): a PDF's by page, an article's by paragraph.
  *  `across`: where along its page's top edge it lies, as a share of the page's width (null: near the right edge). */
-export type RibbonPlace = { page: number; block: number | null; words: string | null; across?: number | null }
+export type RibbonPlace = { page: number; block: number | null; words: string | null; across?: number | null; hue?: Hue | null }
 
 export const readRibbon = (src: string): Promise<RibbonPlace | null> => call<RibbonPlace | null>('ribbon:get', src)
 export const keepRibbon = (src: string, place: RibbonPlace | null): Promise<boolean> => call<boolean>('ribbon:lay', src, place)
@@ -47,18 +51,24 @@ const GLIDE = { duration: 0.2, ease: EASE } as const
 type Point = { x: number; y: number }
 /** A spot's top edge on screen: its left and right, and where the ribbon's top sits. */
 export type RibbonEdge = { left: number; right: number; top: number }
+/** A spot it can be slid onto, along the same top edge (the other page of a spread's row). */
+export type RibbonTrackSpot = RibbonEdge & { key: string }
 
 export function Ribbon({
   frame,
   scroller,
   at,
   across = null,
+  hue = null,
   edgeOf,
+  trackOf,
   placeOf,
   homeX,
   ready,
   onSlide,
-  onLayHere
+  onLayHere,
+  onMenu,
+  away
 }: {
   /** The box the ribbon hangs in (not scrolled): the reader's pages and their scroller fill it. */
   frame: RefObject<HTMLElement | null>
@@ -67,18 +77,26 @@ export function Ribbon({
   at: string | null
   /** Where along its spot's edge it lies, a share of the edge (null: near the right). Only with `edgeOf`. */
   across?: number | null
+  /** Its colour, one of a book's: null for its own deep red. */
+  hue?: Hue | null
   /** The top edge of a spot on screen, or null while it is not drawn: given with `onSlide`, a laid ribbon slides along it. */
   edgeOf?: (key: string) => RibbonEdge | null
+  /** The spots along the same edge, left to right, the ribbon can be slid across (a spread's row): just its own if not given. */
+  trackOf?: (key: string) => RibbonTrackSpot[]
   /** Where the ribbon's top left sits on screen when laid at `key`, for spots it does not slide on (an article's). */
   placeOf?: (key: string) => Point | null
   /** Where the tab hangs across, on screen. */
   homeX: () => number | null
   /** The book is drawn: until then the ribbon is not shown. */
   ready: boolean
-  /** Slid along its edge and let go there: the share of the edge it now lies at. */
-  onSlide?: (across: number) => void
+  /** Slid along its edge and let go there: the spot it now lies on, and the share of that spot's edge. */
+  onSlide?: (across: number, key: string) => void
   /** The hanging tab clicked: laid where you are reading. */
   onLayHere: () => void
+  /** Right-clicked: its menu (its colour, going to it, taking it out). */
+  onMenu?: (event: React.MouseEvent) => void
+  /** Laid out of sight: what the tab at the top says ("p. 95"), and going there. */
+  away?: { label: string; go: () => void }
 }): React.JSX.Element {
   const band = useRef<HTMLDivElement>(null)
   const ox = useMotionValue(0)
@@ -96,8 +114,12 @@ export function Ribbon({
   /** Where along its edge it lies: set the moment it is let go, so it rests there before the reader has kept it. */
   const acrossNow = useRef(across)
   useLayoutEffect(() => void (acrossNow.current = across), [across, at])
-  const reads = useRef({ placeOf, edgeOf, homeX })
-  reads.current = { placeOf, edgeOf, homeX }
+  const reads = useRef({ placeOf, edgeOf, trackOf, homeX })
+  reads.current = { placeOf, edgeOf, trackOf, homeX }
+  /** The tab that says where a ribbon out of sight lies. */
+  const awayTab = useRef<HTMLButtonElement>(null)
+  const [gone, setGone] = useState(false)
+  const goneNow = useRef(false)
   const slides = !!edgeOf && !!onSlide
 
   /** The left of a laid ribbon on its edge: at its share of it, never closer than INSET to either side. */
@@ -121,13 +143,22 @@ export function Ribbon({
     const x = reads.current.homeX()
     return x === null ? null : { x: x - box.left - IN_FROM_RIGHT, y: -2 }
   }
-  /** Held and slid: along its own page's edge only, at the pointer less where it was taken, kept inside the page. */
+  /** The edge it can be slid along: its own page's, or its whole row's in a spread, and the spots on it. */
+  const track = (): { edge: RibbonEdge; spots: RibbonTrackSpot[] } | null => {
+    const key = atNow.current
+    const own = key ? reads.current.edgeOf?.(key) : null
+    if (!key || !own) return null
+    const spots = reads.current.trackOf?.(key) ?? [{ ...own, key }]
+    if (!spots.length) return { edge: own, spots: [{ ...own, key }] }
+    return { edge: { left: spots[0].left, right: spots[spots.length - 1].right, top: own.top }, spots }
+  }
+  /** Held and slid: along its edge only, at the pointer less where it was taken, kept inside the row's pages. */
   const heldAt = (): Point | null => {
     const hold = held.current
     const box = frame.current?.getBoundingClientRect()
-    const key = atNow.current
-    const edge = key ? reads.current.edgeOf?.(key) : null
-    if (!hold?.moved || !box || !edge) return null
+    const along = track()
+    if (!hold?.moved || !box || !along) return null
+    const { edge } = along
     return { x: leftOn(edge, (hold.pointer.x - hold.grab + WIDTH / 2 - edge.left) / Math.max(1, edge.right - edge.left)) - box.left, y: edge.top - box.top }
   }
   const paint = (): void => {
@@ -141,6 +172,12 @@ export function Ribbon({
     drawn.current = { x, y }
     el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${rot.get()}deg)`
     el.style.height = `${len.get()}px`
+    // Laid out of sight (scrolled past, above or below): the tab at the top says where, and takes you there.
+    const box = frame.current?.getBoundingClientRect()
+    const out = !!atNow.current && !held.current && !!box && (y + LAID < 0 || y > box.height)
+    if (out !== goneNow.current) setGone((goneNow.current = out))
+    const home = reads.current.homeX()
+    if (awayTab.current && box && home !== null) awayTab.current.style.transform = `translate3d(calc(${home - box.left - IN_FROM_RIGHT + WIDTH}px - 100%), -2px, 0)`
   }
   const paints = useRef(paint)
   paints.current = paint
@@ -203,16 +240,18 @@ export function Ribbon({
     setHolding(false)
     if (band.current?.hasPointerCapture(hold.id)) band.current.releasePointerCapture(hold.id)
     if (!hold.moved) return
-    const key = atNow.current
-    const edge = key ? reads.current.edgeOf?.(key) : null
+    const along = track()
     const box = frame.current?.getBoundingClientRect()
-    if (keep && edge && box && drawn.current) {
-      // Where its middle lies now, as a share of the edge: it rests there at once, and the reader keeps it.
-      const left = drawn.current.x - ox.get() + box.left
-      const share = Math.max(0, Math.min(1, (left + WIDTH / 2 - edge.left) / Math.max(1, edge.right - edge.left)))
+    if (keep && along && box && drawn.current) {
+      // The page under its middle (the left or the right of a row), and where along that page's edge, as a share of
+      // it: it rests there at once, and the reader keeps it.
+      const middle = drawn.current.x - ox.get() + box.left + WIDTH / 2
+      const spot = along.spots.reduce((best, one) => (Math.max(one.left - middle, middle - one.right, 0) < Math.max(best.left - middle, middle - best.right, 0) ? one : best))
+      const share = Math.max(0, Math.min(1, (middle - spot.left) / Math.max(1, spot.right - spot.left)))
       acrossNow.current = share
+      atNow.current = spot.key
       settle()
-      return onSlide?.(share)
+      return onSlide?.(share, spot.key)
     }
     settle()
   }
@@ -291,12 +330,29 @@ export function Ribbon({
 
   const shownAt = at ?? 'top'
   return (
-    <div className="ribbon-layer" aria-hidden={!ready} data-ribbon-holding={holding ? '' : undefined}>
+    <div className="ribbon-layer" aria-hidden={!ready} data-ribbon-holding={holding ? '' : undefined} data-ribbon-hue={hue ?? undefined} style={ribbonInk(hue)}>
+      {/* Laid out of sight: a short tab where it hangs, saying the page, that takes you there. */}
+      {away && (
+        <button
+          ref={(node) => void ((awayTab.current = node), paint())}
+          type="button"
+          className="ribbon-away"
+          data-ribbon-away
+          data-shown={gone && ready ? '' : undefined}
+          tabIndex={gone ? 0 : -1}
+          title={`Go to your ribbon, ${away.label}  ⇧⌘D`}
+          onClick={away.go}
+        >
+          <span className="ribbon-away-satin" aria-hidden />
+          <span className="ribbon-away-label">{away.label}</span>
+        </button>
+      )}
       <div
         ref={band}
         className="ribbon"
         data-ribbon={holding ? 'held' : at ? 'laid' : 'hanging'}
         data-ribbon-at={shownAt}
+        data-gone={gone ? '' : undefined}
         data-slides={at && slides ? '' : undefined}
         data-unseen={ready ? undefined : ''}
         role="button"
@@ -306,7 +362,7 @@ export function Ribbon({
             ? undefined
             : at
               ? slides
-                ? 'Your ribbon. Drag it along the top of the page; right-click another page to lay it there, or to take it out'
+                ? 'Your ribbon. Drag it along the top of the page; right-click it for its colour, or to take it out'
                 : 'Your ribbon. Right-click another paragraph to lay it there, or to take it out'
               : 'Your ribbon. Click to lay it where you are reading, or right-click a page  ⌘D'
         }
@@ -318,6 +374,12 @@ export function Ribbon({
         onPointerUp={onUp}
         onPointerCancel={onUp}
         onLostPointerCapture={(event) => held.current && onUp(event)}
+        onContextMenu={(event) => {
+          if (!onMenu || !atNow.current) return
+          event.preventDefault()
+          event.stopPropagation()
+          onMenu(event)
+        }}
       >
         <span className="ribbon-satin" />
       </div>

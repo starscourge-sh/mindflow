@@ -19,6 +19,8 @@ import { useStill } from "@/lib/motion"
 import { pdfCover } from "./pdf-cover"
 import { drawnPage, pageImage } from "./pdf-peek"
 import { useDarkPages, usePaperPages } from "./paper"
+import { ribbonInk } from "./ribbon"
+import type { Hue } from "@/lib/books"
 
 /** Notes and gems: what "In your notes" lists. Cards show on the page bar alone. */
 export const inNotes = (cited: Cited[]): Cited[] => cited.filter((one) => one.type !== "card" && one.type !== "deck")
@@ -196,7 +198,10 @@ const STRIP_ROOM = Math.max(LOW + SWELL + 2, TALL + 6)
  * for the whole book. Pointed at, a stroke shows its page's picture over it and says what is in it under it; pressed,
  * it opens there. Over it the point ("You are on p. 83 of 336") and what the strokes are; under it, the first and last page.
  */
-export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src: string; name: string; pages: number; page?: number | null; cited: Cited[]; marks: Mark[]; /** In the reader: go to the page there. */ onPage?: (page: number) => void }): React.JSX.Element {
+/** The ribbon as the details show it: its page, its colour, and going there (pdf-reader.tsx goRibbon). */
+export type RibbonMark = { page: number; hue: Hue | null; go: () => void }
+
+export function PageBar({ src, name, pages, page, ribbon, cited, marks, onPage }: { src: string; name: string; pages: number; page?: number | null; /** In the reader, where the ribbon lies. */ ribbon?: RibbonMark | null; cited: Cited[]; marks: Mark[]; /** In the reader: go to the page there. */ onPage?: (page: number) => void }): React.JSX.Element {
   const strip = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
@@ -278,10 +283,23 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
       <p className="book-bar-you">
         {page ? <>You are on p. {labelFor(src, page)} of {labelFor(src, pages)}</> : "Not started"}
       </p>
+      {/* Where the ribbon lies, in its colour, and a way back to it (⇧⌘D). */}
+      {ribbon && (
+        <p className="book-bar-ribbon" data-book-ribbon={ribbon.page} data-ribbon-hue={ribbon.hue ?? undefined} style={ribbonInk(ribbon.hue)}>
+          <span className="book-bar-ribbon-mark" aria-hidden />
+          <span>Ribbon on p. {labelFor(src, ribbon.page)}</span>
+          <button type="button" className="book-bar-ribbon-go" data-book-ribbon-go title="Go to the ribbon  ⇧⌘D" onClick={() => (chime("open"), ribbon.go())}>Go to it</button>
+        </p>
+      )}
       <StrokeRule>Taller strokes hold highlights and notes; pinch to look closer</StrokeRule>
       <div ref={strip} className="book-bar-strip relative" data-swipe-own data-zoom-band={0} data-book-zoom={Math.round(z * 100) / 100} onDoubleClick={whole}>
         {width > 0 && (
           <>
+            {/* The ribbon's page on the strip: a short ribbon standing over its stroke, in its colour. */}
+            {ribbon && ribbon.page <= pages && strokeOf(ribbon.page) * step - pan >= -2 && strokeOf(ribbon.page) * step - pan <= width + 2 && (
+              <span aria-hidden className="book-bar-ribbon-tick" data-book-ribbon-tick={ribbon.page} data-ribbon-hue={ribbon.hue ?? undefined}
+                style={{ ...ribbonInk(ribbon.hue), transform: `translateX(${strokeOf(ribbon.page) * step - pan - 2}px)` }} />
+            )}
             <div data-zoom-clip className="overflow-hidden pb-0.5 [contain:layout_paint]">
               <Strokes count={count} step={step} shift={pan} view={width} height={STRIP_ROOM} role="img" aria-label={page ? `p. ${labelFor(src, page)} of ${labelFor(src, pages)}` : `${pages} pages`} className="cursor-pointer"
                 ink={(i) => (i === here ? STROKE_INK.here : stretches[i].marks + stretches[i].notes + stretches[i].cards ? "var(--foreground)" : i < here ? STROKE_INK.gone : STROKE_INK.ahead)}

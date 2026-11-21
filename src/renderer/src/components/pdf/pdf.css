@@ -2250,6 +2250,48 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   font-weight: 500;
 }
 
+/* Where the ribbon lies, under where you are: its mark in its colour, the page, and "Go to it". */
+.book-bar-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+}
+
+.book-bar-ribbon-mark {
+  flex: none;
+  width: 8px;
+  height: 14px;
+  background: var(--mf-ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 3px), 0 100%);
+}
+
+.book-bar-ribbon-go {
+  cursor: pointer;
+  margin-left: auto;
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  font-weight: 500;
+  background: var(--accent);
+}
+
+.book-bar-ribbon-go:hover {
+  background: color-mix(in oklab, var(--accent) 70%, var(--foreground) 8%);
+}
+
+/* The ribbon's page on the strip: a short ribbon standing over its stroke. */
+.book-bar-ribbon-tick {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  z-index: 1;
+  width: 5px;
+  height: 12px;
+  pointer-events: none;
+  background: var(--mf-ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 2px), 0 100%);
+}
+
 /* The book as the Journal's year is drawn: its strokes (time-strokes.tsx) across the whole card. */
 .book-bar-strip {
   min-width: 0;
@@ -2687,6 +2729,62 @@ html.dark-pages {
     linear-gradient(90deg, rgb(0 0 0 / 0.22), rgb(255 255 255 / 0.14) 38%, rgb(255 255 255 / 0.04) 55%, rgb(0 0 0 / 0.18)),
     var(--mf-ribbon);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
+}
+
+/* A ribbon in one of a book's colours: its hue taken down toward the ink as the red is, so it reads on the cream page,
+   and toward the ground on a dark desk. Set on the reader's ribbon and on every mark of it (the details' line, the strip). */
+[data-ribbon-hue] {
+  --mf-ribbon: color-mix(in oklab, var(--ribbon-hue) 62%, var(--foreground));
+}
+
+.dark [data-ribbon-hue] {
+  --mf-ribbon: color-mix(in oklab, var(--ribbon-hue) 68%, var(--background));
+}
+
+/* Laid out of sight: a short tab where it hangs, the page it lies on beside it; a click takes you there. */
+.ribbon-away {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 180ms var(--mf-ease, ease);
+}
+
+.ribbon-away[data-shown] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ribbon-away-satin {
+  width: 22px;
+  height: 34px;
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 0.22), rgb(255 255 255 / 0.14) 38%, rgb(255 255 255 / 0.04) 55%, rgb(0 0 0 / 0.18)),
+    var(--mf-ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.28));
+}
+
+.ribbon-away-label {
+  order: -1;
+  margin-top: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: 0 0 0 1px var(--border), 0 2px 6px -2px rgb(0 0 0 / 0.2);
+  white-space: nowrap;
+}
+
+.ribbon-away:hover .ribbon-away-label {
+  background: color-mix(in oklab, var(--popover) 88%, var(--foreground));
 }
 
 /* "You read on to p. 150, past your ribbon": one line over the foot of the pages, fading in, never pushing them. */

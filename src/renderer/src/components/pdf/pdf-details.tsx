@@ -8,7 +8,7 @@ import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
 import type { PdfCover } from "./pdf-cover"
 import { MARK_COLORS, markCss } from "./read-bar"
 import { pdfBytes, type PdfMark } from "./pdf-pages"
-import { InYourNotes, PageBar, PartHead, StuckHead, inNotes, linesOf, partAt, partsOf, useCitedRead, useFolded, type Cited, type Line } from "./book-links"
+import { InYourNotes, PageBar, type RibbonMark, PartHead, StuckHead, inNotes, linesOf, partAt, partsOf, useCitedRead, useFolded, type Cited, type Line } from "./book-links"
 
 const NONE: Cited[] = []
 
@@ -22,7 +22,7 @@ const LONG = 30
  * are many, each a way back to its place), and every note and gem that holds
  * it or links into it. Long lists draw only the rows in view.
  */
-export function ReadDetails({ src, name, cover, title, author, pages, page, chapters = [], marks, lit, onMark, onGather, onPage, onJoin, scan }: {
+export function ReadDetails({ src, name, cover, title, author, pages, page, ribbon, chapters = [], marks, lit, onMark, onGather, onPage, onJoin, scan }: {
   src: string
   /** The name it arrived under, for a page bar's tick to open it by. */
   name: string
@@ -32,6 +32,8 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
   /** Its page count, and the page you are on: a PDF's; an article has neither. */
   pages?: number
   page?: number
+  /** Where the ribbon lies, its colour, and going there: a line under the page you are on, and a mark on the strip. */
+  ribbon?: RibbonMark | null
   /** The outline's entries, for folding long lists by chapter: page runs when there are none. */
   chapters?: { title: string; page: number; depth: number }[]
   marks: PdfMark[]
@@ -78,7 +80,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
     <aside className="read-details book-panel" aria-label="Details">
       <div className="book-panel-head">
         <BookHead cover={cover} title={title} author={author} pages={pages} bytes={book?.bytes ?? pdfBytes(src)} />
-        {pages ? <PageBar src={src} name={name} pages={pages} page={page} cited={cited} marks={marks} onPage={onPage} /> : null}
+        {pages ? <PageBar src={src} name={name} pages={pages} page={page} ribbon={ribbon} cited={cited} marks={marks} onPage={onPage} /> : null}
         {scan}
       </div>
       <div ref={setBox} className="book-panel-body" data-panel-scroll>
