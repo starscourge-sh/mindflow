@@ -2662,9 +2662,11 @@ export function Home(): React.JSX.Element {
               })()}
               {/* Back after a while: said plainly, with the way to everything else one click away. */}
               {quiet && !narrow && (
-                <div data-quiet-return className="mt-4 space-y-1.5 px-2">
-                  <p className="text-[0.9375rem] leading-snug text-foreground">Welcome back after {away.days} days. Just the Inbox, Journal and Tasks for now.</p>
-                  <Button variant="secondary" size="sm" onClick={() => void call('return:show-all').then(() => chime('unshelve'))}>Show everything</Button>
+                // A note from the app, set apart as one (its own quiet panel, the sidebar's own text size), never loose
+                // words under the rows at a size of their own (the user, 21 Nov: "looking like it was just dumped here").
+                <div data-quiet-return className="mx-1 mt-4 flex flex-col gap-2 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_5%,transparent)] px-3 py-2.5 text-control leading-snug">
+                  <p className="text-(--mf-muted-strong)"><b className="font-medium text-foreground">Welcome back.</b> {away.days} days away, so just the Inbox, Journal and Tasks for now.</p>
+                  <Button variant="secondary" size="sm" className="self-start" onClick={() => void call('return:show-all').then(() => chime('unshelve'))}>Show everything</Button>
                 </div>
               )}
             </>)
