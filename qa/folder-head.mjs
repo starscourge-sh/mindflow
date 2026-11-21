@@ -40,6 +40,9 @@ const offered = () => h.evaluate(() => [...document.querySelectorAll('[data-fold
 const tipsUp = () => h.evaluate(() => (document.querySelector('[data-folder-gems-line]') ? 1 : 0) + (document.querySelector('[data-drag-hint]') ? 1 : 0))
 try {
   await c.v('settings:set', { hintRate: 0, rotCount: 0, sounds: false })
+  // An everyday user: the lists' first-visit drag tips were seen on an earlier day (a first visit draws one over the
+  // first row, once; qa/groups.mjs checks that it shows).
+  await h.evaluate(() => { for (const name of ['own-order', 'sorted-drag', 'grouped-drag']) localStorage.setItem(`hint:${name}`, '1') })
   // Films and books holds a folder and a page; Letters holds only a page, so its first row is the list's own.
   const films = await c.v('folders:make', 'Films and books')
   await c.v('folders:make', 'Westerns', films)

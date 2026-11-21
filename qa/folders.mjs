@@ -143,7 +143,9 @@ try {
   check('no list of its own is left behind', (await h.locator('[data-folder-item]').count()) === 0)
   check('its name is the title over the list', ((await h.locator('[data-folder-title]').textContent()) ?? '').trim() === 'Thesis', await h.locator('[data-folder-title]').textContent())
   check('one row lit in the sidebar', (await h.evaluate(() => document.querySelectorAll('aside [data-side-row][aria-current="page"]').length)) === 1)
-  check('its fact says what it holds', /Thesis holds 2 pages\./.test((await h.locator('[data-folder-fact]').textContent()) ?? ''), await h.locator('[data-folder-fact]').textContent())
+  // Holding things, no sentence repeats it (21 Nov): its list's header counts them, as Writing's does.
+  const counted = await h.evaluate(() => document.querySelector('[data-page="folders"] [data-list-count]')?.getAttribute('data-list-count') ?? '')
+  check('what it holds is counted in its list\'s header, with no sentence saying it again', counted === '2' && (await h.locator('[data-folder-fact]').count()) === 0, `count ${counted}, fact lines ${await h.locator('[data-folder-fact]').count()}`)
   check('its sidebar row is marked as the page you are on', (await h.locator(`[data-side-folder="${thesis.id}"]`).getAttribute('aria-current')) === 'page')
   await shot('folder-page')
   // Its row's own menu takes a page out of the folder, as in Writing; Undo puts it back.

@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { Gem } from '@/components/ui/icons'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
-import { tipTurn } from '@/lib/motion'
+import { tipUp, useTipUp } from '@/lib/motion'
 import { folders, type Folder, type GemIdea } from '@/lib/folders'
 import { Island, Pressed, toast } from './ui'
 import { num, plural } from '../../../../main/dates'
@@ -24,11 +24,17 @@ export function FolderGems({ folder }: { folder: Folder }): React.JSX.Element | 
   const lines = ideas?.lines ?? []
   useEffect(() => void (open && list.current?.focus({ preventScroll: true })), [open])
   useEffect(() => setAt((now) => Math.min(now, Math.max(0, lines.length - 1))), [lines.length])
+  // A first-visit tip: decided once, as it would first show. With the list's drag tip already up on this page it
+  // waits for another visit (never stacked over it, lib/motion.ts `useTipUp`); shown, it stays till answered.
+  const wants = !!ideas && !open && !ideas.offered && !answered && lines.length > 0
+  const held = useRef<boolean | null>(null)
+  if (wants && held.current === null) held.current = tipUp('drag')
+  const showing = wants && held.current === false
+  useTipUp('folder-gems', showing)
   if (!ideas) return null
   const by = ideas.by === 'ai' ? 'Read by Apple Intelligence, on this Mac' : 'Read by the capture box’s own word rules'
   if (!open) {
-    // A tip, so one kind a launch (lib/motion.ts `tipTurn`): never stacked over the list's drag tip.
-    if (ideas.offered || answered || !lines.length || !tipTurn('folder-gems')) return null
+    if (!showing) return null
     const answer = (): void => (setAnswered(true), void folders.gemsOffered(folder.id))
     // One quiet line in the breadcrumb's own size, its gem on the content's left edge, grown in as it arrives.
     return (

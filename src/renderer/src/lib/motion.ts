@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { positionalKeys, usePresence, type MotionProps, type TargetAndTransition, type Transition, type Variants } from 'motion/react'
 
 /**
@@ -216,11 +216,18 @@ export function hush(id: string): void {
 }
 
 /**
- * One kind of tip a launch (the user, 21 Nov: a gems line over a drag tip read as stacked chrome): the first kind
- * shown holds the session, any other waits for the next launch. Asking again for the kind that holds it says yes.
+ * First-visit tips on screen now, by kind (the user, 21 Nov: a folder's gems line over a list's drag tip read as
+ * stacked chrome). Whichever arrives first keeps its place; the other is not shown on that visit and comes another.
  */
-let tipOfSession: string | null = null
-export const tipTurn = (kind: string): boolean => (tipOfSession ??= kind) === kind
+const tipsUp = new Map<string, number>()
+export const tipUp = (kind: string): boolean => (tipsUp.get(kind) ?? 0) > 0
+export function useTipUp(kind: string, up: boolean): void {
+  useLayoutEffect(() => {
+    if (!up) return
+    tipsUp.set(kind, (tipsUp.get(kind) ?? 0) + 1)
+    return () => void tipsUp.set(kind, (tipsUp.get(kind) ?? 1) - 1)
+  }, [kind, up])
+}
 
 const visited = new Set<string>()
 /** True the first time `key` is reached this session (rule 4); a revisit arrives settled. */

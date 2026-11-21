@@ -135,7 +135,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       )}
       {/* The folders inside it, as the first rows of its list: the sidebar tree's own rows, at the list's size. */}
       {/* 16px under the path, as the Folders page's first row is under its own path (FolderPath): in and out, nothing moves. */}
-      {!unfiled && <div className="mt-4"><FolderRows parent={id} onPlace={(one) => onPlace(one)} onOpenItem={onOpen} /></div>}
+      {/* Only with folders in it: an empty wrapper's margin pushed a folder of pages alone 16px lower than Folders' rows. */}
+      {!unfiled && inside.length > 0 && <div className="mt-4"><FolderRows parent={id} onPlace={(one) => onPlace(one)} onOpenItem={onOpen} /></div>}
     </div>
   )
   const box = { id, name }
