@@ -35,7 +35,9 @@ try {
   await c.send('article', id); await wait(1800)
   const marked = await h.evaluate((sel) => [...document.querySelector(sel).querySelectorAll('.mf-line-card')].map((one) => one.parentElement.textContent.split(' ::')[0].trim()), EDITOR)
   check('every way of writing a card line shows its mark, the first of a list included', SAID.every((one) => marked.includes(one)) && marked.length === SAID.length, JSON.stringify(marked))
-  const cards = await v('cards:all')
+  // The cards are made just after the note saves (main/line-cards.ts lineCardsSoon): waited for, 10 s at most.
+  let cards = []
+  for (let i = 0; i < 20 && cards.filter((card) => card.lineOf === `nugget:${id}`).length < SAID.length; i++) (await wait(500), (cards = await v('cards:all')))
   check('each line is a card', SAID.every((one) => cards.some((card) => card.lineOf === `nugget:${id}` && card.prompt === one)), JSON.stringify(cards.filter((card) => card.lineOf === `nugget:${id}`).map((card) => card.prompt)))
   // A hover says what a click does.
   const second = markOf('Second law')
@@ -51,7 +53,11 @@ try {
   check('⌘-click opens it in a new tab', (await h.locator('[role="tab"]').count()) > tabsBefore, `${tabsBefore} → ${await h.locator('[role="tab"]').count()}`)
   // The card's page: the way back lands on the line.
   await h.locator('[data-card-line-open]').last().click(); await wait(1800)
-  const landed = await h.evaluate((sel) => { const ed = document.querySelector(sel)?.editor; return ed ? ed.state.doc.resolve(ed.state.selection.from).parent.textContent : '' }, EDITOR)
+  // Read in the note's own editor (the one holding the card lines), never the card page's, whose words are the answer.
+  const landed = await h.evaluate(() => {
+    const ed = [...document.querySelectorAll('.tiptap')].map((one) => one.editor).find((one) => one?.state.doc.textContent.includes('Second law ::'))
+    return ed ? ed.state.doc.resolve(ed.state.selection.from).parent.textContent : 'no editor holds the note'
+  })
   check('"Open it at the line" lands on that line of the note', /^(Second|Third) law ::/.test(landed), landed)
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
