@@ -1,16 +1,24 @@
-/* Your books on a shelf (books.tsx BookShelf): the welcome's 3D book (book-box.tsx) standing spine out in a row on a
-   ledge, the one pointed at pulled out and turned to its cover, named under the shelf. Unlayered, so it wins over the
-   menu row's own utilities that the item hands its book. */
+/* Your books on a shelf (books.tsx BookShelf): the welcome's 3D book (book-box.tsx), printed flat, standing spine out
+   in a row on a ledge, every spine one height and its own solid colour, the one pointed at pulled out and turned to its
+   cover, named under the shelf. Unlayered, so it wins over the menu row's own utilities that the item hands its book. */
 .mf-shelf {
+  /* The two neutrals a book with no colour wears (books.tsx spinesOf), from the theme's own accent, nearly grey: on a
+     light menu a deep one first and a pale one, on a dark menu a pale one first and a mid one, so each stands off the
+     menu behind it. */
+  --mf-spine-plain-0: oklch(from var(--mf-theme-accent, var(--primary)) 0.3 0.015 h);
+  --mf-spine-plain-1: oklch(from var(--mf-theme-accent, var(--primary)) 0.88 0.015 h);
+  /* The app's sans, as Mac's own controls are set: clear at a spine's size, where a serif turns to mush. */
+  --mf-shelf-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   /* As wide as the menu, never widening it: 30 books scroll inside it rather than stretch it across the window. */
   contain: inline-size;
   display: flex;
+  flex: none;
   align-items: flex-end;
   gap: 4px;
-  /* The tallest book (130), the ledge's room under it, and a little over it for the one pulled out. */
-  height: 152px;
+  /* A spine (144) on its foot room (4), the pulled-out book's lift over it (about 11: 6% taller and 5 up), and a little air. */
+  height: 168px;
   margin: 2px 0 0;
-  padding: 14px 8px 0;
+  padding: 0 8px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -18,9 +26,15 @@
   border-bottom: 1px solid var(--border);
   box-shadow: inset 0 -4px 0 color-mix(in oklab, var(--foreground) 5%, transparent);
 }
+:root:not([data-light]) .mf-shelf {
+  --mf-spine-plain-0: oklch(from var(--mf-theme-accent, var(--primary)) 0.92 0.015 h);
+  --mf-spine-plain-1: oklch(from var(--mf-theme-accent, var(--primary)) 0.45 0.015 h);
+}
 .mf-shelf::-webkit-scrollbar { display: none; }
 /* A book's room on the shelf: its width and lift are the book's own spring (books.tsx ShelfBook); the book stands in it. */
 .mf-shelf .mf-spine {
+  /* Its ink, from its colour's lightness: dark on a pale spine, light on a deep one (5:1 or more on every one, books.tsx SPINE). */
+  --mf-spine-ink: oklch(from var(--mf-spine-bg) clamp(0.22, (0.64 - l) * 999, 0.985) 0.02 h);
   position: relative;
   flex: none;
   display: block;
@@ -34,56 +48,85 @@
 }
 .mf-shelf .mf-spine:active { scale: 0.97; }
 .mf-shelf .mf-spine * { cursor: pointer; }
-/* The menu inks a lit row's words in its own colour: a book keeps its own, the cover's name in its ink, the spine's in gold foil. */
-.mf-shelf .mf-spine .mf-spine-face * { color: inherit; }
+/* A flat spine: its colour edge to edge, a faint shade at either edge for its roundness, its name up it from the foot. */
+.mf-flat-spine {
+  background: linear-gradient(to right, oklch(from var(--mf-spine-bg) calc(l - 0.07) c h), var(--mf-spine-bg) 20%, var(--mf-spine-bg) 80%, oklch(from var(--mf-spine-bg) calc(l - 0.07) c h));
+}
+/* The menu inks a lit row's words in its own colour: a book keeps its own. */
+.mf-shelf .mf-spine .mf-flat-spine-title {
+  writing-mode: vertical-rl;
+  rotate: 180deg;
+  overflow: hidden;
+  font: 600 13px/1 var(--mf-shelf-sans);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--mf-spine-ink);
+  /* Its own colour behind its words, as the spine's: the same to the eye, and what a check reads its contrast against. */
+  background: var(--mf-spine-bg);
+}
 .mf-shelf .mf-spine .mf-card-cover * { color: inherit; }
-.mf-shelf .mf-spine [data-reader-spine-face] span { color: transparent; }
 /* The open book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx ShelfCover). */
 .mf-card-cover { overflow: hidden; }
 /* Its picture at the card's own size, and its words wrapping as on the card: a menu row draws every svg in it at 14px
    unless told, and keeps its words on one line (dropdown-menu.tsx). */
 .mf-shelf [data-reader-shape] > svg:not(.size-0) { width: 168px; height: 168px; }
 .mf-shelf [data-shelf-card] { white-space: normal; }
-/* Its cover: cream washed with the book's colour, a tooled frame in its ink, the name set in from the hinge. */
-.mf-spine-face {
+/* Any other book's cover: a jacket printed in its colour, its name at the head and, under it, a picture from the book or
+   a few lines of its own words (books.tsx BookJacket), which fade in as they come. The name never moves when they do. */
+.mf-shelf .mf-jacket-cover { overflow: hidden; background: var(--mf-spine-bg); }
+.mf-jacket {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  padding: 11px 9px 10px 13px;
-  background: color-mix(in oklab, var(--mf-card-a) 45%, #fffbea);
+  gap: 7px;
+  padding: 10px 9px 9px;
+  white-space: normal;
 }
-.mf-spine-face::before {
-  content: '';
-  position: absolute;
-  inset: 4px 4px 4px 9px;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-  opacity: 0.18;
-  pointer-events: none;
-}
-.mf-spine-name {
+.mf-shelf .mf-spine .mf-jacket, .mf-shelf .mf-spine .mf-jacket * { color: var(--mf-spine-ink); }
+.mf-jacket-name {
+  flex: none;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   overflow: hidden;
-  font-family: 'Fraunces Variable', Georgia, serif;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.01em;
-  /* Wrapped, never cut on one line: the menu row it sits in keeps its words on one. */
-  white-space: normal;
+  font: 700 12px/1.15 var(--mf-shelf-sans);
+  letter-spacing: -0.005em;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
-/* The turned book named under the shelf: one line for its name, one for when you were in it, the same height whichever book. */
+.mf-jacket-picture {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+  animation: mf-jacket-in 180ms ease-out;
+}
+.mf-jacket-words {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+  font: italic 400 9.5px/1.35 'Fraunces Variable', Georgia, serif;
+  overflow-wrap: anywhere;
+  animation: mf-jacket-in 180ms ease-out;
+}
+@keyframes mf-jacket-in { from { opacity: 0; } }
+/* The turned book named under the shelf: one line for its name, one for when you were in it, the same height whichever
+   book. Its room is kept whole (6 + 18 + 1 + 16 + 8): never squeezed, and each line tall enough for its letters. */
 .mf-shelf-caption {
   display: flex;
+  flex: none;
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  margin: 0 0 6px;
-  padding: 6px 10px 0;
+  height: 49px;
+  margin: 0;
+  padding: 6px 10px 8px;
   text-align: center;
 }
-.mf-spine-said-name { max-width: 100%; font-family: var(--font-heading); font-size: 13px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mf-spine-said { max-width: 100%; font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--mf-muted-strong); }
+.mf-spine-said-name { max-width: 100%; font-family: var(--font-heading); font-size: 13px; font-weight: 600; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mf-spine-said { max-width: 100%; font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--mf-muted-strong); }

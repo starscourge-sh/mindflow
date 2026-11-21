@@ -1,8 +1,10 @@
-// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the welcome's 3D book standing
-// spine out in its colour, the open one turned to its cover, the one pointed at (or reached by the keys) pulled out and
+// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the welcome's 3D book printed flat,
+// standing spine out in its own solid colour with its name up it in a readable ink, every spine one height, the open one
+// turned to its cover, the one pointed at (or reached by the keys) pulled out and
 // turned instead and named under the shelf, the shelf one width throughout; a press on another book opens it. Real
 // pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
-// QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms.
+// QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms, and keeps a picture of the menu with
+// the pointer on each of the first books, in the light look and the dark.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 node qa/book-shelf.mjs
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -48,11 +50,32 @@ try {
   // Its cover is its reader card (reader-card.tsx ShelfCover), as Settings draws it, the picture at its size.
   const card = await h.evaluate(() => { const one = document.querySelector('[data-book-shelf] [aria-current] [data-shelf-card]'); return one && { name: one.querySelector('[data-reader-name]')?.textContent, title: one.querySelector('[data-reader-title]')?.textContent, since: one.querySelector('[data-reader-since]')?.textContent, shape: Math.round(one.querySelector('[data-reader-shape] > svg:not(.size-0)')?.getBoundingClientRect().width ?? 0) } })
   check('the open book wears its own reader card: its name, title, day begun and picture', card?.name === books.books.find((one) => one.current)?.name && !!card.title && /Kept since|Not begun/.test(card.since) && card.shape >= 45, JSON.stringify(card))
-  // Seen as tall as the tallest book on the shelf, standing on the ledge with the rest (it stood shorter, 20 Nov).
-  const tall = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => { const face = (one.getAttribute('aria-current') ? one.querySelector('[data-shelf-card]')?.parentElement : one.querySelector('[data-reader-spine-face]'))?.getBoundingClientRect(); return { open: !!one.getAttribute('aria-current'), h: Math.round(face?.height ?? 0), bottom: Math.round(face?.bottom ?? 0) } }))
+  // Every spine one height; the turned book a little taller (6%), its foot on the ledge with theirs (the user, 21 Nov:
+  // short spines of many heights, a cover towering over them).
+  const tall = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => { const face = (one.getAttribute('aria-current') ? one.querySelector('[data-shelf-card]')?.parentElement : one.querySelector('[data-reader-spine-face]'))?.getBoundingClientRect(); return { open: !!one.getAttribute('aria-current'), w: Math.round(face?.width ?? 0), h: Math.round(face?.height ?? 0), bottom: Math.round(face?.bottom ?? 0) } }))
   const spinesTall = tall.filter((one) => !one.open)
   const turnedTall = tall.find((one) => one.open)
-  check('the turned book stands as tall as the tallest spine, within 3px, its foot on the ledge with theirs', Math.abs(turnedTall.h - Math.max(...spinesTall.map((one) => one.h))) <= 3 && spinesTall.every((one) => Math.abs(one.bottom - turnedTall.bottom) <= 7), JSON.stringify(tall.slice(0, 8)))
+  check('every spine stands one height, within 1px, about six times as tall as it is wide', Math.max(...spinesTall.map((one) => one.h)) - Math.min(...spinesTall.map((one) => one.h)) <= 1 && spinesTall.every((one) => one.h >= one.w * 5 && one.h <= one.w * 7), JSON.stringify(spinesTall.slice(0, 6)))
+  check('the turned book only a little taller than the spines (under 10%), its foot on the ledge with theirs', turnedTall.h > spinesTall[0].h && turnedTall.h <= spinesTall[0].h * 1.1 && spinesTall.every((one) => Math.abs(one.bottom - turnedTall.bottom) <= 7), JSON.stringify({ turned: turnedTall, spine: spinesTall[0] }))
+  // Each spine's name against its own colour, read as the screen shows them (a 1px canvas turns any colour to sRGB).
+  const inks = await h.evaluate(() => {
+    const paint = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
+    const rgb = (colour) => { paint.clearRect(0, 0, 1, 1); paint.fillStyle = colour; paint.fillRect(0, 0, 1, 1); return [...paint.getImageData(0, 0, 1, 1).data].slice(0, 3) }
+    const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+    return [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => {
+      const title = one.querySelector('[data-spine-title]')
+      const look = getComputedStyle(title)
+      const [ink, ground] = [rgb(look.color), rgb(look.backgroundColor)]
+      const [a, b] = [lum(ink), lum(ground)]
+      return { name: title.textContent, ground: ground.join(','), ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100, cut: title.scrollHeight > title.clientHeight + 1 || title.scrollWidth > title.clientWidth + 1 ? 'ellipsis' : 'whole', font: look.fontFamily.split(',')[0] }
+    })
+  })
+  check('every spine\'s name reads against its colour at 4.5:1 or more', inks.every((one) => one.ratio >= 4.5), JSON.stringify(inks.filter((one) => one.ratio < 4.5).concat(inks.slice(0, 3))))
+  check('no two neighbouring spines the same colour', inks.every((one, at) => !at || one.ground !== inks[at - 1].ground), JSON.stringify(inks.map((one) => one.ground)))
+  check('the names are set in a sans, never wrapping', inks.every((one) => !/Fraunces|Georgia/.test(one.font)), inks[0]?.font)
+  // The caption under the shelf: its whole box inside the menu, and neither line cut at its foot (21 Nov: clipped).
+  const captionRoom = await h.evaluate(() => { const one = document.querySelector('[data-book-caption]'); const menu = one.closest('[role="menu"]').getBoundingClientRect(); const box = one.getBoundingClientRect(); return { inside: box.top >= menu.top && box.bottom <= menu.bottom && box.left >= menu.left && box.right <= menu.right, lines: [...one.children].map((line) => line.scrollHeight - line.clientHeight), box: [Math.round(box.top), Math.round(box.bottom)], menu: [Math.round(menu.top), Math.round(menu.bottom)] } })
+  check('the caption sits wholly inside the menu, neither of its lines cut', captionRoom.inside && captionRoom.lines.every((over) => over <= 0), JSON.stringify(captionRoom))
   check('the others stand as spines',at.filter((one) => !one.open).every((one) => one.w <= 30), JSON.stringify(at.map((one) => one.w)))
   check('every spine shows the hand', at.every((one) => one.cursor === 'pointer'))
   const width = (list) => list.reduce((sum, one) => sum + one.w, 0)
@@ -77,8 +100,12 @@ try {
   const still = await h.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-book]')?.getAttribute('data-book'), [box.x + 8, box.y + box.height / 2])
   check('the pointer is still on the book it pointed at', still === other.id, still)
   check('one floating thing: the menu, no card or tip beside it', (await floating()) === 1, String(await floating()))
-  const name = await h.locator(`[data-book-shelf] [data-book="${other.id}"] .mf-spine-name`).textContent()
-  check('its face says its whole name', name === books.books.find((one) => one.id === other.id)?.name, name)
+  const name = await h.locator(`[data-book-shelf] [data-book="${other.id}"] .mf-jacket-name`).textContent()
+  check('its jacket says its whole name', name === books.books.find((one) => one.id === other.id)?.name, name)
+  // And something of the book itself under the name, read once from its file: a picture, else a few of its own words
+  // (a book made for this run has no file, so its name alone).
+  const has = await h.locator(`[data-book-shelf] [data-book="${other.id}"] [data-jacket]`).getAttribute('data-jacket-has')
+  check('its jacket shows a picture or its own words when the book has any', /picture|words|name/.test(has ?? ''), has)
   const caption = await h.locator('[data-book-caption]').textContent()
   check('and the shelf names it underneath, with when you were in it', caption?.startsWith(name) && /Open now|In it last|Opened|Not opened yet/.test(caption), caption)
   // The keys: the next book turns at once (no swing), the shelf the same width.
@@ -91,6 +118,23 @@ try {
   // And back up to the book pointed at, which turns out again under the pointer.
   await h.keyboard.press('ArrowUp'); await wait(60)
   check('the key back turns the book before it out again', (await spines()).find((one) => one.id === other.id)?.w >= 80)
+  if (shots) {
+    await h.keyboard.press('Escape'); await wait(300)
+    for (const name of ['light', 'dark']) {
+      await s.look(name)
+      await h.locator('[aria-label="Haligtree menu"]').click(); await wait(500)
+      const ids = (await spines()).slice(0, 7).map((one) => one.id)
+      for (const [at, id] of ids.entries()) {
+        const spot = await h.locator(`[data-book-shelf] [data-book="${id}"]`).boundingBox()
+        await h.mouse.move(spot.x + Math.min(8, spot.width / 2), spot.y + spot.height / 2, { steps: 3 }); await wait(700)
+        await h.locator('[role="menu"]').first().screenshot({ path: `${shots}/shelf-${name}-${at}.png` })
+      }
+      await h.mouse.move(5, 5); await h.keyboard.press('Escape'); await wait(300)
+    }
+    await s.look('light')
+    await h.locator('[aria-label="Haligtree menu"]').click(); await wait(500)
+    await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 3 }); await wait(500)
+  }
   // A press opens it: the restart is caught, not made.
   await electron.evaluate(({ app }) => {
     globalThis.__relaunched = null

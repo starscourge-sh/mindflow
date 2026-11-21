@@ -12,6 +12,8 @@ import { atomically, changed, database } from './captures'
 import { dayKey } from './dates'
 import { BOOK, SANDBOX, bookRoot, dataRoot, isBookId, readShelf, realRoot, relaunch, sandboxRoot, writeShelf } from './sandbox'
 import { cut } from './clip'
+import { plain } from './card-words'
+import { smallCopy } from './pictures'
 
 /**
  * Books, as the app uses them: the list, a new one, a name changed, one
@@ -268,6 +270,70 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
   }
 }
 
+/** A book's jacket on the shelf (books.tsx BookJacket): a picture from it, else a few lines of its own words. */
+type Jacket = { picture: string | null; words: string }
+/** A stored picture the Mac can make a small copy of (as the asset store's `?w=` does). */
+const JACKET_PICTURE = /haligtree:\/\/assets\/([a-f0-9]{64}\.(?:png|jpe?g|webp|heic|tiff?))/i
+/** Each book's jacket, kept until its file changes: pointing along the shelf again asks nothing of any book. */
+const jackets = new Map<string, { stamp: number; jacket: Promise<Jacket | null> }>()
+
+/**
+ * What a book's cover shows on the shelf, read from its file without opening it here (`peek`): its pinned notes first,
+ * then the latest, never a private one or one in the Bin. A picture from the first of them that has one (a small copy
+ * at 256, as a data address, since another book's store is not served here); else the first lines of the latest with
+ * words. A few bounded reads by the captures' own index, once per book until it changes.
+ */
+async function jacketOf(id: BookId): Promise<Jacket | null> {
+  const folder = folderOf(id)
+  const file = folder && join(folder, 'haligtree.db')
+  if (!folder || !file || !existsSync(file)) return null
+  const wal = `${file}-wal`
+  const stamp = statSync(file).mtimeMs + (existsSync(wal) ? statSync(wal).mtimeMs : 0)
+  const kept = jackets.get(id)
+  if (kept?.stamp === stamp) return kept.jacket
+  const jacket = (async (): Promise<Jacket | null> => {
+    let rows: { kind: string; body: string | null }[] = []
+    let other: DatabaseSync | null = null
+    try {
+      other = id === here() ? null : peek(file)
+      const db = other ?? database()
+      const open = "status != 'discarded' and private = 0"
+      rows = [
+        ...(db.prepare(`select kind, body from captures where pinned_at is not null and ${open} order by pinned_at desc limit 12`).all() as typeof rows),
+        ...(db.prepare(`select kind, body from captures where ${open} order by captured_at desc limit 60`).all() as typeof rows)
+      ]
+    } catch {
+      // A book made by an older build, or a file another run is writing: no jacket, its name alone.
+      return null
+    } finally {
+      other?.close()
+    }
+    for (const row of rows) {
+      const name = row.body && JACKET_PICTURE.exec(row.body)?.[1]
+      if (!name || !existsSync(join(folder, 'assets', name))) continue
+      const small = await smallCopy(name, 256, false, join(folder, 'assets')).catch(() => null)
+      if (small) return { picture: `data:image/${small.endsWith('.png') ? 'png' : 'jpeg'};base64,${(await readFile(small)).toString('base64')}`, words: '' }
+    }
+    const wordsOf = (row: (typeof rows)[number]): string => {
+      try {
+        return plain(row.body ? JSON.parse(row.body) : '').replace(/\s+/g, ' ').trim()
+      } catch {
+        return String(row.body ?? '').replace(/\s+/g, ' ').trim()
+      }
+    }
+    // Pinned first as for the picture, but words from a note of a few lines at least: read one at a time, as few as it takes.
+    for (const row of rows) {
+      // Its own words: never a quote of someone else's.
+      if (row.kind === 'quote') continue
+      const words = wordsOf(row)
+      if (words.length >= 24) return { picture: null, words: cut(words, 220) }
+    }
+    return { picture: null, words: '' }
+  })()
+  jackets.set(id, { stamp, jacket })
+  return jacket
+}
+
 export function registerBooks(backupBase: () => string, onChange: () => void): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
     void ipcMain.handle(`haligtree:books:${channel}`, (_event, ...args) => run(...(args as never[])))
@@ -290,6 +356,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     writeShelf({ ...shelf, opened: { ...shelf.opened, [here()]: Date.now() } })
   }
 
+  handle('jacket', (id: unknown) => jacketOf(String(id)))
   handle('list', () => ({ current: here(), name: nameOf(here()), books: books(), color: SANDBOX ? null : (books().find((one) => one.current)?.color ?? null) }))
 
   handle('create', async (name: unknown) => {
