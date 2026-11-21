@@ -120,7 +120,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   calendar: {
-    text: '**Calendar: your tasks on a month of days.** See at a glance which days are full and which are free.',
+    text: '**Calendar: your tasks and events on their days.** Double-click a day to add to it, or drag a task from “Unscheduled” onto a day or an hour.',
     art: () => (
       <div className="grid grid-cols-4 gap-1">
         {[['Mon', 4], ['Tue', 0], ['Wed', 9], ['Thu', 5]].map(([day, id]) => (
@@ -133,7 +133,7 @@ const PEEKS: Record<string, PagePeek> = {
     )
   },
   lookups: {
-    text: '**Lookups: words and terms waiting for a meaning.** Catch one as a Term, or ask “What is …?” in quick capture; it waits here until you write down what it means.',
+    text: '**Lookups: words and terms answered at once.** Each with its meaning from the dictionary or Wikipedia; for one that falls short, “Keep asking” makes an open question.',
     art: () => (<>
       <MTitle count={2}>Lookups</MTitle>
       <Capture kind="word">Palimpsest</Capture>
@@ -172,7 +172,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   articles: {
-    text: '**Writing: your long-form pieces.** Each one starts from a few gems and grows in your own words.',
+    text: '**Writing: pages in your own words, one idea each.** Start one blank with “New page”, or pick a few gems with X and choose “Start a page”.',
     art: () => (<>
       <MTitle count={3}>Pages</MTitle>
       {exampleWriting().map((one) => <MRow key={one.id} icon={FileText} tint="brown" meta={one.attribution ?? ''}>{one.title}</MRow>)}
@@ -203,7 +203,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   queue: {
-    text: '**Queue: what you mean to read or watch next, in order.** Drag a link or a note onto it to add it.',
+    text: '**Queue: what you mean to read or watch next, in order.** Drag a note onto “Queue” in the sidebar, or add it from its right-click menu; “Start reading” goes through them in turn.',
     art: () => (<>
       <MTitle count={4}>Queue</MTitle>
       {[['The Rosetta Stone, found in 1799', 'Website', '6 min'], ['Dune, chapter 1', 'Book', '40 min'], ['Hamlet at the Globe', 'Video', '2 h'], ['How Mary Shelley wrote Frankenstein', 'Website', '9 min']].map(([title, medium, time], n) => (

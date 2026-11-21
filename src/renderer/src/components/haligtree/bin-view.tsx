@@ -227,7 +227,6 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
       </span> : null
     }>
       <div data-bin className="w-full pt-8 pb-16">
-        <p className="list-words mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you moved to the Bin, of every kind.</strong> <span className="text-muted-foreground">“Restore” puts one back where it was. Pick some, press ⌫ and hold “Hold to delete” to delete them for good, or hold “Hold to empty” for all of it.</span></p>
         {/* Several asked about at once: the question over the list, with the count, until a yes or a no. */}
         {many && (
           <div data-bin-ask className="list-edge mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">

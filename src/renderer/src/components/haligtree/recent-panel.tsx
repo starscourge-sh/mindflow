@@ -215,8 +215,7 @@ export function HistoryPanel({ fresh, onOpen, onClose, className = '' }: {
           </Tip>
         )}
       </header>
-      <p className="shrink-0 px-3.5 pt-2.5 text-control text-muted-foreground">Notes, books and pages you opened, in any tab or window.</p>
-      <div ref={rows} {...hover.handlers} className="mf-more relative isolate min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
+      <div ref={rows} {...hover.handlers} className="mf-more relative isolate min-h-0 flex-1 overflow-y-auto px-1.5 pt-1.5 pb-3">
         <Highlight light={hover.light} />
         {list && !list.length && (
           <p className="px-2 py-4 text-control text-muted-foreground">
