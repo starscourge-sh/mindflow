@@ -3637,6 +3637,10 @@ html[data-pill-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
 html[data-pill-open] #root { position: fixed; top: 0; bottom: 0; width: var(--pill-card); }
 html[data-pill-open='right'] #root { left: 0; }
 html[data-pill-open='left'] #root { right: 0; }
+/* While the pill grows into its card (and folds back), the card's paper is the shape from the first frame; its first
+   line comes in as the pill's words go, the rest once the shape is mostly open (desk-pill.tsx draws the two amounts). */
+#root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > :not([aria-hidden]) { opacity: var(--pill-body, 1); }
+#root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > :nth-child(1 of :not([aria-hidden])) { opacity: var(--pill-head, 1); }
 
 /* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: dots or squares in a
    faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */
