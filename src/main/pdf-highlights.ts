@@ -114,6 +114,23 @@ export function registerPdfHighlights(): void {
     db.prepare('insert into pdf_days (src, day, furthest) values (?, ?, ?) on conflict (src, day) do update set furthest = max(furthest, excluded.furthest)').run(src, localDay(), Math.min(page as number, pages as number))
     return true
   })
+  // The ribbon laid in a book by hand: where you mean to come back to, which wins over the page kept as you read.
+  // A PDF's by its page; an article's (src its link, page 0) by its paragraph, counted from the top, and that
+  // paragraph's first words, to find it again if the article is read anew. `slot` leaves room for a second ribbon.
+  db.exec('create table if not exists ribbons (src text not null, slot integer not null default 0, page integer not null default 0, block integer, words text, laid_at text not null, primary key (src, slot))')
+  ipcMain.handle('haligtree:ribbon:get', (_event, src: unknown) =>
+    db.prepare('select page, block, words, laid_at as laidAt from ribbons where src = ? and slot = 0').get(String(src ?? '')) ?? null)
+  ipcMain.handle('haligtree:ribbon:lay', (_event, src: unknown, place: unknown) => {
+    if (typeof src !== 'string' || !src) return false
+    const given = place as { page?: number; block?: number | null; words?: string | null } | null
+    if (!given) return db.prepare('delete from ribbons where src = ? and slot = 0').run(src).changes > 0
+    const page = Number.isInteger(given.page) ? (given.page as number) : 0
+    const block = Number.isInteger(given.block) ? (given.block as number) : null
+    if (page < 1 && block === null) return false
+    db.prepare('insert or replace into ribbons (src, slot, page, block, words, laid_at) values (?, 0, ?, ?, ?, ?)')
+      .run(src, page, block, typeof given.words === 'string' ? given.words.slice(0, 80) : null, new Date().toISOString())
+    return true
+  })
   // What a book's Details and the library's inspector list: every note, gem and card that holds it or
   // links into it, each with the pages it links to and the line it does it in, in page order through the book.
   ipcMain.handle('haligtree:pdf:cited', (_event, src: unknown) => {
@@ -163,12 +180,13 @@ export function registerPdfHighlights(): void {
     }
     const days = new Map<string, Day[]>()
     for (const one of db.prepare('select src, day, furthest from pdf_days').all() as (Day & { src: string })[]) days.set(one.src, [...(days.get(one.src) ?? []), one])
+    const ribbons = new Map((db.prepare('select src, page from ribbons where slot = 0 and page > 0').all() as { src: string; page: number }[]).map((one) => [one.src, one.page]))
     const covers = new Map((db.prepare('select src, author, pages from pdf_covers').all() as { src: string; author: string; pages: number | null }[]).map((one) => [one.src, one]))
     return pdfs.map((one) => {
       const src = one.id.slice(0, one.id.indexOf('|'))
       const read = reading.get(src)
       const cover = covers.get(src)
-      return { src, name: one.id.slice(one.id.indexOf('|') + 1), title: one.label, author: cover?.author ?? '', pages: read?.pages ?? cover?.pages ?? null, page: read?.page ?? null, readAt: read?.readAt ?? null, addedAt: one.capturedAt, highlights: marks.get(src)?.n ?? 0, gems: marks.get(src)?.gems ?? 0, bytes: bytes(src), finishBy: read ? finishBy(days.get(src) ?? [], read.page, read.pages, localDay()) : null }
+      return { src, name: one.id.slice(one.id.indexOf('|') + 1), title: one.label, author: cover?.author ?? '', pages: read?.pages ?? cover?.pages ?? null, page: read?.page ?? null, ribbon: ribbons.get(src) ?? null, readAt: read?.readAt ?? null, addedAt: one.capturedAt, highlights: marks.get(src)?.n ?? 0, gems: marks.get(src)?.gems ?? 0, bytes: bytes(src), finishBy: read ? finishBy(days.get(src) ?? [], read.page, read.pages, localDay()) : null }
     })
   })
   // Words looked up on Wikipedia: its free summary of the article they name (CC BY-SA, said with its link), asked from here so no page talks to the internet itself.

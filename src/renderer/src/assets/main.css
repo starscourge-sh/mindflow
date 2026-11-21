@@ -160,6 +160,8 @@
   --accent: oklch(0.97 0.001 106.424);
   --accent-foreground: oklch(0.216 0.006 56.043);
   --destructive: oklch(0.577 0.245 27.325);
+  /* The reader's ribbon: a deep, muted red, the theme's own red taken down toward its ink. */
+  --mf-ribbon: color-mix(in oklab, var(--destructive) 62%, var(--foreground));
   --border: oklch(0.923 0.003 48.717);
   --input: oklch(0.923 0.003 48.717);
   --ring: oklch(0.709 0.01 56.259);
@@ -202,6 +204,8 @@
   --accent: var(--secondary);
   --accent-foreground: var(--foreground);
   --destructive: var(--tt-color-text-red, oklch(0.704 0.191 22.216));
+  /* On a dark desk the ribbon's red sinks toward the ground, so it reads without glowing. */
+  --mf-ribbon: color-mix(in oklab, var(--destructive) 68%, var(--background));
   --border: var(--tt-gray-dark-a-200, oklch(1 0 0 / 10%));
   --input: var(--tt-gray-dark-a-300, oklch(1 0 0 / 15%));
   --ring: var(--primary);

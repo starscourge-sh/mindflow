@@ -8,7 +8,7 @@ import { BookOpen, Check, ChevronDown, ChevronUp, Copy, Gem, Minus, PanelLeft, P
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { ChapterCards } from "./chapter-cards"
 import { useStudyAi } from "@/lib/study-ai"
 import { Roll } from "@/lib/roll"
@@ -16,7 +16,7 @@ import { call, haligtree, useLive, type Settings } from "@/lib/haligtree"
 import { touch } from "@/lib/open-today"
 import { host, said } from "@/lib/host"
 import { canSplit, isSplit, keysHere, usePane } from "@/lib/split"
-import { chime } from "@/lib/sound"
+import { chime, pageTurn } from "@/lib/sound"
 import { writing } from "@/lib/keys"
 import { cue } from "@/lib/cues"
 import { MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from "./read-bar"
@@ -28,7 +28,8 @@ import { detailsOutHere, showDetails, useDetailsShown } from "@/lib/reading"
 import { ScanDetail, ScanLine } from "./pdf-scan"
 import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, showPage, wordsIn, type PdfMark } from "./pdf-pages"
 import { pressAway } from "./reader-select"
-import { FitActions, listEnd } from "@/components/haligtree/ui"
+import { FitActions, listEnd, quietly, toast } from "@/components/haligtree/ui"
+import { ReadOnLine, Ribbon, keepRibbon, readRibbon, type RibbonPlace } from "./ribbon"
 import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
@@ -359,6 +360,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
         event.stopPropagation()
         const box = scroller.current
         return void box?.scrollTo({ top: end === "first" ? 0 : box.scrollHeight })
+      }
+      // ⌘D: the ribbon laid on the page you are on, as a browser's ⌘D keeps your place.
+      if (event.metaKey && !event.altKey && !event.shiftKey && !event.ctrlKey && event.code === "KeyD" && !writing() && doc) {
+        event.preventDefault()
+        event.stopPropagation()
+        return ribbonHere()
       }
       if (!stepping && !(plain && event.key === "/") && !(event.metaKey && !event.altKey && !event.shiftKey && event.code === "KeyF")) return
       event.preventDefault()
@@ -809,8 +816,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   }
 
   // The page this reader last handed up to the pane, and whether the opening has gone to its place yet.
+  const main = useRef<HTMLDivElement>(null)
+  const [menuPage, setMenuPage] = useState(1)
   const told = useRef(start)
   const placed = useRef(false)
+  /** Opened at the ribbon: the page kept as you read stays as it was until a hand moves the pages. */
+  const holdPlace = useRef(false)
   const go = (to: number): void => {
     if (!doc) return
     const n = Math.min(Math.max(1, Math.round(to)), doc.numPages)
@@ -828,8 +839,16 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   useEffect(() => {
     if (!doc) return
     if (start) return void ((start !== told.current && go(start)), (placed.current = true))
-    // Opened with no page of its own: where you last left it.
-    void call<{ page: number } | null>("pdf:place", src).then((place) => void ((place && place.page > 1 && go(place.page)), (placed.current = true)))
+    // Opened with no page of its own: at the ribbon, when one is laid; else where you last left it. The page kept as you
+    // read, further on than the ribbon, is offered in one line, and kept as it was until you read on by hand.
+    void Promise.all([call<{ page: number } | null>("pdf:place", src), readRibbon(src)]).then(([place, laid]) => {
+      if (laid?.page) {
+        holdPlace.current = true
+        go(laid.page)
+        if (place && place.page > laid.page) setReadOn(place.page)
+      } else if (place && place.page > 1) go(place.page)
+      placed.current = true
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, start])
   // Opened: into Recent, in the sidebar and ⌘K, as a note is when it opens.
@@ -837,10 +856,38 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     touch("pdf", pdfFocus(src, name))
     void call("home:opened", "pdf", pdfFocus(src, name))
   }, [src, name])
-  // The page you are on, kept as you read: the next time it opens there.
+  // The page you are on, kept as you read: the next time it opens there. Opened at the ribbon, the page you had read on
+  // to is kept until you read on by hand, so the line offering it is still true next time.
   useEffect(() => {
-    if (doc) void call("pdf:read", src, page, doc.numPages)
+    // Not before the opening has gone to its place: the first page drawn is no reading, and kept it would overwrite it.
+    if (!doc || !placed.current || (holdPlace.current && !byHandScroll.current)) return
+    holdPlace.current = false
+    void call("pdf:read", src, page, doc.numPages)
   }, [doc, src, page])
+
+  // The ribbon (ribbon.tsx): laid by hand, it wins over the page kept as you read.
+  const [ribbon, setRibbon] = useState<RibbonPlace | null>(null)
+  const [ribbonRead, setRibbonRead] = useState(false)
+  useEffect(() => {
+    setRibbonRead(false)
+    void readRibbon(src).then((laid) => (setRibbon(laid), setRibbonRead(true)))
+  }, [src])
+  /** Laid on a page, moved, or taken out (null): kept at once, with ⌘Z and a notice to take it back where it moved. */
+  const layRibbon = (to: number | null): void => {
+    const was = ribbon
+    if ((was?.page ?? null) === to) return
+    const next = to ? { page: to, block: null, words: null } : null
+    setRibbon(next)
+    setReadOn(null)
+    const saved = keepRibbon(src, next)
+    const back = (): void => void saved.then(() => keepRibbon(src, was)).then(() => (setRibbon(was), chime("undo")))
+    if (!next) return void (chime("away"), toast("Ribbon taken out", back))
+    pageTurn(true)
+    if (was) toast(`Ribbon moved to p. ${label(next.page)}`, back)
+    else quietly(back)
+  }
+  const ribbonHere = (at = page): void => (ribbon?.page === at ? said(`The ribbon already lies on p. ${label(at)}`, true, undefined, { cue: "tap" }) : layRibbon(at))
+  const [readOn, setReadOn] = useState<number | null>(null)
 
   const step = (by: number): void => {
     // From a pinched zoom (1.37) the next step up is 1.5, down 1.25.
@@ -1083,6 +1130,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       <DropdownMenuCheckboxItem checked={oneInColour} data-one-in-colour-choice onSelect={(event) => event.preventDefault()} onCheckedChange={(on) => (chime("tap"), setOneInColour(on))}>
         Only this page in colour
       </DropdownMenuCheckboxItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel>Ribbon</DropdownMenuLabel>
+      <DropdownMenuItem data-ribbon-lay disabled={!doc} onSelect={() => ribbonHere()}>Lay the ribbon here<DropdownMenuShortcut>⌘D</DropdownMenuShortcut></DropdownMenuItem>
+      {ribbon && <DropdownMenuItem data-ribbon-go onSelect={() => go(ribbon.page)}>Go to the ribbon<DropdownMenuShortcut>p. {label(ribbon.page)}</DropdownMenuShortcut></DropdownMenuItem>}
+      {ribbon && <DropdownMenuItem data-ribbon-out onSelect={() => layRibbon(null)}>Take the ribbon out</DropdownMenuItem>}
     </>
   )
   const zoomWords = zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}%`
@@ -1190,7 +1242,37 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
         <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={(tab) => (setTabByHand(true), showRail(tab))} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} />
       )}
       {/* The pages' own column: find floats over its top right, over the pages and never over Details. */}
-      <div className="pdf-reader-main">
+      <div ref={main} className="pdf-reader-main">
+      {doc && (
+        <Ribbon
+          frame={main}
+          scroller={scroller}
+          at={ribbon ? String(ribbon.page) : null}
+          ready={ribbonRead}
+          placeOf={(key) => {
+            const r = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)?.getBoundingClientRect()
+            // Across the top of its page, in from its right edge, its top in the gap above as if between the leaves.
+            return r ? { x: r.right - 44, y: r.top - 12 } : null
+          }}
+          spotAt={(_x, y) => {
+            const sheet = sheetAt(scroller.current?.querySelector(".pdf-pages"), (r) => r.bottom + 6 > y)
+            const n = Number(sheet?.dataset.page)
+            return n ? { key: String(n), label: `p. ${label(n)}` } : null
+          }}
+          homeX={() => {
+            const frame = main.current?.getBoundingClientRect()
+            const r = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${page}"]`)?.getBoundingClientRect()
+            return frame ? Math.min(r?.right ?? frame.right, frame.right - 16) : null
+          }}
+          onLay={(key) => layRibbon(key ? Number(key) : null)}
+          onLayHere={() => ribbonHere()}
+        />
+      )}
+      <ReadOnLine
+        words={readOn ? `You read on to p. ${label(readOn)}, past your ribbon` : null}
+        onGo={() => void (readOn && ((holdPlace.current = false), go(readOn), setReadOn(null)))}
+        onClose={() => setReadOn(null)}
+      />
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar" data-seeking={seeking ? "" : undefined} aria-busy={seeking}>
           <div className="tiptap-find-bar-row">
@@ -1241,7 +1323,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               })
               const mark = band ? marks.find((one) => one.id === band.dataset.mark) ?? null : null
               setHit(mark)
-              if (!mark && !picked && !(ai && doc)) event.preventDefault()
+              // The page right-clicked: where "Lay the ribbon here" lays it.
+              setMenuPage(Number((event.target as Element).closest?.<HTMLElement>(".pdf-page")?.dataset.page) || page)
+              if (!mark && !picked && !doc) event.preventDefault()
             }}
           >
             <PdfPages
@@ -1348,6 +1432,13 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {hit && picked && <ContextMenuSeparator />}
           {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked)} />}
           {!hit && !picked && ai && doc && <ContextMenuItem data-chapter-cards-menu onSelect={() => !chaptering && chapterCards()}>{outline.length ? "Five cards from this chapter" : "Five cards from these pages"}</ContextMenuItem>}
+          {!hit && !picked && doc && (
+            <>
+              {ai && <ContextMenuSeparator />}
+              <ContextMenuItem data-ribbon-lay-menu onSelect={() => ribbonHere(menuPage)}>Lay the ribbon here<ContextMenuShortcut>⌘D</ContextMenuShortcut></ContextMenuItem>
+              {ribbon && <ContextMenuItem data-ribbon-out-menu onSelect={() => layRibbon(null)}>Take the ribbon out</ContextMenuItem>}
+            </>
+          )}
         </ContextMenuContent>
       </ContextMenu>
       </div>

@@ -101,8 +101,8 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
     }
     return [...bookMenu(one), { label: "Put in a note…", run: () => onPut([one.src]) }, "separator", free(one.src) && { label: "Move to the Bin", keys: "⌫", danger: true, run: () => toBin([one.src]) }]
   }
-  // Where you left off, else the first; a click on a scrubbed cover gives its page.
-  const open = (one: Book, page = one.page): void => {
+  // At its ribbon, else where you left off, else the first (the reader decides); a click on a scrubbed cover gives its page.
+  const open = (one: Book, page?: number | null): void => {
     chime("open")
     openPdf(one.src, one.name, page ?? undefined)
   }
@@ -162,7 +162,7 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
                       if (picking.click(event, one.src)) return void (restOff(), setChosen(one.src))
                       restOff()
                       // The scrubbed page read as the click lands: the book growing out of its cover ends the scrub.
-                      const page = scrubbedPage(one.src) ?? one.page
+                      const page = scrubbedPage(one.src)
                       heroOpen(event, () => open(one, page))
                     }} />
                 ))}
@@ -184,8 +184,8 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
 /** A book's right-click menu, on the shelf and in Continue reading. */
 export function bookMenu(one: Book): RowItem[] {
   return [
-    { label: one.page ? `Continue at p. ${labelFor(one.src, one.page)}` : "Open", keys: "↵", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined)) },
-    canSplit() && { label: "Open to the side", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined, undefined, true)) }
+    { label: one.ribbon ? `Continue at your ribbon, p. ${labelFor(one.src, one.ribbon)}` : one.page ? `Continue at p. ${labelFor(one.src, one.page)}` : "Open", keys: "↵", run: () => (chime("open"), openPdf(one.src, one.name)) },
+    canSplit() && { label: "Open to the side", run: () => (chime("open"), openPdf(one.src, one.name, undefined, undefined, true)) }
   ]
 }
 
@@ -303,7 +303,7 @@ export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
           const one = going[at]
           if (!one) return
           chime("open")
-          heroOpen(from, () => openPdf(one.src, one.name, one.page ?? undefined))
+          heroOpen(from, () => openPdf(one.src, one.name))
         }}
       />
     </div>

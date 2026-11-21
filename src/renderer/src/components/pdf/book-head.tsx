@@ -6,7 +6,7 @@ import { Grows } from "@/components/haligtree/ui"
 import { plural } from '../../../../main/dates'
 
 /** What the library knows of a book: the reader's Details and the shelf's panel both show it. */
-export type Book = { src: string; name: string; title: string; author: string; pages: number | null; page: number | null; readAt: string | null; addedAt: string; highlights: number; gems: number; bytes: number | null; /** At your pace, the day you finish it (main/pace.ts); null until two days of reading say. */ finishBy?: string | null }
+export type Book = { src: string; name: string; title: string; author: string; pages: number | null; page: number | null; /** The page its ribbon lies on, laid by hand: where it opens. */ ribbon?: number | null; readAt: string | null; addedAt: string; highlights: number; gems: number; bytes: number | null; /** At your pace, the day you finish it (main/pace.ts); null until two days of reading say. */ finishBy?: string | null }
 
 /** "At your pace, done by 21 Nov": said where a book's progress is. */
 export const paceLine = (book: Pick<Book, "finishBy">): string => (book.finishBy ? `done by ${new Date(`${book.finishBy}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} at your pace` : "")

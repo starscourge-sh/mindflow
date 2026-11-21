@@ -2625,3 +2625,126 @@ html.dark-pages {
   margin-top: 0.5rem;
   box-shadow: inset 0 0 0 1px var(--tt-border-color);
 }
+
+/* The ribbon (ribbon.tsx): a narrow satin ribbon over the pages, hanging from the top edge or laid on a page. Its
+   layer is the pages' own box, clipped to it, so a laid ribbon scrolls out with its page and never over the bar. */
+.ribbon-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ribbon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: none;
+  transform-origin: 50% 0;
+  will-change: transform;
+  /* Its shadow where it lies on the paper: soft, close, a little below. */
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.28)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.14));
+  transition: opacity 180ms var(--mf-ease, ease);
+}
+
+.ribbon:is([data-unseen], [data-lost]) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ribbon[data-ribbon="held"] {
+  cursor: grabbing;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.22)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.18));
+}
+
+/* The satin: the theme's ribbon red, a sheen down its middle where it catches the light, a fine weave across, and its
+   end cut in a V, as a planner's ribbon is cut so it never frays. */
+.ribbon-satin {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 2.5px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.06) 0 1px, transparent 1px 2px),
+    linear-gradient(90deg, rgb(0 0 0 / 0.22), rgb(255 255 255 / 0.14) 38%, rgb(255 255 255 / 0.04) 55%, rgb(0 0 0 / 0.18)),
+    var(--mf-ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 6px), 0 100%);
+}
+
+/* Where it would lie if let go now: a faint line across, and the page or paragraph by the held end. */
+.ribbon-guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in oklab, var(--mf-ribbon) 55%, transparent);
+}
+
+.ribbon-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: 0 0 0 1px var(--border), 0 2px 6px -2px rgb(0 0 0 / 0.2);
+  white-space: nowrap;
+}
+
+/* "You read on to p. 150, past your ribbon": one line over the foot of the pages, fading in, never pushing them. */
+.ribbon-read-on {
+  position: absolute;
+  z-index: 7;
+  bottom: 1rem;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.375rem 0.5rem 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: 0 0 0 1px var(--border), 0 4px 14px -6px rgb(0 0 0 / 0.25);
+}
+
+.ribbon-read-on-mark {
+  flex: none;
+  width: 6px;
+  height: 14px;
+  background: var(--mf-ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 3px), 0 100%);
+}
+
+.ribbon-read-on-go,
+.ribbon-read-on-close {
+  cursor: pointer;
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.5rem;
+}
+
+.ribbon-read-on-go {
+  font-weight: 500;
+  color: var(--foreground);
+  background: var(--accent);
+}
+
+.ribbon-read-on-close {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  color: var(--muted-foreground);
+}
+
+.ribbon-read-on-go:hover,
+.ribbon-read-on-close:hover {
+  background: color-mix(in oklab, var(--accent) 70%, var(--foreground) 8%);
+}

@@ -159,7 +159,9 @@ export function WelcomeBack({ onOpen, onView }: { onOpen: (type: string, id: str
   })
   const [page, setPage] = useState<number | null>(null)
   useEffect(() => {
-    if (last?.view.id === 'pdf' && last.view.focus) void call<{ page: number } | null>('pdf:place', last.view.focus).then((one) => setPage(one?.page ?? null))
+    // The ribbon's page when one is laid (the book opens there), else the page kept as you read.
+    const src = last?.view.id === 'pdf' ? last.view.focus : null
+    if (src) void Promise.all([call<{ page: number } | null>('ribbon:get', src), call<{ page: number } | null>('pdf:place', src)]).then(([laid, one]) => setPage(laid?.page || one?.page || null))
   }, [last])
   if (!last?.view.focus) return null
   const reading = last.view.id === 'pdf' || last.view.id === 'web'
