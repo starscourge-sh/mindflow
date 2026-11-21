@@ -447,10 +447,25 @@ if (runs(4)) {
       if (!el) return false
       el.setAttribute('data-hero-probe', '')
       const b = el.getBoundingClientRect()
-      if (b.top < 90 || b.bottom > innerHeight - 70) el.scrollIntoView({ block: 'center' })
-      return true
+      const p = card.getBoundingClientRect()
+      // Off screen: how far to scroll to have it in the middle, and a spot on the page's own margin to wheel over.
+      return b.top < 90 || b.bottom > innerHeight - 70 ? { by: Math.round(b.top + b.height / 2 - innerHeight / 2), x: p.x + 10, y: p.y + p.height / 2 } : { by: 0 }
     }, [one.sel.replace(/\[data-pane-card\] /g, ''), one.under])
     if (!found) { if (!one.optional) check(`${one.name}: there to click`, false, one.sel); continue }
+    // Scrolled to it as a person does, by the wheel: a page come back by Back holds its place against any scroll
+    // that is not the person's own (panes.tsx, PaneFrame's put-back, since 625e2e121), and lets go on a wheel, a
+    // press or a key. A script's scrollIntoView alone was put straight back, so the thing stayed off screen
+    // ("thing 284,1244", "290,-710") and the click missed it.
+    if (found.by) {
+      await h.mouse.move(found.x, found.y)
+      await h.mouse.wheel(0, found.by)
+      await settle(400)
+      await h.evaluate(() => {
+        const el = document.querySelector('[data-hero-probe]')
+        const b = el?.getBoundingClientRect()
+        if (b && (b.top < 90 || b.bottom > innerHeight - 70)) el.scrollIntoView({ block: 'center' })
+      })
+    }
     await settle(400)
     const r = await rectOf('[data-hero-probe]')
     const page = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
