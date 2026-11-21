@@ -86,14 +86,12 @@ export const bookMenu = (book: Book, inSettings: (rename: boolean) => void): Row
  * the open one are never deleted from here (switch to another book first).
  */
 export const bookRowMenu = (book: Book, { rename, remove }: { rename: () => void; remove: () => void }): RowItem[] => SANDBOX ? [] : [
+  // The colours in the menu itself, as the sidebar's book menu has them: a submenu holding one row of swatches was a
+  // second step for nothing (the user, 21 Nov: "why did color have to be a submenu").
+  { heading: book.current ? 'Colour: tints the sidebar and accent' : 'Colour: tints the sidebar once open' },
+  { swatches: NINE.map(({ hue, label, ink }) => ({ color: ink, label, on: hue === book.color, run: () => colourBook(book, hue) })) },
+  'separator',
   { label: 'Rename…', run: rename },
-  {
-    label: 'Colour',
-    items: [
-      { heading: book.current ? 'Tints the sidebar and accent' : 'Tints the sidebar once open' },
-      { swatches: NINE.map(({ hue, label, ink }) => ({ color: ink, label, on: hue === book.color, run: () => colourBook(book, hue) })) }
-    ]
-  },
   { label: 'Delete…', danger: true, can: () => !book.current && book.id !== 'default', run: remove }
 ]
 
