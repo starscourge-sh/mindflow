@@ -127,14 +127,14 @@ export function DeskPill(): React.JSX.Element | null {
     // The card's frame inside the window and the pill's, so the card can start as the pill and grow to itself.
     const measure = (now: PillPeek): Shape => {
       // The window's size as main made it, not as the page may still be (the message can come before the resize).
-      const { pill: at, card, size } = now.opened!
-      const right = now.side === 'right'
-      // Where the card's own frame is in the root (the root is the card's window: paper keeps INSET round the card).
-      const frame = { x: INSET, y: INSET, width: card - 2 * INSET, height: size.height - 2 * INSET }
-      const offset = right ? 0 : size.width - card
-      // The pill's corner on the stack's side against the card's: main puts them together, but near the screen's foot
-      // the card stands higher, and it rises into place as it grows.
-      const dx = right ? at.x + at.width - (offset + frame.x + frame.width) : at.x - (offset + frame.x)
+      const { pill: at, size } = now.opened!
+      // The root is laid from the pill itself (--pill-left, --pill-card): the card's paper is the pill's own width and
+      // stands at the pill's own x, paper keeping INSET round it, so its sides never move; only its height grows.
+      const card = at.width + 2 * INSET
+      const frame = { x: INSET, y: INSET, width: at.width, height: size.height - 2 * INSET }
+      const offset = at.x - INSET
+      // Near the screen's foot the card stands higher than the pill, and it rises into place as it grows.
+      const dx = 0
       const dy = at.y - frame.y
       const paper = root.querySelector<HTMLElement>('[data-goal-card], [data-goals-sticky], .mf-card')
       // The pill's round ends, but square in Paper (a clip is a shape no border-radius rule reaches), as the session
@@ -142,13 +142,16 @@ export function DeskPill(): React.JSX.Element | null {
       const round = wornStyle() === 'paper' ? 0 : at.height / 2
       const corner = paper ? parseFloat(getComputedStyle(paper).borderTopLeftRadius) || 0 : 0
       // Where the pill's words land: the card's first line, as laid out at rest.
-      const line = root.querySelector<HTMLElement>('[data-card-title]')?.getBoundingClientRect()
+      const title = root.querySelector<HTMLElement>('[data-card-title]')?.getBoundingClientRect()
+      const base = root.getBoundingClientRect()
+      // In the window's points with the root at its place, whatever the page had laid before.
+      const line = title && { x: title.x - base.x + offset, y: title.y - base.y, width: title.width, height: title.height }
       // The pill's words where the pill stands in the window as main made it (this page may not have drawn that yet).
       const box = ghost.current
       const words = box?.querySelector<HTMLElement>('[data-pill-words]')
       if (box) (box.style.transform = ''), (box.style.left = `${at.x}px`), (box.style.top = `${at.y}px`)
       const from = box && words ? { x: at.x + 1 + words.offsetLeft, y: at.y + 1 + words.offsetTop + words.offsetHeight / 2 } : null
-      const move = line?.width && from ? { x: line.x + offset - from.x, y: line.y + Math.min(line.height, 22) / 2 - from.y } : { x: 0, y: 0 }
+      const move = line?.width && from ? { x: line.x - from.x, y: line.y + Math.min(line.height, 22) / 2 - from.y } : { x: 0, y: 0 }
       return { pill: at, frame, edge: now.side, round, corner, card: { width: card, height: size.height }, dx, dy, move }
     }
     // One motion at a time, from wherever the last one was (Motion carries its speed on); only the one still running says it has ended.
@@ -177,10 +180,12 @@ export function DeskPill(): React.JSX.Element | null {
       const html = document.documentElement
       if (now?.opened) {
         html.setAttribute('data-pill-open', now.side)
-        html.style.setProperty('--pill-card', `${now.opened.card}px`)
+        html.style.setProperty('--pill-card', `${now.opened.pill.width + 2 * INSET}px`)
+        html.style.setProperty('--pill-left', `${now.opened.pill.x - INSET}px`)
       } else {
         html.removeAttribute('data-pill-open')
         html.style.removeProperty('--pill-card')
+        html.style.removeProperty('--pill-left')
       }
       // A pill: the card under it is kept, hidden in this same task, so it never shows whole for a frame.
       root.style.visibility = now && !now.opened ? 'hidden' : ''

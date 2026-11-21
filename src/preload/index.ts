@@ -88,7 +88,7 @@ heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new Cust
 
 type RoomHere = { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number }
 /** A sticky as its pill in the desk's stack (main's shapeCard): the stack's edge, and, opened, where the pill stands in the window and how wide the card is. */
-export type PillPeek = { side: 'left' | 'right'; nudge: boolean; width: number; opened?: { pill: { x: number; y: number; width: number; height: number }; card: number; size: { width: number; height: number } } }
+export type PillPeek = { side: 'left' | 'right'; nudge: boolean; width: number; opened?: { pill: { x: number; y: number; width: number; height: number }; size: { width: number; height: number } } }
 /** Quick capture's window: the one page that is not another kind's (main's pages.ts), and the only one with room round its card.
  * A small window (main/small-window.ts) is the same page in a window that is all card: never the box's room. */
 const boxHere = /\/index\.html$/.test(window.location.pathname) && !new URLSearchParams(window.location.search).has('small')

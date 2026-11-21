@@ -3647,9 +3647,8 @@ html[data-sticky-window][data-tint] { --mf-pill-dot: oklch(0.7 0.13 var(--mf-tin
 /* A glass card grown out of its pill stays solid while it is out beside the stack: the blur is under the pill alone. */
 :root[data-pill-open][data-glass] { --mf-glass-wash: 100%; }
 html[data-pill-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
-html[data-pill-open] #root { position: fixed; top: 0; bottom: 0; width: var(--pill-card); }
-html[data-pill-open='right'] #root { left: 0; }
-html[data-pill-open='left'] #root { right: 0; }
+/* Laid from the pill (desk-pill.tsx): the card's paper at the pill's own x and width, on either side. */
+html[data-pill-open] #root { position: fixed; top: 0; bottom: 0; left: var(--pill-left); width: var(--pill-card); }
 /* While the pill grows into its card (and folds back), the card's paper is the shape from the first frame; its first
    line comes in as the pill's words go, the rest once the shape is mostly open (desk-pill.tsx draws the two amounts). */
 #root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > :not([aria-hidden]) { opacity: var(--pill-body, 1); }

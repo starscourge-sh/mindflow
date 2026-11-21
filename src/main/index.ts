@@ -3224,7 +3224,7 @@ const pillWide = (key: string): number => {
  * the window that grew out of the pill holds the card beside the stack and the pill's own column.
  */
 const fromPill = new Map<string, Electron.Rectangle>()
-type Peek = { side: 'left' | 'right'; nudge: boolean; width: number; opened?: { pill: Electron.Rectangle; card: number; size: { width: number; height: number } } }
+type Peek = { side: 'left' | 'right'; nudge: boolean; width: number; opened?: { pill: Electron.Rectangle; size: { width: number; height: number } } }
 /** What each pill was last told it is, asked for again by its page as it loads (a reload, or told before it listened). */
 const peekSaid = new Map<string, Peek>()
 ipcMain.handle('beacon:peek:now', (event) => {
@@ -3481,25 +3481,27 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   // place, and the stack does not move.
   const { area } = stackPlaces()
   const inset = insetOf(key)
-  const right = stackSide === 'right'
-  const cardWidth = rest.width - inset.left - inset.right
+  // One width for both, the pill's own (the window main laid it in, less its clear room): the card's paper is exactly
+  // as wide and stands exactly where the pill does, so it grows only downward. Never read again from the card's old
+  // place, which disagreed with the pill by the room round the paper (21 Nov: 268 against 228).
+  const wide = pill.width - 2 * PILL_ROOM.side
   // The pill becomes the card, as the session pill opens out of itself: the card's edge on the stack's side and its
   // top are the pill's own, so it grows from where the pill hangs, over the stack below it while it is out. Its top
   // rises only if the screen's foot is nearer (and drops only under the menu bar). The window never reaches past the
   // screen: the Mac pushed one that did back in (11 points), so the card stood short of the pill's edge.
   const pillTop = pill.y + PILL_ROOM.top
   const top = Math.max(area.y, Math.min(pillTop - inset.top, area.y + area.height - rest.height))
-  const cardX = right ? pill.x + pill.width - PILL_ROOM.side - cardWidth - inset.left : pill.x + PILL_ROOM.side - inset.left
-  const card = { x: cardX, y: top, width: rest.width, height: rest.height }
+  const card = { x: pill.x + PILL_ROOM.side - inset.left, y: top, width: wide + inset.left + inset.right, height: rest.height }
   // The window holds the card and the pill's place both, inside the screen: the card's clear room on the stack's side
   // is cut to what the screen allows (its page lays the card out past the window there, desk-pill.tsx), so the card's
   // edge is still the pill's.
   const x = Math.max(area.x, Math.min(card.x, pill.x))
   const y = Math.min(card.y, pill.y)
   const box = { x, y, width: Math.min(area.x + area.width, Math.max(card.x + card.width, pill.x + pill.width)) - x, height: Math.max(card.y + card.height, pill.y + pill.height) - y }
-  openedAt.set(key, rest)
+  // Its place kept as wide as it opened, so the pill it folds back into is the same width again.
+  openedAt.set(key, { ...rest, width: card.width })
   fromPill.set(key, card)
-  const peek: Peek = { side: stackSide, nudge: false, width: pill.width - 2 * PILL_ROOM.side, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: pill.width - 2 * PILL_ROOM.side, height: PILL_H }, card: card.width, size: { width: box.width, height: box.height } } }
+  const peek: Peek = { side: stackSide, nudge: false, width: wide, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: wide, height: PILL_H }, size: { width: box.width, height: box.height } } }
   peekSaid.set(key, peek)
   win.webContents.send('beacon:peek', peek, byKey)
   win.setMaximumSize(4000, 4000)
