@@ -210,7 +210,10 @@ const followNarrow = (change: () => void): (() => void) => {
  */
 function TopTitle({ on }: { on: boolean }): React.JSX.Element {
   const title = useTopTitle()
-  return <span data-top-title={title && on ? '' : undefined} className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${title && on ? 'opacity-100' : 'opacity-0'}`}>{title}</span>
+  // Kept while it fades out, so the words go with the fade rather than before it.
+  const [kept, setKept] = useState(title)
+  if (title && title !== kept) setKept(title)
+  return <span data-top-title={title && on ? '' : undefined} className={`min-w-0 truncate transition-opacity duration-200 ${title && on ? 'opacity-100' : 'opacity-0'}`}>{title || kept}</span>
 }
 
 const useNarrow = (): boolean => useSyncExternalStore(followNarrow, () => matchMedia(NARROW).matches)
@@ -2891,9 +2894,10 @@ export function Home(): React.JSX.Element {
           </h1>
           return title
         })()}
-        {/* The open note's name, faint, once its first line has scrolled away. */}
-        <TopTitle on={settings?.topTitle !== false} />
         </span>}
+        // The open note's name, faint, once its first line has scrolled away: in the room the tabs leave, never here
+        // before Back and Forward, where its words pushed the arrows and every tab ~200px right as a page scrolled.
+        title={<TopTitle on={settings?.topTitle !== false} />}
         tail={<span data-on-frame className="mr-1 flex shrink-0 items-center self-center">
         {/* The window's own setting, quiet: what you hear. How much screen it takes is the green button's (and ⌃⇧F's),
             so the room here goes to the note's own "Read" (note-extras.tsx). */}

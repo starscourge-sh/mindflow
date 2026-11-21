@@ -134,8 +134,11 @@
   overflow-x: hidden;
 }
 
-// Scrolled, the words fade out over the last 20px under the page's head instead of being sliced by its edge.
-// Driven by the scroll itself, so at the top nothing is faded. A page's own scroller only (has-handles).
+// Scrolled, the words fade out under the page's head and title instead of being sliced by its edge. As tall as a
+// heading's line (2.5rem, the lists' foot fade), so a heading going under reads as fading away, never as cut in half:
+// at 20px a heading half under the title stood there sliced (21 Nov). Driven by the scroll itself, so at the top
+// nothing is faded. A page's own scroller only (has-handles). The caret is kept 64px clear of the edge (CARET_MARGIN),
+// so a line reached by the keys is never inside it.
 @property --mf-top-fade {
   syntax: "<length>";
   inherits: false;
@@ -143,14 +146,14 @@
 }
 @keyframes mf-top-fade {
   to {
-    --mf-top-fade: 20px;
+    --mf-top-fade: 2.5rem;
   }
 }
 .haligtree-editor-wrapper.has-handles > .haligtree-editor-content {
   mask-image: linear-gradient(to bottom, transparent, #000 var(--mf-top-fade));
   animation: mf-top-fade linear both;
   animation-timeline: scroll(self);
-  animation-range: 0 40px;
+  animation-range: 0 5rem;
 }
 
 // Only where the caret actually is. Decorations are drawn whether the editor

@@ -124,7 +124,7 @@ function OneTab({ tab, group, actions, lifted, shift }: { tab: TabShown; group: 
         style={{ minWidth: pinned ? undefined : Math.min(54 + [...tab.label].length * 7, 124), transform: shift ? `translateX(${shift}px)` : undefined }}
         // The open tab stands on the page, 4px under the bar's top (its shape joins the page); the others are pills the
         // arrows' and "+"'s height, on the bar's middle line with them, never low against the page (20 Nov).
-        className={`group/tab relative mx-0.5 flex items-stretch ${pinned ? 'w-10 shrink-0' : 'max-w-52 flex-[1_1_0]'} ${on ? 'z-10 mt-1 py-[3px]' : 'h-6 self-center'} ${lifted ? 'opacity-0' : ''} ${
+        className={`group/tab relative mx-0.5 flex items-stretch ${pinned ? 'w-10 shrink-0' : 'max-w-52 flex-[1000_1_0]'} ${on ? 'z-10 mt-1 py-[3px]' : 'h-6 self-center'} ${lifted ? 'opacity-0' : ''} ${
           // Carrying: no hover lights, and the row makes way together (Chrome's and Safari's tabs).
           shift === undefined ? '' : 'pointer-events-none transition-transform duration-[160ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none'}`}>
         {on && <TabShape />}
@@ -155,7 +155,7 @@ function OneTab({ tab, group, actions, lifted, shift }: { tab: TabShown; group: 
 }
 
 /** One pane's tabs: they share the room evenly down to a least width, then the row scrolls, the open one kept in view. */
-function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): React.JSX.Element {
+function Tabs({ group, actions, title }: { group: TabGroup; actions: TabActions; title?: ReactNode }): React.JSX.Element {
   const now = useSyncExternalStore(follow, () => carry)
   const box = useRef<HTMLDivElement>(null)
   // Read once the row is laid out, before it is painted, never in the middle of a pane mounting (lib/after-layout.ts),
@@ -206,6 +206,14 @@ function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): Rea
       }}
       className="mf-tabs-fade relative flex h-full min-w-0 overflow-x-auto overflow-y-hidden px-4 [scrollbar-width:none] data-[queue-hot]:bg-transparent">
       {parts}
+      {/* The open note's name, faint, in the room the tabs leave: always here, so it pushes nothing as it fades in and
+          out. The tabs take the room first (their 1000 to its 1) and it has only what is over once they are at their
+          widest; with many tabs it has none. The front pane's only, as the name is the front note's. */}
+      {title !== undefined && (
+        <span data-tab-title aria-hidden className="pointer-events-none flex min-w-0 flex-[1_1_0] items-center justify-center self-center overflow-hidden px-4 text-control text-muted-foreground">
+          {group.front ? title : null}
+        </span>
+      )}
     </div>
   )
 }
@@ -253,7 +261,7 @@ function StepButton({ by, label, keys, icon, pane, actions }: { by: -1 | 1; labe
  * In a window too narrow for two panes, the one on show carries every pane's
  * tabs, a thin line between each pane's.
  */
-export function TabRow({ groups, actions, pane, lead, tail }: { groups: TabGroup[]; actions: TabActions; pane: string; /** The window's controls before the tabs (the first pane) and after them (the last): panes.tsx. */ lead?: ReactNode; tail?: ReactNode }): React.JSX.Element {
+export function TabRow({ groups, actions, pane, lead, tail, title }: { groups: TabGroup[]; actions: TabActions; pane: string; /** The window's controls before the tabs (the first pane) and after them (the last): panes.tsx. */ lead?: ReactNode; tail?: ReactNode; /** The open note's name once scrolled, in the room after the tabs (home.tsx TopTitle). */ title?: ReactNode }): React.JSX.Element {
   const all: RowItem[] = groups.flatMap((group, at) => [
     at > 0 && ('separator' as const),
     ...group.tabs.map((tab): RowItem => ({ label: tab.label, icon: <tab.icon className="size-3.5 shrink-0" style={{ color: tab.tint }} />, hint: tab.key === group.active ? 'Open now' : undefined, run: () => actions.select(group.pane, tab.key) }))
@@ -273,7 +281,7 @@ export function TabRow({ groups, actions, pane, lead, tail }: { groups: TabGroup
         {groups.map((group, at) => (
           <Fragment key={group.pane}>
             {at > 0 && <span aria-hidden className="my-1.5 w-px shrink-0 bg-foreground/15" />}
-            <Tabs group={group} actions={actions} />
+            <Tabs group={group} actions={actions} title={title} />
           </Fragment>
         ))}
       </div>

@@ -81,10 +81,12 @@ const atPath = (root: Element, path: string): Element | null =>
  * only the pane in front is on show, with every pane's tabs in its row: choosing
  * a tab of another brings that pane forward, nothing closed, nothing lost.
  */
-export function SplitPanes({ panes, front, sizes, onSizes, onFront, onWidth, apis, actions, lead, tail }: {
+export function SplitPanes({ panes, front, sizes, onSizes, onFront, onWidth, apis, actions, lead, tail, title }: {
   /** The window's own controls on the first pane's tab row, before its tabs (the sidebar's button), and on the last's, after them (sound, New): one row at the window's top, as Dia has. */
   lead?: ReactNode
   tail?: ReactNode
+  /** The open note's name once scrolled: every pane's tab row keeps room for it, the front one shows it (tab-row.tsx). */
+  title?: ReactNode
   panes: PaneShown[]
   front: string
   sizes: number[]
@@ -160,7 +162,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onWidth, api
           {panes.map((pane, index) => (
             <PaneFrame key={pane.key} pane={pane} apis={apis} split={split} front={pane.key === front} hidden={turns && pane.key !== front}
               least={scrolls} groups={turns && pane.key === front ? panes.map(groupOf) : [groupOf(pane)]} actions={actions}
-              lead={turns || index === 0 ? lead : undefined} tail={turns || index === panes.length - 1 ? tail : undefined} edge={turns ? 0 : index === 0 ? -1 : index === panes.length - 1 ? 1 : 0}
+              lead={turns || index === 0 ? lead : undefined} title={title} tail={turns || index === panes.length - 1 ? tail : undefined} edge={turns ? 0 : index === 0 ? -1 : index === panes.length - 1 ? 1 : 0}
               share={turns ? 1 : shares[index]} held={!!dragged || turns} onFront={onFront} onWidth={onWidth} divider={!turns && index > 0 ? (
                 <div role="separator" data-pane-divider aria-orientation="vertical" aria-label="Drag to resize, double-click to share equally"
                   onPointerDown={drag(index - 1)} onDoubleClick={even}
@@ -179,8 +181,9 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onWidth, api
  * One pane: the page card, which keeps how its page was scrolled for Back,
  * and comes to the front when pointed at, or tabbed into.
  */
-function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, share, edge, divider, onFront, onWidth, lead, tail }: {
+function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, share, edge, divider, onFront, onWidth, lead, tail, title }: {
   lead?: ReactNode
+  title?: ReactNode
   tail?: ReactNode
   pane: PaneShown
   apis: RefObject<Map<string, PaneApi>>
@@ -404,7 +407,7 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
             strength. The others step back: a fainter hairline, no shadow, their
             header lines muted and the page a touch dimmer. Nothing coloured.
             On its own, the page is the card it always was. */}
-        <TabRow pane={pane.key} groups={groups} actions={actions} lead={lead} tail={tail} />
+        <TabRow pane={pane.key} groups={groups} actions={actions} lead={lead} tail={tail} title={title} />
         <div ref={pageRef} data-pane-card
           style={kept}
           className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
