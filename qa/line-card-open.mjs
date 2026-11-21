@@ -37,8 +37,10 @@ try {
   check('every way of writing a card line shows its mark, the first of a list included', SAID.every((one) => marked.includes(one)) && marked.length === SAID.length, JSON.stringify(marked))
   // The cards are made just after the note saves (main/line-cards.ts lineCardsSoon): waited for, 10 s at most.
   let cards = []
-  for (let i = 0; i < 20 && cards.filter((card) => card.lineOf === `nugget:${id}`).length < SAID.length; i++) (await wait(500), (cards = await v('cards:all')))
-  check('each line is a card', SAID.every((one) => cards.some((card) => card.lineOf === `nugget:${id}` && card.prompt === one)), JSON.stringify(cards.filter((card) => card.lineOf === `nugget:${id}`).map((card) => card.prompt)))
+  // `cards:all` gives no `lineOf`, only `made: 'line'` for a card written as a line (main/haligtree.ts 'cards:all').
+  const ours = () => cards.filter((card) => card.made === 'line' && SAID.includes(card.prompt))
+  for (let i = 0; i < 20 && !SAID.every((one) => ours().some((card) => card.prompt === one)); i++) (await wait(500), (cards = await v('cards:all')))
+  check('each line is a card', SAID.every((one) => ours().some((card) => card.prompt === one)), `${JSON.stringify(ours().map((card) => card.prompt))}; a row: ${JSON.stringify(cards.find((card) => card.made === 'line') ?? cards[0] ?? null)?.slice(0, 300)}`)
   // A hover says what a click does.
   const second = markOf('Second law')
   check('the mark says it opens its card', (await second.getAttribute('data-title-tip'))?.startsWith('Open its card'), await second.getAttribute('data-title-tip'))
