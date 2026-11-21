@@ -60,8 +60,6 @@ const TABLE_ACTIONS: Array<[string, (editor: Editor) => void]> = [
   ["Fit to width", (editor) => void fitToWidth(editor)],
 ]
 
-/** The room the menu takes whole: about seven rows and its search (the editor's right-click asks the same, MENU_ROOM). */
-const MENU_ROOM = 320
 
 /** The same conversions `/` offers, minus everything that inserts. */
 const CONVERSIONS = slashItems.filter((item) => item.turnInto)
@@ -142,17 +140,14 @@ export function BlockMenu({
     if (!at || !pane) return "left"
     return at.getBoundingClientRect().left - pane.getBoundingClientRect().left >= 236 ? "left" : "bottom"
   }
-  // Under the grip, it clears the whole line: a heading or a wrapped line is taller than the grip. With no room for the
-  // menu whole under the line (a table low in quick capture: its "Delete" was cut by the window's foot), it opens just
-  // under the grip, over its own block, where it fits whole; with no room there either, it opens upward.
-  const underLine = () => {
+  const underFirstLine = () => {
     const at = anchor.current, found = resolve(), dom = found && editor.view.nodeDOM(found.pos)
     if (!at || !(dom instanceof HTMLElement)) return 6
-    const grip = at.getBoundingClientRect().bottom
-    const below = Math.max(6, dom.getBoundingClientRect().bottom - grip + 6)
-    // The menu's own foot: the note's pane it is held in (collisionBoundary below), above the dock's bar.
-    const foot = Math.min(window.innerHeight - dockRoom(), scrollerOf(editor.view.dom)?.getBoundingClientRect().bottom ?? Infinity)
-    return foot - grip - below >= MENU_ROOM ? below : 6
+    const top = dom.getBoundingClientRect().top
+    const line = parseFloat(getComputedStyle(dom).lineHeight) || 26
+    // A picture or card has no line of words: its top is enough to stay clear of.
+    const first = dom.matches("p, h1, h2, h3, h4, h5, h6, li") ? top + Math.min(line, dom.getBoundingClientRect().height) : at.getBoundingClientRect().bottom
+    return Math.max(6, first - at.getBoundingClientRect().bottom + 6)
   }
 
   const term = query.trim().toLowerCase()
@@ -554,7 +549,10 @@ export function BlockMenu({
         // From the grip it opens beside it in the margin (gripSide), never over the line it acts on;
         // a right-click opens at the pointer, as on the Mac.
         side={point ? "right" : grip}
-        sideOffset={!point && grip === "bottom" ? underLine() : 6}
+        // Under the block's FIRST line, attached to what was pressed: that line stays clear, and a tall block (a link card,
+        // a picture, a long paragraph) is covered below it, as Notion's is. Under the whole block it stood a card's height
+        // from the grip (21 Nov). With no room under it, Radix turns it upward.
+        sideOffset={!point && grip === "bottom" ? underFirstLine() : 6}
         // From the grip, the note's own pane is its edge, never the list of notes beside it; at the pointer, the window.
         collisionBoundary={open && !point ? scrollerOf(editor.view.dom) : undefined}
         // The "Add a thought…" bar's top is the window's foot (dock-room.ts): low on the page, the menu goes up.
