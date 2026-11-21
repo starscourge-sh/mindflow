@@ -37,6 +37,7 @@ const short = async (name, id) => {
   await send('article', id); await wait(2000)
   const at = await where()
   check(`${name}, short note: the bar's bottom is within 24px of the pane's bottom`, !!at.bar && !!at.pane && at.pane.bottom - at.bar.bottom <= 24 && at.pane.bottom - at.bar.bottom >= 0, JSON.stringify(at))
+  if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/foot-${name}.png` })
   check(`${name}, short note: its thought sits at the foot, over the bar, not under the words`, !!at.thoughts && at.thoughts.top > (at.pane.top + at.pane.bottom) / 2 && at.thoughts.bottom <= at.bar.top, JSON.stringify(at))
   // A click in the empty middle, between the last line and the thoughts: the caret goes to the note's end.
   const y = Math.round((at.last.bottom + at.thoughts.top) / 2)
