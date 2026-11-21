@@ -37,8 +37,10 @@ const WIDTH = 22
 const HANG = 46
 const HANG_NEAR = 60
 const LAID = 138
-/** The tab's distance in from the right of the pages, hanging, and a laid ribbon's when it has not been slid. */
+/** The tab's distance in from the right of the pages, hanging. */
 const IN_FROM_RIGHT = 64
+/** A laid ribbon not yet slid: this share of its page's width along the top edge, near the right. */
+const NEAR_RIGHT = 0.9
 /** Slid, it stays this far in from either side of its page. */
 const INSET = 14
 /** How far a laid ribbon stands above its page's top edge, coming out of the top of the book. */
@@ -159,7 +161,9 @@ export function Ribbon({
   const leftOn = (edge: RibbonEdge, share: number | null): number => {
     const low = edge.left + INSET
     const high = Math.max(low, edge.right - INSET - WIDTH)
-    const x = share === null ? edge.right - IN_FROM_RIGHT : edge.left + share * (edge.right - edge.left) - WIDTH / 2
+    // Never slid, it lies near the right at a share of the width too, so a zoom step leaves it at the same place along
+    // the edge (a fixed number of px in from the right moved it along the edge as the page grew).
+    const x = edge.left + (share ?? NEAR_RIGHT) * (edge.right - edge.left) - WIDTH / 2
     return Math.max(low, Math.min(high, x))
   }
   /** Where the laid ribbon rests now, in its room: out of its page's top edge, or beside its paragraph. */

@@ -128,7 +128,7 @@ function noJump(name, frames, t0) {
   console.log(`  ${name}: ${frames.length} samples, ms between them: ${frames.slice(1).map((one, at) => Math.round(one.ms - frames[at].ms)).join(' ')}`)
   check(`${name}: no jump on its own (px per 50 ms)`, own.length >= 3 && Math.max(...rates) < 60, `${own.length} steps, fastest ${Math.max(0, ...rates).toFixed(1)}px per 50 ms`)
   const last = frames[frames.length - 1]
-  const late = frames.filter((one) => one.ms >= t0 + 700)
+  const late = frames.filter((one) => one.ms >= t0 + 600) // samples ~110 ms apart: the last may fall just short of 700
   check(`${name}: comes to rest by 700 ms`, late.length >= 1 && late.every((one) => Math.abs(one.x - last.x) < 1 && Math.abs(one.y - last.y) < 1), JSON.stringify(frames.filter((one) => one.ms >= t0).map((one) => [Math.round(one.ms - t0), one.x, one.y])))
 }
 
