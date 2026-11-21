@@ -3304,6 +3304,19 @@ html[data-book-hue] [data-book-tint] {
     height: auto;
     overflow: clip visible;
   }
+  /* A short note's foot stays at the pane's foot, as on a wide page (21 Nov, the user: "keep comments at the very
+     bottom"): its column at least as tall as the pane, the words at its top and the room under them the writing's
+     (a press there is the note's end, haligtree-editor.tsx pressUnderLastLine), its thoughts and what links here
+     at the foot over the "Add a thought…" bar. A long note pushes them on after its last line; typing never moves
+     the bar. Not in a small window, which is as tall as its page (lib/fit-box.ts measurePage). */
+  html:not([data-small]) .note-pane > [data-docked]:first-child { min-height: 100%; }
+  html:not([data-small]) .note-pane > [data-docked]:first-child .haligtree-editor-wrapper:not(.is-line, .is-plain, .haligtree-editor-wrapper *) {
+    display: flex;
+    flex-direction: column;
+  }
+  html:not([data-small]) .note-pane > [data-docked]:first-child .haligtree-editor-wrapper:not(.is-line, .is-plain, .haligtree-editor-wrapper *) > .haligtree-editor-content {
+    flex: 1 0 auto;
+  }
 }
 [data-grow] .haligtree-editor-wrapper:not(.is-line, .is-plain) {
   flex: 1 0 auto;
