@@ -88,7 +88,7 @@ heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new Cust
 
 type RoomHere = { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number }
 /** A sticky as its pill in the desk's stack (main's shapeCard): the stack's edge, and, opened, where the pill stands in the window and how wide the card is. */
-export type PillPeek = { side: 'left' | 'right'; nudge: boolean; opened?: { pill: { x: number; y: number; width: number; height: number }; card: number; size: { width: number; height: number } } }
+export type PillPeek = { side: 'left' | 'right'; nudge: boolean; width: number; opened?: { pill: { x: number; y: number; width: number; height: number }; card: number; size: { width: number; height: number } } }
 /** Quick capture's window: the one page that is not another kind's (main's pages.ts), and the only one with room round its card.
  * A small window (main/small-window.ts) is the same page in a window that is all card: never the box's room. */
 const boxHere = /\/index\.html$/.test(window.location.pathname) && !new URLSearchParams(window.location.search).has('small')
@@ -500,8 +500,6 @@ const api = {
   },
   /** That pill clicked: the cards it stands for, listed in the app's own menu at the point clicked. */
   pillMore: (x: number, y: number): void => ipcRenderer.send('sticky:more', x, y),
-  /** A pill's words measured: its width in the desk's stack. */
-  pillWidth: (width: number): void => ipcRenderer.send('sticky:pill-width', width),
   /** A card opened out of its pill, the pointer gone from it: fold it back into the pill (true), or, the pointer back on it midway, open again (false). */
   onBeaconFold: (listen: (on: boolean) => void): (() => void) => {
     const relay = (_event: unknown, on: boolean): void => listen(on)

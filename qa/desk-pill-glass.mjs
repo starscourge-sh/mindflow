@@ -1,7 +1,7 @@
 // A desk pill on glass (ask 73, 14 Nov: "is there a reason this does not follow the standard of having a frosted/blured
 // background?"): a glass card folded into its pill has the Mac's own blur under the pill, told to main as the pill's
-// shape, and its words on the popover's wash over it, never on nothing; the wash keeps the words at 4.5:1 with a white
-// or a black desktop coming straight through (the Mac's own tint left out). Opened out of its pill, the card stays solid
+// shape, and its words on the page's own colour over it, opaque (21 Nov: a see-through pill let another app's words
+// show through), at 4.5:1 with a white or a black desktop behind (the Mac's own tint left out). Opened out of its pill, the card stays solid
 // while it grows by its clip out of the pill's own shape, the pill hidden meanwhile (one surface, no blur told);
 // pinned, the card wears its glass again.
 // A paper card's pill stays solid. In both looks; with QA_SHOTS, the pill laid over a white page and a dark one.
@@ -107,7 +107,8 @@ try {
     const seen = await over(s, ground)
     const glassUnder = s.told.length === 1 && covers(s.told[0], pill, 1)
     check(`${look}: folded, the Mac's blur is told to main under the pill, its shape and nowhere else`, glassUnder, JSON.stringify({ told: s.told, pill: [pill.x, pill.y, pill.w, pill.h].map(Math.round) }))
-    check(`${look}: its ground is never see-through: frosted over the blur, or solid`, !!seen && seen.alpha.every((a) => a === 255 || (glassUnder && a >= 180)), JSON.stringify(seen?.alpha))
+    // Opaque on glass too (21 Nov: another app's words showed through a frosted pill).
+    check(`${look}: its ground is opaque: nothing behind it shows through`, !!seen && seen.alpha.every((a) => a === 255), JSON.stringify(seen?.alpha))
     const inks = [pill.words, ...(pill.number ? [pill.number] : [])]
     const worst = seen ? Math.min(...inks.flatMap((ink) => [...seen.white, ...seen.black].map((g) => contrast(ink, g)))) : 0
     check(`${look}: its words keep 4.5:1 with a white or a black desktop straight through it`, worst >= 4.5, `${worst.toFixed(2)}:1 (words rgb(${pill.words}), ground over white rgb(${seen?.white[1]}), over black rgb(${seen?.black[1]}))`)
@@ -140,7 +141,7 @@ try {
   }
   const opened = seenOpen.at(-1)
   check('rested on, its card opens out of the pill', opened?.open && opened.card && opened.card.w > 200, JSON.stringify(opened?.card))
-  check('while it grows and stands open, no blur under the card: every shape told is the pill\'s', seenOpen.every((one) => one.told.every((shape) => shape[2] <= 230 && shape[3] <= 30)), JSON.stringify([...new Set(seenOpen.map((one) => JSON.stringify(one.told)))]))
+  check('while it grows and stands open, no blur under the card: every shape told is the pill\'s', seenOpen.every((one) => one.told.every((shape) => shape[3] <= 30)), JSON.stringify([...new Set(seenOpen.map((one) => JSON.stringify(one.told)))]))
   check('and the card is solid meanwhile (its paper whole: no wash let through)', seenOpen.filter((one) => one.open).every((one) => one.wash === '100%'), JSON.stringify([...new Set(seenOpen.map((one) => one.wash))]))
   const centre = opened?.card ? await over(opened, [[opened.card.x + opened.card.w / 2, opened.card.y + 40]]) : null
   check('the open card\'s ground is opaque', centre?.alpha[0] === 255, JSON.stringify(centre?.alpha))

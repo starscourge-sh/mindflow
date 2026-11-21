@@ -3146,18 +3146,16 @@ const peekingOut = new Map<string, number>()
 /**
  * The desk's one stack: every card folded is a pill, one line at the screen's edge, and all of them stand in one
  * column on the right, from STACK_TOP down: Today first, then the goals nearest first, then the notes most lately
- * touched. A pill is PILL_H tall, PILL_GAP from the next and PILL_IN in from the edge, all of it on the screen; its
- * words decide its width (PILL_MIN to PILL_MAX, as its page measures them). Its window keeps clear room round it for
+ * touched. A pill is PILL_H tall, PILL_GAP from the next and PILL_IN in from the edge, all of it on the screen; it is
+ * as wide as its own card (pillWide), so opening grows only downward, never sideways. Its window keeps clear room round it for
  * its lift (the session bubble's), which lets clicks through to the app behind (lib/clear-room.ts).
  */
 const PILL_H = 28
 const PILL_GAP = 6
 const PILL_IN = 8
 const PILL_ROOM = { side: 6, top: 2, bottom: 6 }
-const PILL_MIN = 96
-const PILL_MAX = 220
-/** A pill's width until its page has measured its words. */
-const PILL_GUESS = 140
+/** A pill's width when its card's own is not known (never on the desk: every pill keeps its card's place). */
+const PILL_GUESS = 228
 const STACK_TOP = 0.18
 /**
  * Where the stack stands: its edge, its first pill's top, and its screen. The right edge 18% down the main screen to
@@ -3211,14 +3209,22 @@ const carryStack = {
     void writeWhole(stackFile(), JSON.stringify({ side: stackSide, top: stackTop, display: stackDisplay })).catch(() => undefined)
   }
 }
-/** Each pill's width, as its page last measured its words. */
-const pillWidth = new Map<string, number>()
+/**
+ * Each pill's width: its card's own (the card's window less the room round its paper), so the pill opening into its
+ * card grows only downward (21 Nov: "make pill width same as card").
+ */
+const pillWide = (key: string): number => {
+  const card = peeking.get(key) ?? openedAt.get(key)
+  if (!card) return PILL_GUESS
+  const inset = insetOf(key)
+  return card.width - inset.left - inset.right
+}
 /**
  * Cards opened out of their pill by the pointer, not pinned: each keeps its place in the stack while it is open, and
  * the window that grew out of the pill holds the card beside the stack and the pill's own column.
  */
 const fromPill = new Map<string, Electron.Rectangle>()
-type Peek = { side: 'left' | 'right'; nudge: boolean; opened?: { pill: Electron.Rectangle; card: number; size: { width: number; height: number } } }
+type Peek = { side: 'left' | 'right'; nudge: boolean; width: number; opened?: { pill: Electron.Rectangle; card: number; size: { width: number; height: number } } }
 /** What each pill was last told it is, asked for again by its page as it loads (a reload, or told before it listened). */
 const peekSaid = new Map<string, Peek>()
 ipcMain.handle('beacon:peek:now', (event) => {
@@ -3299,7 +3305,7 @@ function stackPlaces(): { area: Electron.Rectangle; at: Map<string, Electron.Rec
   const wanted = Math.max(area.y + PILL_IN, Math.min(stackTop ?? area.y + Math.round(area.height * STACK_TOP), area.y + area.height - PILL_IN - tall))
   // Never over an open card's words: the stack's band steps below any card standing in its column, where there is
   // room; with none, it stays where it was wanted.
-  const widest = Math.max(PILL_MIN, ...keys.map((key) => pillWidth.get(key) ?? PILL_GUESS))
+  const widest = Math.max(...keys.map(pillWide))
   const column = stackSide === 'right' ? { x: area.x + area.width - PILL_IN - widest, right: area.x + area.width } : { x: area.x, right: area.x + PILL_IN + widest }
   const cards = [...stickies].filter(([key, win]) => !win.isDestroyed() && win.isVisible() && !peeking.has(key) && !fromPill.has(key))
     .map(([key, win]) => cardOf(win.getBounds(), insetOf(key)))
@@ -3310,7 +3316,7 @@ function stackPlaces(): { area: Electron.Rectangle; at: Map<string, Electron.Rec
   if (top + tall > area.y + area.height - PILL_IN) top = wanted
   const at = new Map<string, Electron.Rectangle>()
   keys.forEach((key, nth) => {
-    const width = pillWidth.get(key) ?? PILL_GUESS
+    const width = pillWide(key)
     const x = stackSide === 'right' ? area.x + area.width - PILL_IN - width : area.x + PILL_IN
     at.set(key, { x, y: top + nth * step, width, height: PILL_H })
   })
@@ -3447,12 +3453,14 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
       openedAt.delete(key)
       fromPill.delete(key)
       stopPeek(key)
-      const peek: Peek = { side: stackSide, nudge: nudging.delete(key) }
+      const peek: Peek = { side: stackSide, nudge: nudging.delete(key), width: pillWide(key) }
       peekSaid.set(key, peek)
       win.webContents.send('beacon:peek', peek, byKey)
       // A pill has its own lift, drawn in its page; the clear room round it lets clicks through.
       if (builtGlass.get(key)) (win.setHasShadow(false), passThrough(win, true))
       win.setMinimumSize(1, 1)
+      // As wide as its card, plus its clear room: past a card's own most (showCard) on glass.
+      win.setMaximumSize(4000, 4000)
     }
     if (lay) layStack()
     return
@@ -3491,7 +3499,7 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   const box = { x, y, width: Math.min(area.x + area.width, Math.max(card.x + card.width, pill.x + pill.width)) - x, height: Math.max(card.y + card.height, pill.y + pill.height) - y }
   openedAt.set(key, rest)
   fromPill.set(key, card)
-  const peek: Peek = { side: stackSide, nudge: false, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: pill.width - 2 * PILL_ROOM.side, height: PILL_H }, card: card.width, size: { width: box.width, height: box.height } } }
+  const peek: Peek = { side: stackSide, nudge: false, width: pill.width - 2 * PILL_ROOM.side, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: pill.width - 2 * PILL_ROOM.side, height: PILL_H }, card: card.width, size: { width: box.width, height: box.height } } }
   peekSaid.set(key, peek)
   win.webContents.send('beacon:peek', peek, byKey)
   win.setMaximumSize(4000, 4000)
@@ -3593,15 +3601,6 @@ function foldBack(key: string, win: BrowserWindow): void {
   beaconHeld.delete(key)
   shapeCard(key, win)
 }
-/** A pill's words measured by its page: its width in the stack (PILL_MIN to PILL_MAX). */
-ipcMain.on('sticky:pill-width', (event, width: unknown) => {
-  const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
-  if (!key || typeof width !== 'number' || !Number.isFinite(width)) return
-  const fit = Math.round(Math.max(PILL_MIN, Math.min(PILL_MAX, width)))
-  if (pillWidth.get(key) === fit) return
-  pillWidth.set(key, fit)
-  layStack()
-})
 /**
  * A card folded or pinned by a page of the main window (the welcome's goal card), by its key. Asked before its card
  * is made (the goal is still being saved), or made again (Undo, then Redo), the card is made as asked.

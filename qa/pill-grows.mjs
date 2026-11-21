@@ -4,6 +4,9 @@
 // the visible shape is read (the card's window clip, its paper and the pill): it starts as the pill's own box, ends as
 // the card's, never steps more than a spring frame's worth from one reading to the next, and is one surface throughout
 // (never the pill's ground and the card's paper on screen at once). (qa/desk-pill-glass.mjs checks the open card is opaque.)
+// The pill is its card's width (21 Nov: "don't like expansion includes width, make pill width same as card"): within
+// 1 point, and through the open and the close, read every 50 ms by the page's own clock, the shape's left and right
+// edges never move; only its height grows and shrinks.
 // With QA_SHOTS, a picture every 50 ms of each.
 //
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=<dir>] node qa/pill-grows.mjs
@@ -51,7 +54,7 @@ const look = (id) => c.electron.evaluate(async ({ BrowserWindow }, id) => {
       const clip = getComputedStyle(root).clipPath
       const m = /inset\\(([-\\d.]+)px(?: ([-\\d.]+)px)?(?: ([-\\d.]+)px)?(?: ([-\\d.]+)px)?/.exec(clip)
       if (m) {
-        const [t, ri = t, b = t, l = ri] = m.slice(1).filter(Boolean).map(Number)
+        const [t, ri = t, b = t, l = ri] = m.slice(1).map((v) => (v === undefined ? undefined : Number(v)))
         const rb = r(root)
         const k = rb.w / root.offsetWidth || 1
         const cut = { x: rb.x + l * k, y: rb.y + t * k, w: rb.w - (l + ri) * k, h: rb.h - (t + b) * k }
@@ -63,6 +66,7 @@ const look = (id) => c.electron.evaluate(async ({ BrowserWindow }, id) => {
     return {
       pill: pill && seen(pill) ? r(pill) : null,
       pillAt: pill ? r(pill) : null,
+      pillRight: pill ? pill.getBoundingClientRect().right : null,
       card,
       ghost: ghost ? { bg: getComputedStyle(ghost).backgroundColor, border: getComputedStyle(ghost).borderTopColor, opacity: Number(getComputedStyle(ghost).opacity) } : null,
       open: document.documentElement.getAttribute('data-pill-open'),
@@ -70,8 +74,40 @@ const look = (id) => c.electron.evaluate(async ({ BrowserWindow }, id) => {
     }
   })()`)
   const add = (b) => b && { x: Math.round(b.x + at.x), y: Math.round(b.y + at.y), w: Math.round(b.w), h: Math.round(b.h) }
-  return { ...page, pill: add(page.pill), pillAt: add(page.pillAt), card: add(page.card), png: process.env.QA_SHOTS ? (await w.webContents.capturePage()).toDataURL() : null }
+  return { ...page, pillRight: page.pillRight === null ? null : page.pillRight + at.x, pill: add(page.pill), pillAt: add(page.pillAt), card: add(page.card), png: process.env.QA_SHOTS ? (await w.webContents.capturePage()).toDataURL() : null }
 }, id)
+/** The visible shape's left and right edges in screen points, read in the goal's page every 50 ms of its own clock
+ * (setInterval, at most 80 readings) until `edgesStop`: never a reading's own delay counted as a move. */
+const edgesStart = (page) => page.evaluate(() => {
+  clearInterval(window.__qaEdges?.timer)
+  const all = []
+  const seen = (el) => { if (!el) return false; const s = getComputedStyle(el); return s.visibility !== 'hidden' && Number(s.opacity) > 0.01 }
+  const timer = setInterval(() => {
+    if (all.length >= 80) return clearInterval(timer)
+    const pill = document.querySelector('[data-desk-pill]')
+    const root = document.getElementById('root')
+    const paper = document.querySelector('[data-goal-card]')
+    let box = null
+    if (paper && seen(root) && seen(paper)) {
+      const b = paper.getBoundingClientRect()
+      const rb = root.getBoundingClientRect()
+      const m = /inset\(([-\d.]+)px(?: ([-\d.]+)px)?(?: ([-\d.]+)px)?(?: ([-\d.]+)px)?/.exec(getComputedStyle(root).clipPath)
+      // A side left out repeats its opposite's (CSS inset shorthand); a 0px side is kept, never dropped.
+      const [t, ri = t, , l = ri] = m ? m.slice(1).map((v) => (v === undefined ? undefined : Number(v))) : [0, 0, 0, 0]
+      const k = rb.width / root.offsetWidth || 1
+      const cut = m ? { left: rb.x + l * k, right: rb.right - ri * k } : { left: b.left, right: b.right }
+      box = { left: Math.max(b.left, cut.left), right: Math.min(b.right, cut.right), h: b.height, kind: 'card' }
+    } else if (pill && seen(pill)) {
+      const b = pill.getBoundingClientRect()
+      box = { left: b.left, right: b.right, h: b.height, kind: 'pill' }
+    }
+    if (box) all.push({ t: Math.round(performance.now()), left: Math.round(box.left + window.screenX), right: Math.round(box.right + window.screenX), h: Math.round(box.h), kind: box.kind })
+  }, 50)
+  window.__qaEdges = { all, timer }
+})
+const edgesStop = (page) => page.evaluate(() => (clearInterval(window.__qaEdges?.timer), window.__qaEdges?.all ?? []))
+/** How far the left and right edges ever stood from the pill's own, over readings of the page's clock. */
+const sideways = (all, pill) => Math.max(0, ...all.map((one) => Math.max(Math.abs(one.left - pill.x), Math.abs(one.right - (pill.x + pill.w)))))
 /** Readings every 50 ms for `ms`. */
 const film = async (id, ms, name) => {
   const all = []
@@ -116,10 +152,14 @@ try {
     await wait(600)
     const rest = await look(goal.id)
     const pill = rest.pill
+    // Its right edge read whole, not as its rounded left plus its rounded width.
+    pill.w = Math.round(rest.pillRight) - pill.x
     // Points at the pill and stays on it: it grows.
     const inWin = await c.electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), goal.id)
+    await edgesStart(page)
     await page.mouse.move(pill.x - inWin.x + pill.w / 2, pill.y - inWin.y + pill.h / 2)
     const opening = await film(goal.id, 1100, `${theme}-open`)
+    const openEdges = await edgesStop(page)
     const out = opening.filter((one) => one?.open)
     const both = opening.filter((one) => one?.pill && one?.card)
     check(`${theme}: one surface while it grows: never the pill and the card on screen together`, out.length > 0 && !both.length, `${both.length} of ${opening.length} readings had both`)
@@ -130,18 +170,25 @@ try {
     check(`${theme}: open, the card stands where the pill hung (its top and its edge on the stack's side)`, !!last?.card && Math.abs(last.card.y - pill.y) <= NEAR && (Math.abs(last.card.x + last.card.w - (pill.x + pill.w)) <= NEAR || Math.abs(last.card.x - pill.x) <= NEAR) && last.card.w > 200, JSON.stringify({ pill, card: last?.card }))
     const openSteps = steps(opening)
     check(`${theme}: no reading jumps while it grows (each edge under ${STEP} points in 50 ms)`, openSteps.length > 8 && Math.max(...openSteps) < STEP, JSON.stringify(openSteps))
-    console.log(`  ${theme} open, 50 ms readings: ${opening.map((one) => JSON.stringify(shapeOf(one))).join(' ')}`)
+    check(`${theme}: open, the card is the pill's width (within 1 point)`, !!last?.card && Math.abs(last.card.w - pill.w) <= 1, JSON.stringify({ pill: pill.w, card: last?.card?.w }))
+    const openWide = sideways(openEdges, pill)
+    check(`${theme}: while it opens it grows only downward: its left and right edges never move (within 1 point, every 50 ms of the page's clock)`, openEdges.filter((one) => one.kind === 'card').length > 6 && openWide <= 1 && openEdges.at(-1).h > pill.h + 60, `${openWide} points sideways; ${openEdges.map((one) => `${one.t}:${one.left}-${one.right}x${one.h}`).join(' ')}`)
+    console.log(`  ${theme} open, 50 ms readings:${opening.map((one) => JSON.stringify(shapeOf(one))).join(' ')}`)
     console.log(`  ${theme} open, ms between readings: ${JSON.stringify(gaps(opening.filter(Boolean)))}`)
 
     // Reads it, then moves away: it shrinks back into the pill.
     await wait(400)
+    await edgesStart(page)
     await page.mouse.move(-40, -40)
     const closing = await film(goal.id, 1500, `${theme}-close`)
+    const closeEdges = await edgesStop(page)
     const bothClosing = closing.filter((one) => one?.pill && one?.card)
     check(`${theme}: one surface while it shrinks back`, !bothClosing.length, `${bothClosing.length} of ${closing.length} readings had both`)
     const closeSteps = steps(closing)
     check(`${theme}: no reading jumps while it shrinks back (each edge under ${STEP} points in 50 ms)`, Math.max(...closeSteps) < STEP, JSON.stringify(closeSteps))
     // The last card shape before the pill shows again is the pill's own box: it folds into it, it does not vanish.
+    const closeWide = sideways(closeEdges, pill)
+    check(`${theme}: while it folds back it shrinks only upward: its left and right edges never move (within 1 point, every 50 ms of the page's clock)`, closeEdges.some((one) => one.kind === 'card') && closeEdges.at(-1)?.kind === 'pill' && closeWide <= 1, `${closeWide} points sideways; ${closeEdges.map((one) => `${one.t}:${one.left}-${one.right}x${one.h}`).join(' ')}`)
     const lastCard = [...closing].reverse().find((one) => one?.card)
     const back = closing.at(-1)
     check(`${theme}: it ends as the pill again, in the pill's place`, !!back?.pill && !back.card && near(back.pill, pill, NEAR), JSON.stringify({ pill, back: back?.pill }))

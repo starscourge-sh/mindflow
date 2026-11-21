@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { animate, motion, motionValue } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
@@ -27,8 +27,6 @@ export function usePillWords(words: PillWords | null): void {
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/** The widest a pill may be: past it, its words end at the last whole word that fits, with "…". */
-const WIDEST = 220
 /** How long the pointer rests on a pill before its card opens: a pass across the stack opens nothing. */
 const REST = 150
 /** The pill's own slide in from the edge (the tabs' own spring before pills). */
@@ -49,12 +47,6 @@ const GLASS = new URLSearchParams(location.search).has('glass')
 /** Glass fills its window; paper keeps room round the card for its lean and shadow (main's insetOf). */
 const INSET = GLASS ? 0 : 20
 
-/** The words a pill shows: the first `count` of them, "…" after the last when some are left out. */
-const firstWords = (words: string, count: number): string => {
-  const all = words.trim().split(/\s+/)
-  return count >= all.length ? all.join(' ') : `${all.slice(0, Math.max(1, count)).join(' ')}…`
-}
-
 /**
  * A card folded at the screen's edge (main's shapeCard and layStack): one line in the desk's stack, read at a glance,
  * the session bubble's own pill (same paper, edge, lift, type and round ends). Rested on, the pill itself grows into
@@ -71,18 +63,9 @@ export function DeskPill(): React.JSX.Element | null {
   // The pill's words while it grows into its card: words only, gliding from the pill's place to the card's first line
   // as they cross-fade into it.
   const ghost = useRef<HTMLDivElement>(null)
-  const [count, setCount] = useState(Infinity)
-  useEffect(() => setCount(Infinity), [words.words, words.number])
   // The stack's last pill past six stands for the cards past it: it says how many, and a click lists them.
   const [more, setMore] = useState(0)
   useEffect(() => window.api.onPillMore(setMore), [])
-  // Its width by its words, measured once they change: fewer words until it fits, then told to main for the stack.
-  useLayoutEffect(() => {
-    const el = pill.current
-    if (!el || !peek) return
-    if (el.offsetWidth > WIDEST && count > 1) return setCount(Math.min(count, words.words.trim().split(/\s+/).length) - 1)
-    window.api.pillWidth(Math.min(WIDEST, el.offsetWidth))
-  }, [peek, count, words, more])
 
   useEffect(() => {
     const root = document.getElementById('root')
@@ -101,8 +84,9 @@ export function DeskPill(): React.JSX.Element | null {
       const { pill, frame, edge, round, corner, card, dx, dy, move } = shape
       const mix = (a: number, b: number): number => a + (b - a) * t
       // The shape: the pill's box at the card's corner on the stack's side, sprung out to the paper and the room round
-      // it (its shadow), the corners from the pill's round ends to the card's own (concentric with the room's). Past 1
-      // (the spring's give) the card itself grows a hair from that corner and settles back.
+      // it (its shadow), the corners from the pill's round ends to the card's own (concentric with the room's). The pill
+      // is the card's width (main's pillWide), so the paper's sides stay where they are: it grows only downward. Past 1
+      // (the spring's give) the card grows a hair downward from its top and settles back, never sideways.
       const left = mix(edge === 'right' ? frame.x + frame.width - pill.width : frame.x, 0)
       const top = mix(frame.y, 0)
       const width = mix(pill.width, card.width)
@@ -110,7 +94,7 @@ export function DeskPill(): React.JSX.Element | null {
       root.style.clipPath = `inset(${top}px ${card.width - left - width}px ${card.height - top - height}px ${left}px round ${mix(round, corner + frame.y)}px)`
       const give = 1 + Math.max(0, p - 1) * 0.5
       root.style.transformOrigin = `${edge === 'right' ? frame.x + frame.width : frame.x}px ${frame.y}px`
-      root.style.transform = `translate(${dx * (1 - t)}px, ${dy * (1 - t)}px)${give > 1 ? ` scale(${give})` : ''}`
+      root.style.transform = `translate(${dx * (1 - t)}px, ${dy * (1 - t)}px)${give > 1 ? ` scale(1, ${give})` : ''}`
       // The card's own words: its first line comes in as the pill's go, the rest once the shape is mostly open.
       root.style.setProperty('--pill-head', String(clamp((p - 0.25) / 0.3)))
       root.style.setProperty('--pill-body', String(clamp((p - 0.55) / 0.4)))
@@ -241,6 +225,8 @@ export function DeskPill(): React.JSX.Element | null {
   if (!peek) return null
   const right = peek.side === 'right'
   const at = peek.opened?.pill
+  // As wide as its card (main's pillWide): its name on the left, its days on the right, the name cut with "…" between.
+  const wide = at ? at.width : peek.width
   const away = right ? 16 : -16
   // On glass (windows/sticky.tsx tells main its shape) it comes in at full strength, sliding out from the edge: the
   // Mac's blur under it cannot fade, so a pill fading in over it would show the blur alone first.
@@ -275,17 +261,17 @@ export function DeskPill(): React.JSX.Element | null {
           // Placed from its window's left on either side, where main put it (PILL_ROOM), never from the page's right:
           // a page still the size of the window it was (a card's 214 points before its first fold had reached it) put
           // the pill 11 points past where main had it, so the card opened short of the pill's edge.
-          left: at ? at.x : 6, top: at ? at.y : 2,
+          left: at ? at.x : 6, top: at ? at.y : 2, width: wide,
           // While its card is out the pill is the card: it grew out of the pill's own shape, in its place, so a pill
           // left standing beside it read as a second thing popping out of the first. Folded back into that shape,
           // the pill shows again in the same task as main makes the window a pill.
           visibility: peek.opened ? 'hidden' : 'visible'
         }}
-        className="pointer-events-auto absolute flex h-[28px] w-max min-w-[96px] items-center gap-2 rounded-full border px-3 font-sans text-[13px] whitespace-nowrap text-foreground transition-[scale] duration-150 active:scale-[0.97]"
+        className="pointer-events-auto absolute flex h-[28px] items-center gap-2 rounded-full border px-3 font-sans text-[13px] whitespace-nowrap text-foreground transition-[scale] duration-150 active:scale-[0.97]"
       >
         {more ? <span data-pill-words className="font-semibold tabular-nums">{more} more</span> : <>
           <PillMark words={words} />
-          <span data-pill-words className="min-w-0">{firstWords(words.words, count)}</span>
+          <span data-pill-words className="min-w-0 truncate">{words.words.trim()}</span>
           {words.number && <span data-pill-number className="ml-auto shrink-0 font-semibold tabular-nums" style={words.warm ? { color: words.warm } : undefined}>{words.number}</span>}
         </>}
       </motion.button>
@@ -293,10 +279,10 @@ export function DeskPill(): React.JSX.Element | null {
           spring above, never there at rest. */}
       {!more && (
         <div ref={ghost} aria-hidden data-pill-ghost
-          style={{ left: at ? at.x : 6, top: at ? at.y : 2, opacity: 0 }}
-          className="pointer-events-none absolute flex h-[28px] w-max min-w-[96px] items-center gap-2 border border-transparent px-3 font-sans text-[13px] whitespace-nowrap text-foreground">
+          style={{ left: at ? at.x : 6, top: at ? at.y : 2, width: wide, opacity: 0 }}
+          className="pointer-events-none absolute flex h-[28px] items-center gap-2 border border-transparent px-3 font-sans text-[13px] whitespace-nowrap text-foreground">
           <PillMark words={words} />
-          <span data-pill-words className="min-w-0">{firstWords(words.words, count)}</span>
+          <span data-pill-words className="min-w-0 truncate">{words.words.trim()}</span>
           {words.number && <span className="ml-auto shrink-0 font-semibold tabular-nums" style={words.warm ? { color: words.warm } : undefined}>{words.number}</span>}
         </div>
       )}
