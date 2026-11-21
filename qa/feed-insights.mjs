@@ -50,7 +50,12 @@ try {
   const source = cards.first().locator('[data-insight-source]').first()
   const named = await source.innerText()
   await source.click()
-  check('a source opens its note', await until(h, async () => (await h.locator('[data-page="feed"] [data-feed]').count()) === 0, 3000), named)
+  // It opens beside the Feed, as every note named in an offer does (the user, 21 Nov: "why cant i open source on the side").
+  const beside = await until(h, async () => (await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].filter((one) => one.getClientRects().length).length)) === 2, 3000)
+  check('a source opens its note beside the Feed, the Feed still there', beside && (await h.locator('[data-page="feed"] [data-feed]').count()) > 0, named)
+  // The note's pane shut again by its tab's ×, back to the Feed alone.
+  await h.evaluate(() => { const all = [...document.querySelectorAll('[data-pane]')].filter((one) => one.getClientRects().length); all.at(-1)?.querySelector('[data-tab-close]')?.click() })
+  check('and its tab\'s × closes it again, the Feed alone', await until(h, async () => (await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].filter((one) => one.getClientRects().length).length)) <= 1, 3000))
   await go('feed')
 
   // Keep: a gem, its notes linked under it, and the card says so.

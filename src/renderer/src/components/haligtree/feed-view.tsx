@@ -39,6 +39,7 @@ import { ChangedLink } from './changed-line'
 import { RowMenu } from './row-menu'
 import { useHere } from '@/lib/split'
 import { followPdfLink } from '@/components/pdf/pdf-reader'
+import { OfferNote } from './note-offers'
 import { quoted } from '../../../../main/clip'
 
 /**
@@ -948,11 +949,23 @@ function InsightPost({ card, onOpen, mark }: { card: Insight; onOpen: (type: str
             <ul className="flex min-w-0 flex-col gap-1">
               {card.sources.map((one) => (
                 <li key={one.id} className="flex min-w-0">
-                  <button type="button" data-insight-source={`${one.type}:${one.id}`} {...(one.type === 'highlight' ? {} : hoverNote(one.type === 'capture' ? 'capture' : 'nugget', one.id))} onClick={() => openSource(one)}
-                    className="flex min-w-0 max-w-[48ch] items-baseline gap-1.5 rounded-sm text-left text-foreground/85 underline-offset-2 hover:text-foreground hover:underline">
-                    <FileText className="size-3.5 shrink-0 self-center text-muted-foreground" />
-                    <span className="truncate">{one.title}</span>
-                  </button>
+                  {/* A note, gem or question opens as every note named in an offer does (note-offers.tsx OfferNote): beside
+                      the Feed when there is room for a split, ⌘-click in a new tab, its card saying so. */}
+                  {one.type === 'capture' || one.type === 'nugget' || one.type === 'question' ? (
+                    <OfferNote link={`${one.type}:${one.id}`} onOpen={onOpen}
+                      className="flex min-w-0 max-w-[48ch] cursor-pointer items-baseline gap-1.5 rounded-sm text-left text-foreground/85 underline-offset-2 hover:text-foreground hover:underline">
+                      <span data-insight-source={`${one.type}:${one.id}`} className="contents">
+                        <FileText className="size-3.5 shrink-0 self-center text-muted-foreground" />
+                        <span className="truncate">{one.title}</span>
+                      </span>
+                    </OfferNote>
+                  ) : (
+                    <button type="button" data-insight-source={`${one.type}:${one.id}`} onClick={() => openSource(one)}
+                      className="flex min-w-0 max-w-[48ch] items-baseline gap-1.5 rounded-sm text-left text-foreground/85 underline-offset-2 hover:text-foreground hover:underline">
+                      <FileText className="size-3.5 shrink-0 self-center text-muted-foreground" />
+                      <span className="truncate">{one.title}</span>
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
