@@ -1875,6 +1875,7 @@ export function Toaster(): React.JSX.Element | null {
     <AnimatePresence mode="popLayout" initial={false}>
     {shown && <motion.div
       key={shown.key}
+      data-toast=""
       role="status"
       aria-live="polite"
       initial={{ opacity: 0, transform: shift('translateY(8px)') }}

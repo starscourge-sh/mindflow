@@ -768,10 +768,45 @@ export function RibbonMenuRows({ hue, onPeek, onPick, onOut }: { hue: Hue | null
  */
 export function ReadOnLine({ words, onGo, onClose }: { words: string | null; onGo: () => void; onClose: () => void }): React.JSX.Element {
   const fade = motionNow() === 'none' ? { duration: 0 } : { duration: 0.2, ease: EASE }
+  // A notice at the foot of the window ("Ribbon moved to p. 17 · Undo") lay over this line and hid "Go there": while a
+  // notice is up where the line is, the line glides up clear of it, and back down when it goes (one float never over
+  // another). Measured from where the line would be unlifted, against every notice shown, each time one comes or goes.
+  const line = useRef<HTMLDivElement>(null)
+  const lift = useMotionValue(0)
+  useEffect(() => {
+    if (!words) return void lift.set(0)
+    let frame = 0
+    const place = (): void => {
+      frame = 0
+      const me = line.current?.getBoundingClientRect()
+      if (!me) return
+      const top = me.top - lift.get()
+      const bottom = me.bottom - lift.get()
+      let need = 0
+      for (const one of document.querySelectorAll<HTMLElement>('[data-toast]')) {
+        const r = one.getBoundingClientRect()
+        // A notice's own entrance slides it up to 8px: counted in the room kept between them.
+        if (r.width && r.left < me.right && r.right > me.left && r.top < bottom + 8 && r.bottom > top - 8) need = Math.max(need, bottom - r.top + 10)
+      }
+      if (Math.abs(-need - lift.get()) < 1) return
+      if (motionNow() === 'none') lift.set(-need)
+      else animate(lift, -need, { duration: 0.2, ease: EASE })
+    }
+    const soon = (): void => void (frame ||= requestAnimationFrame(place))
+    const notices = new MutationObserver(soon)
+    notices.observe(document.body, { childList: true, subtree: true })
+    window.addEventListener('resize', soon)
+    soon()
+    return () => {
+      cancelAnimationFrame(frame)
+      notices.disconnect()
+      window.removeEventListener('resize', soon)
+    }
+  }, [words, lift])
   return (
     <AnimatePresence>
       {words && (
-        <motion.div className="ribbon-read-on" role="status" data-ribbon-read-on initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}>
+        <motion.div ref={line} style={{ y: lift }} className="ribbon-read-on" role="status" data-ribbon-read-on initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}>
           <span className="ribbon-read-on-mark" aria-hidden />
           <span>{words}</span>
           <button type="button" className="ribbon-read-on-go" data-ribbon-read-on-go onClick={onGo}>

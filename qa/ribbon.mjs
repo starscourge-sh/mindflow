@@ -118,9 +118,11 @@ const against = (n) => h.evaluate(([n, over]) => {
   if (!el || !page) return null
   // The ribbon's own box before its sway's turn: its offsetParent is the pages' box, as the page's is.
   const pr = page.getBoundingClientRect()
-  const scale = pr.width / page.offsetWidth
   const at = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(el.style.transform)
   const host = el.parentElement.getBoundingClientRect()
+  // How much a pinch scales the pages, from the pages' whole box: a page's width over its offsetWidth (a whole number
+  // of px, 328 for 328.4) was off by a thousandth, a few px by p. 17 (the 1.9 and 5.7px "gaps" were this, not the ribbon).
+  const scale = host.height / el.parentElement.offsetHeight
   const top = host.top + Number(at[2]) * scale
   const left = host.left + Number(at[1]) * scale
   return { off: top - (pr.top - over * scale), scale, share: (left - pr.left) / pr.width, ms: performance.now() }
@@ -458,7 +460,18 @@ try {
   }
   const lastHeld = await ribbon()
   await h.mouse.up()
-  await wait(1200)
+  // Let go far past where you had read: "Ribbon moved to p. N" comes up at the foot with the "You read on" line there.
+  // Every 100 ms for 2 s (20 samples): whenever both are up, they never overlap ("Go there" was hidden under the notice).
+  const floats = []
+  for (let i = 0; i < 20; i++) {
+    floats.push(await h.evaluate(() => {
+      const a = document.querySelector('[data-ribbon-read-on]')?.getBoundingClientRect()
+      const b = document.querySelector('[data-toast]')?.getBoundingClientRect()
+      if (!a?.width || !b?.width) return { both: false }
+      return { both: true, overlap: a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top, gap: Math.round(b.top - a.bottom) }
+    }))
+    await wait(100)
+  }
   const far = await v('ribbon:get', SRC())
   const scrolled = (await h.evaluate(() => document.querySelector('.pdf-reader-scroll').scrollTop)) - scroll0
   const deepChips = [...moving, ...deep].map((one) => one?.chip).filter(Boolean)
@@ -469,6 +482,7 @@ try {
   check('and it stayed under the pointer as they scrolled (1:1)', Math.max(...stuck.map((one) => one[1])) - Math.min(...stuck.map((one) => one[1])) <= 2 && Math.max(...stuck.map((one) => one[0])) - Math.min(...stuck.map((one) => one[0])) <= 2, JSON.stringify(stuck.slice(0, 6)))
   const edgeFar = far ? await restedOn(far.page) : null
   check('let go, it lies on the page the chip named, on its top edge', far?.page === Number(lastHeld.chip.slice(3)) && (await ribbon())?.at === String(far.page) && Math.abs(edgeFar?.off ?? 99) <= 1, `edge ${JSON.stringify(edgeFar)} kept ${JSON.stringify(far)} chip ${lastHeld.chip}`)
+  check('the "You read on" line and the notice were both up, and never over each other', floats.some((one) => one.both) && floats.every((one) => !one.overlap), JSON.stringify(floats.filter((one) => one.both).slice(-3)))
   check('one tap per page crossed on the way down', (await taps()) - taps1 === deepCrossings, `${(await taps()) - taps1} taps for ${deepCrossings} crossings`)
 
   // Read back up to page 2: the ribbon lies below, so the pill sits at the FOOT, pointing down, beside the pages.
