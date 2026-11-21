@@ -236,7 +236,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       <div key="reviewed" className="space-y-6">
         <Big n={data.reviews}>{data.reviews === 1 ? 'review' : 'reviews'}</Big>
         <p className="text-title">{/* Its turn once the count above has landed: one thing moving at a time. */}
-        <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`${data.reviewDays > 1 ? `On ${plural(data.reviewDays, 'day', 'different days')}. ` : ''}The one you came back to most: ${quoted(data.mostReviewed.title, 120)}, ${plural(data.mostReviewed.n, 'time', 'times')}.`} /></p>
+        <Typed story delay={Math.round((0.25 + counting(data.reviews)) * 1000) + 100} text={`${data.reviewDays > 1 ? `On ${plural(data.reviewDays, 'day', 'different days')}. ` : ''}${data.mostReviewed.n > 1 ? `The one you came back to most: ${quoted(data.mostReviewed.title, 120)}, ${plural(data.mostReviewed.n, 'time', 'times')}.` : data.reviews === 1 ? `You reviewed ${quoted(data.mostReviewed.title, 120)}.` : 'Each card came up once.'}`} /></p>
       </div>
     ),
     marked.length > 0 && (

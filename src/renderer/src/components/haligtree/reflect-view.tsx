@@ -61,7 +61,8 @@ function prose(told: MonthTold, name: string, before: string): string {
   if (told.kept || told.letGo) said.push(told.kept ? `You kept ${plural(told.kept, 'gem')}${told.letGo ? ` and let ${num(told.letGo)} go` : ''}.` : `You let ${num(told.letGo)} go, which keeps the promise as well as keeping does.`)
   if (told.articles.length) said.push(`You started ${told.articles.length === 1 ? `a page, ${quoted(told.articles[0])}` : `${num(told.articles.length)} pages, the first ${quoted(told.articles[0])}`}.`)
   if (told.questions.length) said.push(`You began holding ${told.questions.length === 1 ? `a question: ${quoted(told.questions[0])}` : `${num(told.questions.length)} questions, the newest ${quoted(told.questions.at(-1)!)}`}.`)
-  if (told.reviewed) said.push(`The one you came back to most was ${quoted(shownName(told.reviewed.title))}, ${plural(told.reviewed.n, 'time')}.`)
+  // "Came back to" means more than once: one review of a card is not coming back to it.
+  if (told.reviewed && told.reviewed.n > 1) said.push(`The one you came back to most was ${quoted(shownName(told.reviewed.title))}, ${plural(told.reviewed.n, 'time')}.`)
   return said.join(' ')
 }
 
