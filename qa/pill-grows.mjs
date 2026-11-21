@@ -76,8 +76,10 @@ const look = (id) => c.electron.evaluate(async ({ BrowserWindow }, id) => {
   const add = (b) => b && { x: Math.round(b.x + at.x), y: Math.round(b.y + at.y), w: Math.round(b.w), h: Math.round(b.h) }
   return { ...page, pillRight: page.pillRight === null ? null : page.pillRight + at.x, pill: add(page.pill), pillAt: add(page.pillAt), card: add(page.card), png: process.env.QA_SHOTS ? (await w.webContents.capturePage()).toDataURL() : null }
 }, id)
-/** The visible shape's left and right edges in screen points, read in the goal's page every 50 ms of its own clock
- * (setInterval, at most 80 readings) until `edgesStop`: never a reading's own delay counted as a move. */
+/** The visible shape's left and right edges in its window's points, read in the goal's page every 50 ms of its own
+ * clock (setInterval, at most 80 readings) until `edgesStop`, each with Date.now() so it can be put on the screen by
+ * where main had the window then (`moves`): a test window is parked off screen (HALIGTREE_QA_VIRTUAL), so the page's
+ * own screenX says where it is parked, never where the app put it. */
 const edgesStart = (page) => page.evaluate(() => {
   clearInterval(window.__qaEdges?.timer)
   const all = []
@@ -101,11 +103,33 @@ const edgesStart = (page) => page.evaluate(() => {
       const b = pill.getBoundingClientRect()
       box = { left: b.left, right: b.right, h: b.height, kind: 'pill' }
     }
-    if (box) all.push({ t: Math.round(performance.now()), left: Math.round(box.left + window.screenX), right: Math.round(box.right + window.screenX), h: Math.round(box.h), kind: box.kind })
+    if (box) all.push({ t: Date.now(), left: box.left, right: box.right, h: Math.round(box.h), kind: box.kind })
   }, 50)
   window.__qaEdges = { all, timer }
 })
-const edgesStop = (page) => page.evaluate(() => (clearInterval(window.__qaEdges?.timer), window.__qaEdges?.all ?? []))
+const edgesStop = async (page, id) => {
+  const all = await page.evaluate(() => (clearInterval(window.__qaEdges?.timer), window.__qaEdges?.all ?? []))
+  const { start, list } = await c.electron.evaluate((_, id) => ({ start: globalThis.qaPillStart?.[id], list: globalThis.qaPillMoves?.[id] ?? [] }), id)
+  // Where main had the window at each reading: the last place it set at or before it.
+  const xAt = (t) => list.filter((one) => one.t <= t && one.b.x !== undefined).at(-1)?.b.x ?? start.x
+  return all.map((one) => ({ ...one, left: Math.round(one.left + xAt(one.t)), right: Math.round(one.right + xAt(one.t)) }))
+}
+/** Every place main sets for the goal's window from now on, with when and from where (the caller's lines): printed
+ * by the run, so a jump can be traced to the code that made it. */
+const watchMoves = (id) => c.electron.evaluate(({ BrowserWindow }, id) => {
+  const w = BrowserWindow.fromId(id)
+  ;(globalThis.qaPillStart ??= {})[id] = w.getBounds()
+  const list = ((globalThis.qaPillMoves ??= {})[id] = [])
+  if (w.qaWatched) return
+  w.qaWatched = true
+  const setBounds = w.setBounds.bind(w)
+  w.setBounds = (b, ...more) => {
+    globalThis.qaPillMoves[id].push({ t: Date.now(), b: { ...b }, from: new Error().stack.split('\n').slice(2, 6).map((line) => line.trim()).join(' < ') })
+    return setBounds(b, ...more)
+  }
+}, id)
+const movesSaid = (id) => c.electron.evaluate((_, id) => globalThis.qaPillMoves?.[id] ?? [], id)
+  .then((list) => list.forEach((one) => console.log(`  setBounds ${JSON.stringify(one.b)} from ${one.from}`)))
 /** How far the left and right edges ever stood from the pill's own, over readings of the page's clock. */
 const sideways = (all, pill) => Math.max(0, ...all.map((one) => Math.max(Math.abs(one.left - pill.x), Math.abs(one.right - (pill.x + pill.w)))))
 /** Readings every 50 ms for `ms`. */
@@ -156,10 +180,15 @@ try {
     pill.w = Math.round(rest.pillRight) - pill.x
     // Points at the pill and stays on it: it grows.
     const inWin = await c.electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), goal.id)
+    await watchMoves(goal.id)
     await edgesStart(page)
     await page.mouse.move(pill.x - inWin.x + pill.w / 2, pill.y - inWin.y + pill.h / 2)
     const opening = await film(goal.id, 1100, `${theme}-open`)
-    const openEdges = await edgesStop(page)
+    const openEdges = await edgesStop(page, goal.id)
+    console.log(`  ${theme} open, the window's places as main set them:`)
+    await movesSaid(goal.id)
+    // The open card's layout as its page has it (the root laid from the pill, desk-pill.tsx).
+    console.log(`  ${theme} open, page: ${await page.evaluate(() => { const r = (el) => { const b = el?.getBoundingClientRect(); return b && [Math.round(b.x), Math.round(b.width)] }; const h = document.documentElement; return JSON.stringify({ open: h.getAttribute('data-pill-open'), left: h.style.getPropertyValue('--pill-left'), card: h.style.getPropertyValue('--pill-card'), root: r(document.getElementById('root')), paper: r(document.querySelector('[data-goal-card]')), pill: r(document.querySelector('[data-desk-pill]')), inner: innerWidth, zoom: devicePixelRatio }) })}`)
     const out = opening.filter((one) => one?.open)
     const both = opening.filter((one) => one?.pill && one?.card)
     check(`${theme}: one surface while it grows: never the pill and the card on screen together`, out.length > 0 && !both.length, `${both.length} of ${opening.length} readings had both`)
@@ -178,10 +207,13 @@ try {
 
     // Reads it, then moves away: it shrinks back into the pill.
     await wait(400)
+    await watchMoves(goal.id)
     await edgesStart(page)
     await page.mouse.move(-40, -40)
     const closing = await film(goal.id, 1500, `${theme}-close`)
-    const closeEdges = await edgesStop(page)
+    const closeEdges = await edgesStop(page, goal.id)
+    console.log(`  ${theme} close, the window's places as main set them:`)
+    await movesSaid(goal.id)
     const bothClosing = closing.filter((one) => one?.pill && one?.card)
     check(`${theme}: one surface while it shrinks back`, !bothClosing.length, `${bothClosing.length} of ${closing.length} readings had both`)
     const closeSteps = steps(closing)
