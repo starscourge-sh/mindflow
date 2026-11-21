@@ -18,6 +18,18 @@ export type BookRef = { table: 'captures' | 'nuggets'; id: string }
 
 export const shelf = (): Promise<Shelf> => window.api.haligtree<Shelf>('books:list')
 
+/** What a book's cover shows on the shelf (main/books.ts jacketOf): a picture from it, else a few lines of its own words. */
+export type Jacket = { picture: string | null; words: string }
+const jackets = new Map<string, Promise<Jacket | null>>()
+/** Asked once per book while the shelf is up (main keeps each until its file changes). */
+export const jacketOf = (id: string): Promise<Jacket | null> => {
+  let one = jackets.get(id)
+  if (!one) jackets.set(id, (one = window.api.haligtree<Jacket | null>('books:jacket', id).catch(() => null)))
+  return one
+}
+/** As the shelf opens: a book changed since shows its new jacket. */
+export const forgetJackets = (): void => jackets.clear()
+
 // --- a book's colour: Arc's spaces, each with its own ------------------------------------
 
 /** The hues a book can wear, the theme's own so each suits every theme; null is the theme's accent. */

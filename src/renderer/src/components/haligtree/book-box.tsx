@@ -87,7 +87,7 @@ function Lit({ normal, pose: { pitch, turn, lit }, gloss = 0, face }: { normal: 
   )
 }
 
-export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, edges = true, ribbon = false, cover, children, className = '', style }: {
+export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, edges = true, ribbon = false, flat = false, cover, children, className = '', style }: {
   size: BookSize
   /** Tipped back (rotateX) and turned (rotateY, 90 the spine to you, 0 the cover), in degrees. */
   pitch: MotionValue<number>
@@ -102,6 +102,12 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
   edges?: boolean
   /** A ribbon to keep your place, hanging out at the foot. */
   ribbon?: boolean
+  /**
+   * Printed flat, as a modern paperback on a shelf (books.tsx BookShelf): the spine one solid colour (`--mf-spine-bg`),
+   * a faint shade at its edges, its name in the app's sans reading up from the foot in an ink picked for it
+   * (`--mf-spine-ink`, shelf.css), and no cloth grain or hinge on the cover. Off: the cloth hardback with gold foil.
+   */
+  flat?: boolean
   /** The cover's own element: its ref, data and padding. */
   cover?: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> } & { [data: `data-${string}`]: string }
   /** What is printed on the cover. */
@@ -152,17 +158,27 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
           ])}
         </>
       )}
-      {/* The spine: rounded, so lit in a band down its middle and falling dark to either hinge. A quarter binding, as many
-          cloth books have: the spine in the cover's ink, its name blocked down it in gold foil between two gold rules. */}
-      <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[3px] [backface-visibility:hidden]"
-        style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.42), rgb(0 0 0 / 0.08) 22%, rgb(255 255 255 / 0.16) 48%, rgb(255 255 255 / 0.05) 62%, rgb(0 0 0 / 0.12) 80%, rgb(0 0 0 / 0.45)), ${CLOTH}, var(--mf-card-c)` }}>
-        <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ top: rule }} />
-        <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ bottom: rule }} />
-        {/* A name longer than the spine ends in an ellipsis between the rules, never over them. */}
-        <span className="overflow-hidden bg-[linear-gradient(to_bottom,#f3dfa2,#c9a55a_45%,#f0d894_60%,#b8924a)] bg-clip-text text-[0.6875rem] font-bold tracking-[0.06em] text-ellipsis whitespace-nowrap text-transparent"
-          style={{ writingMode: 'vertical-rl', fontFamily: "'Fraunces Variable', Georgia, serif", maxHeight: high - 2 * (rule + 9) }}>{name}</span>
-        <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.8} face="spine" />
-      </div>
+      {/* The spine. Flat: one solid colour and its name in sans (shelf.css). Else rounded, so lit in a band down its
+          middle and falling dark to either hinge, a quarter binding as many cloth books have: the spine in the cover's
+          ink, its name blocked down it in gold foil between two gold rules. */}
+      {flat ? (
+        <div aria-hidden data-reader-spine-face className="mf-flat-spine absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[2px] [backface-visibility:hidden]"
+          style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)` }}>
+          {/* A name longer than the spine ends in an ellipsis, a little in from the head and foot. */}
+          <span data-spine-title className="mf-flat-spine-title" style={{ maxHeight: high - 20 }}>{name}</span>
+          <Lit normal={[-1, 0, 0]} pose={pose} face="spine" />
+        </div>
+      ) : (
+        <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[3px] [backface-visibility:hidden]"
+          style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.42), rgb(0 0 0 / 0.08) 22%, rgb(255 255 255 / 0.16) 48%, rgb(255 255 255 / 0.05) 62%, rgb(0 0 0 / 0.12) 80%, rgb(0 0 0 / 0.45)), ${CLOTH}, var(--mf-card-c)` }}>
+          <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ top: rule }} />
+          <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ bottom: rule }} />
+          {/* A name longer than the spine ends in an ellipsis between the rules, never over them. */}
+          <span className="overflow-hidden bg-[linear-gradient(to_bottom,#f3dfa2,#c9a55a_45%,#f0d894_60%,#b8924a)] bg-clip-text text-[0.6875rem] font-bold tracking-[0.06em] text-ellipsis whitespace-nowrap text-transparent"
+            style={{ writingMode: 'vertical-rl', fontFamily: "'Fraunces Variable', Georgia, serif", maxHeight: high - 2 * (rule + 9) }}>{name}</span>
+          <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.8} face="spine" />
+        </div>
+      )}
       {ribbon && (
         // Laid in at the head and hanging out at the foot between the pages.
         <div aria-hidden data-reader-ribbon className="absolute w-[9px]"
@@ -174,8 +190,8 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
       <div {...cover} className={`absolute inset-0 bg-[#fffbea] [backface-visibility:hidden] ${cover?.className ?? ''}`}
         style={{ transform: `translateZ(${thick / 2}px)`, borderRadius: BOOK_CORNERS, color: 'var(--mf-card-c)', ...cover?.style }}>
         {children}
-        <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[inherit]" style={{ width: hinge, background: HINGE }} />
-        <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />
+        {!flat && <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[inherit]" style={{ width: hinge, background: HINGE }} />}
+        {!flat && <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />}
         {/* And the room's light on the cover as it turns: darker turned away, and a gloss that runs across it. */}
         <Lit normal={[0, 0, 1]} pose={pose} gloss={0.55} face="front" />
       </div>
