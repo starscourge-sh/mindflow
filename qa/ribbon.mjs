@@ -28,7 +28,7 @@ const EDITOR = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 
 /** Where the ribbon is drawn (its translate, so a sway's turn does not count as a move), and how it lies. */
 const ribbon = () => h.evaluate(() => {
-  const el = document.querySelector('.ribbon')
+  const el = document.querySelector('.ribbon:not(.ribbon-tab)') ?? document.querySelector('.ribbon-tab')
   const at = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(el?.style.transform ?? '')
   // `ms`: the page's own clock as it was read, so the time between samples is the real one, however slow the run.
   return el && at ? { x: Number(at[1]), y: Number(at[2]), state: el.dataset.ribbon, at: el.dataset.ribbonAt, h: parseFloat(el.style.height), ms: performance.now() } : null
@@ -68,6 +68,26 @@ const shownPage = () => h.evaluate(() => Number(document.querySelector('.pdf-rea
 /** The PDF's own key in the store (its attachment's src in the note), read once it is dropped in. */
 let pdfSrc = null
 const SRC = () => pdfSrc
+/** The laid ribbon (drawn in the pages' own box), not the tab at the top. */
+const LAID = '.ribbon:not(.ribbon-tab)'
+/** How far a laid ribbon stands above its page's top edge (ribbon.tsx OVERHANG). */
+const OVERHANG = 6
+
+/** The laid ribbon against its page `n`, as drawn now: how far its top is from where it belongs (its page's top edge
+ *  less the overhang, scaled as a pinch scales the pages), how much the pages are scaled, and along the page. */
+const against = (n) => h.evaluate(([n, over]) => {
+  const el = document.querySelector('.ribbon:not(.ribbon-tab)')
+  const page = document.querySelector(`.pdf-page[data-page="${n}"]`)
+  if (!el || !page) return null
+  // The ribbon's own box before its sway's turn: its offsetParent is the pages' box, as the page's is.
+  const pr = page.getBoundingClientRect()
+  const scale = pr.width / page.offsetWidth
+  const at = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(el.style.transform)
+  const host = el.parentElement.getBoundingClientRect()
+  const top = host.top + Number(at[2]) * scale
+  const left = host.left + Number(at[1]) * scale
+  return { off: top - (pr.top - over * scale), scale, share: (left - pr.left) / pr.width, ms: performance.now() }
+}, [n, OVERHANG])
 
 /** Page `n`'s top edge brought to about `px` below the top of the pages, by the wheel, as a hand would. */
 async function bringTop(n, px) {
@@ -90,7 +110,7 @@ async function layByMenu(n) {
 
 /** The ribbon lies across page `n`'s top edge: its top in the gap above, its body over the page, inside its width. */
 const onTopOf = (n) => h.evaluate((n) => {
-  const r = document.querySelector('.ribbon').getBoundingClientRect()
+  const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect()
   const page = document.querySelector(`.pdf-page[data-page="${n}"]`).getBoundingClientRect()
   const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
   const mid = (r.left + r.right) / 2
@@ -98,7 +118,7 @@ const onTopOf = (n) => h.evaluate((n) => {
 }, n)
 
 /** The satin's colour as drawn. */
-const satin = () => h.evaluate(() => getComputedStyle(document.querySelector('.ribbon-satin')).backgroundColor + getComputedStyle(document.querySelector('.ribbon-layer')).getPropertyValue('--mf-ribbon'))
+const satin = () => h.evaluate(() => getComputedStyle(document.querySelector('.ribbon:not(.ribbon-tab) .ribbon-satin')).backgroundColor + getComputedStyle(document.querySelector('.ribbon:not(.ribbon-tab)')).getPropertyValue('--mf-ribbon'))
 
 /** Where it moves on its own (not held: settling, or gliding back on Esc), each step scaled to a real 50 ms by the
  *  page's clock: a glide moves well under 60px in 50 ms; a jump is far over. And still by 700 ms after `t0`. */
@@ -156,7 +176,7 @@ try {
   // A first look: the ribbon hangs from the top of the pages, a short tab with the hand.
   const hanging = await ribbon()
   check('a new book shows the ribbon hanging at the top', hanging?.state === 'hanging' && hanging.y < 4 && hanging.h <= 60, JSON.stringify(hanging))
-  check('it shows the hand', (await h.evaluate(() => getComputedStyle(document.querySelector('.ribbon')).cursor)) === 'pointer')
+  check('it shows the hand', (await h.evaluate(() => getComputedStyle(document.querySelector('.ribbon-tab')).cursor)) === 'pointer')
 
   // An everyday reader: page 3 brought to about 400px down by hand, then right-click on it, "Lay the ribbon here".
   const scroller = await h.locator('.pdf-reader-scroll').boundingBox()
@@ -165,6 +185,45 @@ try {
   const laid = await ribbon()
   check('laid by the menu, it lies on page 3', laid?.state === 'laid' && laid.at === '3', JSON.stringify(laid))
   check('across page 3\'s top edge, inside its width, on screen', await onTopOf(3))
+  const edge = await against(3)
+  check('its top is on page 3\'s own top edge, standing a few px above it (not in the gap)', edge && Math.abs(edge.off) <= 1, JSON.stringify(edge))
+
+  // A first-timer clicks the laid ribbon: its own small menu opens there, its colours and "Take the ribbon out".
+  check('a laid ribbon shows the open hand', (await h.evaluate(() => getComputedStyle(document.querySelector('.ribbon:not(.ribbon-tab)')).cursor)) === 'grab')
+  const lr = await h.locator(LAID).boundingBox()
+  await h.mouse.click(lr.x + lr.width / 2, lr.y + 50); await wait(500)
+  check('a click on it opens its own menu', (await h.locator('[data-ribbon-menu]').count()) === 1 && (await h.locator('[data-ribbon-menu] [data-ribbon-hue-pick]').count()) === 9 && (await h.locator('[data-ribbon-menu] [data-ribbon-out-own]').count()) === 1)
+  check('and the click did not move it', (await v('ribbon:get', SRC()))?.page === 3)
+  await h.keyboard.press('Escape'); await wait(400)
+  check('Esc closes its menu', (await h.locator('[data-ribbon-menu]').count()) === 0)
+
+  // The page's own right-click: the ribbon rows, and no longer the chapter's cards (their home is the sparkles button).
+  const p2 = await h.locator('.pdf-page[data-page="3"]').boundingBox()
+  await h.mouse.click(p2.x + p2.width * 0.3, p2.y + 200, { button: 'right' }); await wait(400)
+  check('a page\'s right-click has no "Five cards" line', (await h.locator('[data-ribbon-lay-menu]').count()) === 1 && (await h.locator('[data-chapter-cards-menu]').count()) === 0)
+  await h.keyboard.press('Escape'); await wait(400)
+
+  // A pinch over the pages (ctrl and the wheel, as a trackpad's pinch arrives) and a zoom step: every 50 ms the ribbon
+  // stays on its page's top edge, within 1px, and at the same place along it.
+  const pinch = []
+  const ps = await h.locator('.pdf-reader-scroll').boundingBox()
+  await h.mouse.move(ps.x + ps.width / 2, ps.y + ps.height / 2)
+  await h.keyboard.down('Control')
+  for (let i = 0; i < 16; i++) {
+    await h.mouse.wheel(0, -12)
+    await wait(35)
+    pinch.push(await against(3))
+  }
+  await h.keyboard.up('Control')
+  for (let i = 0; i < 16; i++) { await wait(50); pinch.push(await against(3)) }
+  await h.keyboard.press('Meta+Equal')
+  for (let i = 0; i < 12; i++) { await wait(50); pinch.push(await against(3)) }
+  const seen = pinch.filter(Boolean)
+  console.log('  pinch: ' + seen.map((one) => `${one.scale.toFixed(2)}x off ${one.off.toFixed(1)} at ${one.share.toFixed(3)}`).join(' | '))
+  check('pinched and zoomed, the pages did grow', seen.some((one) => one.scale > 1.1) || (await h.evaluate(() => document.querySelector('.pdf-reader').dataset.zoom)) !== '1', JSON.stringify(seen.at(-1)))
+  check('through the pinch and the zoom step, its top stays on its page\'s edge within 1px', seen.length >= 40 && seen.every((one) => Math.abs(one.off) <= 1), `worst ${Math.max(...seen.map((one) => Math.abs(one.off))).toFixed(2)}px`)
+  check('and at the same place along it', Math.max(...seen.map((one) => one.share)) - Math.min(...seen.map((one) => one.share)) < 0.01)
+  await h.keyboard.press('Meta+Digit0'); await wait(900)
 
   // Closed and opened again: page 3, where the ribbon is.
   await reopen(note)
@@ -180,7 +239,7 @@ try {
   await wait(1200)
   check('read on by hand, the bar says page 5', (await shownPage()) === 5, `bar says ${await shownPage()}`)
   // Out of sight, the tab at the top names its page.
-  check('scrolled past it, the tab at the top says "p. 3"', await h.evaluate(() => { const t = document.querySelector('[data-ribbon-away]'); return !!t && t.hasAttribute('data-shown') && /p\. 3/.test(t.textContent) }))
+  check('scrolled past it, the tab at the top says "p. 3"', await h.evaluate(() => { const t = document.querySelector('[data-ribbon-away]'); return !!t && getComputedStyle(t).opacity === '1' && /p\. 3/.test(t.textContent) }))
   await reopen(note)
   check('read on to page 5, opened again: still page 3', (await landedOn()) === 3, `landed on ${await landedOn()}`)
   const line = await h.locator('[data-ribbon-read-on]').textContent().catch(() => '')
@@ -195,7 +254,7 @@ try {
 
   // Slid by hand along page 3's top edge: x follows the pointer 1:1, y and the page never change, no jump.
   const before = await ribbon()
-  const band = await h.locator('.ribbon').boundingBox()
+  const band = await h.locator(LAID).boundingBox()
   const grip = { x: band.x + band.width / 2, y: band.y + 30 }
   const slide = sampler('slide')
   await h.mouse.move(grip.x, grip.y)
@@ -221,7 +280,7 @@ try {
   check('let go, it rests where it was slid, still on page 3', after.at === '3' && after.x < before.x - 100 && keptSlid?.page === 3 && keptSlid.across > 0 && keptSlid.across < 0.9, `${JSON.stringify(after)} kept ${JSON.stringify(keptSlid)}`)
 
   // Esc mid-slide: it glides back to where it lay.
-  const band2 = await h.locator('.ribbon').boundingBox()
+  const band2 = await h.locator(LAID).boundingBox()
   const esc = sampler('esc')
   await h.mouse.move(band2.x + band2.width / 2, band2.y + 30)
   await h.mouse.down()
@@ -252,7 +311,7 @@ try {
   check('on page 7\'s top edge, never over page 6', await onTopOf(7))
 
   // Slid across its row from the right page to the left: let go over page 6, it lies on page 6.
-  const onRight = await h.locator('.ribbon').boundingBox()
+  const onRight = await h.locator(LAID).boundingBox()
   const leftMid = await h.evaluate(() => { const r = document.querySelector('.pdf-page[data-page="6"]').getBoundingClientRect(); return r.left + r.width / 2 })
   const across = sampler('row')
   const from = { x: onRight.x + onRight.width / 2, y: onRight.y + 30 }
@@ -269,7 +328,7 @@ try {
 
   // Its colour: right-click the ribbon, point at blue (shown at once), pick it (kept and drawn).
   const red = await satin()
-  const r6 = await h.locator('.ribbon').boundingBox()
+  const r6 = await h.locator(LAID).boundingBox()
   await h.mouse.click(r6.x + r6.width / 2, r6.y + 40, { button: 'right' }); await wait(500)
   check('right-click on the ribbon shows its colours', (await h.locator('[data-ribbon-colours] [data-ribbon-hue-pick]').count()) === 9)
   await h.hover('[data-ribbon-hue-pick="blue"]'); await wait(250)
@@ -310,7 +369,7 @@ try {
   const kept = await v('ribbon:get', href)
   check('⌘D lays the ribbon on the paragraph being read', onArticle?.state === 'laid' && kept?.block === Number(onArticle.at), `${JSON.stringify(onArticle)} kept ${JSON.stringify(kept)}`)
   check('beside that paragraph', await h.evaluate(() => {
-    const r = document.querySelector('.ribbon').getBoundingClientRect()
+    const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect()
     const p = document.querySelector('.web-reader-scroll').getBoundingClientRect()
     return r.top > p.top && r.top < p.top + p.height / 2
   }))
