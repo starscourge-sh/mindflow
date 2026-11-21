@@ -51,6 +51,7 @@ import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
+import { openLine } from './study'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
 import { Term } from './term'
 import { AGES, COLUMNS_OR_LIST, Chips, Display, columnsOrList, everySort, FilterChips, arrange, inAge, period, useView, type Choice, type Density, type Facet, type View } from './display'
@@ -1284,6 +1285,16 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                 void haligtree.saveItem(item.id, { prompt: question }).then(() =>
                   toast('In Review now: it comes back as a new card', () => (setPrompt(''), void haligtree.saveItem(item.id, { prompt: null }))))
               }} />
+            )}
+            {/* A card written as a line of a note: the way back to that line, as Review's "Open it at the line" (R). */}
+            {item.lineOf && (
+              <div data-card-line-from className="note-column mt-3 flex items-center gap-2 text-body text-muted-foreground">
+                <span className="whitespace-nowrap text-foreground">A line of a note, written as a card</span>
+                <button type="button" data-card-line-open onClick={() => openLine(item.lineOf!, item.prompt)}
+                  className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 text-control font-medium text-(--mf-muted-strong) transition-colors duration-80 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97]">
+                  Open it at the line
+                </button>
+              </div>
             )}
             {/* A gem that is also tested says so, under its words; a study card (made while reading) is in Review only. One click either way. */}
             {item.prompt && canMoveTier(item) && (

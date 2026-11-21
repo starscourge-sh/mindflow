@@ -31,6 +31,7 @@ import { scrollerOf } from "@/lib/note-place"
 import { lineUnderMenu } from "@/extensions/meeting"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { canSplit } from "@/lib/split"
+import { cardQuestion, cardSource, openLineCard } from "@/extensions/line-cards"
 import { ClickedRows, type Clicked } from "./clicked"
 import { binLetGo, isKept, keepInFiles, letGoSaid, noteTitle, putAtEnd } from "@/lib/media-files"
 import { MOVE_TO, duplicatePicked, pickRun, pickedBlocks } from "@/extensions/picked-blocks"
@@ -398,6 +399,8 @@ export function BlockMenu({
    */
   const lineOf = /^(capture|item)-(.+)$/.exec(String(documentId ?? ""))
   const lineable = !!lineOf && !!thing && BLOCK_TYPES.includes(thing.type.name) && !!thing.textContent.trim()
+  // The block is a card line: its question, which finds its card.
+  const cardAsked = cardQuestion(thing)
   const copyLine = async (embed: boolean): Promise<void> => {
     const found = resolve()
     if (!found || !lineOf) return
@@ -846,6 +849,16 @@ export function BlockMenu({
               <MenuGlyph label="Copy" />
               <span className="tiptap-slash-menu-title">Copy</span>
               {keyed ? <span className="tiptap-slash-menu-hint">⌘C</span> : null}
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
+        {/* A "question :: answer" line: its card, as a click on its mark opens it (extensions/line-cards.ts). */}
+        {cardAsked && matches("Open its card") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-open-line-card onClick={() => void openLineCard(cardSource(documentId), cardAsked)}>
+              <MenuGlyph label="Open its card" />
+              <span className="tiptap-slash-menu-title">Open its card</span>
             </button>
           </DropdownMenuItem>
         ) : null}
