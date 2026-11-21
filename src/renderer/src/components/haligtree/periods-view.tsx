@@ -21,7 +21,7 @@ import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
 import { EarlierPages, SERIF, weekSpan } from './issue'
 import { FoldItem, MenuRows, Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
-import { dayjs, noon, num } from '../../../../main/dates'
+import { dayjs, noon, num, plural } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
 import { ArrowLeft, ArrowRight, BookOpen as BookOpenText } from '@/components/ui/icons'
@@ -281,8 +281,10 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         <Masthead parts={[weekSpan(monday), current && 'This week']}
           headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
         <p className="mt-2 min-h-lh text-meta text-muted-foreground">
-          {/* Only once the page is read: never "Nothing written" on the way to the real line. */}
-          {page && <Typed key={key} text={`${page.exists ? 'The big picture: what you would still say about this week in a month.' : 'Nothing written for this week yet. Type in any box below and the page is kept.'}`} step={28} />}
+          {/* Only once the page is read: never "Nothing written" on the way to the real line. A written week says
+              nothing here: a line restating what the page is for read as text slapped on (21 Nov). The line keeps
+              its room either way, so the first word typed moves nothing under it. */}
+          {page && !page.exists && <Typed key={key} text="Nothing written for this week yet. Type in any box below and the page is kept." step={28} />}
         </p>
         {/* The week's seven days, each wearing its mark: right-click one to mark it. */}
         <div data-week-carried className="mt-5 empty:hidden">
@@ -473,7 +475,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
       <div className="page-sheet mx-auto w-full px-5 pt-5 @min-[66rem]/page:pt-8 pb-16">
         <h1 className="text-title font-semibold tabular-nums"><Rolling text={year} /></h1>
         <p className="mt-1 text-meta text-muted-foreground">
-          {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${num(all.length)} named so far.` : 'No month has a name yet: looking back, give one a name on its month\'s page, and it lines up here as these examples do.'} step={28} />}
+          {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `${num(named)} of ${plural(all.length, 'month')} named so far.` : 'No month has a name yet: looking back, give one a name on its month\'s page, and it lines up here as these examples do.'} step={28} />}
         </p>
         {/* The year as a ruler, the marked days standing tall and named: right-click a day to mark it. */}
         <div className="mt-6"><YearMarks key={year} year={year} onOpenDay={onDay} /></div>

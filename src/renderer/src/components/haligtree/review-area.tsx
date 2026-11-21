@@ -43,13 +43,6 @@ const TABS: { id: ReviewTab; label: string }[] = [
   { id: 'stats', label: 'Stats' }
 ]
 
-/** Each tab's one line at its top: what it is for, in plain words. */
-const HINTS: Record<'decks' | 'cards' | 'stats', string> = {
-  decks: 'Your decks: pick one to study.',
-  cards: 'Every card: find, fix or move one.',
-  stats: 'How your remembering is going.'
-}
-
 /**
  * Review, opening on the decks with "Study now" beside its tabs, on the
  * page's line on the right where per-page actions sit. `focus` is a tag to
@@ -153,11 +146,9 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
         <ToolbarSlot.Provider value={slot}><ToolbarCompact.Provider value={compact}>
-          <div data-review-page className="page-sheet mx-auto w-full">
+          <div data-review-page={tab} className="page-sheet mx-auto w-full">
             {/* The toolbar, the same on every tab and whatever is open: forms open under it. */}
             <div className="px-5 pt-4"><ReviewToolbar open={formOpen} onSlot={setSlot} onCompact={setCompact} onMake={() => openForm(true)} onMany={() => openForm(false)} onPicture={() => picture ? (chime('fold'), setPicture(null)) : (chime('open'), setAim(null), setPicture({ deck: null }))} /></div>
-            {/* What the tab is for, in one plain line, so Decks and All cards are never mistaken for each other. */}
-            <p data-review-hint={tab} className="px-5 pt-3 text-body text-foreground">{HINTS[tab as 'decks' | 'cards' | 'stats']}</p>
             {picture && <div className="px-5 pt-4"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>}
             {/* One form at a time: "From a picture" opening shuts Make a card and Add many, even one opened from inside the list. */}
             {tab === 'cards' && <CardBrowser open={card} onOpenCard={setCard} key={(aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : '') + (picture ? ':picture' : '')} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onAimDone={() => setAim(null)} />}

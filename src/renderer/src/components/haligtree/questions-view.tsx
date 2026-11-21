@@ -65,16 +65,11 @@ const cluesSaid = (n: number): string => (n ? `${plural(n, 'clue')}` : 'no clues
 export type Asked = 'looked' | 'open' | 'answered' | 'words'
 /** Words: the vocabulary you are learning, a word kept as a gem (it comes back in Review). */
 export const ASKED: { id: Asked; label: string }[] = [{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }, { id: 'looked', label: 'Looked up' }, { id: 'words', label: 'Words' }]
-/** What each of Questions' lists holds, said under its tabs, so a switch shows where you are and not only a new count. */
-export const ASKED_SAID: Record<Asked, string> = {
-  open: 'Questions you are still holding, with no answer yet, newest first. Each gathers clues until you press “Answered”.',
-  answered: 'Questions you answered, each with the page its answer became, and the ones you stopped asking.',
-  looked: 'Quick questions answered the moment you asked them.',
-  words: 'Words you are learning, each kept as a gem that comes back in Review.'
-}
-
-/** Where you are in Questions, in words, under its tabs: every list's line stacked in one place, so the longest keeps its room and a switch moves nothing under it. */
-export function QuestionsSaid({ on }: { on: Asked }): React.JSX.Element {
+/**
+ * Under Questions' tabs, only when it is true: that open questions no longer come back, with the way to turn them on.
+ * The tabs name each list themselves; a line restating what each holds read as text slapped on (21 Nov).
+ */
+export function QuestionsSaid({ on }: { on: Asked }): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Settings | null)
   // The page waits for it, so the line below never drops in after the page shows.
   useReading(!settings)
@@ -86,19 +81,13 @@ export function QuestionsSaid({ on }: { on: Asked }): React.JSX.Element {
     void haligtree.setSettings(why === 'hints' ? { hintRate: 0.1, questionsBack: true } : { questionsBack: true })
       .then(() => toast('Open questions can come back to you now', () => void haligtree.setSettings(was)))
   }
+  // On every list of the page, so switching lists moves nothing under it.
+  if (!why) return null
   return (
-    <div className="mb-1">
-      <p data-question-said={on} className="grid text-body text-pretty text-foreground/90 [&>*]:col-start-1 [&>*]:row-start-1">
-        {ASKED.map((one) => <span key={one.id} aria-hidden={one.id !== on} className={one.id === on ? undefined : 'invisible'}>{ASKED_SAID[one.id]}</span>)}
-      </p>
-      {/* On every list of the page, so switching lists moves nothing under it. */}
-      {why && (
-        <p data-questions-back-off={why} className="mt-1 flex flex-wrap items-center gap-x-2 text-body text-foreground/90">
-          <span><strong className="font-semibold">They don’t come back to you now:</strong> {why === 'hints' ? 'hints are off in Settings.' : 'questions coming back is off in Settings.'}</span>
-          <Button variant="outline" size="sm" data-questions-back-on onClick={turnOn}>{why === 'hints' ? 'Turn hints on' : 'Turn it on'}</Button>
-        </p>
-      )}
-    </div>
+    <p data-questions-back-off={why} data-question-list={on} className="mb-1 flex flex-wrap items-center gap-x-2 text-body text-foreground/90">
+      <span><strong className="font-semibold">They don’t come back to you now:</strong> {why === 'hints' ? 'hints are off in Settings.' : 'questions coming back is off in Settings.'}</span>
+      <Button variant="outline" size="sm" data-questions-back-on onClick={turnOn}>{why === 'hints' ? 'Turn hints on' : 'Turn it on'}</Button>
+    </p>
   )
 }
 

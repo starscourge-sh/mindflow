@@ -122,7 +122,7 @@ try {
     const side = h.locator('aside').locator('button, [role="button"], a, [data-row]', { hasText: /^Review/ }).first()
     if (await side.count()) await side.click()
     else await go('review')
-    check('the sidebar\'s "Review" opens Review on its decks', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-review-hint="decks"]'))))
+    check('the sidebar\'s "Review" opens Review on its decks', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-review-page="decks"]'))))
     await wait(1500)
     await shot('review-decks')
     let miss = await noHand('[data-review-page]')
