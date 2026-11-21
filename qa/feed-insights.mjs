@@ -109,13 +109,14 @@ try {
   check('the vague other side is dropped, never shown', !full.cards.some((one) => /silence broke/i.test(one.words)) && (tried.length < 2 || tried.some((one) => one.state === 'failed')), `${tried.length} Reframes tried, ${tried.filter((one) => one.state === 'failed').length} dropped`)
 
   // A decision whose check-back date is today: its own post, first, in its own words.
-  const [party] = await sql(s, "select id from captures where kind = 'checkback' and fields like '%Reopen only if%' limit 1")
+  const [party] = await sql(s, "select id from captures where kind = 'checkback' and fields like '%It happens at my party%' limit 1")
   const noon = new Date(); noon.setHours(12, 0, 0, 0)
   await sql(s, "update captures set fields = json_remove(json_set(fields, '$.back', ?), '$.heldAt') where id = ?", noon.toISOString(), party.id)
   await sql(s, 'delete from feed_checkback_off')
   await h.reload(); await h.waitForTimeout(2000)
   await go('feed')
-  const back = h.locator('[data-feed-post="checkback"]')
+  // The party note's own post (another decision may be near its date in the sandbox too).
+  const back = h.locator(`[data-feed-post="checkback"][data-feed-id="captures:${party.id}"]`)
   await back.first().waitFor({ timeout: 10_000 }).catch(() => {})
   check('the decision comes back first in the Feed, as "Check back"', (await h.locator('[data-feed-post]').first().getAttribute('data-feed-post')) === 'checkback' && /^Check back:\s*Not saying who spoilt the surprise party/.test((await back.locator('[data-checkback-head]').innerText()).trim()))
   check('with what was decided, the question in bold and what would reopen it',

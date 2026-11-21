@@ -375,8 +375,9 @@ export function registerFeed(): void {
       // A decision near its check-back date comes first, once, and never again among the rest that day.
       const backs = checkBacks(today)
       const backIds = new Set(backs.map((one) => one.checkback!.open.id))
-      const posts = [...backs, ...read.posts.flatMap((post) => ('asked' in post ? asked(today, post.asked) : [post]))
-        .filter((post) => !String(post.id).split('+').some((one) => backIds.has(one.slice(one.lastIndexOf(':') + 1))))]
+      // It takes one of the day's places, not one more: the day's count stays as it was.
+      const day = read.posts.flatMap((post) => ('asked' in post ? asked(today, post.asked) : [post]))
+      const posts = [...backs, ...day.filter((post) => !String(post.id).split('+').some((one) => backIds.has(one.slice(one.lastIndexOf(':') + 1))))].slice(0, Math.max(day.length, backs.length))
       // Now and then, one note kept three months or more and never linked, set among the rest: opening it is the way to link it.
       if (read.lone) posts.splice(Math.min(posts.length, 6), 0, read.lone)
       return { day: today, posts, safe: false }

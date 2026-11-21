@@ -6,7 +6,10 @@ import { mentionsIn } from './links-in'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
 import { pickPassages, type Level, type Passage, type Picked, type Signal } from './insight-pick'
-import { forInsights, isDecision } from './insight-checks'
+import { forInsights, isDecision, sharedWord } from './insight-checks'
+
+/** Pairs drawn for one Connect before the turn is given up. */
+const CONNECT_DRAWS = 8
 
 /**
  * The Feed's one pool, read from the book (no Electron in it): every note, gem, page, question, capture, Journal day
@@ -112,6 +115,18 @@ export function bookInsights(db: DatabaseSync) {
   }
   // A decision is never Connected or Reframed: its call is the person's own, and comes back as itself, as a "Check back"
   // post on its date (feed.ts) with the words it was decided in.
-  const pick = ({ day, turn, level, rested }: InsightAsk): Picked | null => pickPassages(forInsights(pool(), level), level, day, turn, new Set(rested))
+  // A Connect is only asked of two notes that share a word that means something (a fact the app finds, insight-checks.ts
+  // `sharedWord`): up to eight pairs are drawn for the turn, each the same every time, before the turn is given up.
+  const pick = ({ day, turn, level, rested }: InsightAsk): Picked | null => {
+    const from = forInsights(pool(), level)
+    if (level !== 'connect') return pickPassages(from, level, day, turn, new Set(rested))
+    for (let draw = 0; draw < CONNECT_DRAWS; draw++) {
+      const picked = pickPassages(from, level, day, turn + draw * 1000, new Set(rested))
+      if (!picked) return null
+      const [a, b] = picked.passages
+      if (a && b && sharedWord(`${a.title} ${a.text}`, `${b.title} ${b.text}`)) return picked
+    }
+    return null
+  }
   return { pool, pick }
 }
