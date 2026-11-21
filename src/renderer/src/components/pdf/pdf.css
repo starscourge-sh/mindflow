@@ -1,5 +1,7 @@
 /* A PDF's pages, as sheets of paper on the app's own surface. */
 .pdf-pages {
+  /* The box a laid ribbon is drawn in (ribbon.tsx), in its pages' own coordinates. */
+  position: relative;
   display: flex;
   flex-direction: column;
   /* Safe: a page zoomed wider than the pane still scrolls to its left edge. */
@@ -2704,12 +2706,29 @@ html.dark-pages {
   inset: -4px -9px;
 }
 
-/* Laid on a page it slides along the page's top edge: the open hand; beside an article's paragraph it stays put. */
+/* The hanging tab: a click lays it. Laid out of sight, the same tab, with the page beside it: a click goes there.
+   While the ribbon lies in sight, the tab is not there. */
+.ribbon-tab[data-ribbon="hidden"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Laid on a PDF's page it is drawn in the pages' own box (ribbon.tsx), over the sheets, and moves with them. */
+.ribbon[data-in-page] {
+  z-index: 3;
+}
+
+/* Laid, it slides along its page's top edge: the open hand; a click opens its menu. Beside an article's paragraph it
+   does not slide, and a click opens its menu: the pointing hand. */
 .ribbon[data-ribbon="laid"][data-slides] {
   cursor: grab;
 }
 
-.ribbon[data-ribbon="laid"]:not([data-slides]) {
+.ribbon[data-ribbon="laid"]:not([data-slides])[data-menu] {
+  cursor: pointer;
+}
+
+.ribbon[data-ribbon="laid"]:not([data-slides], [data-menu]) {
   cursor: default;
 }
 
@@ -2741,38 +2760,22 @@ html.dark-pages {
   --mf-ribbon: color-mix(in oklab, var(--ribbon-hue) 68%, var(--background));
 }
 
-/* Laid out of sight: a short tab where it hangs, the page it lies on beside it; a click takes you there. */
-.ribbon-away {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  pointer-events: none;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 180ms var(--mf-ease, ease);
-}
-
-.ribbon-away[data-shown] {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.ribbon-away-satin {
-  width: 22px;
-  height: 34px;
+/* Laid, it comes out of its page's top edge: the few px above stand clear, and where it tucks over the edge the satin
+   takes a soft shade, as a ribbon does where it comes out from between the leaves. */
+.ribbon:is([data-ribbon="laid"], [data-ribbon="held"]) .ribbon-satin {
   background:
+    linear-gradient(180deg, rgb(0 0 0 / 0.34), rgb(0 0 0 / 0.12) 6px, transparent 11px),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 2.5px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.06) 0 1px, transparent 1px 2px),
     linear-gradient(90deg, rgb(0 0 0 / 0.22), rgb(255 255 255 / 0.14) 38%, rgb(255 255 255 / 0.04) 55%, rgb(0 0 0 / 0.18)),
     var(--mf-ribbon);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.28));
 }
 
+/* The page a ribbon out of sight lies on, beside the tab. */
 .ribbon-away-label {
-  order: -1;
-  margin-top: 8px;
+  position: absolute;
+  top: 8px;
+  right: calc(100% + 6px);
   padding: 2px 7px;
   border-radius: 6px;
   font-size: 0.8125rem;
@@ -2783,8 +2786,22 @@ html.dark-pages {
   white-space: nowrap;
 }
 
-.ribbon-away:hover .ribbon-away-label {
+.ribbon-tab:not([data-ribbon="away"]) .ribbon-away-label {
+  display: none;
+}
+
+.ribbon-tab[data-ribbon="away"]:hover .ribbon-away-label {
   background: color-mix(in oklab, var(--popover) 88%, var(--foreground));
+}
+
+/* Where a laid ribbon was clicked: its menu opens from here. */
+.ribbon-menu-at {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
 }
 
 /* "You read on to p. 150, past your ribbon": one line over the foot of the pages, fading in, never pushing them. */

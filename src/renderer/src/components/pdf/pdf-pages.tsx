@@ -796,6 +796,8 @@ export function sheetAt(pages: Element | null | undefined, test: (box: DOMRect) 
   const sheets = pages?.children
   if (!sheets) return null
   let low = 0, high = sheets.length - 1, found: HTMLElement | null = null
+  // A laid ribbon is drawn last in the pages' box (ribbon.tsx): it is no sheet.
+  while (high >= 0 && sheets[high].classList.contains("ribbon")) high--
   while (low <= high) {
     const mid = (low + high) >> 1
     const one = sheets[mid] as HTMLElement

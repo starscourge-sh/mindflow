@@ -946,12 +946,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     byHandScroll.current = false
     box.scrollBy({ top: sheet.getBoundingClientRect().top - box.getBoundingClientRect().top - 24, behavior: "smooth" })
   }
-  /** The ribbon's own menu, from a right-click on it: the page's menu, opened on its page, with its rows. */
-  const ribbonMenu = (event: React.MouseEvent): void => {
-    const sheet = ribbon && scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${ribbon.page}"]`)
-    if (!sheet) return
-    sheet.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: event.clientX, clientY: event.clientY, button: 2 }))
-  }
+  /** A sheet's place in the pages' own box (unscaled, so a pinch's stretch does not count): where a laid ribbon is drawn. */
+  const sheetEdge = (one: HTMLElement): { key: string; left: number; right: number; top: number } => ({ key: one.dataset.page!, left: one.offsetLeft, right: one.offsetLeft + one.offsetWidth, top: one.offsetTop })
   const ribbonHere = (at = page): void => (ribbon?.page === at ? said(`The ribbon already lies on p. ${label(at)}`, true, undefined, { cue: "tap" }) : layRibbon(at))
   const [readOn, setReadOn] = useState<number | null>(null)
 
@@ -1317,22 +1313,38 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           ready={ribbonRead}
           across={ribbon?.across ?? null}
           hue={ribbonPeek !== undefined ? ribbonPeek : (ribbon?.hue ?? null)}
+          host={() => scroller.current?.querySelector<HTMLElement>(".pdf-pages") ?? null}
           trackOf={(key) => {
             // In two pages, the row: its page and the one beside it (the same top), left to right.
             const sheet = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)
             if (!sheet) return []
-            const top = sheet.getBoundingClientRect().top
-            const row = [sheet.previousElementSibling, sheet, sheet.nextElementSibling].filter((one): one is HTMLElement => one instanceof HTMLElement && !!one.dataset.page && Math.abs(one.getBoundingClientRect().top - top) < 2)
-            return row.map((one) => { const r = one.getBoundingClientRect(); return { key: one.dataset.page!, left: r.left, right: r.right, top: r.top - 12 } })
+            const row = [sheet.previousElementSibling, sheet, sheet.nextElementSibling].filter((one): one is HTMLElement => one instanceof HTMLElement && !!one.dataset.page && one.offsetTop === sheet.offsetTop)
+            return row.map(sheetEdge)
           }}
-          onMenu={ribbonMenu}
           away={ribbon ? { label: `p. ${label(ribbon.page)}`, go: goRibbon } : undefined}
           edgeOf={(key) => {
-            // Its own page's top edge, found by its number (the left or the right page of a spread alike), its top in
-            // the gap above as if between the leaves.
-            const r = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)?.getBoundingClientRect()
-            return r ? { left: r.left, right: r.right, top: r.top - 12 } : null
+            // Its own page's top edge, found by its number (the left or the right page of a spread alike).
+            const sheet = scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${key}"]`)
+            return sheet ? sheetEdge(sheet) : null
           }}
+          menu={ribbon && (
+            <>
+              <DropdownMenuLabel>Ribbon colour</DropdownMenuLabel>
+              {/* Pointed at, a colour shows on the ribbon at once; the menu closed without a pick, it goes back. */}
+              <div role="group" aria-label="Ribbon colour" className="flex items-center gap-1 px-1.5 py-1" data-ribbon-colours onPointerLeave={() => setRibbonPeek(undefined)}>
+                {RIBBON_HUES.map((hue) => (
+                  <DropdownMenuItem key={hue ?? "own"} aria-label={hue ? hueName(hue) : "Ribbon red"} aria-checked={(ribbon.hue ?? null) === hue} role="menuitemradio" data-ribbon-hue-pick={hue ?? "own"}
+                    onPointerEnter={() => setRibbonPeek(hue)} onFocus={() => setRibbonPeek(hue)} onSelect={() => colourRibbon(hue)}
+                    className="flex size-6 cursor-pointer items-center justify-center rounded-md p-0 focus:bg-accent">
+                    <span data-ribbon-hue={hue ?? undefined} style={ribbonInk(hue)} className="contents"><Swatch color="var(--mf-ribbon)" on={(ribbon.hue ?? null) === hue} /></span>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem data-ribbon-out-own onSelect={() => layRibbon(null)}>Take the ribbon out</DropdownMenuItem>
+            </>
+          )}
+          onMenuOpen={(open) => void (!open && setRibbonPeek(undefined))}
           onSlide={slideRibbon}
           homeX={() => {
             const frame = main.current?.getBoundingClientRect()
@@ -1389,7 +1401,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             onPointerDown={() => void (byHandScroll.current = true)}
             onKeyDown={() => void (byHandScroll.current = true)}
             onDoubleClick={toggleZoom}
-            // A mark has its menu, picked words theirs; elsewhere on a page, where this Mac has Apple Intelligence, cards from the chapter. Otherwise nothing.
+            // A mark has its menu, picked words theirs; elsewhere on a page, its ribbon rows. The chapter's cards live on the sparkles button alone.
             onContextMenu={(event) => {
               const band = [...(scroller.current?.querySelectorAll<HTMLElement>(".pdf-mark") ?? [])].find((one) => {
                 const r = one.getBoundingClientRect()
@@ -1505,10 +1517,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
           {hit && picked && <ContextMenuSeparator />}
           {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked)} />}
-          {!hit && !picked && ai && doc && <ContextMenuItem data-chapter-cards-menu onSelect={() => !chaptering && chapterCards()}>{outline.length ? "Five cards from this chapter" : "Five cards from these pages"}</ContextMenuItem>}
           {!hit && !picked && doc && (
             <>
-              {ai && <ContextMenuSeparator />}
               <ContextMenuItem data-ribbon-lay-menu onSelect={() => ribbonHere(menuPage)}>Lay the ribbon here<ContextMenuShortcut>⌘D</ContextMenuShortcut></ContextMenuItem>
               {ribbon && <ContextMenuItem data-ribbon-go-menu onSelect={goRibbon}>Go to the ribbon, p. {label(ribbon.page)}<ContextMenuShortcut>⇧⌘D</ContextMenuShortcut></ContextMenuItem>}
               {ribbon && <ContextMenuItem data-ribbon-out-menu onSelect={() => layRibbon(null)}>Take the ribbon out</ContextMenuItem>}

@@ -45,6 +45,7 @@ import { said } from '@/lib/host'
 import { Orb } from '@/components/haligtree/orb'
 import { listEnd, quietly, stopJob, toast } from '@/components/haligtree/ui'
 import { ReadOnLine, Ribbon, keepRibbon, readRibbon, type RibbonPlace } from './ribbon'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { markRoom } from '@/extensions/block-room'
 import { minutesToRead } from '@/lib/note-size'
 import { useReadTime } from '@/lib/read-time'
@@ -963,6 +964,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           scroller={scroller}
           at={ribbonAt === null ? null : String(ribbonAt)}
           hue={ribbon?.hue ?? null}
+          menu={<DropdownMenuItem data-ribbon-out-own onSelect={() => layRibbon(null)}>Take the ribbon out</DropdownMenuItem>}
           ready={ribbonRead && drawnFor === article}
           placeOf={(key) => {
             const one = blocks()[Number(key)]
