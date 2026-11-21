@@ -49,10 +49,11 @@ export const assetsDir = (): string => join(app.getPath('userData'), 'assets')
  */
 const copyPath = (name: string, size: number, tall = false): string =>
   join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-s${tall ? 'h' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
-export async function smallCopy(name: string, size: number, tall = false): Promise<string | null> {
+export async function smallCopy(name: string, size: number, tall = false, from = assetsDir()): Promise<string | null> {
   const small = copyPath(name, size, tall)
   if (existsSync(small)) return small
-  const path = join(assetsDir(), name)
+  // `from`: another book's store (books.ts jacket). Named by its contents, so its small copy is the same picture's here.
+  const path = join(from, name)
   if (process.platform === 'darwin' && !/\.svg$/i.test(name)) {
     const read = await imageSizeFromFile(path).catch(() => null)
     const [w, h] = read?.width && read.height ? ((read.orientation ?? 1) >= 5 ? [read.height, read.width] : [read.width, read.height]) : [0, 0]
@@ -64,7 +65,7 @@ export async function smallCopy(name: string, size: number, tall = false): Promi
     const done = await promisify(execFile)('sips', [...fit, '-s', 'format', ...format, path, '--out', small], { timeout: 60_000 }).then(() => true, () => false)
     if (done && existsSync(small)) return small
   }
-  const made = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), tall ? { width: size * 3, height: size } : { width: size, height: size }).catch(() => null)
+  const made = await nativeImage.createThumbnailFromPath(path, tall ? { width: size * 3, height: size } : { width: size, height: size }).catch(() => null)
   if (!made || made.isEmpty()) return null
   await mkdir(dirname(small), { recursive: true })
   await writeFile(small, small.endsWith('.png') ? made.toPNG() : made.toJPEG(85))
