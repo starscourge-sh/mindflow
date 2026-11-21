@@ -26,7 +26,8 @@ const EDITOR = '[data-open] .tiptap:not(.is-line):not(.is-plain)'
 const ribbon = () => h.evaluate(() => {
   const el = document.querySelector('.ribbon')
   const at = /translate3d\(([-\d.]+)px, ([-\d.]+)px/.exec(el?.style.transform ?? '')
-  return el && at ? { x: Number(at[1]), y: Number(at[2]), state: el.dataset.ribbon, at: el.dataset.ribbonAt, h: parseFloat(el.style.height) } : null
+  // `ms`: the page's own clock as it was read, so the time between samples is the real one, however slow the run.
+  return el && at ? { x: Number(at[1]), y: Number(at[2]), state: el.dataset.ribbon, at: el.dataset.ribbonAt, h: parseFloat(el.style.height), ms: performance.now() } : null
 })
 
 /** Every 50 ms until stopped: the ribbon's place, and with QA_SHOTS a picture. At most 200 samples (10 s). */
@@ -37,7 +38,7 @@ function sampler(name) {
   const run = (async () => {
     while (on && n < 200) {
       const one = await ribbon()
-      samples.push({ ...one, t: Date.now() })
+      samples.push({ ...one })
       if (shots) await h.screenshot({ path: join(shots, `ribbon-${name}-${String(n).padStart(3, '0')}.png`) }).catch(() => {})
       n++
       await wait(50)
@@ -125,16 +126,21 @@ try {
   }
   const tip = await h.evaluate(() => document.querySelector('[data-ribbon-tip]')?.textContent ?? '')
   await h.mouse.up()
+  const letGo = await h.evaluate(() => performance.now())
   await wait(900)
   const frames = await stop()
   // 1:1: the gap from the pointer to the ribbon's top stays the same as it is carried (to within a pixel or two).
   const gaps = held.map(({ pointer, at }) => pointer.y - at.y)
   check('held, it follows the pointer 1:1', Math.max(...gaps) - Math.min(...gaps) <= 2, `gap ${Math.min(...gaps).toFixed(1)} to ${Math.max(...gaps).toFixed(1)}px`)
   check('held over page 3, it says so', tip === 'p. 3', tip)
-  const steps = frames.slice(1).map((one, at) => Math.hypot(one.x - frames[at].x, one.y - frames[at].y))
-  // The pointer is carried at most about 20px a move (30 moves); no sample may move more than a carry's 50 ms at that
-  // pace and a half again: a jump is a step with nothing between (21 Nov, frame 008: 827px, to a page top off screen).
-  check('through the drag and settle, no jump (every 50 ms)', Math.max(...steps) < 90, `largest step ${Math.max(...steps).toFixed(1)}px over ${frames.length} samples`)
+  // Held, it is wherever the pointer is (the 1:1 check above): a big step then is the pointer's own. Judged are the steps
+  // where it moves by itself, hanging before the pick-up and laid as it settles, each scaled to a real 50 ms by the
+  // page's clock. A glide moves well under 60px in 50 ms; a jump (21 Nov, frame 008: 827px to a page top off screen) is far over.
+  const gapsMs = frames.slice(1).map((one, at) => Math.round(one.ms - frames[at].ms))
+  console.log(`  samples ${frames.length}, ms between them: ${gapsMs.join(' ')}`)
+  const own = frames.slice(1).map((one, at) => [frames[at], one]).filter(([a, b]) => a.state !== 'held' && b.state !== 'held')
+  const rates = own.map(([a, b]) => (Math.hypot(b.x - a.x, b.y - a.y) * 50) / Math.max(1, b.ms - a.ms))
+  check('picked up and settling, no jump (px per 50 ms)', own.length >= 3 && Math.max(...rates) < 60, `${own.length} steps on its own, fastest ${Math.max(0, ...rates).toFixed(1)}px per 50 ms`)
   const laid = await ribbon()
   check('let go, it lies on page 3', laid?.state === 'laid' && laid.at === '3', JSON.stringify(laid))
   check('in the gap above page 3, on screen', await h.evaluate(() => {
@@ -143,8 +149,10 @@ try {
     const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
     return r.top < page.top && r.bottom > page.top && r.top > box.top
   }))
-  const settled = frames.slice(-4)
-  check('and comes to rest', settled.every((one) => Math.abs(one.x - laid.x) < 1 && Math.abs(one.y - laid.y) < 1), JSON.stringify(settled.map((one) => [one.x, one.y])))
+  // The settle swings once or twice, then is still: by 700 ms after letting go every sample is the laid place.
+  const still = (one) => Math.abs(one.x - laid.x) < 1 && Math.abs(one.y - laid.y) < 1
+  const late = frames.filter((one) => one.ms >= letGo + 700)
+  check('and comes to rest by 700 ms', late.length >= 1 && late.every(still) && frames.slice(-2).every(still), JSON.stringify(frames.filter((one) => one.ms >= letGo).map((one) => [Math.round(one.ms - letGo), one.x, one.y])))
 
   // Closed and opened again: page 3, where the ribbon is.
   await reopen(note)
