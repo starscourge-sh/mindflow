@@ -117,9 +117,9 @@ try {
   // 2. Read again: the bar's button, ⌘R in the reader, and the View menu's item, each with the loader, each from the site.
   const pageHits = () => electron.evaluate(() => globalThis.__fandom.pictures)
   const tools = await h.evaluate(() => [...document.querySelectorAll('.web-reader .pdf-reader-tools button')].map((one) => one.getAttribute('aria-label')))
-  check('the bar has "Read the page again", in its place among the tools', tools.includes('Read the page again'), JSON.stringify(tools))
+  check('the bar has "Fetch the page again", in its place among the tools', tools.includes('Fetch the page again'), JSON.stringify(tools))
   for (const [way, go] of [
-    ['the bar\'s button', () => h.click('.web-reader button[aria-label="Read the page again"]')],
+    ['the bar\'s button', () => h.click('.web-reader button[aria-label="Fetch the page again"]')],
     ['⌘R in the reader', async () => (await h.click('.web-reader-body p'), await h.keyboard.press('Meta+r'))],
     ['the View menu', () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((one) => one.webContents.send('menu:read-again')))]
   ]) {

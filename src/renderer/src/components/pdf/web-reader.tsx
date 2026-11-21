@@ -22,8 +22,7 @@ import { Button } from '@/components/tiptap-ui-primitive/button'
 import { Roll } from '@/lib/roll'
 import { host } from '@/lib/host'
 import { keysHere, usePane } from '@/lib/split'
-import { chime, pageTurn } from '@/lib/sound'
-import { still } from '@/lib/motion'
+import { chime } from '@/lib/sound'
 import { writing } from '@/lib/keys'
 import { cue } from '@/lib/cues'
 import { articleLink, isReadable, openArticle, takeArticleFlash } from './pdf-reader'
@@ -35,7 +34,6 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
-  ContextMenuShortcut,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { call } from '@/lib/haligtree'
@@ -43,9 +41,7 @@ import { touch } from '@/lib/open-today'
 import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
 import { Orb } from '@/components/haligtree/orb'
-import { listEnd, quietly, stopJob, toast } from '@/components/haligtree/ui'
-import { ReadOnLine, Ribbon, keepRibbon, readRibbon, type RibbonPlace } from './ribbon'
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { listEnd, stopJob } from '@/components/haligtree/ui'
 import { markRoom } from '@/extensions/block-room'
 import { minutesToRead } from '@/lib/note-size'
 import { useReadTime } from '@/lib/read-time'
@@ -129,81 +125,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     touch('web', href)
     void call('home:opened', 'web', href)
   }, [href])
-  // The ribbon (ribbon.tsx), laid on a paragraph: read before the article is placed, as it wins over where you were.
-  const [ribbon, setRibbon] = useState<RibbonPlace | null>(null)
-  const [ribbonRead, setRibbonRead] = useState(false)
-  const [readOn, setReadOn] = useState<{ top: number; share: number } | null>(null)
-  useEffect(() => {
-    setRibbonRead(false)
-    void readRibbon(href).then((laid) => (setRibbon(laid), setRibbonRead(true)))
-  }, [href])
-  // The article's paragraphs, headings, list items, quotes and figures, top to bottom, each once (a paragraph inside a
-  // list item or a quote is its item's): the places a ribbon lies. Read again only when the article is drawn anew.
-  const blockList = useRef<{ of: HTMLElement | null; article: Article | null; all: HTMLElement[] }>({ of: null, article: null, all: [] })
-  const blocks = (): HTMLElement[] => {
-    const root = body.current
-    if (!root) return []
-    const kept = blockList.current
-    if (kept.of === root && kept.article === article && kept.all[0]?.isConnected) return kept.all
-    const all = [...root.querySelectorAll<HTMLElement>(BLOCKS)].filter((one) => !one.parentElement?.closest(`${BLOCKS}, .web-reader-body`)?.matches(BLOCKS))
-    blockList.current = { of: root, article, all }
-    return all
-  }
-  /** The paragraph a stored ribbon lies on: by its count from the top while its first words still agree, else by them. */
-  const blockOf = (place: RibbonPlace | null): number | null => {
-    if (!place || place.block === null) return null
-    const all = blocks()
-    if (!all.length) return null
-    const starts = (one: HTMLElement | undefined): boolean => !!one && !!place.words && (one.textContent ?? '').trim().startsWith(place.words.slice(0, 40))
-    if (!place.words || starts(all[place.block])) return Math.min(place.block, all.length - 1)
-    const found = all.findIndex(starts)
-    return found >= 0 ? found : Math.min(place.block, all.length - 1)
-  }
-  /** How far down the article a paragraph sits, as the scroller counts, with a little room above it. */
-  const blockTop = (at: number): number | null => {
-    const box = scroller.current
-    const one = blocks()[at]
-    if (!box || !one) return null
-    return Math.max(0, one.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 72)
-  }
-  /** The paragraph being read: the first whose foot is below a third of the way down (or 120px, if less). */
-  const blockInView = (): number | null => {
-    const box = scroller.current
-    if (!box) return null
-    const line = box.getBoundingClientRect().top + Math.min(box.clientHeight / 3, 120)
-    const all = blocks()
-    let low = 0, high = all.length - 1, found = -1
-    while (low <= high) {
-      const mid = (low + high) >> 1
-      if (all[mid].getBoundingClientRect().bottom > line) (found = mid, (high = mid - 1))
-      else low = mid + 1
-    }
-    return found >= 0 ? found : all.length ? all.length - 1 : null
-  }
-  // Read once the article's words are in the page, the render after they are drawn.
-  const [drawnFor, setDrawnFor] = useState<Article | null>(null)
-  useLayoutEffect(() => setDrawnFor(article), [article])
-  const ribbonAt = article && drawnFor === article ? blockOf(ribbon) : null
-  /** Laid on a paragraph, moved, or taken out (null): kept at once, with ⌘Z and a notice to take it back where it moved. */
-  const layRibbon = (at: number | null): void => {
-    const was = ribbon
-    if (at !== null && at === ribbonAt) return
-    const next = at === null ? null : { page: 0, block: at, words: (blocks()[at]?.textContent ?? '').trim().slice(0, 80) || null, hue: was?.hue ?? null }
-    setRibbon(next)
-    setReadOn(null)
-    const saved = keepRibbon(href, next)
-    const back = (): void => void saved.then(() => keepRibbon(href, was)).then(() => (setRibbon(was), chime('undo')))
-    if (!next) return void (chime('away'), toast('Ribbon taken out', back))
-    pageTurn(true)
-    if (was) toast('Ribbon moved', back)
-    else quietly(back)
-  }
-  const ribbonHere = (at = blockInView()): void => {
-    if (at === null) return
-    if (at === ribbonAt) return said('The ribbon already lies on this paragraph', true, undefined, { cue: 'tap' })
-    layRibbon(at)
-  }
-  const [menuBlock, setMenuBlock] = useState<number | null>(null)
   const main = useRef<HTMLDivElement>(null)
 
   // Where you were: kept as you read (and leave), put back once the article is drawn tall enough to hold it.
@@ -213,21 +134,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const fromTop = useRef(false)
   useEffect(() => {
     const box = scroller.current
-    if (!box || !article || !ribbonRead) return
+    if (!box || !article) return
     const was = fromTop.current ? undefined : webPlaces()[href]
-    // A ribbon wins over where you were: the article opens at its paragraph, and where you had read on to, further
-    // down, is offered in one line and kept as it was until you read on by hand.
-    const laidAt = fromTop.current ? null : blockOf(ribbon)
-    const landed = laidAt !== null
-    const kept = landed ? { get top() { return blockTop(laidAt) ?? 0 } } : was
-    if (landed && was) {
-      const top = blockTop(laidAt) ?? 0
-      setReadOn(was.top > top + box.clientHeight / 2 ? { top: was.top, share: was.share } : null)
-    }
+    const kept = was
     if (fromTop.current) box.scrollTop = 0
     fromTop.current = false
     placed.current = !kept || !!takenFlash.current
-    let byHand = false
     // Where `put` itself sent the page: any other scroll is the person's (keys, Find, a heading in the contents, the
     // scrollbar), and from then the place is theirs. Only the wheel and a press stopped it before, so a late put (the
     // pictures making the page tall enough) yanked the page back from where Find or a link had just taken it.
@@ -240,20 +152,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const grows = new ResizeObserver(put)
     if (body.current) grows.observe(body.current)
     const stop = (): void => void (placed.current = true)
-    // Wheeled on from the ribbon: reading on, so the place is kept as you read again. A press (picking words) is not.
-    const wheeled = (): void => void ((placed.current = true), (byHand = true))
     let top = box.scrollTop
     const onScroll = (): void => {
       top = box.scrollTop
       if (Math.abs(top - ours) > 1) placed.current = true
-      // Read on from the ribbon by keys or the scroll bar: from here the place is kept as you read again.
-      if (landed && ours >= 0 && Math.abs(top - ours) > box.clientHeight / 2) byHand = true
     }
     box.addEventListener('scroll', onScroll, { passive: true })
-    box.addEventListener('wheel', wheeled, { passive: true })
+    box.addEventListener('wheel', stop, { passive: true })
     box.addEventListener('pointerdown', stop)
     const save = (): void => {
-      if (landed && !byHand) return
       const room = Math.max(1, box.scrollHeight - box.clientHeight)
       if (top > 0) keepWebPlace(href, { top, share: Math.min(1, top / room), at: Date.now(), title: article.title || articleName(href), picture: [...(body.current?.querySelectorAll('img') ?? [])].find((one) => one.naturalWidth >= 200)?.src ?? null })
     }
@@ -262,12 +169,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       save()
       grows.disconnect()
       box.removeEventListener('scroll', onScroll)
-      box.removeEventListener('wheel', wheeled)
+      box.removeEventListener('wheel', stop)
       box.removeEventListener('pointerdown', stop)
       window.removeEventListener('pagehide', save)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [article, href, ribbonRead])
+  }, [article, href])
 
 
   // Highlights, kept in the PDF reader's store under the page's link: each found
@@ -530,7 +437,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     })
   }
 
-  // Asked again (“Read it again” after a stop or a failure, the bar's “Read the page again”, ⌘R): the page is
+  // Asked again (“Read it again” after a stop or a failure, the bar's “Fetch the page again”, ⌘R): the page is
   // fetched afresh from the site, with its loader.
   const [tries, setTries] = useState(0)
   // The pictures still coming after the words (main/web-articles.ts): this reading's name, and how many are settled.
@@ -715,12 +622,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
         return void box?.scrollTo({ top: end === 'first' ? 0 : box.scrollHeight })
       }
       if (!event.metaKey || event.altKey) return
-      // ⌘D: the ribbon laid on the paragraph you are reading, as a browser's ⌘D keeps your place.
-      if (event.code === 'KeyD' && !event.shiftKey && !event.ctrlKey && !writing() && article) {
-        event.preventDefault()
-        event.stopPropagation()
-        return ribbonHere()
-      }
       if (event.code === 'KeyR' && !event.shiftKey && !event.ctrlKey) {
         event.preventDefault()
         event.stopPropagation()
@@ -867,8 +768,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           </Button>
           <Button
             data-style="ghost"
-            aria-label="Read the page again"
-            title="Read the page again  ⌘R"
+            aria-label="Fetch the page again"
+            title="Fetch the page again from the site, pictures too  ⌘R"
             disabled={!article && !failed}
             onClick={readAgain}
           >
@@ -958,35 +859,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
         </PageLabel.Provider>
       )}
       <div ref={main} className="pdf-reader-main">
-      {article && !failed && (
-        <Ribbon
-          frame={main}
-          scroller={scroller}
-          at={ribbonAt === null ? null : String(ribbonAt)}
-          hue={ribbon?.hue ?? null}
-          menu={<DropdownMenuItem data-ribbon-out-own onSelect={() => layRibbon(null)}>Take the ribbon out</DropdownMenuItem>}
-          ready={ribbonRead && drawnFor === article}
-          placeOf={(key) => {
-            const one = blocks()[Number(key)]
-            const column = body.current?.getBoundingClientRect()
-            const frame = main.current?.getBoundingClientRect()
-            if (!one || !column || !frame) return null
-            // In the margin beside its paragraph, its top a little above the paragraph's first line.
-            return { x: Math.max(frame.left + 4, column.left - 36), y: one.getBoundingClientRect().top - 6 }
-          }}
-          homeX={() => {
-            const column = body.current?.getBoundingClientRect()
-            const frame = main.current?.getBoundingClientRect()
-            return frame ? Math.min(column?.right ?? frame.right, frame.right - 16) : null
-          }}
-          onLayHere={() => ribbonHere()}
-        />
-      )}
-      <ReadOnLine
-        words={readOn ? `You read on to ${Math.max(1, Math.round(readOn.share * 100))}% of the way through, past your ribbon` : null}
-        onGo={() => void (readOn && (scroller.current?.scrollTo({ top: readOn.top, behavior: still() ? 'auto' : 'smooth' }), setReadOn(null)))}
-        onClose={() => setReadOn(null)}
-      />
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar">
           <div className="tiptap-find-bar-row">
@@ -1064,11 +936,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               const img = (event.target as Element).closest?.('img') as HTMLImageElement | null
               const kept = img && body.current?.contains(img) && img.getAttribute('src')?.startsWith('haligtree://') ? img : null
               setPictureHit(kept && { src: kept.getAttribute('src')!, name: pictureName(kept), img: kept })
-              // The paragraph right-clicked: where "Lay the ribbon here" lays it.
-              const block = (event.target as Element).closest?.(BLOCKS) as HTMLElement | null
-              const at = block ? blocks().findIndex((one) => one === block || one.contains(block)) : -1
-              setMenuBlock(at >= 0 ? at : null)
-              if (!on && !picked && !kept && !(link && body.current?.contains(link)) && at < 0) event.preventDefault()
+              if (!on && !picked && !kept && !(link && body.current?.contains(link))) event.preventDefault()
             }}
           >
             {/* The page: the pane's width sets its margins and the article's own size its words (pdf.css); its two
@@ -1166,14 +1034,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(linkHit).then(() => said('Link copied'), () => said('Could not copy the link', false))}>Copy link</ContextMenuItem>
             </>
           )}
-          {/* A paragraph: the ribbon laid on it, or taken out. */}
-          {menuBlock !== null && !hit && !picked && (
-            <>
-              {(pictureHit || linkHit) && <ContextMenuSeparator />}
-              <ContextMenuItem data-ribbon-lay-menu onSelect={() => ribbonHere(menuBlock)}>Lay the ribbon here<ContextMenuShortcut>⌘D</ContextMenuShortcut></ContextMenuItem>
-              {ribbon && <ContextMenuItem data-ribbon-out-menu onSelect={() => layRibbon(null)}>Take the ribbon out</ContextMenuItem>}
-            </>
-          )}
         </ContextMenuContent>
       </ContextMenu>
       {putting && createPortal(
@@ -1215,9 +1075,6 @@ const HIGHLIGHT = '.web-reader-body::highlight'
  */
 const wordsOf = (html: string): number => html.replace(/<[^>]*>|&[#\w]+;/g, ' ').split(/\s+/).filter((one) => /[\p{L}\p{N}]/u.test(one)).length
 const minutesOf = (html: string): number => Math.max(1, minutesToRead(wordsOf(html)))
-
-/** The blocks of an article a ribbon can lie on. */
-const BLOCKS = 'p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, figure, table'
 
 /** A day as the reader says it: 15 November 2026. */
 const dayOf = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })

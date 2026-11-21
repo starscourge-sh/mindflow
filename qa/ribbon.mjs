@@ -10,8 +10,7 @@
 // on, held at the foot of the view, the pages scroll under it to a page far below, where it lies on that page's top
 // edge. Read back up, the pill sits at the FOOT ("p. N ↓"), beside the pages; at the ribbon, it is gone; read past it,
 // at the top. From far away "Go to it" lands with the ribbon in view and it bounces (its stretch above 1, back to 1
-// within 700 ms). In a saved article: ⌘D lays it on the
-// paragraph being read; right-click, "Take the ribbon out", then ⌘Z puts it back. The ribbon's place is read every
+// within 700 ms). A saved article has no ribbon: none drawn, ⌘D lays none, no ribbon in its right-click. The ribbon's place is read every
 // 50 ms by the page's clock through each slide and settle. QA_SHOTS=<folder> keeps a picture every 50 ms.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/ribbon.mjs
 import { mkdirSync } from 'fs'
@@ -542,25 +541,15 @@ try {
   await h.waitForSelector('.web-reader-body p', { timeout: 60000 }); await wait(1500)
   await h.evaluate(() => { const p = document.querySelectorAll('.web-reader-body p')[6]; const box = document.querySelector('.web-reader-scroll'); box.scrollTop += p.getBoundingClientRect().top - box.getBoundingClientRect().top - 60 })
   await wait(400)
+  // An article has no pages and changes when read again: it has no ribbon (21 Nov, the user: "remove bookmarks from
+  // links"). No ribbon or tab drawn, ⌘D lays nothing, and a paragraph's right-click offers no ribbon.
   await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + scroller.height / 2)
-  await h.keyboard.press('Meta+KeyD'); await wait(900)
-  const onArticle = await ribbon()
-  const kept = await v('ribbon:get', href)
-  check('⌘D lays the ribbon on the paragraph being read', onArticle?.state === 'laid' && kept?.block === Number(onArticle.at), `${JSON.stringify(onArticle)} kept ${JSON.stringify(kept)}`)
-  check('beside that paragraph', await h.evaluate(() => {
-    const r = document.querySelector('.ribbon:not(.ribbon-tab)').getBoundingClientRect()
-    const p = document.querySelector('.web-reader-scroll').getBoundingClientRect()
-    return r.top > p.top && r.top < p.top + p.height / 2
-  }))
-  // Right-click a paragraph: "Take the ribbon out", then ⌘Z puts it back.
+  await h.keyboard.press('Meta+KeyD'); await wait(700)
+  check('an article has no ribbon: none drawn, and ⌘D lays none', (await h.locator('.web-reader .ribbon, .web-reader-scroll ~ .ribbon-layer .ribbon').count()) === 0 && !(await v('ribbon:get', href)))
   const para = await h.locator('.web-reader-body p').nth(7).boundingBox()
   await h.mouse.click(para.x + 20, para.y + 6, { button: 'right' }); await wait(400)
-  await h.click('[data-ribbon-out-menu]'); await wait(900)
-  check('taken out: it hangs again and the book forgets it', (await ribbon())?.state === 'hanging' && !(await v('ribbon:get', href)), JSON.stringify(await ribbon()))
-  check('a notice says so', /Ribbon taken out/.test(await h.evaluate(() => document.body.innerText)))
-  await h.keyboard.press('Meta+z'); await wait(1000)
-  const back = await v('ribbon:get', href)
-  check('⌘Z puts it back where it was', (await ribbon())?.state === 'laid' && back?.block === kept?.block, `${JSON.stringify(await ribbon())} kept ${JSON.stringify(back)}`)
+  check('and a paragraph\'s right-click offers no ribbon', (await h.locator('[data-ribbon-lay-menu]').count()) === 0)
+  await h.keyboard.press('Escape')
 } finally {
   await electron.evaluate(() => void (globalThis.__realFetch && (globalThis.fetch = globalThis.__realFetch))).catch(() => {})
   await close()
