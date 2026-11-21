@@ -140,6 +140,7 @@ try {
   console.log(`  samples ${frames.length}, ms between them: ${gapsMs.join(' ')}`)
   const own = frames.slice(1).map((one, at) => [frames[at], one]).filter(([a, b]) => a.state !== 'held' && b.state !== 'held')
   const rates = own.map(([a, b]) => (Math.hypot(b.x - a.x, b.y - a.y) * 50) / Math.max(1, b.ms - a.ms))
+  console.log('  own steps: ' + own.map(([a, b]) => `${a.state}(${Math.round(a.x)},${Math.round(a.y)})→${b.state}(${Math.round(b.x)},${Math.round(b.y)}) in ${Math.round(b.ms - a.ms)}ms`).join(' | '))
   check('picked up and settling, no jump (px per 50 ms)', own.length >= 3 && Math.max(...rates) < 60, `${own.length} steps on its own, fastest ${Math.max(0, ...rates).toFixed(1)}px per 50 ms`)
   const laid = await ribbon()
   check('let go, it lies on page 3', laid?.state === 'laid' && laid.at === '3', JSON.stringify(laid))
