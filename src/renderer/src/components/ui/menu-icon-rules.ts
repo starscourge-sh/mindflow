@@ -16,6 +16,13 @@ import {
  * first rule that fits wins, so the narrow ones come before the broad.
  */
 const RULES: [RegExp, LucideIcon][] = [
+  // Projects, where tasks live (side-projects.tsx, projects-view.tsx): a project wears the group's stack, as its row does.
+  [/^all projects/i, Layers],
+  [/^new project/i, FolderPlus],
+  [/^move (?:[0-9,]+ )?to project/i, FolderInput],
+  [/^archive project$/i, Archive],
+  [/^bring back from the archive$/i, ArchiveRestore],
+  [/^group [0-9,]+$/i, Layers],
   // Writing help on picked words (writing-help.tsx), Apple Intelligence's on this Mac: the group, then each help.
   [/^writing help$/i, Sparkles],
   [/^fix it$/i, SpellCheck],

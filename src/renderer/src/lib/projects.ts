@@ -3,11 +3,11 @@ import { useKept } from '@/lib/groups'
 import { chime } from '@/lib/sound'
 import { num } from '../../../main/dates'
 import { news, quietly, refuse, toast } from '@/components/haligtree/ui'
-import type { Project, TaskGroup, Was } from '../../../main/projects'
+import type { Project, TaskGroup, Was } from '../../../main/project-shapes'
 import type { Folder } from '@/lib/folders'
 
-export type { Project, TaskGroup } from '../../../main/projects'
-export { PROJECT_DEPTH } from '../../../main/projects'
+export type { Project, TaskGroup } from '../../../main/project-shapes'
+export { PROJECT_DEPTH } from '../../../main/project-shapes'
 
 /**
  * Projects, where tasks live (src/main/projects.ts), as Todoist keeps them. Every way of moving a task into one (its

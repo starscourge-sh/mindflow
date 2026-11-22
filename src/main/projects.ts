@@ -13,17 +13,8 @@ import { atomically, changed, database, setting } from './captures'
  * written to project_move so "Put them back" (`unmoveProjects`) returns each task to its folder exactly.
  */
 
-export const LIST = 'projects'
-export const GROUPS = 'task-groups'
-/** How deep projects go: a project and three levels inside it, as Todoist's. */
-export const PROJECT_DEPTH = 4
-
-export type Project = {
-  id: string; name: string; icon: string | null; color: string | null; parent: string | null; starred: number; archived: number; folded: number
-  /** Its own open tasks (not its projects'), out of the Bin. */
-  open: number
-}
-export type TaskGroup = { id: string; name: string; project: string | null; folded: number }
+import { GROUPS, LIST, PROJECT_DEPTH, type Project, type Was } from './project-shapes'
+export * from './project-shapes'
 
 const now = (): string => new Date().toISOString()
 
@@ -67,9 +58,6 @@ function insertProject(name: string, parent: string | null, extra: { icon?: stri
   db.prepare(`insert or replace into note_order (list, id, position) values ('${LIST}', ?, ?)`).run('g:' + id, (end.at ?? -1) + 1)
   return id
 }
-
-/** Where a task was, for Undo: its project and its group. */
-export type Was = { id: string; project: string | null; group: string | null }
 
 /** Tasks put in a project (null: in none). Leaving a project leaves its group too. Gives back where each was. */
 export function fileTasks(ids: string[], project: string | null): Was[] {
