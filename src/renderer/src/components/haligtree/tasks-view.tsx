@@ -12,15 +12,14 @@ import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, Link2, ListTree, PencilLine, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, PencilLine, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 import { hrefFor, looksLikeAddress } from '@/extensions/link-tidy'
 import { tagTint } from './tag-icon'
 
 import { HaligtreeEditor } from '../haligtree'
 import { chime, step } from '@/lib/sound'
-import { TaskAddress, TaskSite } from './task-site'
-import { linkName } from '../../../../main/task-links'
+import { LinkChip, TaskLink } from './task-site'
 import { typeSaid } from '@/lib/capture-links'
 import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { useOpened } from '@/lib/nav'
@@ -63,7 +62,7 @@ import { SiteBlockField } from './site-block-field'
 import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dated, dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { EASE, EASING, glideWay, shift } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { ProgressBar } from './progress-bar'
@@ -1335,9 +1334,12 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
         {said && <div data-kind-chips="" className="list-words pt-4 pb-2">{said}</div>}
 
         <form
-          className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
+          // One surface with its details: ⇧↵ grows the same rounded field downward to hold them, never a second box.
+          className="list-box mt-8 flex flex-col rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
           // A pasted list is a task a line, its indented lines their steps; one Undo for all.
           onPasteCapture={(event) => {
+            // Into the details: the description's own editor takes it, as on the task's page.
+            if ((event.target as HTMLElement).closest?.('[data-task-details-box]')) return
             // A picture: into the details, opened for it.
             const picture = [...event.clipboardData.files].find((one) => one.type.startsWith('image/'))
             if (picture) {
@@ -1397,7 +1399,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             })
           }}
         >
-          <Plus className="list-plus size-4 text-muted-foreground" />
+          <div className="flex items-center gap-2">
+          <Plus className="list-plus size-4 shrink-0 text-muted-foreground" />
           <TaskInput
             inputRef={addRef}
             value={draft}
@@ -1409,12 +1412,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             }}
           />
           {extra.links.map((one) => (
-            <span key={one.href} data-task-link className="flex max-w-[12rem] shrink-0 items-center gap-1 rounded-full border bg-background py-0.5 pr-1 pl-2 text-meta text-foreground">
-              {one.icon ? <img src={one.icon} alt="" className="size-3.5 shrink-0 rounded-sm" /> : <Link2 aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
-              <span className="min-w-0 truncate">{one.title}</span>
-              <button type="button" aria-label={`Take ${one.title} off`} onClick={() => (chime('off'), setExtra((now) => ({ ...now, links: now.links.filter((other) => other.href !== one.href) })))}
-                className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"><X className="size-3" /></button>
-            </span>
+            <LinkChip key={one.href} href={one.href} title={one.title} icon={one.icon}
+              onRemove={() => (chime('off'), setExtra((now) => ({ ...now, links: now.links.filter((other) => other.href !== one.href) })), addRef.current?.focus())} />
           ))}
           <Tip label="Add a description or a picture  ⇧↵">
             <button type="button" data-task-details aria-expanded={extra.open} onClick={() => (extra.open ? (chime('fold'), setExtra((now) => ({ ...now, open: false }))) : openDetails())}
@@ -1423,26 +1422,42 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             </button>
           </Tip>
           <Kbd>↵</Kbd>
-        </form>
-        {extra.open && (
-          // ⌘↵ adds the task from here too; Esc folds the description away and goes back to the name.
-          <div data-task-details-box className="list-box mt-1 rounded-md border px-1 py-1"
-            onKeyDownCapture={(event) => {
-              if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation(), addRef.current?.closest('form')?.requestSubmit())
-              else if (event.key === 'Escape' && !document.querySelector('[role="menu"], [role="listbox"]')) (event.preventDefault(), event.stopPropagation(), chime('fold'), setExtra((now) => ({ ...now, open: false })), addRef.current?.focus())
-            }}>
-            <HaligtreeEditor
-              key={drafts}
-              toolbar={{ fixed: false }}
-              lineNumbers={false}
-              autofocus="end"
-              placeholder="Add a description: the details, links, steps and pictures. ⌘↵ adds the task"
-              defaultContent={(extra.notes as JSONContent | null) ?? ''}
-              onReady={(editor) => void (detail.current = editor)}
-              onChange={(notes) => setExtra((now) => ({ ...now, notes }))}
-            />
           </div>
-        )}
+          {/* Its details, in the same field under the name: the field's height glides open and shut, a quiet
+              placeholder until words come, no block handles or count in so small a place (they are on the task's page).
+              ⌘↵ adds the task from here too; Esc folds them away, keeping what was written, and goes back to the name. */}
+          <AnimatePresence initial={false}>
+            {extra.open && (
+              <motion.div key="details" data-task-details-box className="flex gap-2"
+                initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
+                exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                transition={{ duration: 0.2, ease: EASE }}
+                onKeyDownCapture={(event) => {
+                  if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation(), addRef.current?.closest('form')?.requestSubmit())
+                  else if (event.key === 'Escape' && !document.querySelector('[role="menu"], [role="listbox"]')) (event.preventDefault(), event.stopPropagation(), chime('fold'), setExtra((now) => ({ ...now, open: false })), addRef.current?.focus())
+                }}>
+                {/* The + mark's room, so the description starts under the task's name. */}
+                <span aria-hidden className="list-plus size-4 shrink-0" />
+                <div className="min-w-0 flex-1 pt-1 pb-1 [--mf-padding:0]">
+                  <HaligtreeEditor
+                    key={drafts}
+                    toolbar={{ fixed: false }}
+                    lineNumbers={false}
+                    handles={false}
+                    outline={false}
+                    foot={() => null}
+                    autofocus="end"
+                    placeholder="Details, links, steps…"
+                    defaultContent={(extra.notes as JSONContent | null) ?? ''}
+                    onReady={(editor) => void (detail.current = editor)}
+                    onChange={(notes) => setExtra((now) => ({ ...now, notes }))}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </form>
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
         {mode === 'today' && hints && !example && !reading && dayDone > 0 && (
           <div data-day-progress data-said={daySaid} className="list-words mt-3 flex items-center gap-3">
@@ -1589,7 +1604,6 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <TaskSite task={task} />
                             <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}><AppNamed id={task.id} text={taskName(task.title).text} /></span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
@@ -1597,7 +1611,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                                 A task open beside the list leaves the list no margin either: there the numbers stood against the pane's edge (16 Nov). */}
                             {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline ${beside ? 'inline' : 'hidden'}`} />}
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || (task.link && task.title !== linkName(task.link))) && (
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || task.link) && (
                             <span data-task-meta className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                               <TaskWhen task={task} />
                               {carried(task) > 0 && !task.recurrence && (
@@ -1621,8 +1635,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                               {task.blocker && (freed(task)
                                 ? <span data-freed className="truncate" style={{ color: 'var(--tt-color-text-green)' }}>Free now: {taskName(task.blockedByTitle ?? task.blocker).text} is done</span>
                                 : <span className="truncate">Blocked: {task.blockedByTitle ? taskName(task.blockedByTitle).text : task.blocker}</span>)}
-                              {/* A bookmark task's address, kept under its name (task-site.tsx). */}
-                              <TaskAddress task={task} className="max-w-full" />
+                              {/* Its linked page, as the chip the add bar showed (task-site.tsx): never its raw address. */}
+                              <TaskLink task={task} />
                               {/* The time spent on it so far, last: it wraps to a line of its own before it pushes anything. */}
                               <TaskSpent task={task} time={time} />
                             </span>
@@ -1814,12 +1828,16 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           placeholder=""
           onSave={(name) => void rename(name)}
         />
-        {/* Named by a link: the address under the name, its site's icon opening it. */}
-        {task.link && (
-          <p data-task-link-row className="page-narrow mx-auto -mt-1 mb-1 flex w-full min-w-0 items-center gap-1.5 px-12 text-meta text-muted-foreground">
-            <TaskSite task={task} /><TaskAddress task={task} />
-          </p>
-        )}
+        {/* Its linked page under the name, as the chip the add bar showed (task-site.tsx); taken off, its line folds away. */}
+        <AnimatePresence initial={false}>
+          {task.link && (
+            <motion.p key="link" data-task-link-row className="page-narrow mx-auto flex w-full min-w-0 items-center overflow-hidden px-12"
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }} animate={{ height: 'auto', opacity: 1, marginBottom: 8 }} exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              transition={{ duration: 0.18, ease: EASE }}>
+              <TaskLink task={task} />
+            </motion.p>
+          )}
+        </AnimatePresence>
         {/* A #tag typed with the task is kept here, as a tag, never left in its name. */}
         <div data-task-tags className="page-narrow mx-auto w-full px-12">
           <TagRow tags={named.tags} field={tagField} onAdd={(tag) => void saveName(title.current?.value ?? named.text, [...named.tags, tag])}

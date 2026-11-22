@@ -1297,6 +1297,12 @@ export function registerHaligtree(): void {
   column('tasks', 'link text')
   column('tasks', 'link_icon text')
   column('tasks', 'link_asked integer not null default 0')
+  // The linked page's own title, kept apart from the task's name: the chip that shows the link says it (task-site.tsx).
+  // Tasks linked before it was kept ask their page once more, for its title.
+  if (!(db.prepare("select 1 from pragma_table_info('tasks') where name = 'link_title'").get())) {
+    column('tasks', 'link_title text')
+    db.exec('update tasks set link_asked = 0 where link is not null')
+  }
   // Tasks made before that, named by their address: the address taken out of the name the same way. Safe every start.
   for (const task of db.prepare("select id, title from tasks where link is null and (title like '%http://%' or title like '%https://%' or title like '%www.%')").all() as { id: string; title: string }[]) {
     const { text, href } = linkOut(task.title)
@@ -4270,7 +4276,7 @@ export function registerHaligtree(): void {
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
     created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
     important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor, snoozed_until as snoozedUntil, get_ready as getReady, rollovers, skips, held_at as heldAt,
-    link, link_icon as linkIcon, blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
+    link, link_icon as linkIcon, link_title as linkTitle, blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
   const FROM = `coalesce(origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
@@ -4346,7 +4352,7 @@ export function registerHaligtree(): void {
     return write(task)
   })
   const TASK_COLUMNS = { stepOf: 'step_of', title: 'title', allDay: 'all_day', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', deadlineTimed: 'deadline_timed', blocker: 'blocker', blockedBy: 'blocked_by', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready', rollovers: 'rollovers', skips: 'skips' } as const
-  const saveTaskOne = (id: string, patch: { stepOf?: string | null; allDay?: number; title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; deadlineTimed?: number; blocker?: string | null; blockedBy?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
+  const saveTaskOne = (id: string, patch: { stepOf?: string | null; allDay?: number; title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; deadlineTimed?: number; blocker?: string | null; blockedBy?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number; link?: string | null; linkTitle?: string | null; linkIcon?: string | null }) => {
     // What a move changes on its own (the reschedule count, whether it was told
     // about), given back so its undo can put both back exactly.
     const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined
@@ -4361,8 +4367,15 @@ export function registerHaligtree(): void {
       const { text, href } = linkOut(patch.title)
       if (href) {
         patch = { ...patch, title: wordsLeft(text) || linkName(href) }
-        db.prepare('update tasks set link = ?1, link_icon = case when link = ?1 then link_icon end, link_asked = case when link = ?1 then link_asked else 0 end where id = ?2').run(href, id)
+        db.prepare('update tasks set link = ?1, link_icon = case when link = ?1 then link_icon end, link_title = case when link = ?1 then link_title end, link_asked = case when link = ?1 then link_asked else 0 end where id = ?2').run(href, id)
       }
+    }
+    // The link itself changed (task-site.tsx: its chip's × takes it off, a link pasted on it replaces it, Undo puts it
+    // back): a new page with no title or icon given is asked for them again (lib/haligtree.ts askTaskLinks).
+    if (patch.link !== undefined) {
+      const href = typeof patch.link === 'string' && URL.canParse(patch.link) ? patch.link : null
+      const known = !!href && (patch.linkTitle !== undefined || patch.linkIcon !== undefined)
+      db.prepare('update tasks set link = ?, link_title = ?, link_icon = ?, link_asked = ? where id = ?').run(href, known ? (patch.linkTitle ?? null) : null, known ? (patch.linkIcon ?? null) : null, known || !href ? 1 : 0, id)
     }
     // A title past the limit is cut to fit; the words in full go to its notes when it has none.
     if (typeof patch.title === 'string') {
@@ -4422,7 +4435,7 @@ export function registerHaligtree(): void {
     const row = db.prepare('select title, link from tasks where id = ?').get(String(id)) as { title: string; link: string | null } | undefined
     if (!row || row.link !== href) return false
     const named = typeof title === 'string' && title.trim() && title.trim() !== href && row.title === linkName(href) ? (fittedTitle(title.trim()) ?? title.trim()) : row.title
-    db.prepare('update tasks set title = ?, link_icon = ?, link_asked = 1 where id = ?').run(named, typeof icon === 'string' && icon ? icon : null, String(id))
+    db.prepare('update tasks set title = ?, link_icon = ?, link_title = ?, link_asked = 1 where id = ?').run(named, typeof icon === 'string' && icon ? icon : null, typeof title === 'string' && title.trim() && title.trim() !== href ? title.trim() : null, String(id))
     return write(true)
   })
   // Many tasks saved at once (a list put in order, a day's tasks moved on, and their Undos): one write for the

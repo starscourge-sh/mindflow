@@ -37,7 +37,7 @@ try {
   await h.keyboard.type('extract feature requests from woday comments ', { delay: 15 })
   await paste({ text: URL_ })
   await h.waitForTimeout(800)
-  const chip = await h.$eval('[data-task-link]', (el) => el.innerText).catch(() => '')
+  const chip = await h.$eval('form [data-task-link]', (el) => el.innerText).catch(() => '')
   const words = await h.$eval(ADD, (el) => el.value)
   check('a link pasted is a chip named by its page, its long address not in the words', chip.includes('Solt Wagner on X') && !words.includes('x.com/'), JSON.stringify({ chip, words }))
   await h.keyboard.press('Shift+Enter'); await h.waitForTimeout(400)
@@ -51,7 +51,7 @@ try {
   check('⌘↵ adds the task with its words alone as its name', made?.title?.trim() === 'extract feature requests from woday comments', made?.title)
   const notes = String(made?.notes ?? '')
   check('its description holds the words and the picture, the link kept as its bookmark', notes.includes('Comments under the thread') && /"type":"image"/.test(notes) && made?.link === URL_, JSON.stringify({ link: made?.link, notes: notes.slice(0, 200) }))
-  check('the field is empty again, chips and details gone', !(await h.$('[data-task-link]')) && !(await h.$('[data-task-details-box]')) && !(await h.$eval(ADD, (el) => el.value)))
+  check('the field is empty again, chips and details gone', !(await h.$('form [data-task-link]')) && !(await h.$('[data-task-details-box]')) && !(await h.$eval(ADD, (el) => el.value)))
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the probe ran to its end', false, error.message)

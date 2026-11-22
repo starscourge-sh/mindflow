@@ -1,6 +1,7 @@
 // A task named by a link shows as a bookmark (the user, 20 Nov: "a bookmark (mindflow) like feature with tasks so that
 // links don't look so horrible"): the page's own title as its name (YouTube by oEmbed), the site's icon in its row
-// opening the address, the address kept under it; the site and path while the title is coming, never the query.
+// opening the address; the site and path while the title is coming, never the query. The link itself shows as the
+// add bar's chip (the page's icon and title, task-site.tsx TaskLink), never its raw address.
 // Words typed beside the link stay the name. The same on Tasks, Today in quick capture, the Calendar, the desk sticky,
 // the Journal's "Today's tasks" and ⌘K. Main's link lookup is stood in for (task-details.mjs's way): nothing is
 // asked of the web, and the Mac's clipboard is never touched (pastes are synthetic events).
@@ -54,15 +55,15 @@ try {
   const shownWhile = await h.locator('[data-task-row] [data-title]').allInnerTexts()
   check('1 while the title is coming the row says the site and path, not the address', shownWhile.includes('youtu.be · hi8meiPUt84') && !shownWhile.some((one) => /https?:|si=/.test(one)), JSON.stringify(shownWhile.filter((one) => /youtu/.test(one))))
   await h.locator('[data-task-row]', { hasText: 'youtu.be' }).first().scrollIntoViewIfNeeded()
-  check('1 the site and path said once: no address under a name that is the address', (await h.locator('[data-task-row]', { hasText: 'youtu.be · hi8meiPUt84' }).locator('[data-task-address]').count()) === 0)
+  check('1 its chip says the site while the page is asked, never the address', (await h.locator('[data-task-row]', { hasText: 'youtu.be · hi8meiPUt84' }).locator('[data-link-title]').first().innerText().catch(() => '')) === 'youtu.be')
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/bm1-coming`)
   await electron.evaluate(() => globalThis.qaGoYouTube())
   await wait(1500)
   const named = (await sql('select title, link_icon as icon, link_asked as asked from tasks where id = ?', coming.id))[0]
   check('2 the page answers (YouTube by oEmbed): its title names the task, its icon kept', named?.title === 'Rick Astley - Never Gonna Give You Up' && !!named.icon && named.asked === 1, JSON.stringify(named))
   const yt = row('Never Gonna Give You Up')
-  check('2 the row shows the title, the site\'s icon before it and the address under it', (await yt.count()) === 1 && (await yt.locator('[data-task-site] img').count()) === 1
-    && (await yt.locator('[data-task-address]').innerText()) === 'youtu.be/hi8meiPUt84', await yt.innerText().catch(() => ''))
+  check('2 the row shows the title and the link as a chip: the site\'s icon and the page\'s title, no address', (await yt.count()) === 1 && (await yt.locator('[data-task-link] img').count()) === 1
+    && (await yt.locator('[data-link-title]').innerText()) === 'Rick Astley - Never Gonna Give You Up' && !/youtu\.be\//.test(await yt.innerText()), await yt.innerText().catch(() => ''))
 
   // 3 Words typed beside a link stay the name; the page's title never goes over them.
   await h.click(ADD)
@@ -72,19 +73,19 @@ try {
   const own = (await sql('select title, link, link_asked as asked from tasks where link = ?', PAGE))[0]
   check('3 words typed beside the link stay its name, the address out of it', own?.title === 'read the essay' && own.asked === 1, JSON.stringify(own))
   const essay = row('read the essay')
-  check('3 its row has the site\'s icon and the address without the query', (await essay.locator('[data-task-site]').count()) === 1 && (await essay.locator('[data-task-address]').innerText()) === 'example.com/essays/on-gardens')
+  check('3 its row has the chip, named by the page\'s own title', (await essay.locator('[data-task-link]').count()) === 1 && (await essay.locator('[data-link-title]').innerText()) === 'On Gardens, an essay')
 
   // 4 The icon opens the address; the row stays as it was (no task opened beside the list).
-  await yt.locator('[data-task-site]').click()
+  await yt.locator('[data-task-link]').click()
   await wait(500)
   const opened = await electron.evaluate(() => globalThis.qaOpened)
-  check('4 a press on the icon opens the address in the browser, and does not open the task', opened.includes(YT) && !(await h.$('[data-task-name]')), JSON.stringify(opened))
+  check('4 a press on the chip opens the address in the browser, and does not open the task', opened.includes(YT) && !(await h.$('[data-task-name]')), JSON.stringify(opened))
 
   // 5 Renamed as any task: the name changes, the bookmark stays; ⌘Z puts the name back.
   await yt.locator('[data-title]').click()
   await h.waitForSelector('[data-task-name]', { timeout: 5000 })
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/bm2-detail`)
-  check('5 the open task shows the address under its name, its icon opening it', (await h.locator('[data-task-link-row] [data-task-address]').innerText()) === 'youtu.be/hi8meiPUt84')
+  check('5 the open task shows the same chip under its name', (await h.locator('[data-task-link-row] [data-link-title]').innerText()) === 'Rick Astley - Never Gonna Give You Up')
   await h.click('[data-task-name] .ProseMirror')
   await h.keyboard.press('Meta+a')
   await h.keyboard.type('Watch the Rick talk', { delay: 5 })
@@ -132,7 +133,7 @@ try {
   await wait(900)
   const tab = c.page.locator('[data-box-panel] [role="tab"]', { hasText: /^Tasks/ }).first()
   if (await tab.count()) { await tab.click(); await wait(700) }
-  check('7 quick capture\'s tasks: the task shows with its icon', (await c.page.locator(`[data-box-panel] [data-task-site="${YT}"]`).count()) >= 1 && await noAddress(c.page))
+  check('7 quick capture\'s tasks: the task shows with its icon', (await c.page.locator(`[data-box-panel] [data-task-site="${YT}"], [data-box-panel] [data-task-link="${YT}"]`).count()) >= 1 && await noAddress(c.page))
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/bm6-box`, c.page)
   await c.page.keyboard.press('Escape').catch(() => {})
   await go('today')
