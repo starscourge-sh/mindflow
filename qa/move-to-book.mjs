@@ -34,5 +34,13 @@ try {
   await h.locator('[role="status"] button', { hasText: 'Undo' }).first().click(); await wait(1200)
   const back = { status: (await h.evaluate((one) => window.api.captures.get(one), id))?.status, parcels: waiting() }
   check('Undo brings it back here and takes back the copy', back.status !== 'discarded' && back.parcels === 0, JSON.stringify(back))
+  // Moved again and left: once Undo has had its moment it is gone from this book for good, never sitting in its Bin.
+  await row.click({ button: 'right' }); await wait(500)
+  await h.locator('[role="menu"] [role="menuitem"]', { hasText: /^Move to/ }).first().hover(); await wait(500)
+  if (books.length - 1 > 1) await h.locator('[role="menu"] [role="menuitem"]', { hasText: target.name }).last().click()
+  else await h.locator('[role="menu"] [role="menuitem"]', { hasText: /^Move to/ }).first().click()
+  await wait(14000)
+  const gone = { here: await h.evaluate((one) => window.api.captures.get(one), id), parcels: waiting() }
+  check('left alone, it leaves this book for good (not in its Bin), its copy still waiting for the other', !gone.here && gone.parcels === 1, JSON.stringify({ here: gone.here?.status ?? null, parcels: gone.parcels }))
 } catch (error) { check('ran', false, error.stack) } finally { await close() }
 done()

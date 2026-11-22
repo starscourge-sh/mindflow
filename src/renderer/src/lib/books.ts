@@ -284,13 +284,19 @@ export const askBook = (mode: 'copy' | 'import', detail: { refs?: BookRef[]; wha
  * opens) and these go to this book's Bin, with one notice saying where they went; Undo brings them back here and takes
  * the copy back while that book has not opened. With one book, no line.
  */
+/** How long a move to another book can be undone before the note leaves this book for good: the notice's own time. */
+const MOVE_UNDO_MS = 12_000
 export const moveToBookItem = (refs: BookRef[], kinds: { type: string; id: string; status?: string }[]): { label: string; run: () => void } | { label: string; items: { label: string; icon: ReturnType<typeof createElement>; run: () => void }[] } | false => {
   const others = (lastShelf?.books ?? []).filter((book) => !book.current)
   if (!refs.length || !others.length) return false
   const n = refs.length > 1 ? `${num(refs.length)} ` : ''
   const to = (book: Book) => (): void => void window.api.haligtree<string | null>('books:move', refs, book.id).then((parcel) => {
     if (!parcel) return refuse(`Not moved to ${book.name}: its copy could not be written`)
-    void moveToBin(kinds, () => void window.api.haligtree('books:unmove', book.id, parcel), `Moved ${n}to ${book.name}. It is there when you open it`)
+    // Gone from this book for good once Undo has had its moment, as Arc's tab leaves for the other profile (the user,
+    // 22 Nov): the copy in the other book is the note now, never a thrown-away look-alike in this one's Bin.
+    let undone = false
+    void moveToBin(kinds, () => ((undone = true), void window.api.haligtree('books:unmove', book.id, parcel)), `Moved ${n}to ${book.name}. It is there when you open it`)
+      .then(() => setTimeout(() => void (undone || Promise.all(kinds.map((one) => haligtree.forgetBinned(one.type, one.id)))), MOVE_UNDO_MS))
   })
   // One other book: its own line, never a submenu of one row.
   if (others.length === 1) return { label: `Move ${n}to ${others[0].name}`, run: to(others[0]) }
