@@ -497,7 +497,7 @@ const DEFAULTS = {
   // A deck's face in Review: plain, in the theme's one tone, its due count large; on, a Coolshapes cover drawn from its name.
   deckShapes: false,
   // Review's finish: satin metal, or paper (the card stock of "Add many at once") on every deck, panel and card.
-  reviewFinish: 'satin' as 'satin' | 'paper',
+  reviewFinish: 'paper' as 'satin' | 'paper',
   // Celebrations: a card on the rare milestones, playing something from this
   // folder (a GIF, a picture, a short clip). Empty is none: a grainy cover.
   celebrate: true,

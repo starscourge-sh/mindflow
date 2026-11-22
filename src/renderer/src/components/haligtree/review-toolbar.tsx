@@ -41,7 +41,7 @@ export function FinishPick(): React.JSX.Element {
   const [picked, setPicked] = useState<Finish | null>(null)
   // Pressed, it shows at once; the saved choice takes over as it comes back (or as Settings changes it).
   useEffect(() => setPicked(null), [settings?.reviewFinish])
-  const finish: Finish = picked ?? settings?.reviewFinish ?? 'satin'
+  const finish: Finish = picked ?? settings?.reviewFinish ?? 'paper'
   const pick = (to: Finish): void => {
     if (to === finish) return
     chime('tap')
