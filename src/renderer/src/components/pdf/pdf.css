@@ -358,6 +358,11 @@
   cursor: pointer;
 }
 
+/* One that cannot be pressed yet (no highlights, no sections) does not offer the hand. */
+.pdf-reader-tools button:disabled {
+  cursor: default;
+}
+
 .pdf-reader-scroll {
   flex: 1;
   min-height: 0;
@@ -908,6 +913,61 @@
   overflow-x: auto;
   /* Over ProseMirror's own pre-wrap, as the note's code block sets it: a line wrapped read as two lines of code. */
   white-space: pre;
+}
+
+/* The tab a code block stood in on the site ("brew", "linux"), named over its code in quiet ink: drawn, not words of
+   the page, so Find and highlights never count it (main/article-clean.ts codeLifted). */
+.web-reader-body.ProseMirror pre[data-tab]::before {
+  content: attr(data-tab);
+  display: block;
+  margin-bottom: 0.5em;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans, system-ui);
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+/* The code block's copy button (web-reader.tsx), a note's code block's own controls (haligtree-editor.scss
+   .tiptap-code-controls), placed on the block's top right from the page's corner; it fades in as the pointer comes. */
+.web-reader-page {
+  position: relative;
+}
+
+.web-reader-code-copy {
+  z-index: 2;
+  opacity: 1;
+  animation: web-code-copy-in 120ms var(--mf-ease);
+}
+
+@keyframes web-code-copy-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* How many highlights the page has: a small figure on the highlighter's corner, so the button stays the icon's size. */
+.web-reader [data-marks-button] {
+  position: relative;
+}
+
+.web-reader [data-marks-count] {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 1.1em;
+  padding: 0 0.2em;
+  border-radius: 999px;
+  background-color: var(--mf-accent-ink, var(--tt-brand-color-500));
+  color: var(--background);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.1em;
+  text-align: center;
+  pointer-events: none;
+}
+
+.web-reader [data-marks-count]:empty {
+  display: none;
 }
 
 .web-reader-body a {

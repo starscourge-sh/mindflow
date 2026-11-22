@@ -6,6 +6,7 @@ import {
   ChevronUp,
   ExternalLink,
   Highlighter,
+  Link as LinkIcon,
   Minus,
   PanelLeft,
   Plus,
@@ -34,8 +35,11 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
+import { CheckIcon } from '@/components/tiptap-icons/check-icon'
+import { Copy as CopyIcon } from '@/components/ui/icons'
 import { call } from '@/lib/haligtree'
 import { touch } from '@/lib/open-today'
 import { keepWebPlace, webPlaces } from '@/lib/note-place'
@@ -319,6 +323,35 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     await navigator.clipboard.writeText(cited(quote.replace(/\s+/g, ' ').trim(), [byline(), whereFrom()].filter(Boolean).join(', ')))
     said('Copied with its citation')
   }
+  // The page's link (the bar's link button, ⇧⌘C with no words picked, right-click on the page), or a link in it.
+  const copyLink = (to = href): void =>
+    void navigator.clipboard.writeText(to).then(() => (chime('copy'), said('Link copied')), () => said('Could not copy the link', false))
+  // A code block's copy button, over the block the pointer is on (one for the page, never one drawn per block): its
+  // place in the page, from the page's own corner, so it scrolls with the words.
+  const pageBox = useRef<HTMLDivElement>(null)
+  const [codeAt, setCodeAt] = useState<{ pre: HTMLElement; top: number; right: number } | null>(null)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const overCode = (target: EventTarget): void => {
+    const pre = (target as Element).closest?.('pre') as HTMLElement | null
+    if (pre && body.current?.contains(pre)) {
+      if (codeAt?.pre === pre || !pageBox.current) return
+      const box = pageBox.current.getBoundingClientRect()
+      const at = pre.getBoundingClientRect()
+      setCodeCopied(false)
+      return setCodeAt({ pre, top: at.top - box.top + 6, right: box.right - at.right + 6 })
+    }
+    if (codeAt && !(target as Element).closest?.('[data-code-copy]')) setCodeAt(null)
+  }
+  const copyCode = (pre: HTMLElement): void =>
+    void navigator.clipboard.writeText(pre.textContent ?? '').then(() => (chime('copy'), setCodeCopied(true), said('Copied')), () => said('Could not copy the code', false))
+  // A copy that says nothing looks like a copy that failed: its tick for a moment, as a note's code block shows (code-block-view.tsx).
+  useEffect(() => {
+    if (!codeCopied) return
+    const timer = setTimeout(() => setCodeCopied(false), 1500)
+    return () => clearTimeout(timer)
+  }, [codeCopied])
+  // Right-clicked where nothing has a menu of its own: the page's own rows.
+  const [blankHit, setBlankHit] = useState(false)
   // Words looked up: the card under them, until Esc or a click away.
   const [looking, setLooking] = useState<{ words: string; x: number; y: number; from: LookedUpIn } | null>(null)
   /** The sentence round the picked words, inside their own paragraph, so a heading above is never taken in. */
@@ -622,7 +655,13 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
         return void box?.scrollTo({ top: end === 'first' ? 0 : box.scrollHeight })
       }
       if (!event.metaKey || event.altKey) return
-      if (event.code === 'KeyR' && !event.shiftKey && !event.ctrlKey) {
+      // ⇧⌘C with no words picked: the page's link (with words picked it copies them with their citation, read-bar.tsx readKey).
+      if (event.code === 'KeyC' && event.shiftKey && !event.ctrlKey && !picked && !writing()) {
+        event.preventDefault()
+        event.stopPropagation()
+        return copyLink()
+      }
+      if (event.code === 'KeyR'&& !event.shiftKey && !event.ctrlKey) {
         event.preventDefault()
         event.stopPropagation()
         return readAgain()
@@ -682,6 +721,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     // Pictures told before the words were in the page take their places now.
     settle()
   }, [words])
+  // The words set again or a new size: the code block the copy button stood on has gone or moved; the next hover places it.
+  useLayoutEffect(() => setCodeAt(null), [words, size])
   const [sectionHere, setSectionHere] = useState(-1)
   useEffect(() => {
     const box = scroller.current
@@ -756,6 +797,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           {/* In its place from the start too: the highlights come after the page, and a button arriving with them pushed the rest along. */}
           <Button
             data-style="ghost"
+            data-marks-button
             aria-label="Highlights"
             title={marks.length ? `${plural(marks.length, 'highlight')} in this page: list them, to go to each` : 'Highlights: none in this page yet'}
             disabled={!marks.length}
@@ -763,8 +805,9 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             onClick={() => setShowMarks(!showMarks)}
           >
             <Highlighter className="tiptap-button-icon" />
-            {/* How many this page has, in a room kept from the start so nothing in the bar moves as the first is made. */}
-            <span data-marks-count className="tiptap-button-text min-w-[2ch] text-left tabular-nums">{marks.length || ''}</span>
+            {/* How many this page has, a small figure on the icon's corner (pdf.css), so the button is the icon's size
+                whatever the count: a room kept for it beside the icon was an empty patch that lit up like a button. */}
+            <span data-marks-count className="tabular-nums">{marks.length || ''}</span>
           </Button>
           <Button
             data-style="ghost"
@@ -782,6 +825,9 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             onClick={() => window.open(href, '_blank', 'noopener')}
           >
             <ExternalLink className="tiptap-button-icon" />
+          </Button>
+          <Button data-style="ghost" data-copy-link aria-label="Copy link" title="Copy the page's link  ⇧⌘C" onClick={() => copyLink()}>
+            <LinkIcon className="tiptap-button-icon" />
           </Button>
           <Button
             data-style="ghost"
@@ -910,6 +956,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             ref={scroller}
             className="pdf-reader-scroll web-reader-scroll"
             onPointerDown={() => flash && setFlash(null)}
+            onPointerOver={(event) => overCode(event.target)}
+            onPointerLeave={() => setCodeAt(null)}
             onClick={follow}
             // A picture kept here drags out as itself, to a note or to Finder, as a picture in a note does (drag-out in main).
             onDragStart={(event) => {
@@ -936,12 +984,21 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               const img = (event.target as Element).closest?.('img') as HTMLImageElement | null
               const kept = img && body.current?.contains(img) && img.getAttribute('src')?.startsWith('haligtree://') ? img : null
               setPictureHit(kept && { src: kept.getAttribute('src')!, name: pictureName(kept), img: kept })
-              if (!on && !picked && !kept && !(link && body.current?.contains(link))) event.preventDefault()
+              // Anywhere else: the page's own rows (its link, the browser, fetch again).
+              setBlankHit(!on && !picked && !kept && !(link && body.current?.contains(link)))
             }}
           >
             {/* The page: the pane's width sets its margins and the article's own size its words (pdf.css); its two
                 lines come with the article, so nothing on it moves when the contents arrive beside it. */}
-            <div className="web-reader-page" style={{ fontSize: `calc(1rem * var(--mf-text-scale, 1) * ${size})` }}>
+            <div ref={pageBox} className="web-reader-page" style={{ fontSize: `calc(1rem * var(--mf-text-scale, 1) * ${size})` }}>
+            {/* The code block's copy button, a note's code block's own (code-block-view.tsx CodeControls), over the block the pointer is on. */}
+            {codeAt && (
+              <div data-code-copy className="tiptap-code-controls web-reader-code-copy" style={{ top: codeAt.top, right: codeAt.right }}>
+                <Button data-style="ghost" aria-label={codeCopied ? 'Copied' : 'Copy the code'} title="Copy the code" onClick={() => copyCode(codeAt.pre)}>
+                  {codeCopied ? <CheckIcon className="tiptap-button-icon" /> : <CopyIcon className="tiptap-button-icon" />}
+                </Button>
+              </div>
+            )}
             <article className="web-reader-column" data-read={article && !failed ? '' : undefined}>
               {failed ? (
                 <div className="web-reader-failed" role="status">
@@ -1031,7 +1088,16 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               {isReadable(linkHit) && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, undefined, pane)}>Open in the reader</ContextMenuItem>}
               {isReadable(linkHit) && canSplit() && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, 'aside', pane)}>Open in the reader to the side</ContextMenuItem>}
               <ContextMenuItem onSelect={() => window.open(linkHit, '_blank', 'noopener')}>Open in the browser</ContextMenuItem>
-              <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(linkHit).then(() => said('Link copied'), () => said('Could not copy the link', false))}>Copy link</ContextMenuItem>
+              <ContextMenuItem onSelect={() => copyLink(linkHit)}>Copy link</ContextMenuItem>
+            </>
+          )}
+          {/* The page itself: as the bar's buttons, with their keys. */}
+          {blankHit && !hit && !picked && !pictureHit && !linkHit && (
+            <>
+              <ContextMenuItem data-reader-page="copy-link" onSelect={() => copyLink()}>Copy link<ContextMenuShortcut>⇧⌘C</ContextMenuShortcut></ContextMenuItem>
+              <ContextMenuItem data-reader-page="browser" onSelect={() => window.open(href, '_blank', 'noopener')}>Open in the browser</ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem data-reader-page="again" disabled={!article && !failed} onSelect={readAgain}>Fetch the page again<ContextMenuShortcut>⌘R</ContextMenuShortcut></ContextMenuItem>
             </>
           )}
         </ContextMenuContent>
@@ -1095,6 +1161,8 @@ const markName = (names: string, color: string | null): string => `${names}-mark
 const WRAPPER = /^(SECTION|ARTICLE|MAIN|DIV|HEADER|FOOTER)$/
 /** Blocks: what may stand on a line of its own in the column (a picture is drawn as one there, pdf.css). */
 const BLOCK = /^(P|H[1-6]|UL|OL|DL|TABLE|FIGURE|BLOCKQUOTE|PRE|HR|IMG|SECTION|ARTICLE|MAIN|DIV|HEADER|FOOTER|ASIDE|DETAILS|ADDRESS)$/
+/** A first paragraph of this many words or more is prose, and opens on a drop cap. */
+const PROSE_WORDS = 25
 
 /**
  * An article's blocks set straight in the column, as a note's are, so a note's
@@ -1133,8 +1201,10 @@ function unwrapped(html: string, href = ''): string {
   // quote mark, a number or a link's words. A picture or a box of facts set before the words (Wikipedia's infobox)
   // is passed over, so the letter opens the first paragraph under it, never beside it. Only a mark is added, so the
   // words stay exactly as they were. (Comments are passed over: a kept article starts with its cleaning's own, main/web-articles.ts CLEANING.)
+  // Only a paragraph of prose takes it: a one-line tagline ("A terminal music player inspired by winamp.") under a
+  // two-line letter read as a letter glued to a caption.
   const opening = [...page.content.childNodes].find((node) => (node.nodeType === Node.ELEMENT_NODE && !/^(TABLE|FIGURE|IMG)$/.test(node.nodeName)) || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
-  if (opening?.nodeName === 'P') {
+  if (opening?.nodeName === 'P' && (opening.textContent ?? '').trim().split(/\s+/).length >= PROSE_WORDS) {
     const walk = page.ownerDocument.createTreeWalker(opening, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
     let lead: Node | null = walk.nextNode()
     while (lead && !(lead.nodeType === Node.ELEMENT_NODE && (lead as Element).matches('img, picture, svg, video, iframe')) && !(lead.nodeType === Node.TEXT_NODE && lead.textContent?.trim())) lead = walk.nextNode()

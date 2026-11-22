@@ -304,6 +304,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Reading', keys: '⇧⌘U', does: 'Reading the queue: show or hide the queue beside the page (now reading, up next, read before)', where: 'Reading' },
   { group: 'Reading', keys: '⌘D', does: 'In a PDF: lay the ribbon on the page you are on; it opens there next time', where: 'Reading' },
   { group: 'Reading', keys: '⇧⌘D', does: 'In a PDF: back to the page your ribbon lies on', where: 'Reading' },
+  { group: 'Reading', keys: '⇧⌘C', does: "In a web page: copy its link (with words picked, the words with where they came from)", where: 'Reading' },
 
   { group: 'Tidy', keys: 'T', does: 'Add a tag (or #); ⌫ in the empty field takes the last off', where: 'Tidy' },
   { group: 'Tidy', keys: 'B', does: 'Bold the line the caret is on', where: 'Tidy' },
