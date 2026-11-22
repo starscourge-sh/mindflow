@@ -235,6 +235,10 @@ export function RowMenu({ items, writes, list = false, onOpenChange, children }:
         if (!field && !shows(null)) event.preventDefault()
       }}>{children}</ContextMenuTrigger>
       <ContextMenuContent
+        // Opened over another open menu (a shelf book's own menu over the book menu): the pointer moving over that
+        // menu moves its focus there, which a menu reads as a click away and shuts at the first move (the user,
+        // 22 Nov). Only a press outside shuts it.
+        onFocusOutside={(event) => event.preventDefault()}
         className="w-60"
         // An item that opens its own picker (Change kind…) keeps the keys
         // there: the menu would otherwise hand focus back to the row.

@@ -1392,7 +1392,7 @@ function AskHead({ title, hint }: { title: string; hint?: ReactNode }): React.JS
  * label, "Cancel Esc"), the button's own ink at half strength, kept apart by a little room. Read aloud as the key.
  */
 function AskKey({ children, label }: { children: ReactNode; label: string }): React.JSX.Element {
-  return <kbd data-ask-key aria-label={label} className="ml-1 font-sans text-key font-normal opacity-55">{children}</kbd>
+  return <kbd data-ask-key aria-label={label} className="ml-1 font-sans text-key font-normal text-[color-mix(in_oklab,currentColor_65%,var(--background))]">{children}</kbd>
 }
 
 /**

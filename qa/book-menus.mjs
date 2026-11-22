@@ -308,6 +308,13 @@ try {
   check('I. a spine right-clicked keeps the book menu open behind its own menu', beside.shelf === true, JSON.stringify(beside))
   check('I. ...and its menu stands beside that spine (nearest edge within 12px)', typeof beside.gap === 'number' && beside.gap <= 12, JSON.stringify(beside))
   check('I. ...names the spine right-clicked, and that spine is the one pulled out', beside.heading === `Colour of ${clicked?.name.slice(0, 28)}` && beside.pulled === clicked?.name, JSON.stringify({ clicked: clicked?.name, ...beside }))
+  // As a person does next: the pointer moves, over the book menu and toward the spine's menu (the user, 22 Nov:
+  // "as soon as you move your cursor it closes").
+  const spineMenuUp = () => h.evaluate(() => [...document.querySelectorAll('[role="menu"]')].some((one) => one.getBoundingClientRect().width > 0 && one.textContent.includes('Show in Settings') && !one.querySelector('[data-book-shelf]')))
+  const shelfBox = await h.locator('[data-book-shelf]').boundingBox()
+  for (const [x, y] of [[shelfBox.x + 20, shelfBox.y + 200], [shelfBox.x + 60, shelfBox.y + 60], [shelfBox.x + shelfBox.width + 60, shelfBox.y + 40]]) await h.mouse.move(x, y, { steps: 6 })
+  await wait(400)
+  check('I. ...and it stays open while the pointer moves over the book menu and on to it', await spineMenuUp())
   await h.keyboard.press('Escape'); await wait(400)
   const back = await h.evaluate(() => ({ shelf: !!document.querySelector('[data-book-shelf]')?.getBoundingClientRect().width, spineMenu: [...document.querySelectorAll('[role="menu"]')].some((one) => one.getBoundingClientRect().width > 0 && one.textContent.includes('Show in Settings') && !one.querySelector('[data-book-shelf]')) }))
   check('I. Esc shuts the spine\'s menu alone: the book menu is still open', back.shelf && !back.spineMenu, JSON.stringify(back))
