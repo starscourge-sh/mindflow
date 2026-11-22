@@ -3666,10 +3666,14 @@ $media-brand: var(--tt-brand-color-500, currentColor);
 }
 
 // Hidden rather than unmounted: the handle is placed by a positioner that
-// would jump on every remount, and it is on screen constantly.
+// would jump on every remount, and it is on screen constantly. Faded out, not
+// `visibility`: the handle's own rule holds that `visible !important` (its grace
+// period), which kept a table's and a bare note's grip on show; a fade also
+// brings the grip back gently once a bare note has its first word.
 .tiptap-drag-handle.is-hidden,
 .tiptap-drag-handle.is-bare {
-  visibility: hidden;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 // The handle's drag preview: a bare div parked off screen holding a clone of

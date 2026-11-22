@@ -96,7 +96,9 @@ try {
   const line = h.locator('p.is-editor-empty[data-placeholder^="Add a description"]').first()
   const gripShown = () => h.evaluate(() => {
     const grip = [...document.querySelectorAll('.tiptap-drag-handle')].find((one) => one.getClientRects().length)
-    return !!grip && getComputedStyle(grip).visibility !== 'hidden' && grip.classList.contains('is-shown')
+    // What a person sees: a grip in sight, not see-through (it fades, so read once the fade is over).
+    const look = grip && getComputedStyle(grip)
+    return !!look && look.visibility !== 'hidden' && Number(look.opacity) > 0.5 && look.pointerEvents !== 'none'
   })
   const box = await line.boundingBox()
   await h.mouse.move(box.x + 30, box.y + box.height / 2); await h.waitForTimeout(150)
