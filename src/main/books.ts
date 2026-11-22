@@ -3,6 +3,7 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { randomBytes, randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync } from 'fs'
 import { copyFile, cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'fs/promises'
+import { keepNewest } from './keep-days'
 import { DatabaseSync } from 'node:sqlite'
 import { Worker } from 'node:worker_threads'
 import { join } from 'path'
@@ -261,6 +262,8 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
     if (!file || !existsSync(file)) continue
     const dir = join(dirFor(book.id === 'default' ? null : book.id), 'database')
     const today = join(dir, `haligtree-${dayKey()}.db`)
+    // Every book's old copies go, whether or not it has a new one today: before, a book not open was never pruned.
+    await keepNewest(dir)
     if (existsSync(today)) continue
     await mkdir(dir, { recursive: true })
     await clearCutCopies(dir)

@@ -1380,7 +1380,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
         <Group section="Import and backups" title="Backups">
           {/* Always on: there is no switch, so the row says so and where the copies go. */}
-          <Setting title="Daily backup" note="Every day, a full copy of everything goes to the folder below." more="Always on, private notes, pictures and files included; the last 30 daily copies are kept, and pictures and files are never removed." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
+          <Setting title="Daily backup" note="Every day, a full copy of everything goes to the folder below." more="Always on, private notes, pictures and files included; the last 5 daily copies are kept, and pictures and files are never removed." below={<BackupPlace />} keywords="backup backups icloud copy daily database safe" />
           {!SANDBOX && <Setting title="Restore from a backup" note={`Go back to one of those daily copies. What you have now is saved first, **then ${APP_NAME} starts again** on the copy you chose.`} more="So a restore can be undone the same way. Also in ⌘K." keywords="restore backup undo go back copy recover">
             <Button variant="outline" size="sm" onClick={() => void window.api.restoreBackup()}>Restore…</Button>
           </Setting>}

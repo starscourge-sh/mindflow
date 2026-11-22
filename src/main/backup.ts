@@ -8,6 +8,7 @@ import { join } from 'path'
 import { database, setting } from './captures'
 import { dayKey } from './dates'
 import { backUpOthers, clearCutCopies, copyBook } from './books'
+import { keepNewest } from './keep-days'
 import { BOOK, SANDBOX, apart, readShelf, realRoot, writeShelf, type Shelf } from './sandbox'
 import { NOTE_KEY } from './name'
 
@@ -18,7 +19,7 @@ type Kept = Shelf & { backupFolder?: string }
  * Where copies of everything go: iCloud Drive when there is one, so the copies
  * leave this machine, and beside the app's data when there is not.
  *
- *   database/   a full copy of haligtree.db per day, the last 30 kept
+ *   database/   a full copy of haligtree.db per day, the last KEEP_DAYS (5) kept
  *   assets/     every picture and file, copied once and never removed
  *   captures/   every capture as Markdown, readable without the app; never
  *               a private or discarded one, and off in Settings
@@ -47,7 +48,6 @@ const backupDirFor = (book: string | null): string => (book ? join(backupBase(),
 /** This run's: the sandbox keeps its own inside its folder. */
 export const backupDir = (): string => (SANDBOX ? join(app.getPath('userData'), 'backups') : backupDirFor(BOOK))
 
-const KEEP = 30
 
 /**
  * How the backups are going, for Settings to say ("Last backup 2 hours
@@ -116,9 +116,7 @@ async function backUp(): Promise<void> {
   const today = join(dir, `haligtree-${dayKey()}.db`)
   if (!existsSync(today)) await copyBook(join(app.getPath('userData'), 'haligtree.db'), today)
 
-  // Only copies this made, oldest first, past the newest 30.
-  const copies = (await readdir(dir)).filter((name) => /^haligtree-\d{4}-\d{2}-\d{2}\.db$/.test(name))
-  for (const name of copies.sort().slice(0, -KEEP)) await rm(join(dir, name))
+  await keepNewest(dir)
 
   // Every other book has its copy for today too, though it is not open.
   if (!SANDBOX) await backUpOthers(backupDirFor).catch((error) => console.error('Backup of the other books failed:', error))
