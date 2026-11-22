@@ -8,7 +8,7 @@ import { still } from '@/lib/motion'
  * (null). Answers once. Writing's folders and groups, the sidebar's folders,
  * Review's decks and Settings' books all name things with this one field.
  */
-export function NameInPlace({ initial = '', suggested, placeholder, label, onDone, className, onInput, ...rest }: {
+export function NameInPlace({ initial = '', suggested, placeholder, label, onDone, className, onInput, keepWithin, ...rest }: {
   initial?: string
   /** A better first name, arrived while the field is open: taken only if nothing has been typed; Esc still keeps `initial`. */
   suggested?: string | null
@@ -17,6 +17,11 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
   /** The words on Enter or a click away (maybe empty), null on Esc. */
   onDone: (words: string | null) => void
   className?: string
+  /**
+   * Focus taken by something matching this (the menu the field stands in, as the menu moves its focus about) is
+   * given straight back, caret and words as they were: only a press or a key elsewhere ends the name.
+   */
+  keepWithin?: string
 } & Omit<React.ComponentProps<'input'>, 'onBlur' | 'onKeyDown' | 'defaultValue' | 'onFocus'>): React.JSX.Element {
   const settled = useRef(false)
   const field = useRef<HTMLInputElement>(null)
@@ -30,6 +35,8 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
     el.select()
     if (!still()) el.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' })
   }, [suggested]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Given back its focus (keepWithin): its words are not picked again, the caret goes back where it was.
+  const back = useRef(false)
   const done = (words: string | null): void => {
     if (settled.current) return
     settled.current = true
@@ -43,7 +50,7 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
       defaultValue={initial}
       aria-label={label}
       placeholder={placeholder}
-      onFocus={(event) => event.currentTarget.select()}
+      onFocus={(event) => (back.current ? (back.current = false) : event.currentTarget.select())}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       onInput={(event) => ((touched.current = true), onInput?.(event))}
@@ -52,7 +59,18 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
         if (event.key === 'Enter') (event.preventDefault(), done(event.currentTarget.value.trim()))
         if (event.key === 'Escape') (event.preventDefault(), done(null))
       }}
-      onBlur={(event) => done(event.target.value.trim())}
+      onBlur={(event) => {
+        const to = event.relatedTarget
+        const el = event.currentTarget
+        if (keepWithin && to instanceof Element && to.closest(keepWithin) && !to.matches('input, textarea, [contenteditable="true"]') && !settled.current) {
+          const [from, end] = [el.selectionStart, el.selectionEnd]
+          back.current = true
+          el.focus({ preventScroll: true })
+          if (from !== null && end !== null) el.setSelectionRange(from, end)
+          return
+        }
+        done(el.value.trim())
+      }}
       className={className}
       {...rest}
     />
@@ -89,7 +107,7 @@ export function NameInMenu({ mark, placeholder, label, onMake, onDone, ...rest }
   return (
     <span ref={row} data-name-in-menu data-takes-keys className="flex items-center gap-2 rounded-sm px-2 py-1.5" {...rest}>
       {mark}
-      <NameInPlace placeholder={placeholder} label={label}
+      <NameInPlace placeholder={placeholder} label={label} keepWithin='[role="menu"]'
         className="-mx-1 min-w-0 flex-1 rounded-[4px] bg-transparent px-1 text-control text-foreground outline-none ring-1 ring-ring/45 placeholder:text-muted-foreground"
         onDone={(words) => {
           // Esc (or nothing typed) is an answer too: the row going away after it makes nothing.

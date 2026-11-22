@@ -116,7 +116,14 @@ try {
   const box = await h.locator('[data-peek="customize"]').boundingBox()
   if (box) { await h.mouse.move(box.x + 20, box.y + box.height / 2, { steps: 6 }); await h.mouse.move(box.x + 40, box.y + box.height * 3, { steps: 6 }) }
   await wait(200)
-  check('B. the pointer crossing the other rows leaves the name where it is', await h.evaluate(() => document.activeElement?.matches('[data-new-book] input') && document.activeElement.value === 'Field notes'))
+  const held = await h.evaluate(() => {
+    const el = document.activeElement
+    const field = document.querySelector('[data-new-book] input')
+    return { focused: !!el?.matches('[data-new-book] input'), value: field?.value ?? null, there: !!field, caret: field ? [field.selectionStart, field.selectionEnd] : null,
+      active: el ? `${el.tagName.toLowerCase()}${el.getAttribute('role') ? `[role=${el.getAttribute('role')}]` : ''}${el.getAttribute('data-peek') ? `[data-peek=${el.getAttribute('data-peek')}]` : ''} ${(el.textContent ?? '').trim().slice(0, 40)}` : null,
+      peek: !!document.querySelector('[data-peek-card]'), menu: !!document.querySelector('[role="menu"]') }
+  })
+  check('B. the pointer crossing the other rows leaves the name where it is: focused, its words and caret kept, no card beside a row', held.focused && held.value === 'Field notes' && held.caret?.[0] === 11 && !held.peek, JSON.stringify(held))
   await shot('b2-new-book-typed')
   await h.keyboard.press('Enter')
   check('B. Enter makes the book by that name, and it is opened', await waitFor(async () => (await s.v('books:list')).books.some((one) => one.name === 'Field notes')) && await waitFor(() => electron.evaluate(() => !!globalThis.__relaunched)))

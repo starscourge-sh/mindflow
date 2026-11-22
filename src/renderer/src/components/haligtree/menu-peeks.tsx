@@ -198,10 +198,11 @@ export function MenuPeek({ entries = PEEKS }: { /** Another menu's own cards (th
     // while a submenu is up (open, or still going) no card shows, so the two never stand side by side or over each
     // other. A submenu is drawn in a portal of its own, a child of the page's body: its coming and going is heard there.
     const sub = '[data-slot="context-menu-sub-content"], [data-slot="dropdown-menu-sub-content"]'
-    const read = (): void => setId(menu.querySelector('[aria-haspopup="menu"][data-state="open"]') || document.querySelector(sub) ? null
+    // No card while a row of the menu is a name being typed (name-in-place.tsx NAMING_MENU).
+    const read = (): void => setId(menu.classList.contains('mf-naming-menu') || menu.querySelector('[aria-haspopup="menu"][data-state="open"]') || document.querySelector(sub) ? null
       : menu.querySelector('[data-highlighted][data-peek]:not([aria-haspopup="menu"])')?.getAttribute('data-peek') ?? null)
     const watch = new MutationObserver(read)
-    watch.observe(menu, { attributes: true, subtree: true, attributeFilter: ['data-highlighted', 'data-state'] })
+    watch.observe(menu, { attributes: true, subtree: true, childList: true, attributeFilter: ['data-highlighted', 'data-state', 'class'] })
     watch.observe(document.body, { childList: true })
     read()
     return () => watch.disconnect()
