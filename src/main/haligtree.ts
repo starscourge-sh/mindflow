@@ -1799,6 +1799,8 @@ export function registerHaligtree(): void {
         ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id in (select capture_id from nuggets where id = ? union select origin_capture_id from tasks where id = ?
           union select origin_id from captures where id = ? union select item_id from task_links where task_id = ?) or (id != ? and body like ?)`).all(id, id, id, id, id, keptIn) as never[]),
         ...(db.prepare('select tier as type, id, title, private from nuggets where id = (select origin_id from captures where id = ?) or (id != ? and body like ?)').all(id, id, keptIn) as never[]),
+        // A task made from another's subtask: that task.
+        ...(db.prepare("select 'task' as type, id, title, 0 as private from tasks where id = (select origin_capture_id from tasks where id = ?)").all(id) as never[]),
         ...(JSON.parse((db.prepare('select origins from nuggets where id = ?').get(id) as { origins: string | null } | undefined)?.origins ?? '[]') as string[])
           .map((origin) => db.prepare('select tier as type, id, title, private from nuggets where id = ?').get(origin) as never)
           .filter(Boolean)
@@ -4279,12 +4281,14 @@ export function registerHaligtree(): void {
     link, link_icon as linkIcon, link_title as linkTitle, blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
-  const FROM = `coalesce(origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
+  // Named in full: read inside a lookup of another task (`tasks f`), a bare column was that task's own.
+  const FROM = `coalesce(tasks.origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
   // Each day a task is left undone past its day is one carry over, counted once a day;
   // and one held by a fresh start comes back by itself when a day after the fresh
   // start comes that it is for, or must be ready by. Late ones wait until opened.
   handle('tasks', () => (rollOver(db, dayKey()), db.prepare(`select ${TASK}, subtasks, ${FROM} as fromId,
-    coalesce((select case when private then 'Private note' else ${LABEL} end from captures where id = ${FROM}), (select title from nuggets where id = ${FROM})) as fromTitle
+    coalesce((select case when private then 'Private note' else ${LABEL} end from captures where id = ${FROM}), (select title from nuggets where id = ${FROM}), (select f.title from tasks f where f.id = ${FROM})) as fromTitle,
+    case when exists (select 1 from tasks f where f.id = ${FROM}) then 'task' end as fromType
     from tasks where held_at is null and (? or snoozed_until is null or snoozed_until <= date('now', 'localtime') or status = 'dropped')
     order by status, case priority when 0 then 5 else priority end, coalesce(sort_order, 1e12), due_at is null, due_at, created_at`).all(settings().showSnoozed ? 1 : 0)
     .map((row) => ({ ...(row as object), subtasks: JSON.parse(((row as { subtasks: string | null }).subtasks) ?? '[]') }))))
@@ -4326,7 +4330,8 @@ export function registerHaligtree(): void {
     // What the task is about, linked from nuggets and articles: shown as a
     // checklist on it, and the material comes up first when you open it.
     const linked = db.prepare(`select n.id, n.tier, n.kind, n.title from task_links l join nuggets n on n.id = l.item_id where l.task_id = ?
-      union all select c.id, 'capture', c.kind, label(c.title, c.body) from task_links l join captures c on c.id = l.item_id where l.task_id = ?`).all(id, id)
+      union all select c.id, 'capture', c.kind, label(c.title, c.body) from task_links l join captures c on c.id = l.item_id where l.task_id = ?
+      union all select t.id, 'task', 'task', t.title from tasks t where t.origin_capture_id = ? and t.status != 'dropped'`).all(id, id, id)
     return { ...row, notes: JSON.parse((row.notes as string) ?? 'null'), subtasks: JSON.parse((row.subtasks as string) ?? '[]'), done, linked }
   })
   // A note hidden until a day, or back in sight (null).

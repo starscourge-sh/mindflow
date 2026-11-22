@@ -183,6 +183,8 @@ export type Task = {
   /** The note it came from, for grouping by it: in the list, not on one task. */
   fromId?: string | null
   fromTitle?: string | null
+  /** 'task' when it was made from another task's subtask; otherwise it came from a note. */
+  fromType?: 'task' | null
   subtasks?: Subtask[]
   /** Named by a link: its address (kept out of the name), and the site's icon once its page was asked. */
   link?: string | null
@@ -190,7 +192,7 @@ export type Task = {
   /** The linked page's own title, once asked (main/haligtree.ts task:link:fill); the site's name until then. */
   linkTitle?: string | null
 }
-type Subtask = { text: string; done: boolean }
+export type Subtask = { text: string; done: boolean }
 /** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */
 export type TaskWas = { reschedules: number; notifiedAt: string | null }
 /** What a task was before it was done, so it can be put back. */

@@ -15,6 +15,8 @@ export const TAG_HERE = String.raw`[\p{L}\p{Extended_Pictographic}][\p{L}\p{M}\p
  * words as typed are what is lit and kept.
  */
 const SHORT: [RegExp, string][] = [
+  // "test 2 @ 3", "call @3pm": the at sign said for "at" before a time ("@" before a word is still a note's link).
+  [/(?<!\S)@\s?(?=\d)/g, 'at '],
   [/\b(?:tmrw?|tmw|tmrrw|2moro|2mor+ow|2mrw|tomoz)\b/gi, 'tomorrow'],
   [/\btues\b/gi, 'tuesday'],
   [/\bweds\b/gi, 'wednesday'],
