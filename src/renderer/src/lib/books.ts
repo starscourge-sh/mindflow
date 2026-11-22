@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { createElement, useEffect, useState } from 'react'
+import { Book as BookIcon } from 'lucide-react'
 
 import { SANDBOX, barsOf, enterSandbox, gatherCarry, leaveSandbox, momentOn } from './sandbox'
 import { haligtree } from './haligtree'
 import { refuse } from '@/components/haligtree/ui'
+import { moveToBin } from './to-bin'
 import { EASING, byKeys, still } from '@/lib/motion'
 import { num } from '../../../main/dates'
 
@@ -276,6 +278,30 @@ export const copyToBook = (refs: BookRef[], id: string): Promise<number> => wind
 export const askBook = (mode: 'copy' | 'import', detail: { refs?: BookRef[]; what?: 'vault' | 'files' } = {}): void =>
   void window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode, ...detail } }))
 
-/** The row menus' line: copies of these, with their pictures and files, into another book. */
-export const copyToBookItem = (refs: BookRef[]): { label: string; run: () => void } | false =>
-  refs.length > 0 && { label: refs.length > 1 ? `Copy ${num(refs.length)} to book…` : 'Copy to book…', run: () => askBook('copy', { refs }) }
+/**
+ * Move to book ▸, as Arc's "Move Tabs to Profile" (the user, 22 Nov): every book in the submenu, the open one ticked, a
+ * choice taking these there at once, no box to type in. A copy is written for that book (it takes it in when it next
+ * opens) and these go to this book's Bin, with one notice saying where they went; Undo brings them back here and takes
+ * the copy back while that book has not opened. With one book, no line.
+ */
+export const moveToBookItem = (refs: BookRef[], kinds: { type: string; id: string; status?: string }[]): { label: string; run: () => void } | { label: string; items: { label: string; icon: ReturnType<typeof createElement>; run: () => void }[] } | false => {
+  const others = (lastShelf?.books ?? []).filter((book) => !book.current)
+  if (!refs.length || !others.length) return false
+  const n = refs.length > 1 ? `${num(refs.length)} ` : ''
+  const to = (book: Book) => (): void => void window.api.haligtree<string | null>('books:move', refs, book.id).then((parcel) => {
+    if (!parcel) return refuse(`Not moved to ${book.name}: its copy could not be written`)
+    void moveToBin(kinds, () => void window.api.haligtree('books:unmove', book.id, parcel), `Moved ${n}to ${book.name}. It is there when you open it`)
+  })
+  // One other book: its own line, never a submenu of one row.
+  if (others.length === 1) return { label: `Move ${n}to ${others[0].name}`, run: to(others[0]) }
+  // Each book with its own mark in its own colour, as the shelf and Settings show it (books.tsx BookMark).
+  const mark = (book: Book): ReturnType<typeof createElement> => createElement(BookIcon, { 'aria-hidden': true, className: 'size-4 shrink-0', style: { color: markInk(book.color), stroke: markInk(book.color) } })
+  return { label: `Move ${n}to book`, items: others.map((book) => ({ label: book.name, icon: mark(book), run: to(book) })) }
+}
+// Read once as the window opens and on every change, so a menu built in a moment knows the books.
+if (typeof window !== 'undefined' && window.api) {
+  const read = (): void => void shelf().then((one) => (lastShelf = one)).catch(() => undefined)
+  read()
+  window.addEventListener('haligtree:books-changed', read)
+}
+

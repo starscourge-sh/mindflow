@@ -41,7 +41,7 @@ export const seeTheBin = { label: 'Open the Bin', key: 'B', run: () => window.ap
 const saidOf = (n: number): string => (n === 1 ? 'Moved to the Bin' : `Moved ${num(n)} to the Bin`)
 
 /** Move each one to the Bin, at once, with one notice and one undo for the lot. Gives back how many went. */
-export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<number> {
+export async function moveToBin(refs: BinRef[], onUndo?: () => void, said?: string): Promise<number> {
   // A capture already in the Bin, or a task already closed without doing, is there already.
   const going = refs.filter((one) => !(one.type === 'capture' && one.status === 'discarded') && !(one.type === 'task' && one.status === 'dropped'))
   if (!going.length) {
@@ -90,7 +90,7 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   }
   last = { ids: going.map((one) => one.id), undo, at: Date.now(), page: pageInFront() }
   // Said as the writes go out, before the first lands: the rows never leave ahead of the notice and its Undo.
-  toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin, { type: 'view', id: 'discarded', at: going.map((one) => one.id).join(',') })
+  toast(said ?? `${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', said ? undefined : seeTheBin, { type: 'view', id: 'discarded', at: going.map((one) => one.id).join(',') })
   const all = await settled
   let count = going.length
   const failed = all.flatMap((one, at) => (one.status === 'rejected' ? [{ count: parts[at].count, why: one.reason }] : []))

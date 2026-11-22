@@ -109,10 +109,13 @@ type Row = Record<string, unknown>
 type Parcel = { from: string; at: string; items: { table: 'captures' | 'nuggets'; row: Row; glosses: Row[] }[] }
 const ASSET = /haligtree:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)/g
 
-/** Copies of these notes, written down for another book with their pictures and files. The count copied. */
+/** Copies of these notes, written down for another book with their pictures and files. The count copied, and the parcel's file (for an Undo while the book has not taken it in). */
 async function copyInto(refs: unknown, id: BookId): Promise<number> {
+  return (await parcelInto(refs, id))?.count ?? 0
+}
+async function parcelInto(refs: unknown, id: BookId): Promise<{ count: number; file: string } | null> {
   const folder = folderOf(id)
-  if (!folder || id === here() || !Array.isArray(refs)) return 0
+  if (!folder || id === here() || !Array.isArray(refs)) return null
   const db = database()
   const items: Parcel['items'] = []
   for (const ref of refs as { table?: unknown; id?: unknown }[]) {
@@ -122,7 +125,7 @@ async function copyInto(refs: unknown, id: BookId): Promise<number> {
     const glosses = table === 'nuggets' ? (db.prepare('select * from glosses where item_id = ? order by created_at').all(String(row.id)) as Row[]) : []
     items.push({ table, row, glosses })
   }
-  if (!items.length) return 0
+  if (!items.length) return null
   // Pictures and files are named by their contents: one already there is the same file.
   const store = join(app.getPath('userData'), 'assets')
   const to = join(folder, 'assets')
@@ -137,7 +140,7 @@ async function copyInto(refs: unknown, id: BookId): Promise<number> {
   const file = join(folder, ARRIVING, `${Date.now()}-${randomUUID()}`)
   await writeFile(`${file}.part`, JSON.stringify(parcel))
   await rename(`${file}.part`, `${file}.json`)
-  return items.length
+  return { count: items.length, file: `${file}.json` }
 }
 
 type Node = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Node[]; marks?: unknown[] }
@@ -525,6 +528,14 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     return true
   })
   handle('copy', (refs: unknown, id: unknown) => copyInto(refs, String(id)))
+  // Move to book ▸: the copy written for that book; its parcel's name, so an Undo can take it back before the book opens.
+  handle('move', async (refs: unknown, id: unknown) => (await parcelInto(refs, String(id)))?.file ?? null)
+  handle('unmove', async (id: unknown, file: unknown) => {
+    const folder = folderOf(String(id))
+    // Only a parcel still waiting in that book's own arriving folder: one it has taken in is its now.
+    if (!folder || typeof file !== 'string' || !file.startsWith(join(folder, ARRIVING) + '/')) return false
+    return rm(file).then(() => true, () => false)
+  })
   handle('carry', async () => {
     const carry = carried()
     await rm(join(dataRoot(), CARRY), { force: true })

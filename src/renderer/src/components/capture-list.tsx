@@ -23,7 +23,7 @@ import { FileText } from 'lucide-react'
 import { isFolder, type NoteGroup } from '@/lib/groups'
 import { GroupIcon } from './haligtree/kept-groups'
 import { queueMenu } from '@/lib/reading-queue'
-import { copyToBookItem } from '@/lib/books'
+import { moveToBookItem } from '@/lib/books'
 import { addToQuestion, keepAsking } from './haligtree/questions-view'
 import { age, dayjs, dayKey, daysSince, num, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
@@ -248,6 +248,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   'separator',
   // Out of the Inbox, into a place: Folders' one picker (lib/folders.ts).
   capture.status !== 'discarded' && { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: 'capture', id: capture.id }]) },
+  capture.status !== 'discarded' && moveToBookItem([{ table: 'captures', id: capture.id }], [{ type: 'capture', id: capture.id, status: capture.status }]),
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },
   { label: capture.pinnedAt ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin('captures', capture.id, !capture.pinnedAt) },
   { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('captures', capture.id, !capture.private) },
@@ -268,7 +269,6 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
     { label: 'Copy text', run: () => copy(capture.label) },
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
     { label: 'Publish as a website…', hint: 'With the notes it links to, as web pages', run: () => void publishSite(capture.id) },
-    copyToBookItem([{ table: 'captures', id: capture.id }]),
     ...pictureItems(`capture-${capture.id}`, capture.label),
     // A quote waiting in the Inbox can go out as a card too: its line, who said it and where.
     ...(capture.kind === 'quote' ? [cardItem({ body: () => window.api.captures.get(capture.id).then((one) => one?.body), title: capture.label, attribution: capture.attribution, medium: capture.medium })] : [])

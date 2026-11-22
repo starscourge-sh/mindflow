@@ -84,7 +84,7 @@ import { askProofread } from '@/lib/grammar'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, publishSite, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { openApart, openSmall, smallHolds } from '@/lib/apart'
-import { copyToBookItem } from '@/lib/books'
+import { moveToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing, NoteWaiting } from './note-coming'
@@ -998,7 +998,6 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
   { label: 'Export', items: [
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
     { label: 'Publish as a website…', hint: 'With the notes it links to, as web pages', run: () => void publishSite(item.id) },
-    copyToBookItem([{ table: 'nuggets', id: item.id }]),
     { label: 'Copy title', run: () => copy(item.title) },
     ...pictureItems(`item-${item.id}`, item.title),
     // A gem as a card to post: its words, who said them and where.
@@ -1012,6 +1011,7 @@ export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   'separator',
   { label: item.pinnedAt ? 'Remove from Favorites' : 'Add to Favorites', run: () => pin('nuggets', item.id, !item.pinnedAt) },
   { label: 'Keep in folder…', run: () => askFolder([{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]) },
+  moveToBookItem([{ table: 'nuggets', id: item.id }], [{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]),
   ...itemMenu(item),
   'separator',
   copyLinkItem(`${item.tier}:${item.id}`, item.title),
@@ -1196,6 +1196,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             ...(item.tier !== 'article' ? [{ label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread }] : []),
             // Where it lives: the one folder picker, beside this menu's button.
             { label: 'Keep in folder…', run: () => askFolder([{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]) },
+            moveToBookItem([{ table: 'nuggets', id: item.id }], [{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]),
             ...itemMenu(item),
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
@@ -2323,7 +2324,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
         label: n > 1 ? `Copy ${num(n)} links` : 'Copy link',
         run: () => void noteGroupsApi.links(these).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`) : refuse(n > 1 ? 'No web links in these notes' : 'No web link in this note')))
       },
-      n > 1 && copyToBookItem(these.map((id) => ({ table: 'nuggets' as const, id }))),
+      n > 1 && moveToBookItem(these.map((id) => ({ table: 'nuggets' as const, id })), these.map((id) => ({ type: tier === 'question' ? 'question' : tier === 'article' ? 'article' : 'nugget', id }))),
       n > 1 && 'separator',
       n > 1 && { label: `Archive ${num(n)} notes`, hint: 'Kept, out of sight', run: () => (done(), void archive('nuggets', these, true)) }
     ]
