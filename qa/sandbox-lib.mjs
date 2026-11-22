@@ -45,7 +45,8 @@ async function untilSeeded(read, h) {
   throw new Error('The sandbox was not seeded after 3 minutes: not testing a half-made book')
 }
 
-export async function sandbox({ width = 1000, height = 700, seeded = true, at } = {}) {
+/** `weekday` (0 is Sunday) with `at`: that time on the coming such day, today if it is one (the Sunday week card). */
+export async function sandbox({ width = 1000, height = 700, seeded = true, at, weekday } = {}) {
   const qa = await open()
   const { electron, page } = qa
   const errors = []
@@ -62,6 +63,7 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
     const [hour, minute] = at.split(':').map(Number)
     const target = new Date()
     target.setHours(hour, minute, 0, 0)
+    if (weekday !== undefined) target.setDate(target.getDate() + ((weekday - target.getDay() + 7) % 7))
     offset = target.getTime() - Date.now()
     await electron.evaluate((_, [code, by]) => new Function(`(${code})(${by})`)(), [shiftClock.toString(), offset])
     await electron.context().addInitScript(`(${shiftClock.toString()})(${offset})`)

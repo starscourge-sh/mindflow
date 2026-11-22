@@ -2105,11 +2105,13 @@ export function registerHaligtree(): void {
   }
 
   // --- the weekly digest: the seven days to now, caught, kept, reviewed and finished. Nothing leaves the Mac.
-  const digest = (from = ago(7)): { caught: number; kept: number; reviewed: number; finished: number; from: string } => {
+  const digest = (from = ago(7)): { caught: number; kept: number; pages: number; reviewed: number; finished: number; from: string } => {
     const n = (sql: string): number => (db.prepare(sql).get(from) as { n: number }).n
     return {
       caught: n('select count(*) n from captures where captured_at >= ?'),
       kept: n("select count(*) n from nuggets where created_at >= ? and tier in ('nugget', 'article')"),
+      // Of those kept, how many are pages: a week of one page is said as "1 page kept", not "1 kept".
+      pages: n("select count(*) n from nuggets where created_at >= ? and tier = 'article'"),
       reviewed: n('select count(*) n from review_log where reviewed_at >= ?'),
       finished: n("select count(*) n from task_done where done_at >= ? and task_id not in (select id from tasks where status = 'dropped')"),
       from

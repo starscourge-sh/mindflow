@@ -196,7 +196,7 @@ try {
     const tags500 = Array.from({ length: 500 }, (_, i) => ({ name: `chapter-${i + 1}`, n: 500 - i }))
     const sites50 = Array.from({ length: 50 }, (_, i) => ({ site: `site-number-${i + 1}.example.com`, count: 50 - i }))
     const WORST = {
-      empty: { captures: 0, tags: [], minutes: 0, sessions: 0, focusTasks: [], planned: 0, did: 0, planRows: [], pictures: [], notes: [], gems: 0, run: 0, busiest: null, well: [], kind: 'Quiet', sites: [], busy: [], days: {} },
+      empty: { captures: 0, tags: [], minutes: 0, sessions: 0, focusTasks: [], planned: 0, did: 0, planRows: [], pictures: [], notes: [], gems: 0, run: 0, busiest: null, well: [], kind: 'Quiet', sites: [], busy: [], days: {}, thin: true, pages: [] },
       one: { captures: 1, tags: [{ name: 'reading', n: 1 }], minutes: 1, sessions: 1, run: 2, notes: ['Meditations'], gems: 1, sites: [{ site: 'x.com', count: 1 }] },
       many: { captures: 12345, tags: tags500, notes: tags500.map((t) => `Notes on ${t.name}`), sites: sites50 },
       long: { tags: [{ name: 'the-history-of-the-byzantine-empire-and-its-neighbours-notes', n: 9 }, { name: 'reading', n: 3 }], notes: ['The History of the Decline and Fall of the Roman Empire, Volume the Sixth'], well: ['Finished the first draft of the long chapter on the Byzantine succession, all forty pages of it, before the deadline.'], sites: [{ site: 'news.ycombinator.com', count: 12345 }, { site: 'a-very-long-subdomain.of-a-long-site-name.example.org', count: 3 }], focusTasks: [{ name: 'Write the long chapter on the Byzantine succession and its forty pages of notes', minutes: 12345 }] },
@@ -209,9 +209,10 @@ try {
           await c.size(w, hh)
           await open(world, worst)
           let opening = ''
-          const { kinds, cuts } = await walk(`worst-${name}-${world}-${size}`, async (kind) => void (kind === 'intro' && (opening = await h.locator('[data-wrap-card]').innerText())))
-          check(`worst ${name}, ${world} ${size}: every card shows, no word cut, over another or under the foot`, kinds.at(-1) === 'report' && !cuts.length, `${kinds.join(' ')}; ${cuts.join('; ')}`)
-          if (name === 'empty') check(`worst empty, ${world} ${size}: a quiet month says so, and has no sites card`, !kinds.includes('sites') && /A quiet month/.test(opening), `${kinds.join(' ')}; ${opening.replace(/\s+/g, ' ')}`)
+          const { kinds, cuts } = await walk(`worst-${name}-${world}-${size}`, async (kind) => void ((kind === 'intro' || kind === 'quiet') && (opening = await h.locator('[data-wrap-card]').innerText())))
+          check(`worst ${name}, ${world} ${size}: every card shows, no word cut, over another or under the foot`, kinds.at(-1) === (name === 'empty' ? 'quiet' : 'report') && !cuts.length, `${kinds.join(' ')}; ${cuts.join('; ')}`)
+          // Too little to tell: one honest card, no report of empty tiles and nothing offered to share (the user, 22 Nov).
+          if (name === 'empty') check(`worst empty, ${world} ${size}: one card says there is not much to wrap, with no share buttons`, kinds.length === 1 && /Not much to wrap/.test(opening) && !(await h.locator('[data-wrap-copy], [data-wrap-save]').count()), `${kinds.join(' ')}; ${opening.replace(/\s+/g, ' ')}`)
           await close()
         }
   }

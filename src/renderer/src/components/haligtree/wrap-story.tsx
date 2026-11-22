@@ -57,6 +57,8 @@ type Wrapped = {
   focus: { minutes: number; sessions: number; tasks: { name: string; minutes: number }[] }
   plan: ReturnType<typeof plannedVsDid>
   gems: Item[]
+  /** Pages made in the span: never a card of their own, but named when there is too little for a story (Quiet). */
+  pages: Item[]
   run: { n: number; from: string; to: string }
   busy: string[]
   days: Record<string, number>
@@ -75,11 +77,12 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
   for (let monday = dayjs(from).startOf('week'); dayKey(monday) <= to; monday = monday.add(1, 'week')) mondays.push(dayKey(monday))
   const prior = dayjs(from).subtract(1, period)
   const [priorSince, priorUntil] = [prior.startOf(period).toISOString(), prior.endOf(period).toISOString()]
-  const [recap, sessions, tasks, gems, days, pages, sent, read, priorRecap, priorSessions] = await Promise.all([
+  const [recap, sessions, tasks, gems, articles, days, pages, sent, read, priorRecap, priorSessions] = await Promise.all([
     haligtree.recap(period, since),
     haligtree.sessionsSpan(since, until) as Promise<SpanSession[]>,
     haligtree.tasks() as Promise<Task[]>,
     haligtree.items('nugget'),
+    haligtree.items('article'),
     haligtree.dayCaptures(from, to),
     Promise.all(mondays.map((monday) => haligtree.period(`week:${monday}`))),
     sentAwaySince(since),
@@ -116,6 +119,7 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
     focus: { minutes: Math.round(total), sessions: sessions.length, tasks: most },
     plan: plannedVsDid(tasks, minutes, from, to),
     gems: gems.filter((gem) => !gem.private && dayKey(gem.createdAt) >= from && dayKey(gem.createdAt) <= to),
+    pages: articles.filter((page) => !page.private && dayKey(page.createdAt) >= from && dayKey(page.createdAt) <= to),
     run,
     busy: [...busy],
     days: days.counts,
@@ -125,6 +129,17 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
     before: { captures: priorRecap.captures, tags: priorRecap.tags, minutes: Math.round(priorSessions.reduce((sum, one) => sum + spent(one), 0)) }
   }
 }
+
+/**
+ * Enough to tell a story: at least three things done in the span (caught, gems and pages kept, focus sessions, articles
+ * finished, tasks planned), and at least one of them a card of its own. A new book's one page is not a story: the
+ * user, 22 Nov, opened "Your week, wrapped" on a week with one page in it and got an empty cover and "None yet" tiles.
+ */
+const enough = (d: Wrapped): boolean =>
+  d.recap.captures + d.gems.length + d.pages.length + d.focus.sessions + d.reads.finished + d.plan.rows.length >= 3 &&
+  (d.recap.captures > 0 || d.focus.minutes >= 1 || d.sites.length > 0 || d.reads.total > 0 || d.plan.rows.length > 0 || d.gems.length > 0 || d.well.length > 0)
+/** Whether a span ("week:2026-11-16", "month:2026-10") has enough to wrap: Home and the month's offer ask before offering it. */
+export const worthWrapping = (id: string): Promise<boolean> => wrapOf(spanOf(id)).then(enough, () => false)
 
 type Picture = { src: string; title: string; type: string; id: string; stored?: string }
 /** What the Mac's Vision calls a picture of words, a page or a screen (main/picture-sight.ts): never a story's hero. */
@@ -192,8 +207,12 @@ type Facts = {
   /** Captures by hour of the day, and the hour most came in; null with too few to say. */
   hours: number[]; hour: number | null
   before: Wrapped['before']
+  /** Too little for a story (enough): one honest card in its stead, saying what there is. */
+  thin: boolean
+  /** The span's pages, by name, for that card. */
+  pages: string[]
 }
-type Kind = 'intro' | 'tags' | 'focus' | 'sites' | 'reading' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
+type Kind = 'quiet' | 'intro' | 'tags' | 'focus' | 'sites' | 'reading' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
 
 /** What the month most was, in a word: the report card's "Top kind". */
 const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number }): string =>
@@ -252,6 +271,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       // An hour is said only with enough caught to mean something, and one hour clearly ahead of the next.
       hours: recap.hours, hour: thinkingHour(recap.hours),
       well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites, reads, before,
+      thin: !enough(data), pages: data.pages.map((page) => page.title.trim() || 'Untitled'),
       ...worst
     }
   }, [data, pictures, heroes]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -264,7 +284,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   const ai = useHas('ai') && !worst
   // The plain statements are the app's own, made by rules: every Mac has them. Apple Intelligence only says them again.
   const says = useMemo(() => (facts ? wrapSays(facts) : null), [facts])
-  const asked = ai ? says : null
+  const asked = ai && !facts?.thin ? says : null
   const voice = VOICE[look.world]
   const [written, setWritten] = useState<{ leads: Record<string, string> | null; done: boolean }>({ leads: null, done: false })
   useEffect(() => {
@@ -291,6 +311,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   const kinds = useMemo<Kind[]>(() => {
     if (!facts) return []
     const f = facts
+    // Too little to tell: one card that says so, never an intro, an outro and a report card of empty tiles.
+    if (f.thin) return ['quiet']
     const rand = seeded(seed + 1)
     // The most to say first; near equals trade places now and then.
     const middle: [number, Kind][] = []
@@ -394,7 +416,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         {/* Where you are, as bars that fill, over the card; the close beside them. */}
         <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-4 pt-3">
           <div className="flex flex-1 gap-1">
-            {kinds.map((one, index) => (
+            {/* One card has nowhere to turn: no bars for it. */}
+            {kinds.length > 1 && kinds.map((one, index) => (
               <button key={one} type="button" aria-label={`Card ${num(index + 1)} of ${num(kinds.length)}`} aria-current={index === at || undefined} onClick={() => go(index)}
                 className="h-1 flex-1 cursor-pointer rounded-[2px] transition-opacity duration-200" style={{ background: p.ink, opacity: index <= at ? 0.9 : 0.25 }} />
             ))}
@@ -403,7 +426,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         </div>
         <div data-wrap-keep className="absolute right-4 bottom-4 z-20 flex h-8 items-center gap-2">
           <AnimatePresence>
-            {at === last && kinds.length > 0 && (
+            {/* The report card is the one to keep; the quiet card is nothing to share. */}
+            {at === last && kinds[last] === 'report' && (
               <motion.div key="keep" className="flex items-center gap-2" initial={still() ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.3, delay: 0.7 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
                 <button type="button" data-wrap-copy onClick={() => void keep(false)} className="h-8 cursor-pointer rounded-full px-3.5 text-[13px] font-semibold active:scale-[0.97]" style={{ background: p.ink, color: p.bg }}>Copy as image</button>
                 <button type="button" data-wrap-save onClick={() => void keep(true)} className="h-8 cursor-pointer rounded-full px-3.5 text-[13px] font-semibold active:scale-[0.97]" style={{ boxShadow: `inset 0 0 0 1.5px ${p.ink}`, color: p.ink }}>Save as image…</button>
@@ -442,8 +466,8 @@ function Backdrop({ p, hue }: { p: Palette; hue: number }): React.JSX.Element {
 
 type Look = { world: World; p: Palette; intro: string; outro: string; folder: string; entrance: (typeof ENTRANCES)[number]; op: Op }
 /** An empty month says so, rather than promising cards it does not have. */
-const opening = (f: Facts, line: string): string => (!f.captures && !f.minutes ? `A quiet ${f.period}: nothing caught or focused on yet.` : fill(line, f.name))
-const fill = (line: string, name: string): string => line.replaceAll('{name}', name).replace(/^./, (c) => c.toUpperCase())
+const opening = (f: Facts, line: string): string => (!f.captures && !f.minutes ? `A quiet ${f.period}: nothing caught or focused on yet.` : fill(line, f.name, f.period))
+const fill = (line: string, name: string, period: string): string => line.replaceAll('{name}', name).replaceAll('{period}', period).replace(/^./, (c) => c.toUpperCase())
 const and = (words: string[]): string => new Intl.ListFormat('en', { type: 'conjunction' }).format(words)
 /** A site's name that breaks only after its dots: news.ycombinator.com never splits mid-word. */
 const siteWords = (site: string): ReactNode => site.length <= 16 ? <span className="whitespace-nowrap">{site}</span> : site.split(/(?<=\.)/).map((part, i) => <span key={i}>{i ? <wbr /> : null}{part}</span>)
@@ -684,6 +708,26 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
 
   const body = ((): ReactElement => {
     switch (kind) {
+      case 'quiet': {
+        // Said plainly: there is not much yet, here is what there is, and when it becomes a story.
+        const now = dayKey() <= f.to
+        const head = f.period === 'week' ? (now ? 'Not much to wrap yet this week' : `Not much to wrap for ${f.name}`) : `Not much to wrap in ${f.name}${now ? ' yet' : ''}`
+        const names = (titles: string[]): string => (titles.length && titles.length <= LIST ? `: ${and(titles.map((one) => quoted(one, 60)))}` : '')
+        const there = [
+          f.pages.length && `${plural(f.pages.length, 'page')} kept${names(f.pages)}`,
+          f.gems && `${plural(f.gems, 'gem')} kept${names(f.notesLabel === 'Gems kept' ? f.notes : [])}`,
+          f.captures && `${plural(f.captures, 'thing')} caught`,
+          f.minutes >= 1 && `${plural(f.minutes, 'minute')} focused`,
+          f.reads.finished && `${plural(f.reads.finished, 'article')} finished`
+        ].filter((one): one is string => !!one)
+        return (
+          <Centre>
+            <In at={0.12} from={e}><h2 data-wrap-quiet-head className={`${BIG} text-balance`}>{head}</h2></In>
+            {there.length > 0 && <In at={0.35}><ul data-wrap-quiet-has className="mt-4 space-y-1 text-[19px] leading-snug font-bold">{there.map((line) => <li key={line} dir="auto">{line}</li>)}</ul></In>}
+            <In at={0.5}><p className={SOLO_CAPTION}>{there.length ? 'Once a few more things are caught, kept or focused on, this becomes a few cards.' : 'Nothing caught, kept or focused on yet. Once a few things are, this becomes a few cards.'}</p></In>
+          </Centre>
+        )
+      }
       case 'intro':
         if (night) return <Centre>{kicker}<In at={0.12} from={e}><h2 className="text-[clamp(40px,10cqi,84px)] leading-[0.95] font-black tracking-tight text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={opening(f, look.intro)} /></p></In></Centre>
         return split(<>
@@ -758,9 +802,9 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
           </div>
         )
       case 'notes':
-        if (!night && wide) return split(<In><h2 className={BIG}>{look.folder}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
-        if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{look.folder}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
-        return split(<><In at={0.12}><h2 className={BIG}>{look.folder}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
+        if (!night && wide) return split(<In><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
+        if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{fill(look.folder, f.name, f.period)}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
+        return split(<><In at={0.12}><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
       case 'well':
         // One or two lines in your words are the card: set large in the middle, each in its own quote.
         if (f.well.length < LIST) return <Centre>{kicker}<In at={0.12}><p className={CAPTION}>What went well, from your weekly notes</p></In>{f.well.map((line, i) => <In key={line} at={0.3 + i * 0.15}><p className="max-w-[30ch] text-[clamp(22px,4cqi,32px)] leading-snug font-bold text-balance" dir="auto">{quoted(line, 120)}</p></In>)}</Centre>
@@ -785,9 +829,9 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
         return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
           <In at={0.4}>{caption(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In></>, <HourBars f={f} p={p} />)
       case 'outro':
-        if (night) return <Centre>{kicker}<In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
+        if (night) return <Centre>{kicker}<In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
         // The second of your pictures, so the story never ends on the one it opened with; with one or none, the motif.
-        return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.heroes[1]))
+        return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.heroes[1]))
       case 'report':
         return <Report f={f} look={look} />
     }
@@ -801,10 +845,16 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
   const frame = world === 'files' ? <OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" /> : <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} />
   const picture = f.heroes[0]
   const month = f.period === 'month' ? f.name.split(' ')[0] : 'Week'
-  const list = (title: string, rows: string[]): ReactElement => (
+  // A tile with nothing in it is not drawn: never "None yet", a 0 or "Quiet" set large as if it were news.
+  const list = (title: string, rows: string[]): ReactElement | null => rows.length ? (
     <div className="min-w-0"><p className="text-[11px] font-semibold text-(--wrap-quiet)">{title}</p>
-      <ol className="mt-1 space-y-0.5 text-[14px] font-bold">{rows.length ? rows.slice(0, 5).map((row, i) => <li key={row + i} className="truncate" dir="auto">{i + 1} {row}</li>) : <li className="text-(--wrap-quiet)">None yet</li>}</ol></div>
-  )
+      <ol className="mt-1 space-y-0.5 text-[14px] font-bold">{rows.slice(0, 5).map((row, i) => <li key={row + i} className="truncate" dir="auto">{i + 1} {row}</li>)}</ol></div>
+  ) : null
+  const lists = [list('Top tags', f.tags.map((t) => `#${t.name}`)), list(f.notesLabel, f.notes)].filter(Boolean)
+  const figures = [
+    f.minutes > 0 && <div key="minutes"><p className="text-[clamp(26px,5cqi,40px)] leading-none font-black"><Roll n={f.minutes} delay={0.5} /></p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">{f.minutes === 1 ? 'minute' : 'minutes'} focused</p></div>,
+    f.kind !== 'Quiet' && <div key="kind" className="min-w-0"><p className="text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-black" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">your kind of {f.period}</p></div>
+  ].filter(Boolean)
   return (
     <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-11 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report>
       <In from="scale" className="relative min-h-[64px] overflow-hidden rounded-[6px]">
@@ -818,11 +868,8 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
         </div>
       </In>
       <div className="grid min-w-0 [align-content:safe_center] gap-3 @2xl:gap-5">
-        <In at={0.2} className="grid grid-cols-2 gap-x-4">{list('Top tags', f.tags.map((t) => `#${t.name}`))}{list(f.notesLabel, f.notes)}</In>
-        <In at={0.35} className="grid grid-cols-2 gap-4">
-          <div><p className="text-[clamp(26px,5cqi,40px)] leading-none font-black"><Roll n={f.minutes} delay={0.5} /></p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">minutes focused</p></div>
-          <div className="min-w-0"><p className="text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-black" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">your kind of {f.period}</p></div>
-        </In>
+        {lists.length > 0 && <In at={0.2} className="grid grid-cols-2 gap-x-4">{lists}</In>}
+        {figures.length > 0 && <In at={0.35} className="grid grid-cols-2 gap-4">{figures}</In>}
       </div>
     </div>
   )
@@ -846,8 +893,9 @@ export function WrapOffer(): React.JSX.Element | null {
     if (!seen) return void haligtree.setSettings({ wrapOffered: month })
     // Offered once, said so at once: a second window or a reload never offers it again.
     void haligtree.setSettings({ wrapOffered: month })
-    void haligtree.recap('month', `${month}-01`).then((recap) => {
-      if (!recap.captures && !recap.reviews) return
+    // Offered only with a story to tell (enough): a month of one page is not one.
+    void worthWrapping(`month:${month}`).then((worth) => {
+      if (!worth) return
       setTimeout(() => (chime('noted'), setOffer(month)), 1500)
     })
   }, [settings, month]) // eslint-disable-line react-hooks/exhaustive-deps

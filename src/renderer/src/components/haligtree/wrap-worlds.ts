@@ -73,6 +73,6 @@ export const OUTROS = [
   'That was {name}, as you wrote it.',
   'On to the next page. {name} is kept.',
   'Thank you for writing it down.',
-  'Same time next month? Your book will be here.'
+  'Same time next {period}? Your book will be here.'
 ]
-export const FOLDER_LINES = ['We pulled some of your notes, just in case.', 'A few you might want again.', 'From the drawer this month.']
+export const FOLDER_LINES = ['We pulled some of your notes, just in case.', 'A few you might want again.', 'From the drawer this {period}.']
