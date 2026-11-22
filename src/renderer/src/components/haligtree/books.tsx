@@ -8,7 +8,8 @@ import { OtherCover, ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { HUES, askBook, askCards, bookCardNow, bookCardOf, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookCard, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
+import { SortableList, SortableRow } from './sortable'
+import { HUES, askBook, moveBook, askCards, bookCardNow, bookCardOf, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookCard, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
@@ -416,9 +417,12 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   const lit = useMotionValue(1)
   // Each opening asks every other book's reader card afresh, so each is there before the book is pulled out.
   useState(() => askCards(books.filter((one) => !one.current).map((one) => one.id)))
-  const saidOf = (book: Book, at: number): string => (book.current ? 'Open now' : at === 1 && book.openedAt ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
+  // The one you were in last, wherever it stands on the shelf (its order may be yours).
+  const last = books.filter((one) => !one.current && one.openedAt).sort((a, b) => (b.openedAt ?? 0) - (a.openedAt ?? 0))[0]?.id
+  const saidOf = (book: Book): string => (book.current ? 'Open now' : book.id === last ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
   const shown = Math.max(0, books.findIndex((one) => (pointed ? one.id === pointed : one.current)))
-  const spines = spinesOf(books)
+  // Where a press began: a press that went on to move (a book carried along the shelf) never opens a book as it lets go.
+  const down = useRef<{ x: number; y: number } | null>(null)
   return (
     <>
       <div ref={row} role="group" aria-label="Your books" data-book-shelf data-unlit className="mf-shelf" style={style}
@@ -426,18 +430,33 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
         onKeyDownCapture={() => void (keyed.current = true)}
         // Only a pointer that really moved takes over from the keys: the page also sends one, unmoved, as the books part under it.
         onPointerMove={(event) => void (realMove(event) && (keyed.current = false))}
-        onFocus={(event) => setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
-        onBlur={(event) => !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}>
-        {books.map((book, at) => (
-          <ShelfBook key={book.id} book={book} said={saidOf(book, at)} up={at === shown} spine={spines[at]} keyed={() => keyed.current} lit={lit}
-            onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} />
-        ))}
+        // While a book is carried, the one turned out stays as it was: the shelf never reshapes under the hand.
+        onFocus={(event) => document.documentElement.dataset.dragging === undefined && setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
+        onBlur={(event) => document.documentElement.dataset.dragging === undefined && !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}
+        onPointerDownCapture={(event) => void (down.current = { x: event.clientX, y: event.clientY })}
+        onClickCapture={(event) => {
+          const at = down.current
+          if (at && Math.hypot(event.clientX - at.x, event.clientY - at.y) > 4) (event.preventDefault(), event.stopPropagation())
+        }}>
+        {/* Your books in your own order: a book pressed and carried along the shelf goes where it is let go (the shared
+            drag, sortable.tsx), saved on the shelf for every list of them (Settings › Books too). */}
+        <SortableList axis="x" items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
+          {(order) => {
+            const spines = spinesOf(order)
+            return order.map((book, at) => (
+              <SortableRow key={book.id} id={book.id} className="flex-none">
+                <ShelfBook book={book} said={saidOf(book)} up={book.id === books[shown]?.id} spine={spines[at]} keyed={() => keyed.current} lit={lit}
+                  onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} />
+              </SortableRow>
+            ))
+          }}
+        </SortableList>
       </div>
       {/* The turned book named under the shelf, as a video shelf names the tape it has out. */}
       {books[shown] && (
         <div aria-hidden data-book-caption className="mf-shelf-caption">
           <span className="mf-spine-said-name">{books[shown].name}</span>
-          <span className="mf-spine-said">{saidOf(books[shown], shown)}</span>
+          <span className="mf-spine-said">{saidOf(books[shown])}</span>
         </div>
       )}
     </>

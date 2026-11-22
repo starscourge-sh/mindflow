@@ -1122,7 +1122,8 @@ export function Home(): React.JSX.Element {
   // deleted in any window: the open one first, then the others by when each was last opened (main keeps that order).
   const shelfNow = useShelf()
   const openBook = shelfNow?.books.find((one) => one.current)
-  const otherBooks = shelfNow?.books.filter((one) => !one.current) ?? []
+  // ⌘K's Switch book: the one you were in last first, whatever order the shelf is in.
+  const otherBooks = (shelfNow?.books.filter((one) => !one.current) ?? []).sort((a, b) => (b.openedAt ?? 0) - (a.openedAt ?? 0))
   // The menu under the book's name, opened and shut from here: a right-click on one of its books shuts it as
   // that book's own menu opens where it was pressed, so there is never one menu left up under another.
   const [footMenu, setFootMenu] = useState(false)
@@ -1130,6 +1131,8 @@ export function Home(): React.JSX.Element {
   const [footCut, setFootCut] = useState(false)
   // A new book being named in the menu's own row (New book…, here, from ⌘K or the menu bar): the menu holds open while it is typed.
   const [namingBook, setNamingBook] = useState(false)
+  // The row of the menu a press began on (none: the press began on the button that opened it, or off the rows).
+  const footPressed = useRef<Element | null>(null)
   useEffect(() => {
     const onNaming = (): void => {
       setFootCut(false)
@@ -2753,7 +2756,8 @@ export function Home(): React.JSX.Element {
               its row in the menu below, which shuts as this opens, or on the book's name here. Held by a point of
               its own, so the menu below can go without taking it along. */}
           <RowMenu items={() => {
-            const book = bookMenuFor.current ?? openBook
+            // Read afresh from the shelf on each draw: a colour picked with the menu open moves its tick.
+            const book = shelfNow?.books.find((one) => one.id === (bookMenuFor.current ?? openBook)?.id) ?? bookMenuFor.current ?? openBook
             const inSettings = (what: 'book' | 'book-rename' | 'book-delete') => () => setView({ id: 'settings', focus: `${what}:${book!.id}`, nonce: Date.now() })
             return book ? bookMenu(book, { rename: inSettings('book-rename'), show: inSettings('book'), remove: inSettings('book-delete') }) : []
           }}>
@@ -2772,6 +2776,15 @@ export function Home(): React.JSX.Element {
               // While a new book is named in its row, the rows under the pointer never take the focus from the name (so
               // they are not pointed at), and Esc leaves the name, not the menu.
               onEscapeKeyDown={(event) => namingBook && event.preventDefault()}
+              // A row runs only for a press that began on it. A menu's own way, a press held and let go over another row
+              // choosing that row, made a book pressed long and moved away open "New book…" (the user, 22 Nov: "Nothing is
+              // clear about how and why"): a press on a book now carries it along the shelf, and letting go anywhere else does nothing.
+              onPointerDownCapture={(event) => void (footPressed.current = event.target instanceof Element ? event.target.closest('[role^="menuitem"]') : null)}
+              onPointerUpCapture={(event) => {
+                const on = event.target instanceof Element ? event.target.closest('[role^="menuitem"]') : null
+                if (on !== footPressed.current) event.preventDefault()
+                footPressed.current = null
+              }}
               // Shut by a right-click on one of its books: the keys go to that book's menu, not back to the button.
               onCloseAutoFocus={(event) => { if (footGave.current) (footGave.current = false, event.preventDefault()) }}>
               {/* Each row's card beside the menu: what it does, before you choose it. A book's says its whole name, however long. */}
@@ -2792,7 +2805,7 @@ export function Home(): React.JSX.Element {
                   <DropdownMenuLabel data-book-colour>{colourHeading(openBook)}</DropdownMenuLabel>
                   <div role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
                     {colourSwatches(openBook).map((one) => (
-                      <DropdownMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
+                      <DropdownMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={(event) => (event.preventDefault(), one.run())}
                         className="flex size-6 min-h-0 items-center justify-center rounded-md p-0 focus:bg-accent">
                         <Swatch color={one.color} on={one.on} />
                       </DropdownMenuItem>

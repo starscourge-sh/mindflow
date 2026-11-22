@@ -78,7 +78,8 @@ import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
-import { askBook, deleteBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
+import { askBook, deleteBook, moveBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
+import { SortableList, SortableRow } from './sortable'
 import { BookMark, bookMenu } from './books'
 import { RowMenu, openFromGrip } from './row-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -1518,8 +1519,12 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
           </span>
         </div>
       )}
-      {books.map((book) => (
-        <RowMenu key={book.id} items={bookMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)) })}>
+      {/* Carried into an order of your own, the shelf's order: one order for your books wherever they are listed. Not
+          while the list is narrowed by a search, where a book's neighbours are not its neighbours on the shelf. */}
+      <SortableList items={books} keyOf={(book) => book.id} onMove={SANDBOX || shown ? undefined : (id, target) => moveBook(shelf.books.map((one) => one.id), id, target)}>
+      {(order) => order.map((book) => (
+        <SortableRow key={book.id} id={book.id}>
+        <RowMenu items={bookMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)) })}>
           <div data-setting data-setting-title={book.name} data-setting-anchor={`book:${book.id}`} data-book-row={book.id} aria-current={book.current || undefined} className={BOOK_ROW}>
             <BookMark hue={book.color} className="size-4" />
             <span className="min-w-0 flex-1">
@@ -1551,7 +1556,9 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
             )}
           </div>
         </RowMenu>
+        </SortableRow>
       ))}
+      </SortableList>
       {naming === 'new' && (
         <div data-setting data-setting-title="New book" data-book-row="new" className={BOOK_ROW}>
           <BookMark hue={null} className="size-4" />
