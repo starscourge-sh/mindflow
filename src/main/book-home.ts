@@ -55,7 +55,9 @@ export function bookHome(db: DatabaseSync) {
     const ids = new Set(every.map((row) => row.id))
     const gemOf = new Map((db.prepare("select capture_id, id from nuggets where capture_id is not null and tier not in ('card', 'deck')").all() as { capture_id: string; id: string }[])
       .filter((one) => ids.has(one.id)).map((one) => [one.capture_id, one.id]))
-    const all = every.filter((row) => row.type !== 'capture' || !gemOf.has(row.id))
+    // A note kept as a gem is the gem's: with its gem put away (archived, Start fresh), the note is out of sight too, as in the Feed.
+    const kept = new Set((db.prepare("select capture_id as id from nuggets where capture_id is not null and binned_at is null and tier not in ('card', 'deck')").all() as { id: string }[]).map((one) => one.id))
+    const all = every.filter((row) => row.type !== 'capture' || (!gemOf.has(row.id) && !kept.has(row.id)))
     const byId = new Map(all.map((row) => [row.id, row]))
     for (const [note, gem] of gemOf) if (byId.has(gem)) byId.set(note, byId.get(gem)!)
     // Asked for, so private ones show (blurred); offered, so they wait out quiet hours.

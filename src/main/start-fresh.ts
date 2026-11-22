@@ -164,8 +164,10 @@ export async function startFresh(copy: (to: string) => Promise<void> = (to) => c
     const dropped = has(db, 'pdf_highlights') ? (db.prepare(`select id from nuggets where id in (${HIGHLIGHT_GEMS})`).all() as { id: string }[]).map((one) => one.id) : []
     for (const id of dropped) (db.prepare('delete from nuggets where id = ?').run(id), db.prepare('delete from versions where item_id = ?').run(id))
     gone += dropped.length
-    // Every page, gem, card and deck: archived, its pin and reminder kept for when it comes back; loose ones into the folder.
-    const things = db.prepare("select id, folder_id as folder, tier from nuggets where binned_at is null and superseded_by is null and archived_at is null and tier != 'goal'").all() as { id: string; folder: string | null; tier: string }[]
+    // Every page, gem, question, card and deck: archived, its pin and reminder kept for when it comes back; loose ones into
+    // the folder. Earlier wordings (superseded) too, so nothing of the old book is left in sight anywhere; the pass lists
+    // only the current ones.
+    const things = db.prepare("select id, folder_id as folder, tier from nuggets where binned_at is null and archived_at is null and tier != 'goal'").all() as { id: string; folder: string | null; tier: string }[]
     const archive = (table: string): ReturnType<DatabaseSync['prepare']> =>
       db.prepare(`update ${table} set archived_at = ?, archived_was = json_object('pinned_at', pinned_at, 'remind_at', remind_at), pinned_at = null, remind_at = null where id = ?`)
     const putNugget = archive('nuggets')
@@ -221,7 +223,7 @@ export function awayList(): Away[] {
   const names = new Map((db.prepare("select id, name from note_groups where list = 'folders'").all() as { id: string; name: string }[]).map((one) => [one.id, one.name]))
   const folders = db.prepare(`select 'folder' as kind, g.id, g.name as title, null as within from ${AWAY} a join note_groups g on g.id = a.id where a.kind = 'folder' and a.back_at is null order by g.name collate nocase`).all() as Away[]
   const nuggets = db.prepare(`select case when n.tier = 'article' then 'page' when n.tier in ('card', 'deck') then 'card' else 'gem' end as kind, n.id, ${TITLE} as title, n.folder_id as within, n.deck
-    from ${AWAY} a join nuggets n on n.id = a.id where a.kind = 'nugget' and a.back_at is null and n.archived_at is not null and n.binned_at is null order by n.created_at desc`).all() as (Away & { deck: string | null })[]
+    from ${AWAY} a join nuggets n on n.id = a.id where a.kind = 'nugget' and a.back_at is null and n.archived_at is not null and n.binned_at is null and n.superseded_by is null order by n.created_at desc`).all() as (Away & { deck: string | null })[]
   const decks = new Map<string, number>()
   for (const one of nuggets) if (one.deck) decks.set(one.deck.split('::')[0].trim(), (decks.get(one.deck.split('::')[0].trim()) ?? 0) + 1)
   const notes = db.prepare(`select 'note' as kind, c.id, ${LABEL} as title, c.folder_id as within from ${AWAY} a join captures c on c.id = a.id where a.kind = 'capture' and a.back_at is null and c.archived_at is not null order by c.captured_at desc`).all() as Away[]

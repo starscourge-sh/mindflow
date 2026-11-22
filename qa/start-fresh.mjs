@@ -65,15 +65,31 @@ try {
   const top = await v('folders')
   await check('Writing’s top is only “From Obsidian”', top.filter((one) => !one.parent).map((one) => one.name).join() === 'From Obsidian', top.filter((one) => !one.parent).map((one) => one.name).join())
   await check('no page or gem left loose in Writing', (await v('folders:items', 'unfiled')).length === 0)
-  await check('every gem and page put away, none deleted', n("select count(*) from nuggets where binned_at is null and archived_at is null and tier in ('nugget', 'question', 'article')") === 0 && n("select count(*) from nuggets where tier in ('nugget', 'question', 'article')") >= before.gems + before.pages)
+  {
+    // Every page, gem and question not in the Bin ends put away, earlier wordings too; none deleted (all of them still there).
+    const live = n("select count(*) from nuggets where binned_at is null and archived_at is null and tier in ('nugget', 'question', 'article')")
+    const total = n("select count(*) from nuggets where binned_at is null and superseded_by is null and tier in ('nugget', 'question', 'article')")
+    const left = (() => { const db = new DatabaseSync(file, { readOnly: true }); try { return db.prepare("select tier, superseded_by is not null as earlier, substr(coalesce(nullif(title, ''), body, ''), 1, 40) as words from nuggets where binned_at is null and archived_at is null and tier in ('nugget', 'question', 'article') limit 8").all() } finally { db.close() } })()
+    await check('every gem, question and page put away, none deleted', live === 0 && total === before.gems + before.pages, `still in sight ${live}, there ${total} of ${before.gems + before.pages} before; left: ${JSON.stringify(left)}`)
+  }
   await check('the Inbox kept as it was', n("select count(*) from captures where status = 'open' and folder_id is null and archived_at is null") === before.inbox)
   await check('Review has no decks and nothing due', (await v('decks:list')).length === 0 && (await v('review:queue')).length === 0)
   await check('Tasks shows none of the old open tasks', (await v('tasks')).filter((one) => one.status === 'open').length === 0)
   await check('highlights, ribbons, reading progress and review history at zero', n('select count(*) from pdf_highlights') + n('select count(*) from ribbons') + n('select count(*) from pdf_reading') + n('select count(*) from review_log') === 0)
-  const away = new Set((await v('fresh:away')).map((one) => one.id))
-  const feed = JSON.stringify(await v('feed'))
-  const home = JSON.stringify(await v('home'))
-  await check('the Feed and Home show nothing put away', ![...away].some((id) => feed.includes(id) || home.includes(id)))
+  // Put away, by id (a deck is listed by its name, so its cards are checked by their own ids): none in the Feed or Home.
+  const away = new Set([
+    ...(await v('fresh:away')).filter((one) => one.kind !== 'deck').map((one) => one.id),
+    ...(() => { const db = new DatabaseSync(file, { readOnly: true }); try { return db.prepare("select id from fresh_away where kind in ('nugget', 'capture') and back_at is null").all().map((one) => one.id) } finally { db.close() } })()
+  ])
+  // Where each one shows: which page (feed or home), and the path to the field that holds it.
+  const found = []
+  const walk = (where, value, path) => {
+    if (typeof value === 'string') { for (const id of away) if (value.includes(id)) found.push(`${where}${path} = ${id}`); return }
+    if (value && typeof value === 'object') for (const [key, one] of Object.entries(value)) walk(where, one, `${path}.${key}`)
+  }
+  walk('feed', await v('feed'), '')
+  walk('home', await v('home'), '')
+  await check('the Feed and Home show nothing put away', found.length === 0, found.slice(0, 6).join('; '))
   // The pass: a gem, brought back with B.
   await h.evaluate(() => document.querySelector('[data-setting-title="Bring back"]')?.scrollIntoView({ block: 'center' })); await wait(400)
   await h.click('[data-fresh-go]'); await wait(600)
