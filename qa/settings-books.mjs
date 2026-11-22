@@ -23,8 +23,11 @@ try {
   const other = books.find((one) => !one.current && one.id !== 'default')
   await s.go('settings'); await h.click('[data-section="Your book"]'); await wait(800)
   const rows = await h.evaluate(() => [...document.querySelectorAll('[data-group="Books"] [data-book-row]')].map((one) => ({ id: one.getAttribute('data-book-row'), h: one.getBoundingClientRect().height, open: !!one.querySelector('[data-book-open]'), more: !!one.querySelector('[data-book-more]'), fact: one.querySelector('[data-book-fact]')?.textContent, swatches: one.querySelectorAll('[data-swatch], [data-hue]').length })))
-  check('one row a book, in the shelf’s order', rows.map((one) => one.id).join() === books.map((one) => one.id).join(), JSON.stringify(rows))
-  check('each row compact: under 56px, no swatches or buttons beyond Open and …', rows.every((one) => one.h < 56 && one.swatches === 0 && one.more), JSON.stringify(rows))
+  // The open book above the list, out of its panel, as the 3D book; the panel the others, in the shelf's order.
+  const lead = await h.evaluate(() => { const el = document.querySelector('[data-group="Books"] [data-book-lead]'); return el ? { id: el.getAttribute('data-book-row'), inPanel: !!el.closest('.mf-island'), book: !!el.querySelector('[data-reader-card], .mf-book-case, [data-shelf-card]') } : null })
+  check('the open book stands above the list, outside its panel, as the 3D book with its name', lead?.id === open.id && !lead.inPanel && lead.book, JSON.stringify(lead))
+  check('one row a book, in the shelf’s order: the open one above, the panel the others', rows.map((one) => one.id).join() === [open.id, ...books.filter((one) => !one.current).map((one) => one.id)].join(), JSON.stringify(rows))
+  check('each listed row compact: under 56px, no swatches or buttons beyond Open and …', rows.filter((one) => one.id !== open.id).every((one) => one.h < 56 && one.swatches === 0 && one.more), JSON.stringify(rows))
   check('Open on every book but the open one, whose fact says so', rows.every((one) => one.open === (one.id !== open.id)) && /^Open now/.test(rows.find((one) => one.id === open.id)?.fact), JSON.stringify(rows))
   check('New book once, at the foot', (await h.locator('[data-group="Books"] [data-book-new]').count()) === 1)
   const more = h.locator(`[data-book-more="${other.id}"]`)

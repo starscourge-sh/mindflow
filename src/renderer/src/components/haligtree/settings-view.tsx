@@ -1340,7 +1340,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title, colours and shape; the card is kept until you do. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc shape coolshapes"
             beside={<ReaderCard seed={settings.readerSeed} point={asked === 'reader-card' ? nonce : undefined} />} />
         </Group>
-        <Group section="Your book" title="Books">
+        <Group section="Your book" title="Books" bare>
           <BookRows asked={asked} nonce={nonce} />
         </Group>
         <Group section="Help" title="Getting started">
@@ -1463,6 +1463,7 @@ const BOOK_KEYS = 'book books rename delete open switch colour color accent tint
  */
 function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or 'book-delete:<id>', from a book's own menu. */ asked?: string; nonce?: number }): React.JSX.Element | null {
   const shelf = useShelf()
+  const readerSeed = useLive(haligtree.settings, null as Settings | null)?.readerSeed
   const { query, all } = useContext(Query)
   const shown = all ? '' : query
   // A book named where it is listed, as Finder names a folder: a new one on its own row at the foot, or one renamed in its row.
@@ -1505,10 +1506,36 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
     [book.current && 'Open now', book.id === 'default' ? 'Your first book' : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}`].filter(Boolean).join(' · ')
   const fact = 'block truncate text-meta text-(--mf-muted-strong)'
   const books = shelf.books.filter((book) => matches(query, book.name, factOf(book), BOOK_KEYS))
+  // The open book stands above the list, out of its panel, as the 3D book Settings shows (the lead, 22 Nov); the panel
+  // lists only the others, each with its “Open”.
+  const open = SANDBOX ? undefined : books.find((book) => book.current)
+  const others = books.filter((book) => !book.current)
+  const more = (book: Book): React.JSX.Element => (
+    <Tip label="More">
+      <button type="button" data-book-more={book.id} aria-label={`${book.name} menu`} onClick={openFromGrip}
+        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+        <AliveIcon icon={DotsHorizontalIcon} size={16} />
+      </button>
+    </Tip>
+  )
   const sandboxShown = SANDBOX && matches(query, 'Sandbox', 'open now', BOOK_KEYS)
   const footShown = !SANDBOX && matches(query, 'New book', 'books book new another vault workspace')
   return (
     <>
+      {open && (
+        <RowMenu items={bookMenu(open, { rename: () => (setAsking(null), setNaming(open.id)), remove: () => (chime('open'), setAsking(open.id)) })}>
+          <div data-setting data-setting-title={open.name} data-setting-anchor={`book:${open.id}`} data-book-row={open.id} data-book-lead aria-current="true"
+            className="mb-4 flex items-center gap-5 px-1">
+            <span className="shrink-0"><ReaderCard seed={readerSeed} bare /></span>
+            <span className="min-w-0 flex-1">
+              {naming === open.id ? nameField(open) : <span title={open.name} className="block text-title font-semibold text-foreground"><Marked text={open.name} query={shown} /></span>}
+              <span data-book-fact className={fact}>{factOf(open)}</span>
+            </span>
+            {more(open)}
+          </div>
+        </RowMenu>
+      )}
+      <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">
       {sandboxShown && (
         // The sandbox: someone else's book, open now, with no name or colour of yours to change.
         <div data-setting data-setting-title="Sandbox" data-setting-anchor="book:sandbox" aria-current="true" className={BOOK_ROW}>
@@ -1521,7 +1548,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
       )}
       {/* Carried into an order of your own, the shelf's order: one order for your books wherever they are listed. Not
           while the list is narrowed by a search, where a book's neighbours are not its neighbours on the shelf. */}
-      <SortableList items={books} keyOf={(book) => book.id} onMove={SANDBOX || shown ? undefined : (id, target) => moveBook(shelf.books.map((one) => one.id), id, target)}>
+      <SortableList items={others} keyOf={(book) => book.id} onMove={SANDBOX || shown ? undefined : (id, target) => moveBook(shelf.books.map((one) => one.id), id, target)}>
       {(order) => order.map((book) => (
         <SortableRow key={book.id} id={book.id}>
         <RowMenu items={bookMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)) })}>
@@ -1535,14 +1562,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
               <span className="flex shrink-0 items-center gap-1">
                 {/* No "Show in Finder": a book is the app's own files deep in the system's folders, nothing to open by hand. */}
                 {!book.current && <Button variant="ghost" size="sm" data-book-open={book.id} onClick={() => void switchBook(book.id)}>Open</Button>}
-                {!SANDBOX && (
-                  <Tip label="More">
-                    <button type="button" data-book-more={book.id} aria-label={`${book.name} menu`} onClick={openFromGrip}
-                      className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
-                      <AliveIcon icon={DotsHorizontalIcon} size={16} />
-                    </button>
-                  </Tip>
-                )}
+                {!SANDBOX && more(book)}
               </span>
             )}
             {/* Deleting asked in the book's own row, as the Bin asks (bin-view.tsx): what goes and what is kept, said once, here. */}
@@ -1574,6 +1594,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
           <Button variant="outline" size="sm" data-book-new onClick={() => (chime('open'), setNaming('new'))}><Plus className="size-3.5" /> New book</Button>
         </div>
       )}
+      </div>
     </>
   )
 }

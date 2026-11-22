@@ -167,7 +167,8 @@ try {
     await shot('d1-new-deck-in-place')
     await h.keyboard.type('Field birds')
     await h.keyboard.press('Enter')
-    check('D. Enter makes the deck and picks it', await waitFor(() => has('[data-deck-pick="field birds"]')))
+    // A deck's tag is its name in small letters, spaces as hyphens (decks.tsx deckTagOf): "Field birds" is field-birds.
+    check('D. Enter makes the deck and picks it', await waitFor(() => has('[data-deck-pick="field-birds"]')))
   } catch (error) {
     console.log(`NOTE  D skipped: the deck picker was not reachable from ⌘K "New card" within 5 s (${String(error.message).split('\n')[0]})`)
   }
@@ -245,7 +246,9 @@ try {
   const inHand = (px, py) => h.evaluate(([px, py]) => {
     const carried = document.querySelector('[data-book-shelf] [data-carried]')
     const box = carried?.getBoundingClientRect()
-    const under = document.elementFromPoint(px, py)?.closest('[data-shelf-book]')?.getAttribute('data-shelf-book') ?? null
+    // What is there at the pointer's x, half way up the carried spine: the book, never a pill or a gap.
+    const hit = box ? document.elementFromPoint(px, box.top + box.height / 2) : document.elementFromPoint(px, py)
+    const under = hit?.closest('[data-shelf-book]')?.getAttribute('data-shelf-book') ?? (hit ? `${hit.tagName.toLowerCase()}.${String(hit.className).slice(0, 40)}` : null)
     // A grey room the size of a pulled-out book, or the shared drag's title pill: none may be on screen.
     const rooms = [...document.querySelectorAll('[data-own-room]')].filter((one) => one.getBoundingClientRect().width > 0).length
     const pills = [...document.querySelectorAll('[data-lifted], .mf-drag-picture *')].filter((one) => one.getBoundingClientRect().width > 0).length
@@ -312,7 +315,9 @@ try {
   await foot.click({ button: 'right' }); await wait(400)
   await h.getByRole('menuitem', { name: 'Show in Settings' }).click(); await wait(1200)
   const rows = await h.evaluate(() => [...document.querySelectorAll('[data-book-row]')].map((one) => one.getAttribute('data-book-row')).filter((one) => one !== 'new'))
-  check('H. Settings › Books lists them in the same order', JSON.stringify(rows) === JSON.stringify(order), JSON.stringify(rows))
+  // The open book stands above the list (its own place), the others listed in the shelf's order.
+  const openId = (await s.v('books:list')).books.find((one) => one.current)?.id
+  check('H. Settings › Books lists them in the same order', JSON.stringify(rows) === JSON.stringify([openId, ...order.filter((one) => one !== openId)]), JSON.stringify(rows))
 
   // B, its end, last of all: Enter on the name makes the book and opens it (the switch is caught, not made).
   await s.go('home'); await wait(500)
