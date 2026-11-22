@@ -37,7 +37,35 @@ const scrollTop = () => h.evaluate(() => {
 })
 // The list draws only the rows near the screen: a row far down is reached as a person does, with the wheel over the
 // list, a step at a time (at most 40), down then back up. What was drawn is printed when it never shows.
-const overList = async () => { const box = await h.locator('[data-vlist]').first().boundingBox(); await h.mouse.move(box.x + 200, Math.min(box.y + 200, 700)) }
+// The pointer over the part of the list on screen: the list's own box starts far above the window once scrolled
+// down (pass 2: the pointer went to y < 0 and the wheel never reached the list, so it never went back to the top).
+const overList = async () => {
+  const at = await h.evaluate(() => {
+    const list = document.querySelector('[data-vlist]')
+    let box = list?.parentElement
+    while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+    const a = list.getBoundingClientRect(), b = (box ?? document.documentElement).getBoundingClientRect()
+    const top = Math.max(a.top, b.top, 0), bottom = Math.min(a.bottom, b.bottom, innerHeight)
+    return { x: a.left + Math.min(200, a.width / 2), y: (top + bottom) / 2 }
+  })
+  await h.mouse.move(at.x, at.y)
+}
+// Every move of the list's scroll, with who asked for it: scrollTop set, scrollTo/scrollBy, scrollIntoView or focus()
+// (each with its stack), and the scroll events themselves. Printed when the list moves at a tick.
+const trace = () => h.evaluate(() => {
+  const log = (window.__scrolls = [])
+  const stack = () => (new Error().stack ?? '').split('\n').slice(2, 7).map((one) => one.trim()).join(' < ')
+  const put = (what, el) => log.push({ t: Math.round(performance.now()), what, el: el?.getAttribute?.('data-id') ?? el?.tagName ?? '', stack: stack() })
+  const top = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')
+  Object.defineProperty(Element.prototype, 'scrollTop', { configurable: true, get() { return top.get.call(this) }, set(value) { put(`scrollTop = ${value}`, this); top.set.call(this, value) } })
+  for (const name of ['scrollTo', 'scrollBy', 'scrollIntoView']) { const was = Element.prototype[name]; Element.prototype[name] = function (...args) { put(`${name}(${JSON.stringify(args)})`, this); return was.apply(this, args) } }
+  const focus = HTMLElement.prototype.focus
+  HTMLElement.prototype.focus = function (options) { put(`focus(${JSON.stringify(options ?? {})})`, this); return focus.call(this, options) }
+  let box = document.querySelector('[data-vlist]')?.parentElement
+  while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+  box?.addEventListener('scroll', () => log.push({ t: Math.round(performance.now()), what: `scrolled to ${box.scrollTop}` }))
+})
+const traced = () => h.evaluate(() => (window.__scrolls ?? []).map((one) => `${one.t} ${one.what} ${one.el ?? ''} ${one.stack ?? ''}`).join('\n'))
 const reach = async (id) => {
   const row = h.locator(`[data-task-row][data-id="${id}"] button[data-row]`).first()
   const seen = async () => (await row.count()) && (await row.boundingBox())?.y > 60 && (await row.boundingBox()).y < 760
@@ -77,6 +105,7 @@ try {
   await overList()
   for (let i = 0; i < 40 && (await scrollTop()) > 0; i++) (await h.mouse.wheel(0, -600), await wait(60))
   await wait(500)
+  check('the list is back at its top', (await scrollTop()) === 0, `scrollTop ${await scrollTop()}`)
   const before = await drawn()
   check('every task draws once before the tick', !twice(before).length, `twice: ${twice(before).join(', ')}`)
   check('the open task is under Tomorrow alone', before.filter((one) => one.id === made.open).map((one) => one.heading).join(',') === 'Tomorrow' || !before.some((one) => one.id === made.open), JSON.stringify(before.filter((one) => one.id === made.open)))
@@ -84,13 +113,18 @@ try {
   if (shots) await h.screenshot({ path: `${shots}/tick-before.png` })
   // Tick the first overdue one off, near the top, and read the scroll every 50 ms for a second.
   const target = made.late[0]
+  // Pressed where it stands on screen, as a person's pointer does: never a click that scrolls it into view first.
+  const tick = await h.locator(`[data-task-row][data-id="${target}"] [data-task-tick]`).boundingBox()
+  check('the overdue task is on screen near the top', !!tick && tick.y > 0 && tick.y < 500, JSON.stringify(tick))
+  await trace()
   const was = await scrollTop()
-  await h.locator(`[data-task-row][data-id="${target}"] [data-task-tick]`).click()
+  await h.mouse.click(tick.x + tick.width / 2, tick.y + tick.height / 2)
   const tops = []
   for (let i = 0; i < 20; i++) (tops.push(await scrollTop()), await wait(50))
   if (shots) await h.screenshot({ path: `${shots}/tick-after-first.png` })
   const most = Math.max(...tops.map((one) => Math.abs(one - was)))
   check('ticking leaves the list where it is (within 2px for a second)', most <= 2, `was ${was}, read ${tops.join(' ')}`)
+  if (most > 2) console.log(`what moved the list:\n${await traced()}`)
   check('the ticked task leaves the list', await until(async () => !(await drawn()).some((one) => one.id === target)))
   // A few more draws (a save, the side panel, a minute's tick), then every row counted again, top to bottom.
   await h.locator(`[data-task-row][data-id="${made.late[1]}"] [data-task-tick]`).click()
