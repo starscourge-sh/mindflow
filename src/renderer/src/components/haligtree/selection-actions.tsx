@@ -133,12 +133,12 @@ export function CopyAsImage({ editor }: { editor: Editor }): React.JSX.Element {
   return (
     <Tooltip delay={200}>
       <TooltipTrigger asChild>
-        <button type="button" className={BUTTON} aria-label="Copy as image" data-copy-image
+        <button type="button" className={BUTTON} aria-label="Copy the block as a picture" data-copy-image
           onClick={() => void sharePicture(editor.view.dom, pickedBlocks(editor))}>
-          <Camera /> <span className="tiptap-button-text">Image</span>
+          <Camera /> <span className="tiptap-button-text">Block as picture</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent>Copy as image<span className="block text-muted-foreground">The picked blocks as a picture, ready to paste in a chat</span></TooltipContent>
+      <TooltipContent>Copy the block as a picture<span className="block text-muted-foreground">The whole paragraph, code or table your words are in, not only the words: its shape kept, to paste in a chat</span></TooltipContent>
     </Tooltip>
   )
 }
