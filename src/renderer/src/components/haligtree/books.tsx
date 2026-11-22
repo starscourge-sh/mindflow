@@ -253,9 +253,10 @@ export function BookName(): React.JSX.Element {
  * books look like they are on a shelf and hover shows a little more"; 20 Nov: "why not actual 3d like the other book?
  * the one on the last page of the welcome"; 21 Nov: "the book in the settings needs to be your reference, and don't
  * forget about the realistic grain"). Each book is the Settings book (book-box.tsx), scaled: every spine one height, in
- * cloth of its own colour with a grain and gilt rules, its name up it in gilt or ink, whichever reads on it. The one
+ * woven cloth of its own colour with foil rules, its name up it whole in the serif in foil (gold, or bronze on a pale
+ * spine), never cut (22 Nov: "the name of the book on the back rim gets cut off with an ellipsis"). The one
  * pointed at, or reached by the keys, is pulled out and turns on its spine to face you, wearing its
- * own reader card on the cream cloth cover, as Settings shows it. The rest each stand turned a few degrees, so a sliver of
+ * own reader card on the cream paper cover, crisp, as Settings shows it. The rest each stand turned a few degrees, so a sliver of
  * cover shows beside every spine, as books on a real shelf never face dead sideways. Turned or not, every book stands on
  * the ledge at one height, as the user's references stand theirs (21 Nov: a row of VHS tapes, one out to its cover; a
  * row of design books, one turned): the one turned out is wider, never raised. Under the shelf, its name and whether it is open now
@@ -284,7 +285,7 @@ const PULL = { stiffness: 260, damping: 26 }
 /**
  * The books not pulled out stand a little back in the shelf's shade (the user, 22 Nov: "slightly dim non-active
  * books"): a black veil this strong over each (85% as bright), lifted as a book turns out, on its turn's own spring.
- * Its name still reads at 4.5:1 or more on every spine through it (qa/book-shelf.mjs).
+ * Its foil still reads at 3:1 or more on every spine through it (qa/book-shelf.mjs).
  */
 const HELD_BACK = 0.15
 /**
@@ -294,8 +295,8 @@ const HELD_BACK = 0.15
 const SLIVER_SHADE = 0.42
 /**
  * Each colour's spine, as OKLCH lightness and strength, the hue the theme's own: deep ones and pale ones, as a real
- * shelf has, every one far enough from its ink (gilt on the deep, ink on the pale, picked by lightness in shelf.css) to
- * read at 5:1 or more. The deep ones deep enough for pale gilt, as a leather binding is.
+ * shelf has, every one far enough from its foil (bright gold on the deep, antique bronze on the pale, picked by lightness in
+ * shelf.css) to read at 3:1 or more. The deep ones deep enough for pale gold, as a leather binding is.
  */
 const SPINE: Record<Hue, [number, number]> = { blue: [0.45, 0.13], purple: [0.44, 0.14], pink: [0.76, 0.11], red: [0.46, 0.16], orange: [0.74, 0.14], yellow: [0.87, 0.14], green: [0.45, 0.1], gray: [0.71, 0.01] }
 /**
