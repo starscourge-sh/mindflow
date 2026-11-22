@@ -231,7 +231,8 @@ try {
     }
     await s.go('home')
     await s.look('light')
-    await h.locator('[aria-label="Haligtree menu"]').click(); await wait(500)
+    // The sidebar's book button, not Settings' own row menu for the same book (both say "Haligtree menu").
+    await h.locator('[aria-label="Haligtree menu"]:not([data-book-more])').first().click(); await wait(500)
     await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 3 }); await wait(500)
   }
   // Every closed book that has notes wears its own card read from its file: its notes counted (the day begun and its
