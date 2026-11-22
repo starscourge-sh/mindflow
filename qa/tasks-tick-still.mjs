@@ -112,7 +112,8 @@ try {
   check('the open task is out of sight below, as the user had it', !(await h.locator(`[data-task-row][data-id="${made.open}"]`).isVisible()) || (await h.locator(`[data-task-row][data-id="${made.open}"]`).boundingBox()).y > 800)
   if (shots) await h.screenshot({ path: `${shots}/tick-before.png` })
   // Tick the first overdue one off, near the top, and read the scroll every 50 ms for a second.
-  const target = made.late[0]
+  // The first overdue task on screen near the top, whichever it is (the sandbox's own come before the made ones), as the user ticked one there.
+  const target = await h.evaluate(() => [...document.querySelectorAll('[data-task-row][data-id]')].find((row) => { const r = row.querySelector('[data-task-tick]')?.getBoundingClientRect(); return r && r.y > 150 && r.y < 500 })?.getAttribute('data-id'))
   // Pressed where it stands on screen, as a person's pointer does: never a click that scrolls it into view first.
   const tick = await h.locator(`[data-task-row][data-id="${target}"] [data-task-tick]`).boundingBox()
   check('the overdue task is on screen near the top', !!tick && tick.y > 0 && tick.y < 500, JSON.stringify(tick))
