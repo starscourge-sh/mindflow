@@ -39,6 +39,19 @@ const carry = async (from, to, { rest = 300, at = 0.5 } = {}) => {
   await h.mouse.up()
   await wait(700)
 }
+// Recent is a long list drawn as it scrolls (note-list.tsx `VirtualList`), as Pages' and Gems' are: a row not
+// touched lately sits further down, so it is scrolled to, as a person would, at most 60 screens.
+const reveal = async (sel) => {
+  for (let i = 0; i < 60 && !(await h.locator(sel).count()); i++) {
+    await h.evaluate(() => {
+      let box = document.querySelector('[data-recent] [data-row]')?.parentElement
+      while (box && !(box.scrollHeight > box.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+      if (box) box.scrollTop += box.clientHeight * 0.8
+    })
+    await h.waitForTimeout(60)
+  }
+  return h.locator(sel)
+}
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
   await v('settings:set', { hintRate: 0, sounds: false })
@@ -118,11 +131,11 @@ try {
   const parts = await h.evaluate(() => [...document.querySelectorAll('[data-recent] [data-group-head]')].map((one) => one.getAttribute('data-group-head')))
   const ORDER = ['Today', 'Yesterday', 'This week', 'Earlier']
   check('Recent is grouped by date, in order', parts.length > 0 && parts.every((one, n) => ORDER.includes(one) && (n === 0 || ORDER.indexOf(one) > ORDER.indexOf(parts[n - 1]))), JSON.stringify(parts))
-  check('…the two pages there, naming Essays', ((await h.locator(`[data-recent] button[data-row][data-id="${pick[0]}"] [data-row-folder]`).textContent().catch(() => '')) ?? '').includes('Essays'))
+  check('…the two pages there, naming Essays', ((await (await reveal(`[data-recent] button[data-row][data-id="${pick[0]}"]`)).locator('[data-row-folder]').textContent({ timeout: 2000 }).catch(() => '')) ?? '').includes('Essays'))
   check('…gems among the pages', (await h.locator('[data-recent] button[data-row][data-type="nugget"]').count()) > 0)
   await shot('8-recent')
   // A row opens its page in the folder it lives in.
-  await h.locator(`[data-recent] button[data-row][data-id="${pick[0]}"]`).click()
+  await (await reveal(`[data-recent] button[data-row][data-id="${pick[0]}"]`)).click({ timeout: 3000 })
   await wait(1200)
   check('a Recent row opens its page in its folder', /Essays/.test((await h.locator('[data-folder-path]').textContent().catch(() => '')) ?? '') && (await h.locator(`[data-open="${pick[0]}"]`).count()) > 0)
 

@@ -215,7 +215,7 @@ function RecentList({ lead, said, onOpen }: { lead?: React.ReactNode; said: Reac
           next.focus()
           next.scrollIntoView({ block: 'nearest' })
         }}>
-          <NoteList groups={groups} density="list" table="nuggets" cursor={cursor} onCursor={setCursor} onPick={open} />
+          <NoteList groups={groups} density="list" table="nuggets" cursor={cursor} onCursor={setCursor} onPick={open} className="list-edge my-2" />
         </div>
       )}
     </Page>

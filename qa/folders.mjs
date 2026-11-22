@@ -33,6 +33,19 @@ const shot = async (name) => shots && c.both(`${shots}/${name}`)
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
 // Writing's own row in the sidebar: its folders hang under it, and it takes what leaves a folder.
 const writingRow = () => h.locator('aside button[data-side-row][aria-label="Writing"]')
+// Recent is a long list drawn as it scrolls (note-list.tsx `VirtualList`), as Pages' and Gems' are: a row not
+// touched lately sits further down, so it is scrolled to, as a person would, at most 60 screens.
+const reveal = async (sel) => {
+  for (let i = 0; i < 60 && !(await h.locator(sel).count()); i++) {
+    await h.evaluate(() => {
+      let box = document.querySelector('[data-recent] [data-row]')?.parentElement
+      while (box && !(box.scrollHeight > box.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+      if (box) box.scrollTop += box.clientHeight * 0.8
+    })
+    await h.waitForTimeout(60)
+  }
+  return h.locator(sel)
+}
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
   // One place: no Folders section of its own, Writing holds the folders.
@@ -76,14 +89,8 @@ try {
   await wait(700)
   check('↵ keeps it there, said with its notice', await until(async () => /Moved the page into “Thesis”/.test(await said())), await said())
   check('it is in Thesis', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
-  // Folders isolate: it shows inside Thesis, not loose at Writing's top level; Recent lists it, naming its folder.
+  // Folders isolate: it shows inside Thesis, not loose at Writing's top level.
   check('it leaves Writing\'s top level', await until(async () => (await h.locator(`[data-page="articles"] button[data-row][data-id="${page}"]`).count()) === 0))
-  await h.locator('[data-folder-kinds] [aria-label^="Recent"]').click()
-  await wait(700)
-  check('Recent lists it, naming Thesis', ((await h.locator(`[data-recent] button[data-row][data-id="${page}"] [data-row-folder]`).textContent().catch(() => '')) ?? '').includes('Thesis'))
-  await shot('writing-recent')
-  await h.locator('[data-folder-kinds] [aria-label^="Pages"]').click()
-  await wait(500)
   // ⌘Z puts it back.
   await h.keyboard.press('Meta+z')
   await wait(700)
@@ -94,6 +101,13 @@ try {
   await h.keyboard.press('Enter')
   await wait(700)
   check('kept in Thesis again', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id))
+  // Recent lists it, wherever it is kept, naming its folder on its meta line.
+  await h.locator('[data-folder-kinds] [aria-label^="Recent"]').click()
+  await wait(700)
+  check('Recent lists it, naming Thesis', ((await (await reveal(`[data-recent] button[data-row][data-id="${page}"]`)).locator('[data-row-folder]').textContent({ timeout: 2000 }).catch(() => '')) ?? '').includes('Thesis'))
+  await shot('writing-recent')
+  await h.locator('[data-folder-kinds] [aria-label^="Pages"]').click()
+  await wait(500)
 
   // A gem, into a new folder made from the picker's last row.
   await c.go('nuggets')
