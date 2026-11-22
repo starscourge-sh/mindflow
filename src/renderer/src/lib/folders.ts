@@ -25,13 +25,15 @@ export type Folder = {
   front: string | null
 }
 export type FolderItem = { type: FolderKind; id: string; title: string; at: string; archived: number }
+/** A page or gem in Writing's Recent, with the folder it lives in (null: at the top). */
+export type RecentItem = { type: 'article' | 'nugget'; id: string; title: string; at: string; folder: string | null }
 
 export const FOLDER_DEPTH = 6
 
 export const folders = {
   list: () => call<Folder[]>('folders'),
   items: (id: string) => call<FolderItem[]>('folders:items', id),
-  unfiled: () => call<{ pages: number; gems: number }>('folders:unfiled'),
+  recent: () => call<RecentItem[]>('folders:recent'),
   make: (name: string, parent: string | null = null) => call<string>('folders:make', name, parent),
   file: (things: Thing[], folder: string | null) => call<Was[]>('folders:file', things, folder),
   unfile: (was: Was[]) => call<void>('folders:unfile', was),
@@ -121,10 +123,10 @@ export async function keepIn(things: Thing[], folder: { id: string; name: string
   if (!things.length) return
   const was = await folders.file(things, folder?.id ?? null)
   const moved = was.filter((one) => one.folder !== (folder?.id ?? null))
-  if (!moved.length) return refuse(folder ? `Already in ${folder.name}` : 'Already in no folder')
+  if (!moved.length) return refuse(folder ? `Already in “${folder.name}”` : 'Already in no folder')
   const fromInbox = folder && was.some((one) => one.type === 'capture' && one.status === 'open')
   chime(folder ? 'gather' : 'separate')
-  const text = folder ? `Kept ${said(moved)} in ${folder.name}${fromInbox ? ', out of the Inbox' : ''}` : `Took ${said(moved)} out of its folder`
+  const text = folder ? `Moved ${said(moved)} into “${folder.name}”${fromInbox ? ', out of the Inbox' : ''}` : `Took ${said(moved)} out of its folder`
   toast(text, () => void folders.unfile(was).then(() => chime(folder ? 'separate' : 'gather')))
   if (away) window.api.sayInHome({ text, unfile: was, undo: [], open: null })
 }
@@ -138,7 +140,7 @@ export async function keepInNew(things: Thing[], name: string, parent: string | 
     return id
   }
   const was = await folders.file(things, id)
-  toast(`Kept ${said(things)} in the new folder ${name}`, () => void folders.unfile(was).then(() => folders.remove(id)))
+  toast(`Moved ${said(things)} into the new folder “${name}”`, () => void folders.unfile(was).then(() => folders.remove(id)))
   return id
 }
 
@@ -154,7 +156,7 @@ export async function moveFoldersAgain(): Promise<void> {
   const done = await folders.moveAgain()
   if (!done.moved) return refuse(done.why === 'nothing to move' ? 'No folders in Writing or Gems to move' : `Not moved: ${done.why}`)
   chime('gather')
-  toast(`Moved into Folders again: ${plural(done.folders, 'folder')} holding ${plural(done.things, 'thing')}`, () => void putFoldersBack())
+  toast(`Moved into Writing's folders again: ${plural(done.folders, 'folder')} holding ${plural(done.things, 'thing')}`, () => void putFoldersBack())
 }
 
 /** The folder picker asked to move a folder into another (the folder's "Move to…"), beside what asked. */

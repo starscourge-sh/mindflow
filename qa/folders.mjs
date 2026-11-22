@@ -75,7 +75,7 @@ try {
   await wait(200)
   await h.keyboard.press('Enter')
   await wait(700)
-  check('↵ keeps it there, said with its notice', await until(async () => /Kept the page in Thesis/.test(await said())), await said())
+  check('↵ keeps it there, said with its notice', await until(async () => /Moved the page into “Thesis”/.test(await said())), await said())
   check('it is in Thesis', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
   check('"Not in a folder" counts one fewer', await until(async () => (await unfiled()) === before - 1), `${await unfiled()}`)
   check('Writing still lists it, with a quiet folder label', (await h.locator(`[data-page="articles"] [data-id="${page}"] [data-row-folder="${thesis.id}"]`).count()) === 1)

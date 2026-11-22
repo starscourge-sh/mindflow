@@ -112,7 +112,7 @@ export function listFolders(): Folder[] {
 /** What a folder holds itself (not its folders'), newest first: archived ones too, said so, for "Show archived". */
 export function folderItems(id: string): { type: Kind; id: string; title: string; at: string; archived: number }[] {
   const db = database()
-  // "Not in a folder": the pages and gems made straight in Writing or Gems, a view, not a folder.
+  // Writing's top level: the pages and gems in no folder, loose beside its folders, a view, not a folder.
   if (id === 'unfiled')
     return db.prepare(`select case when tier = 'article' then 'article' else 'nugget' end as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, coalesce(updated_at, created_at) as at, 0 as archived
       from nuggets where folder_id is null and tier in ('article', 'nugget') and binned_at is null and archived_at is null and superseded_by is null
@@ -125,12 +125,6 @@ export function folderItems(id: string): { type: Kind; id: string; title: string
   const tasks = db.prepare(`select 'task' as type, id, title, coalesce(completed_at, created_at) as at, 0 as archived from tasks
       where folder_id = ? and status != 'dropped'`).all(id)
   return ([...kept, ...notes, ...tasks] as { type: Kind; id: string; title: string; at: string; archived: number }[]).sort((a, b) => (a.at < b.at ? 1 : -1))
-}
-
-/** Pages and gems in no folder, out of the Bin and in sight, each counted: Folders' "Not in a folder" row ("1 page", "3 pages, 2 gems"). */
-export function unfiledCount(): { pages: number; gems: number } {
-  const row = database().prepare("select coalesce(sum(tier = 'article'), 0) as pages, coalesce(sum(tier = 'nugget'), 0) as gems from nuggets where folder_id is null and tier in ('article', 'nugget') and binned_at is null and archived_at is null and superseded_by is null").get() as { pages: number; gems: number }
-  return { pages: row.pages, gems: row.gems }
 }
 
 /** A new folder, in `parent` or at the top, at the end of what holds it. Made by a person, it starts starred. */
@@ -313,7 +307,11 @@ export function registerFolders(): void {
     void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
   handle('folders', () => listFolders())
   handle('folders:items', (id: string) => folderItems(id))
-  handle('folders:unfiled', () => unfiledCount())
+  // Writing's Recent: every page and gem, wherever it is kept, newest first, with its folder.
+  handle('folders:recent', () => database().prepare(`select case when tier = 'article' then 'article' else 'nugget' end as type, id,
+      coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, coalesce(updated_at, created_at) as at, folder_id as folder
+      from nuggets where tier in ('article', 'nugget') and binned_at is null and archived_at is null and superseded_by is null
+      order by coalesce(updated_at, created_at) desc limit 500`).all())
   handle('folders:make', (name: string, parent: string | null = null) => makeFolder(name, parent))
   handle('folders:file', (things: Thing[], folder: string | null) => {
     const was = fileThings(things, folder)
@@ -373,7 +371,7 @@ export function registerFolders(): void {
     const parentOf = new Map(folders.map((one) => [one.id, one.parent]))
     const level = (at: string | null): number => (at ? 1 + level(parentOf.get(at) ?? null) : 0)
     const height = (at: string): number => 1 + Math.max(0, ...folders.filter((one) => one.parent === at).map((one) => height(one.id)))
-    for (let at = parent; at; at = parentOf.get(at) ?? null) if (at === id) return 'A folder can’t go inside itself'
+    for (let at = parent; at; at = parentOf.get(at) ?? null) if (at === id) return 'A folder can’t go inside itself or a folder inside it'
     if (level(parent) + height(id) > FOLDER_DEPTH) return `Folders go ${FOLDER_DEPTH} levels deep`
     db.prepare('update note_groups set parent_id = ? where id = ?').run(parent, id)
     changed()

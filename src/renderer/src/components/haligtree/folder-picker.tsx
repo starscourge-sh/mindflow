@@ -60,9 +60,9 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
   useEffect(() => {
     void folders.moved().then((said) => {
       if (!said) return
-      if ('failed' in said) return refuse(`Writing's and Gems' folders were not moved into Folders: ${said.failed}. Nothing was changed.`)
+      if ('failed' in said) return refuse(`Writing's and Gems' folders were not moved into Writing: ${said.failed}. Nothing was changed.`)
       // Undo puts the old folders back, there in Writing and Gems as before; Settings > Backups offers it again later.
-      news(`Writing's and Gems' folders are in Folders now: ${plural(said.folders, 'folder')} holding ${plural(said.things, 'thing')}. Nothing was lost, and a copy of your book from before is in your backups.`, () => void putFoldersBack(), 'info',
+      news(`Writing's and Gems' folders are folders in Writing now: ${plural(said.folders, 'folder')} holding ${plural(said.things, 'thing')}. Nothing was lost, and a copy of your book from before is in your backups.`, () => void putFoldersBack(), 'info',
         { label: 'Show me', key: 'S', run: onFolders })
     })
   }, [])

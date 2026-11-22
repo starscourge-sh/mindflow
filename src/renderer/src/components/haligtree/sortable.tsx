@@ -131,6 +131,8 @@ type ListProps<T> = {
    */
   onNest?: (id: string, target: string) => void
   nests?: NestCheck
+  /** What the card says over a row it would go inside, given that row's name: a step (the usual), or a folder's "Move into". */
+  nestSays?: (title: string) => string
   /** Down a list (the usual), or along a row (tabs). */
   axis?: 'y' | 'x'
   keyOf: (item: T) => string
@@ -196,7 +198,7 @@ function useHeld<T>(items: T[], keyOf: (item: T) => string): { shown: T[]; keys:
   }
 }
 
-function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children }: ListProps<T>): React.JSX.Element {
+function Rows<T>({ items, keyOf, onMove, onNest, nests, nestSays, places, parts, children }: ListProps<T>): React.JSX.Element {
   const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
   const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
   const [shot, setShot] = useState<Lift | null>(null)
@@ -240,7 +242,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     else if (rested(target)) {
       targets.dim()
       return point(may === true
-        ? { target, how: 'join', into: target, label: `Make it a step of “${titleOf(over.node)}”`, gap: null, around: [], act: 'step' }
+        ? { target, how: 'join', into: target, label: nestSays ? nestSays(titleOf(over.node)) : `Make it a step of “${titleOf(over.node)}”`, gap: null, around: [], act: 'step' }
         : { target, how: 'join', into: null, label: may.refused, gap: null, around: [], refused: true })
     }
     if (!onMove) return (targets.dim(), point(null, true))

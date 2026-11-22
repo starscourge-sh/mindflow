@@ -56,7 +56,7 @@ import { FeedView, showLiked } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { RailFolders, SideFolders } from './components/haligtree/side-folders'
-import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
+import { TOP_DROP, WritingFolders, newFolderHere } from './components/haligtree/side-folder-section'
 import { WritingPages } from './components/haligtree/side-writing'
 import { useEveryFold, useFold, type FoldKey } from '@/lib/side-folds'
 import { askFolder, folders, useFolderOf, useFolders, type FolderKind } from '@/lib/folders'
@@ -478,7 +478,15 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
         <CalendarView focus={view.focus} onOpen={go} />
       ) : view.id === 'matrix' ? (
         <MatrixView focus={view.focus} onOpen={go} />
-      ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
+      ) : view.id === 'articles' || view.id === 'folders' ? (
+        // Writing: its top level (folders, then the pages and gems in none, and Recent) or one folder's page, one place.
+        <FoldersView focus={view.id === 'folders' ? view.folder : undefined} note={view.focus} tab={view.tab} onTab={(tab) => does.setView({ id: view.id, folder: view.folder, tab }, key)} onOpen={(type, id, folder) => does.open(type, id, key, folder)}
+          onPlace={(id) => does.setView(id ? { id: 'folders', folder: id } : { id: 'articles' }, key)}
+          // One of Writing's groups (⌘G's, not a folder) opened from the sidebar: its pages, at the top level.
+          group={view.id === 'articles' ? view.folder : undefined} onGroup={(id, reveal) => reveal
+            ? does.setTrail(key, (trail) => ({ ...trail, views: trail.views.map((one, at) => (at === trail.at ? { ...one, folder: id ?? undefined } : one)) }))
+            : does.setView({ id: 'articles', folder: id ?? undefined })} />
+      ) : view.id === 'nuggets' || view.id === 'questions' ? (
         // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
         <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus}
           ask={view.id === 'questions' && (view.folder === 'answered' || view.folder === 'words') ? view.folder : 'open'} onAsk={view.id === 'questions' ? (one: Asked) => does.setView({ id: 'questions', folder: one }, key) : undefined}
@@ -491,8 +499,6 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
         <GoalsView focus={view.focus} onOpen={go} />
       ) : view.id === 'queue' ? (
         <QueueView />
-      ) : view.id === 'folders' ? (
-        <FoldersView focus={view.folder} note={view.focus} tab={view.tab} onTab={(tab) => does.setView({ id: 'folders', folder: view.folder, tab }, key)} onOpen={(type, id, folder) => does.open(type, id, key, folder)} onPlace={(id) => does.setView({ id: 'folders', folder: id ?? 'all' }, key)} />
       ) : view.id === 'tags' ? (
         <TagsView onOpen={go} focus={view.focus} />
       ) : view.id === 'sources' ? (
@@ -1185,7 +1191,7 @@ export function Home(): React.JSX.Element {
   // Library folded, Bin, Archived and the powers in the foot), then stays wherever it is dragged.
   useEffect(() => {
     if (!settings || settings.sidebarByUseOnce) return
-    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['folders', 'library', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
+    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['library', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
   }, [settings?.sidebarByUseOnce]) // eslint-disable-line react-hooks/exhaustive-deps
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
   useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1267,11 +1273,18 @@ export function Home(): React.JSX.Element {
   // "New" makes a blank page, as in Obsidian (a new book's way), or a capture in quick capture.
   // In the window, New makes a blank page, as Apple Notes does; quick capture keeps its own key from anywhere.
   const newPage = settings?.newMakes !== 'capture'
-  // In one of Writing's or Gems' folders, "New" (and ⌘N) makes a note there, of its list (groups.ts).
+  // In a folder of Writing, "New" (and ⌘N) makes a page there, opened in that folder's page; in one of Writing's or
+  // Gems' groups, a note in it, of its list (groups.ts).
   const inFolderRef = useRef<{ id: string; tier: string } | null>(null)
-  inFolderRef.current = (view.id === 'articles' || view.id === 'nuggets') && view.folder ? { id: view.folder, tier: view.id === 'articles' ? 'article' : 'nugget' } : null
+  inFolderRef.current = view.id === 'folders' && view.folder && view.folder !== 'all' && view.folder !== 'unfiled' ? { id: view.folder, tier: 'folder' }
+    : (view.id === 'articles' || view.id === 'nuggets') && view.folder ? { id: view.folder, tier: view.id === 'articles' ? 'article' : 'nugget' } : null
   const makeNew = (): void => {
     const folder = inFolderRef.current
+    if (folder?.tier === 'folder') return void haligtree.newArticle().then(async (id) => {
+      await folders.file([{ type: 'article', id }], folder.id)
+      chime('promote')
+      open('article', id, undefined, folder.id)
+    })
     if (folder) return void groups.note(folder.id).then((id) => id && (chime('promote'), setView({ id: folder.tier === 'article' ? 'articles' : 'nuggets', focus: id, folder: folder.id })))
     if (!newPage) return void (chime('open'), window.api.showPrompt())
     void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
@@ -1604,6 +1617,9 @@ export function Home(): React.JSX.Element {
     // on its row there does (a gem went to Gems and stepped through all 122).
     const step = (): View => {
       if (folder) return { id: 'folders', folder, focus: id, tab: tabOfKind(type) }
+      // A page opened from anywhere else (⌘K, a link) opens in Writing where it lives: its folder's page, or the top.
+      const kept = type === 'article' ? keptNuggets[id] : undefined
+      if (kept) return { id: 'folders', folder: kept, focus: id, tab: 'pages' }
       const task = type === 'task' ? peekRead<Task>('task', id) : undefined
       const list = !task || task.status !== 'open' ? null : onToday(task) ? 'today' : task.recurrence ? 'routines' : bucket(task) && !task.deadline ? 'later' : null
       return list ? { id: list, focus: id } : stepOf(type, id)
@@ -1717,7 +1733,7 @@ export function Home(): React.JSX.Element {
 
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   // A folder's page is named for the folder in its tab, as a note's is for the note.
-  const folderLabel = (focus?: string): string => (!focus || focus === 'all' ? 'Folders' : focus === 'unfiled' ? 'Not in a folder' : everyFolder.find((one) => one.id === focus)?.name ?? 'Folder')
+  const folderLabel = (focus?: string): string => (!focus || focus === 'all' || focus === 'unfiled' ? 'Writing' : everyFolder.find((one) => one.id === focus)?.name ?? 'Folder')
   const labelOf = (view: View): string => datedName(view) ?? (view.id === 'folders' ? folderLabel(view.folder) : null) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' || view.id === 'lookups' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New tab' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
@@ -1733,7 +1749,7 @@ export function Home(): React.JSX.Element {
     if (view.id === 'pdf') return { icon: pdfDrawing(view.focus ?? ''), kind: 'PDF' }
     if (view.id === 'web') return { icon: BookOpen, kind: 'Web page' }
     if (view.id === 'settings') return { icon: placeDrawing(SETTINGS_PLACE) }
-    if (view.id === 'folders') return { icon: FolderOpen }
+    if (view.id === 'folders' && view.folder && view.folder !== 'all' && view.folder !== 'unfiled') return { icon: FolderOpen }
     const owned = kind(view)
     if (owned) return { icon: owned.icon, tint: owned.tint }
     const place = [...JOURNAL_SCALES, ...SECTIONS].find((one) => one.id === view.id) ?? SECTIONS.find((one) => one.id === litRow(view.id === 'source' ? 'sources' : view.id))
@@ -1817,7 +1833,7 @@ export function Home(): React.JSX.Element {
     // A folder's page, "Not in a folder" or every folder: the one row of the Folders section that is lit (one light
     // at a time: with no key of its own, the light stayed on the last folder when "All folders…" was opened).
     // A note open on it is the one lit instead: its row under its folder (`kept:` below).
-    if (view.id === 'folders' && !(keptFolder && noteNow)) return `folders:${view.folder ?? 'all'}`
+    if (view.id === 'folders' && view.folder && view.folder !== 'all' && view.folder !== 'unfiled' && !(keptFolder && noteNow)) return `folders:${view.folder}`
     if (noteList && homeFolder && foldersOn(noteList)) return `note:${noteNow!.id}`
     // A note kept in one of Folders' folders: its row under that folder (the section lights its heading when folded),
     // wherever it was opened from: ahead of Writing's own fold, which lists it too.
@@ -1979,7 +1995,7 @@ export function Home(): React.JSX.Element {
     <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} data-frame-grain={settings?.frameGrain === false ? undefined : ''} style={{ '--mf-frame-depth': settings?.frameDepth ?? 75 } as CSSProperties} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div data-toast-lane className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
-      <FolderPicker onFolders={() => setView({ id: 'folders', folder: 'all' })} />
+      <FolderPicker onFolders={() => setView({ id: 'articles' })} />
       <PracticeAsked onHome={split.panes.some((one) => onShow(one).id === 'home')} />
       <PickDays />
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
@@ -2160,10 +2176,9 @@ export function Home(): React.JSX.Element {
             // Not in safe mode: the notes it would bring are meant to be put away then.
             // The starter lists, found by name too ("Start a list: Overheard"), not only from Gems' right-click.
             ...STARTER_LISTS.map(([icon, name]) => ({ label: `Start a list: ${name}`, hint: `${icon} A folder for what you keep`, cue: null, run: () => void startList(icon, name).then((folder) => setView({ id: 'folders', folder: folder })) })),
-            // Folders: the open note kept in one, a new one, every one.
+            // Writing's folders: the open note kept in one, or a new one.
             ...(noteNow && ['capture', 'article', 'nugget', 'question', 'task'].includes(noteNow.type) ? [{ label: 'Keep in folder…', hint: 'The open note, in a folder you pick or make', cue: null, run: () => askFolder([{ type: noteNow.type as FolderKind, id: noteNow.id }]) }] : []),
-            { label: 'New folder', hint: 'In Folders, named as it is made', keys: '⌃⌘N', cue: null, run: () => newFolderHere(null) },
-            { label: 'All folders', hint: 'Every folder, to find one by its name', cue: null, run: () => setView({ id: 'folders', folder: 'all' }) },
+            { label: 'New folder', hint: 'In Writing, named as it is made', keys: '⌃⌘N', cue: null, run: () => newFolderHere(null) },
             ...(settings?.safeMode || desk?.hidden ? [] : [{ label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', hint: 'Line the sticky notes up in a neat column', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', hint: 'For now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
@@ -2318,8 +2333,9 @@ export function Home(): React.JSX.Element {
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 ...openItems('view', section.id),
-                // Writing makes pages, first. Folders live in Folders, not in Writing or Gems (they keep only groups).
+                // Writing makes pages, first, then the folders that hold them (Gems keeps only groups).
                 section.id === 'articles' && { label: 'New page', run: () => addPage() },
+                section.id === 'articles' && { label: 'New folder', keys: '⌃⌘N', run: () => newFolderHere(null) },
                 // The lists commonplace keepers start with, one press each: a folder of Gems, named, given its emoji and opened.
                 section.id === 'nuggets' && { label: 'Start a list', items: STARTER_LISTS.map(([icon, name]) => ({ label: name, icon: <span aria-hidden className="flex size-4 items-center justify-center text-[0.9rem] leading-none">{icon}</span>, run: () => void startList(icon, name).then((folder) => setView({ id: 'folders', folder: folder })) })) },
                 'separator',
@@ -2357,12 +2373,15 @@ export function Home(): React.JSX.Element {
               const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
               const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : list === 'nugget' ? [nuggetFolders, setNuggetFolders] : [journalOpen, setJournalOpen]
               // Writing's pages, under its row as a folder's are under it (side-writing.tsx), archived ones aside.
-              const pages = list === 'article' && folders ? folders.filter((one) => !one.archivedAt) : []
-              // What the chevron over the icon folds: Writing's pages and folders, Gems' folders, or Journal's scales;
-              // only with something to fold (a Writing with no pages and no folders has none).
-              const folds = (!!(folders && list) && (list !== 'article' || pages.length > 0 || writingFolders.some(isFolder))) || scales.length > 0
+              // Only the loose ones: a page in a folder shows under its folder (folders isolate).
+              const pages = list === 'article' && folders ? folders.filter((one) => !one.archivedAt && !keptNuggets[one.id]) : []
+              // Writing's folders hang under it first, as Finder's sidebar has them (side-folder-section.tsx `WritingFolders`).
+              const writingTops = list === 'article' && !narrow ? everyFolder.filter((one) => !one.archived && !one.parent).length : 0
+              // What the chevron over the icon folds: Writing's folders, groups and loose pages, Gems' folders, or Journal's
+              // scales; only with something to fold (a Writing with no pages and no folders has none).
+              const folds = (!!(folders && list) && (list !== 'article' || pages.length > 0 || writingFolders.some(isFolder))) || writingTops > 0 || scales.length > 0
               // The folder to light the way down to: where the open note lives, or the one on show.
-              const inFolder = list && noteList === list ? homeFolder ?? undefined : view.id === section.id && !noteNow ? view.folder : undefined
+              const inFolder = list === 'article' && view.id === 'folders' ? view.folder : list && noteList === list ? homeFolder ?? undefined : view.id === section.id && !noteNow ? view.folder : undefined
               const inScale = light === `scale:${view.id}` && scales.some((one) => one.id === view.id)
               const here = light === `place:${section.id}`
               return (
@@ -2383,10 +2402,14 @@ export function Home(): React.JSX.Element {
                 data-queue-drop={section.id === 'queue' ? '' : undefined}
                 // A capture carried here becomes a page in Writing (split-drop.tsx); lit while it is over it.
                 data-writing-drop={section.id === 'articles' ? '' : undefined}
+                // Writing's top: a page, note or gem carried here leaves its folder (split-drop.tsx `keepDrop`), a
+                // folder carried here goes to the top (side-folder-section.tsx `useFolderMoves`).
+                data-keep-drop={section.id === 'articles' ? 'none' : undefined}
+                data-row-drop={section.id === 'articles' ? TOP_DROP : undefined}
                 aria-label={section.label}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 transition-colors duration-80 ${narrow ? NARROW_ICON : 'rounded-md px-2 py-1.5'} ${here || inFolder || inScale ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 transition-colors duration-80 ${narrow ? NARROW_ICON : 'rounded-md px-2 py-1.5'} ${here || inFolder || inScale ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[drop-hot]:bg-accent data-[drop-hot]:text-foreground`}
               >
                 {/* While anything is being dragged, a fold row keeps its icon and count: the row moving under a still
                     pointer flipped it to its chevron and back. */}
@@ -2414,7 +2437,7 @@ export function Home(): React.JSX.Element {
                       <AliveIcon icon={DotsHorizontalIcon} size={14} />
                     </button>
                   </Tip>
-                  {/* Writing's "+" makes a page; Gems makes none from blank (gems come from notes), and no folders (Folders does). */}
+                  {/* Writing's "+" makes a page (its folders come from its menu and ⌃⌘N); Gems makes none from blank (gems come from notes). */}
                   {list === 'article' && (
                     <Tip label="Add a page">
                       <button type="button" data-folder-new={list} aria-label="Add a page to Writing" onClick={() => addPage()}
@@ -2456,13 +2479,21 @@ export function Home(): React.JSX.Element {
               {narrow && list && settings?.sidebarFolders?.[list] !== false && (
                 <RailFolders list={list} onOpen={(id) => setView({ id: section.id, folder: id })} />
               )}
+              {/* Writing's folders first, always mounted so a new one can be named in them (WritingFolders). */}
+              {list === 'article' && !narrow && (
+                <div data-own-press="">
+                  <WritingFolders open={unfolded} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder && light.startsWith('kept:') ? noteRow : undefined}
+                    here={view.id === 'folders' && view.folder !== 'all' && view.folder !== 'unfiled' ? view.folder : undefined} onUnfold={() => setUnfolded(true)}
+                    onOpen={(place) => setView(place ? { id: 'folders', folder: place } : { id: 'articles' })} onOpenItem={(type, id, folder) => open(type, id, undefined, folder)} lit={light.startsWith('kept:') ? noteNow?.id : undefined} />
+                </div>
+              )}
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away (lib/own-press.ts). The
                 // press is not stopped: every open popover hears it, so a folder's icon picker shuts when another is pressed.
                 <div data-own-press="">
                   <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} noteRow={light.startsWith('note:') && noteList === list ? noteRow : undefined} shown={shownIn(list, folders)}
                     onOpen={(id) => setView({ id: section.id, folder: id })} onUnfold={() => setUnfolded(true)} onNewPage={list === 'article' ? addPage : undefined} />
-                  {/* Its pages on the same tree lines as a folder's things (FoldersSection): the first four, the one open among them, "See all". */}
+                  {/* Its pages on the same tree lines as a folder's things (WritingFolders): the first four, the one open among them, "See all". */}
                   {pages.length > 0 && (
                     <Unfold open={unfolded}>
                       <Branches className="ml-5 flex flex-col gap-px">
@@ -2709,8 +2740,6 @@ export function Home(): React.JSX.Element {
             const tagRows = !narrow && !quiet && shown.includes('tags')
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
-            // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
-            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} noteIn={keptFolder} noteKey={keptFolder ? noteNow?.id : undefined} noteRow={keptFolder && light.startsWith('kept:') ? noteRow : undefined} here={view.id === 'folders' ? (!view.folder || view.folder === 'all' ? null : view.folder) : undefined} onOpen={(place) => setView({ id: 'folders', folder: place ?? 'all' })} onOpenItem={(type, id, folder) => open(type, id, undefined, folder)} lit={light.startsWith('kept:') ? noteNow?.id : undefined} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList
@@ -2721,7 +2750,6 @@ export function Home(): React.JSX.Element {
                 refuse={{ selector: 'aside nav [data-side-drop]', said: 'A page can’t go in Favorites or Tags' }}
                 row={(section, among) => row(section, among)}
                 around={(block, at, box, items) => (<>
-                  {block === 'rest' && foldersPart}
                   {block === 'rest' && tagRows && tagsPart}
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
@@ -2747,7 +2775,6 @@ export function Home(): React.JSX.Element {
                   {block === 'Write' && pinned}
                 </>)}
               />
-              {!parts.some((part) => part.key === 'rest') && foldersPart}
               {!parts.some((part) => part.key === 'rest') && tagRows && tagsPart}
             </>)
           })()}
@@ -2757,7 +2784,7 @@ export function Home(): React.JSX.Element {
         {/* The section carried, as a lifted card under the pointer, named as its heading is, saying what letting go would do. */}
         {sectionDrag.carrying && sectionDrag.at && (
           <CardAt x={sectionDrag.at.x} y={sectionDrag.at.y}>
-            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ folders: 'Folders', pinned: 'Favorites', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ pinned: 'Favorites', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
           </CardAt>
         )}
 
@@ -2979,7 +3006,7 @@ export function Home(): React.JSX.Element {
           <SoundToggle className={TOOL} />
         </span>
         {/* The one thing the window is for, so the one with an edge: the same pill as back and forward, its key beside it. */}
-        <Tip label={keyed(inFolderRef.current ? 'A new note in this folder' : newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
+        <Tip label={keyed(inFolderRef.current ? (inFolderRef.current.tier === 'folder' ? 'A new page in this folder' : 'A new note in this group') : newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
           <button type="button" data-new={inFolderRef.current ? 'folder' : newPage ? 'page' : 'capture'} onClick={makeNew}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             className={`flex h-6 items-center overflow-hidden rounded-full border ml-1.5 shrink-0 gap-1.5 ${!newPage && !inFolderRef.current ? 'pr-1' : 'pr-2.5'} pl-2.5 text-[0.8125rem] font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
