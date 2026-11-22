@@ -180,9 +180,13 @@ try {
   const ghost = await h.evaluate((id) => {
     const book = document.querySelector(`[data-book-shelf] [data-book="${id}"]`)
     const cover = book.querySelector('.mf-card-cover').getBoundingClientRect()
+    // The name as shown: its own opacity times every one above it up to the spine (the turn fades the words' wrapper,
+    // the foil and its impression together, book-box.tsx `words`).
     const title = book.querySelector('[data-spine-title]')
+    let opacity = 1
+    for (let one = title; one && !one.hasAttribute('data-reader-spine-face'); one = one.parentElement) opacity *= Number(getComputedStyle(one).opacity)
     const strip = [2, 5, 9].map((dx) => document.elementFromPoint(cover.left + dx, cover.top + cover.height / 2))
-    return { strip: strip.map((one) => (one?.closest('[data-spine-title], [data-reader-spine-face]') ? 'spine' : one?.closest('.mf-card-cover') ? 'cover' : one?.tagName ?? 'none')), opacity: getComputedStyle(title).opacity }
+    return { strip: strip.map((one) => (one?.closest('[data-spine-title], [data-reader-spine-face]') ? 'spine' : one?.closest('.mf-card-cover') ? 'cover' : one?.tagName ?? 'none')), opacity }
   }, other.id)
   check('no spine words over the turned cover: its left strip is the cover, the spine\'s name faded to nothing', ghost.strip.every((one) => one === 'cover') && Number(ghost.opacity) === 0, JSON.stringify(ghost))
   const caption = await h.locator('[data-book-caption]').textContent()
