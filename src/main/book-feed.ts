@@ -123,8 +123,11 @@ export function bookFeed(db: DatabaseSync) {
       for (const child of node?.content ?? []) walk(child as typeof node)
     }
     if (value && typeof value === 'object') walk(value as never)
-    return out.map((one) => ({ to: one.to, label: untagged(one.label).trim() })).filter((one) => one.label)
+    // A link to a note put away (archived, or by Start fresh) is left as its plain words: a click never opens what is out of sight.
+    const away = (to: string): boolean => { const id = to.slice(to.lastIndexOf(':') + 1); return !!archivedOne.get(id, id) }
+    return out.map((one) => ({ to: one.to, label: untagged(one.label).trim() })).filter((one) => one.label && !away(one.to))
   }
+  const archivedOne = db.prepare('select 1 from nuggets where id = ? and archived_at is not null union all select 1 from captures where id = ? and archived_at is not null limit 1')
 
   /** Where a quote came from: the first link back into a kept PDF (at its page) or a kept web page, as the readers write it. */
   const hostOf = (href: string | null): string => {
