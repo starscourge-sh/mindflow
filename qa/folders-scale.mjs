@@ -59,7 +59,7 @@ try {
   const all = await time('Writing opened', () => c.send('view', 'articles'), () => document.querySelectorAll('[data-page="articles"] [data-folder-open]').length > 0)
   check('Writing opens in under a second', all < 1000, `${all}`)
   check('it draws the top level folded, not 1,000 rows', (await h.locator('[data-page="articles"] [data-folder-open]').count()) <= 20, `${await h.locator('[data-page="articles"] [data-folder-open]').count()}`)
-  const page = await time('a folder of 2,500 opened', () => c.send('folder', big.id).then(() => h.waitForTimeout(0)), () => document.querySelectorAll('[data-folder-item]').length > 0)
+  const page = await time('a folder of 2,500 opened', () => c.send('folder', big.id).then(() => h.waitForTimeout(0)), () => document.querySelectorAll('[data-page="folders"] button[data-row]').length > 0)
   check('a folder of 2,500 opens in under a second', page < 1500, `${page}`)
   const deep = await time('the deepest folder opened', () => c.send('folder', deepest.id), () => !!document.querySelector('[data-folder-path]') && document.querySelector('[data-folder-path]').textContent.includes('Writing'))
   check('a folder six deep opens, its path drawn', deep < 1500, `${deep}`)

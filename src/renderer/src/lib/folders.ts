@@ -25,15 +25,12 @@ export type Folder = {
   front: string | null
 }
 export type FolderItem = { type: FolderKind; id: string; title: string; at: string; archived: number }
-/** A page or gem in Writing's Recent, with the folder it lives in (null: at the top). */
-export type RecentItem = { type: 'article' | 'nugget'; id: string; title: string; at: string; folder: string | null }
 
 export const FOLDER_DEPTH = 6
 
 export const folders = {
   list: () => call<Folder[]>('folders'),
   items: (id: string) => call<FolderItem[]>('folders:items', id),
-  recent: () => call<RecentItem[]>('folders:recent'),
   make: (name: string, parent: string | null = null) => call<string>('folders:make', name, parent),
   file: (things: Thing[], folder: string | null) => call<Was[]>('folders:file', things, folder),
   unfile: (was: Was[]) => call<void>('folders:unfile', was),

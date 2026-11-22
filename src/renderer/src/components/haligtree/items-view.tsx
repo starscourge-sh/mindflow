@@ -134,7 +134,7 @@ const NO_GROUPS: NoteGroup[] = []
  * The folder a page, gem or question lives in, quietly, on its row in Writing, Gems or Questions: these are views by
  * kind, listing filed and unfiled alike, so the row says where it is kept. A click on it is a click on the row.
  */
-function FolderCue({ home }: { home: Folder }): React.JSX.Element {
+export function FolderCue({ home }: { home: Folder }): React.JSX.Element {
   return (
     <span data-row-folder={home.id} className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
       <GroupIcon icon={home.icon} color={home.color} className="size-3 shrink-0" /><span className="truncate">{home.name}</span>

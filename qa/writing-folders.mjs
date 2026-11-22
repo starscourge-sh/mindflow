@@ -115,14 +115,14 @@ try {
   await go('articles')
   await h.locator('[data-folder-kinds] [aria-label^="Recent"]').click()
   await wait(900)
-  const parts = await h.evaluate(() => [...document.querySelectorAll('[data-recent-part]')].map((one) => one.getAttribute('data-recent-part')))
+  const parts = await h.evaluate(() => [...document.querySelectorAll('[data-recent] [data-group-head]')].map((one) => one.getAttribute('data-group-head')))
   const ORDER = ['Today', 'Yesterday', 'This week', 'Earlier']
   check('Recent is grouped by date, in order', parts.length > 0 && parts.every((one, n) => ORDER.includes(one) && (n === 0 || ORDER.indexOf(one) > ORDER.indexOf(parts[n - 1]))), JSON.stringify(parts))
-  check('…the two pages there, naming Essays', ((await h.locator(`[data-recent-row="${pick[0]}"] [data-recent-folder]`).textContent().catch(() => '')) ?? '').includes('Essays'))
-  check('…gems among the pages', (await h.locator('[data-recent-row][data-type="nugget"]').count()) > 0)
+  check('…the two pages there, naming Essays', ((await h.locator(`[data-recent] button[data-row][data-id="${pick[0]}"] [data-row-folder]`).textContent().catch(() => '')) ?? '').includes('Essays'))
+  check('…gems among the pages', (await h.locator('[data-recent] button[data-row][data-type="nugget"]').count()) > 0)
   await shot('8-recent')
   // A row opens its page in the folder it lives in.
-  await h.locator(`[data-recent-row="${pick[0]}"]`).click()
+  await h.locator(`[data-recent] button[data-row][data-id="${pick[0]}"]`).click()
   await wait(1200)
   check('a Recent row opens its page in its folder', /Essays/.test((await h.locator('[data-folder-path]').textContent().catch(() => '')) ?? '') && (await h.locator(`[data-open="${pick[0]}"]`).count()) > 0)
 

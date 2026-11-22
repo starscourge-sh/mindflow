@@ -5,24 +5,22 @@ import { HaligtreeEditor } from './haligtree-editor'
 import { saveImage } from '@/extensions/image-drop'
 import { quietly, sayNow } from './ui'
 import { ChevronRight, FileText, FolderPlus, ImagePlus, PenLine, Text } from 'lucide-react'
-import { Gem } from '@/components/ui/icons'
 import { FolderGems, FolderGemsOffer } from './folder-gems'
 import { Empty, Grows, Island, Page, Tip } from './ui'
-import { ItemsView } from './items-view'
+import { FolderCue, ItemsView, itemEntry } from './items-view'
+import { NoteList, type Entry } from './note-list'
 import { CapturesView } from './captures-view'
 import { TabChips } from './tab-chips'
-import { GroupIcon, SectionHead } from './kept-groups'
-import { ROW_PAD, ROW_SHAPE } from './row-shape'
+import { GroupIcon } from './kept-groups'
 import { cn } from '@/lib/cn'
-import { RowMenu } from './row-menu'
 import { openItems } from '@/lib/split'
 import { chime } from '@/lib/sound'
-import { useLive } from '@/lib/haligtree'
-import { askFolder, folders, pathOf, useFolders, writeFrom, type Folder, type FolderItem, type FolderKind, type RecentItem } from '@/lib/folders'
+import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
+import { askFolder, folders, pathOf, useFolderOf, useFolders, writeFrom, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { FolderRows, TOP_DROP, folderDrop, newFolderHere } from './side-folder-section'
 import { calendarInk, events, useCalendars } from '@/lib/events'
 import { clock } from '@/lib/clock'
-import { age, dayjs, num } from '../../../../main/dates'
+import { dayjs, num } from '../../../../main/dates'
 
 
 /**
@@ -167,63 +165,57 @@ const recentPart = (at: string): string => {
   if (!day.isBefore(today.subtract(6, 'day'))) return 'This week'
   return 'Earlier'
 }
+const touched = (one: Item): string => one.updatedAt ?? one.createdAt
 
 /**
  * Writing's Recent: every page and gem, wherever it is kept, newest first, under Today, Yesterday, This week and
- * Earlier, in the list's own rows and section heads. Each row says where it lives; its right click opens it or moves it.
+ * Earlier. Drawn by the list Pages and Gems are drawn by (note-list.tsx `NoteList`, items-view.tsx `itemEntry`): the
+ * same thumbnail, height and meta line, its folder first on that line. ↑↓ (j/k) step, ↵ opens.
  */
 function RecentList({ lead, said, onOpen }: { lead?: React.ReactNode; said: React.ReactNode; onOpen: (type: string, id: string, folder?: string) => void }): React.JSX.Element {
-  const recent = useLive(folders.recent, null as RecentItem[] | null, [], ['item'], 'folders:recent')
+  const pages = useLive(() => haligtree.items('article'), [] as Item[], [], ['item'], 'recent:article')
+  const gems = useLive(() => haligtree.items('nugget'), [] as Item[], [], ['item'], 'recent:nugget')
   const all = useFolders()
+  const folderOf = useFolderOf()
   const byId = useMemo(() => new Map(all.map((one) => [one.id, one])), [all])
-  const parts = useMemo(() => {
-    const out: [string, RecentItem[]][] = []
-    for (const one of recent ?? []) {
-      const part = recentPart(one.at)
+  const [cursor, setCursor] = useState(-1)
+  const loading = unloaded(pages) || unloaded(gems)
+  const recent = useMemo(() => (loading ? [] : [...pages, ...gems].filter((one) => !one.archivedAt).sort((a, b) => (touched(a) < touched(b) ? 1 : -1)).slice(0, 500)), [pages, gems, loading])
+  const groups = useMemo(() => {
+    const out: [string, Entry[]][] = []
+    for (const one of recent) {
+      const part = recentPart(touched(one))
+      const home = byId.get(folderOf[one.id] ?? '')
+      const row = itemEntry(one, () => [{ label: 'Open', run: () => onOpen(one.tier, one.id, home?.id) }, ...openItems(one.tier, one.id), 'separator', { label: 'Keep in folder…', run: () => askFolder([{ type: one.tier as FolderKind, id: one.id }]) }])
+      // Where it is kept, first on its meta line, before the line Pages and Gems give it.
+      const entry: Entry = home ? { ...row, menu: row.menu, sub: <><FolderCue home={home} />{row.sub ? <> · {row.sub}</> : null}</> } : row
       if (out.at(-1)?.[0] !== part) out.push([part, []])
-      out.at(-1)![1].push(one)
+      out.at(-1)![1].push(entry)
     }
     return out
-  }, [recent])
+  }, [recent, byId, folderOf]) // eslint-disable-line react-hooks/exhaustive-deps
+  const open = (id: string): void => {
+    const one = recent.find((item) => item.id === id)
+    if (one) onOpen(one.tier, one.id, folderOf[one.id])
+  }
   return (
-    <Page title="Writing" lead={lead} count={recent?.length} unit={['page or gem', 'pages and gems']} waiting={!recent}>
+    <Page title="Writing" lead={lead} count={loading ? undefined : recent.length} unit={['page or gem', 'pages and gems']} waiting={loading}>
       <div data-kind-chips className="list-words pt-4 pb-2">{said}</div>
-      {recent && !recent.length ? (
+      {!loading && !recent.length ? (
         <Empty title="Nothing written yet" art={<FileText className="size-8 text-muted-foreground" />}>A page you write or a gem you keep shows here first.</Empty>
       ) : (
-        // ↑↓ (j/k) step from row to row, ↵ opens one (the button's own), as on every list.
-        <div data-recent="" className="list-edge my-2 flex flex-col" onKeyDown={(event) => {
+        // ↑↓ (j/k) step from row to row, ↵ opens one (the row's own button), as on every list.
+        <div data-recent="" className="flex flex-col" onKeyDown={(event) => {
           const step = event.key === 'ArrowDown' || event.key === 'j' ? 1 : event.key === 'ArrowUp' || event.key === 'k' ? -1 : 0
           if (!step || event.metaKey || event.ctrlKey || event.altKey) return
-          const rows = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-recent-row]')]
-          const at = rows.indexOf(document.activeElement as HTMLElement)
-          const next = rows[Math.max(0, Math.min(rows.length - 1, at + step))]
+          const rows = [...event.currentTarget.querySelectorAll<HTMLElement>('button[data-row]')]
+          const next = rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(document.activeElement as HTMLElement) + step))]
           if (!next) return
           event.preventDefault()
           next.focus()
           next.scrollIntoView({ block: 'nearest' })
         }}>
-          {parts.map(([part, rows], at) => (
-            <div key={part} data-recent-part={part} className="flex flex-col">
-              <SectionHead head={[part, rows.length]} first={at === 0} />
-              {rows.map((one) => {
-                const Icon = one.type === 'article' ? FileText : Gem
-                const home = one.folder ? byId.get(one.folder) : undefined
-                return (
-                  <RowMenu key={one.id} items={() => [{ label: 'Open', run: () => onOpen(one.type, one.id, one.folder ?? undefined) }, ...openItems(one.type, one.id), 'separator', { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) }]}>
-                    <button type="button" data-recent-row={one.id} data-type={one.type} data-drag-open={`${one.type}:${one.id}`} data-drag-kind={one.type} title={one.title}
-                      onClick={() => (chime('page'), onOpen(one.type, one.id, one.folder ?? undefined))}
-                      className={cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent/60')}>
-                      <span className="flex size-9 shrink-0 items-center justify-center"><Icon aria-hidden className="size-4 text-muted-foreground" /></span>
-                      <span className="private-text min-w-0 flex-1 truncate text-control font-medium text-foreground">{one.title.trim() || (one.type === 'article' ? 'Untitled' : 'New note')}</span>
-                      {home && <span data-recent-folder="" className="flex min-w-0 shrink items-center gap-1 truncate text-meta text-muted-foreground"><GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}</span>}
-                      <span className="shrink-0 text-meta text-muted-foreground tabular-nums">{part === 'Today' || part === 'Yesterday' ? clock(one.at) : age(one.at) === 'now' ? 'just now' : `${age(one.at)} ago`}</span>
-                    </button>
-                  </RowMenu>
-                )
-              })}
-            </div>
-          ))}
+          <NoteList groups={groups} density="list" table="nuggets" cursor={cursor} onCursor={setCursor} onPick={open} />
         </div>
       )}
     </Page>

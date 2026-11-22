@@ -64,10 +64,11 @@ try {
     const pick = document.querySelector('[data-folder-picker]')?.getBoundingClientRect()
     const dim = [...document.querySelectorAll('body *')].some((one) => { const s = getComputedStyle(one); return s.position === 'fixed' && one.getBoundingClientRect().width >= innerWidth - 2 && one.getBoundingClientRect().height >= innerHeight - 2 && /rgba\(0, 0, 0, 0\.[1-9]/.test(s.backgroundColor) })
     const side = document.querySelector('aside')?.getBoundingClientRect()
-    return row && pick ? { top: Math.round(pick.top - row.top), width: Math.round(pick.width), sidebar: Math.round(side?.width ?? 0), right: pick.left > row.left + 40, dim } : null
+    return row && pick ? { top: Math.round(pick.top - row.top), foot: Math.round(innerHeight - pick.bottom), width: Math.round(pick.width), sidebar: Math.round(side?.width ?? 0), right: pick.left > row.left + 40, dim } : null
   }, await row.getAttribute('data-id'))
   // As the sidebar's own cards: about its width, to the right of where it was asked, its top level with the row.
-  check('the picker is the sidebar card: beside the row, its top level with it, the window not dimmed', !!spot && Math.abs(spot.top) <= 8 && spot.width <= spot.sidebar + 40 && spot.right && !spot.dim, JSON.stringify(spot))
+  // Level with its row, or (a row low in the window, under Writing's folders) lifted only as far as keeps it in the window.
+  check('the picker is the sidebar card: beside the row, its top level with it (or lifted just clear of the window\'s foot), the window not dimmed', !!spot && (Math.abs(spot.top) <= 8 || (spot.top < 0 && spot.foot <= 24)) && spot.width <= spot.sidebar + 40 && spot.right && !spot.dim, JSON.stringify(spot))
   await shot('picker')
   await h.keyboard.type('thes')
   await wait(200)
@@ -79,7 +80,7 @@ try {
   check('it leaves Writing\'s top level', await until(async () => (await h.locator(`[data-page="articles"] button[data-row][data-id="${page}"]`).count()) === 0))
   await h.locator('[data-folder-kinds] [aria-label^="Recent"]').click()
   await wait(700)
-  check('Recent lists it, naming Thesis', ((await h.locator(`[data-recent-row="${page}"] [data-recent-folder]`).textContent().catch(() => '')) ?? '').includes('Thesis'))
+  check('Recent lists it, naming Thesis', ((await h.locator(`[data-recent] button[data-row][data-id="${page}"] [data-row-folder]`).textContent().catch(() => '')) ?? '').includes('Thesis'))
   await shot('writing-recent')
   await h.locator('[data-folder-kinds] [aria-label^="Pages"]').click()
   await wait(500)
@@ -168,15 +169,16 @@ try {
   await wait(900)
   check('↓ (Next) moves to the folder\'s next page', /2 \/ 2/.test(await bar()))
   // Writing at the same size with a page open, for the frames beside it: the list beside the page, or not, alike.
+  // A page each, by its own row (never a group's row, whose press opens the group, not a page).
   await c.go('articles')
-  await h.locator('[data-page="articles"] button[data-row]').first().click()
+  await h.locator('[data-page="articles"] button[data-row][data-id]:not([data-group-row]):not([data-group-row] *)').first().click()
   await wait(1200)
   await shot('writing-open')
   const listBeside = () => h.evaluate(() => [...document.querySelectorAll('button[data-row]')].filter((one) => one.getBoundingClientRect().width > 0).length > 0)
   const writingBeside = await listBeside()
   await h.locator(`[data-side-folder="${thesis.id}"]`).click()
   await wait(1200)
-  await rows().first().click().catch(() => {})
+  await h.locator(`[data-page="folders"] button[data-row][data-id="${pages[0]}"]`).click().catch(() => {})
   await wait(1200)
   check('with a page open, the folder\'s list stands beside it as Writing\'s does', (await listBeside()) === writingBeside, `Writing ${writingBeside}, folder ${await listBeside()}`)
   // Back (⌘[) to the folder's list, as from Writing's open page.

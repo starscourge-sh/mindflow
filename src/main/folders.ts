@@ -307,11 +307,6 @@ export function registerFolders(): void {
     void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
   handle('folders', () => listFolders())
   handle('folders:items', (id: string) => folderItems(id))
-  // Writing's Recent: every page and gem, wherever it is kept, newest first, with its folder.
-  handle('folders:recent', () => database().prepare(`select case when tier = 'article' then 'article' else 'nugget' end as type, id,
-      coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, coalesce(updated_at, created_at) as at, folder_id as folder
-      from nuggets where tier in ('article', 'nugget') and binned_at is null and archived_at is null and superseded_by is null
-      order by coalesce(updated_at, created_at) desc limit 500`).all())
   handle('folders:make', (name: string, parent: string | null = null) => makeFolder(name, parent))
   handle('folders:file', (things: Thing[], folder: string | null) => {
     const was = fileThings(things, folder)
