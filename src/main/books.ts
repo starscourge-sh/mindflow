@@ -478,13 +478,18 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     }
     // Only once the copy holds its notes.
     if (existsSync(join(folder, 'haligtree.db')) && !existsSync(join(kept, 'haligtree.db'))) return null
-    if (parts) for (const entry of parts) await rm(join(folder, entry), { recursive: true, force: true })
-    else await rm(folder, { recursive: true, force: true })
+    // Off the shelf first, its copy safe: a file written into the folder as it goes (the run that just left it, saving
+    // its windows' places) made the removal fail, and the book stayed on the shelf with its notes gone (the user, 22 Nov).
     const shelf = readShelf()
     const { [id]: _gone, ...opened } = shelf.opened ?? {}
     const left = shelf.books.filter((one) => one.id !== id)
     writeShelf({ ...shelf, ...(id === 'default' ? { defaultGone: true } : { books: left }), order: shelf.order?.filter((one) => one !== id), last: shelf.last === id ? here() : shelf.last, opened })
     tell()
+    // Then its files, tried again a few times while a closing window finishes writing; anything left is only logged.
+    const away = (path: string): Promise<void> => rm(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+      .catch((error) => console.error(`A file of ${name} stayed behind (its copy is safe):`, error))
+    if (parts) for (const entry of parts) await away(join(folder, entry))
+    else await away(folder)
     return kept
   }
 

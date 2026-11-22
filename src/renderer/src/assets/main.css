@@ -1518,6 +1518,11 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
   > img:not([data-type='emoji'] img):not([style*='width']) {
     width: auto;
   }
+  /* A size picked for it (S, M or L) is that size, however tall the picture: the height limit is only for one left to
+     follow Settings. Held to it, a tall screenshot set to L stayed narrow (the user, 22 Nov). */
+  > img[style*='width']:not([data-type='emoji'] img) {
+    max-height: none;
+  }
   > img:not([data-type='emoji'] img):not([data-align='left'], [data-align='right']) {
     margin-inline: auto;
   }

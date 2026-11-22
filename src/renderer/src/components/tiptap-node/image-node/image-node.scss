@@ -43,9 +43,5 @@
   object-position: -99999px 0 !important;
 }
 
-// One given a width by hand (S, M, L) is still never taller than the note shows at once (main.css), and its width
-// follows that cap by its shape: held to the height alone, a tall picture at "L" sat in a frame as wide as the column,
-// its postcard border spreading either side of it.
-:is(.note-pane, .mf-read) .tiptap.ProseMirror.haligtree-editor:not(.is-line) > img[data-held][style*="width"] {
-  max-width: min(100%, max(10rem, min(80vh, 100vh - 18rem)) * var(--mf-pic-r)) !important;
-}
+// One given a width by hand (S, M, L) is that width, however tall: "L" is the column's width, side to side (the user,
+// 22 Nov: "why is this claiming to be L when it's not side to side"). The height limit is only for one following Settings (main.css).

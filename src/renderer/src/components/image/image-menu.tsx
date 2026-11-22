@@ -63,6 +63,16 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       alt: String(instance?.getAttributes("image").alt ?? ""),
       // Read with the rest, so a change in Settings shows the next time a picture is picked.
       pictureSize: document.documentElement.dataset.pictureSize ?? "full",
+      // Held shorter than its width by the height a note shows at once (a tall screenshot): then it is not at the width
+      // it follows, and that size is not lit as if it were (the user, 22 Nov: "why is this claiming to be L").
+      held: (() => {
+        const img = instance?.view.nodeDOM(instance.state.selection.from)
+        const pic = img instanceof HTMLImageElement ? img : img instanceof HTMLElement ? img.querySelector("img") : null
+        const column = instance?.view.dom.clientWidth ?? 0
+        const share = ({ full: 1, medium: 0.6, small: 0.35 } as Record<string, number>)[document.documentElement.dataset.pictureSize ?? "full"] ?? 1
+        // Narrower than the size it follows (by more than its own rounding): held by its height, so not that size.
+        return !!pic && !!column && pic.getBoundingClientRect().width < column * share - 8
+      })(),
     }),
   })
 
@@ -71,7 +81,7 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
   const set = (next: Record<string, string>): boolean =>
     editor.chain().focus().updateAttributes("image", next).run()
   // A picture given no size of its own follows Settings' “Pictures in notes”: the size it shows at is lit, and says so.
-  const following = attrs.width ? null : ({ full: "100%", medium: "60%", small: "35%" } as Record<string, string>)[attrs.pictureSize] ?? "100%"
+  const following = attrs.width || attrs.held ? null : ({ full: "100%", medium: "60%", small: "35%" } as Record<string, string>)[attrs.pictureSize] ?? "100%"
 
   return (
     <BubbleMenu
