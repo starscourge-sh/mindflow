@@ -341,7 +341,7 @@ function cardOf(id: BookId): Card | null {
 }
 
 /** What is My book's own in the app's folder (its notes, pictures, files and its windows' places), as a book's own folder holds them. */
-const MY_BOOK_PARTS = /^(haligtree\..*db(-wal|-shm|-journal)?|assets|notes|thumbs|meetings|Scenery|scenery-cache|giphy-cache|site-icons|arriving|[^/]+\.json|[^/]+\.part)$/
+const MY_BOOK_PARTS = /^(haligtree\..*db(-wal|-journal)?|assets|notes|thumbs|meetings|Scenery|scenery-cache|giphy-cache|site-icons|arriving|[^/]+\.json|[^/]+\.part)$/
 /** What the app and every book share there: never My book's to delete. */
 const SHARED = new Set(['books', 'books.json', 'sandbox', 'sandbox-carry-out.json'])
 /** "… is deleted", owed to the window of the run that deleted a book it had left. */
@@ -436,34 +436,46 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     if (id === here()) {
       // The first of the others in the shelf's order: the one Settings names as opening first.
       const next = books().filter((one) => !one.current)[0]
-      writeShelf({ ...readShelf(), deleting: String(id) })
+      writeShelf({ ...readShelf(), deleting: { id: String(id), at: Date.now() } })
       return (await switchTo(next.id, null)) ? 'leaving' : (writeShelf({ ...readShelf(), deleting: undefined }), null)
     }
-    return removeBook(String(id))
+    return removeBook(String(id)).catch((error) => (console.error('Deleting a book failed:', error), null))
   })
-  // A book asked to be deleted while it was open, deleted now that this run is in another. Said once in its window.
+  // A book asked to be deleted while it was open, deleted now that this run is in another, said once in its window.
+  // Only a fresh ask (the switch it asked for, minutes ago): an old one, or one whose book is open again (the person
+  // went back to it), is dropped, never carried out later by surprise. The ask is cleared whatever happens.
   const owed = readShelf().deleting
-  if (owed && owed !== here() && !SANDBOX) {
-    const name = nameOf(owed)
-    void removeBook(owed).then((kept) => {
-      writeShelf({ ...readShelf(), deleting: undefined })
-      deletedNote = kept ? `${name} is deleted. A whole copy of it is kept with your backups, under deleted books` : `${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was`
-      tell()
-    })
+  if (owed && !SANDBOX) {
+    writeShelf({ ...readShelf(), deleting: undefined })
+    const fresh = typeof owed === 'object' && owed.id !== here() && Date.now() - owed.at < 10 * 60_000
+    if (fresh) {
+      const name = nameOf(owed.id)
+      void removeBook(owed.id).catch((error) => (console.error('Deleting a book failed:', error), null)).then((kept) => {
+        deletedNote = kept ? `${name} is deleted. A whole copy of it is kept with your backups, under deleted books` : `${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was`
+        tell()
+      })
+    }
   }
   handle('deleted-note', () => { const note = deletedNote; deletedNote = null; return note })
 
   /** A book's files gone, once a whole copy of them is kept with the backups: the copy's folder, or null when it could not be made. */
   async function removeBook(id: BookId): Promise<string | null> {
     const folder = folderOf(id)
-    if (!folder) return null
+    // Never the folder this run is using, whatever the shelf says: a book is never deleted from under itself.
+    if (!folder || folder === dataRoot() || folder === app.getPath('userData')) return null
     const name = nameOf(id)
     const kept = join(backupBase(), 'deleted books', `${name.replace(/[^\p{L}\p{N} _-]+/gu, '').trim() || id} ${dayKey()} ${id}`)
     // My book's files sit in the app's own folder, beside what every book and the app share: only its own go.
-    const parts = id === 'default' ? (await readdir(folder)).filter((entry) => MY_BOOK_PARTS.test(entry) && !SHARED.has(entry)) : null
+    const entries = existsSync(folder) ? await readdir(folder) : []
+    const parts = id === 'default' ? entries.filter((entry) => MY_BOOK_PARTS.test(entry) && !SHARED.has(entry)) : null
     await mkdir(kept, { recursive: true })
-    if (parts) for (const entry of parts) await cp(join(folder, entry), join(kept, entry), { recursive: true })
-    else if (existsSync(folder)) await cp(folder, kept, { recursive: true })
+    // The book's own things are copied, never the browser's caches beside them; a file gone while it is copied (a
+    // database's -shm, a cache file) is passed over: one such file stopped the whole copy, and with it the delete.
+    for (const entry of parts ?? entries.filter((one) => MY_BOOK_PARTS.test(one) || one === 'Local Storage')) {
+      await cp(join(folder, entry), join(kept, entry), { recursive: true, force: true }).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== 'ENOENT') throw error
+      })
+    }
     // Only once the copy holds its notes.
     if (existsSync(join(folder, 'haligtree.db')) && !existsSync(join(kept, 'haligtree.db'))) return null
     if (parts) for (const entry of parts) await rm(join(folder, entry), { recursive: true, force: true })
