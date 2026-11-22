@@ -79,8 +79,14 @@ export function bookInsights(db: DatabaseSync) {
       const tags = tagsIn(`${row.title} ${textOf(row.body)}`)
       // #bits never come up, nor the app's own lessons (#learn-haligtree): they are not yours.
       if (tags.includes('bit') || tags.includes(LEARN_TAG)) continue
+      // Nor work to do (#todo, #bug): a reminder brought back weeks late is noise, not something kept (the user, 22 Nov).
+      if (tags.includes('todo') || tags.includes('bug')) continue
       // Its name as the card shows it, its #tags taken out ("Primavera #renaissance" reads "Primavera").
       const title = row.type === 'day' ? row.title : row.title.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gu, '').replace(/\s+/g, ' ').trim() || row.title
+      // Nor a note with too little to say: "test 2", a one-word quote, a Journal day of "[[". A picture says enough.
+      const said = ((row.type === 'day' ? text : text.toLowerCase().includes(title.toLowerCase()) ? text : `${title} ${text}`).match(/[\p{L}\p{N}]+/gu) ?? [])
+      const pictured = /(haligtree|mindflow):\/\/assets\/[^"\s)]+\.(png|jpe?g|gif|webp|heic|avif)/i.test(row.body ?? '')
+      if (!pictured && (said.length < 3 || (said.length <= 5 && /^(test|testing|this is a test)\b/i.test(said.join(' '))))) continue
       let fields: Record<string, unknown> | null = null
       try { fields = row.fields ? JSON.parse(row.fields) as Record<string, unknown> : null } catch { /* None to read. */ }
       out.push({

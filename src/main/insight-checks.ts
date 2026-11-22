@@ -25,6 +25,9 @@ export const quotedIn = (quote: string, text: string): boolean => {
 }
 const clean = (said: string): string => said.replace(/\s+/g, ' ').trim().replace(/^["“”'‘]+|["“”'’]+$/g, '').trim()
 
+/** A note that tells you to do something, not one that holds a view: it starts with what to do. */
+const INSTRUCTION = /^(please\s+)?(look into|make sure|remember to|don'?t forget|delete|remove|add|send|check|fix|set( up)?|prep(are)?|call|email|buy|book|ask|update|install|create|move|clean|finish|start|try|read|watch|schedule|follow up|reply|pay|submit|turn (on|off))\b/i
+
 /** Reframe: the view the note holds, quoted from it, and the other side of it. */
 export type Reframe = { view: string; other: string }
 /**
@@ -36,6 +39,8 @@ export const checkReframe = (view: string, other: string, note: string): Reframe
   const v = clean(view)
   const o = clean(other)
   if (wordsOf(v).length < 4 || !quotedIn(v, note)) return null
+  // A to-do is no view to turn around ("Delete unused resources today" → "Keep unused resources today", the user, 22 Nov).
+  if (INSTRUCTION.test(v)) return null
   const count = wordsOf(o).length
   if (count < 3 || count > 20) return null
   const said = meaningful(o)
@@ -43,7 +48,8 @@ export const checkReframe = (view: string, other: string, note: string): Reframe
   // Only the view said again: its words, or the view whole inside it.
   if (quotedIn(v, o)) return null
   const fromView = meaningful(v)
-  if (/\?\s*$/.test(o) && [...said].filter((word) => fromView.has(word)).length >= Math.max(1, said.size * 0.6)) return null
+  // The view said again in other words, question or not: most of what it says is the view's own words.
+  if ([...said].filter((word) => fromView.has(word)).length >= Math.max(1, said.size * 0.6)) return null
   return { view: v, other: o }
 }
 

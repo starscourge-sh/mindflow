@@ -27,6 +27,9 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
     for (let t = 0; t < 15000 && !offer; t += 300) (await wait(300), (offer = await h.evaluate(() => document.querySelector('[data-note-offer="name"]')?.textContent ?? null)))
     check(`${level}: a note with no name of its own is ${ai ? 'offered one' : 'offered none'}`, ai ? /Name it “.+”\?/.test(offer ?? '') && /Written on this Mac/.test(offer) : offer === null, offer)
     if (ai && offer) {
+      // About the note's name, so under its properties, above its first line: not after its last (the user, 22 Nov).
+      const at = await h.evaluate(() => { const card = document.querySelector('[data-note-offer="name"]'); const first = document.querySelector('.tiptap img'); return { slot: !!card?.closest('[data-name-offer-slot]'), above: !!card && !!first && card.getBoundingClientRect().bottom <= first.getBoundingClientRect().top + 1 } })
+      check('ai: the name offer sits under the properties, above the note\'s first line', at.slot && at.above, JSON.stringify(at))
       if (process.env.SHOT) await c.both(`${process.env.SHOT}/ai-name`)
       await h.click('[data-offer-action="name"]')
       await wait(2500)

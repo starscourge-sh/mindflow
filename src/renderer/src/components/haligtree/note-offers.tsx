@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
 import { Copy, FolderInput, Hash, Link2, MessageCircleQuestion, Sparkles, UserRound, UserRoundPlus, UsersRound, VenetianMask, X } from 'lucide-react'
@@ -209,6 +210,13 @@ let views = 0
 
 export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 'nuggets'; id: string; editor: Editor | null; onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [offer, setOffer] = useState<Offer | null>(null)
+  // The place under the note's properties (note-powers.tsx), found from this editor: the nearest one around it.
+  const [nameSlot, setNameSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    let at: HTMLElement | null = editor?.view.dom ?? null
+    while (at && !at.querySelector('[data-name-offer-slot]')) at = at.parentElement
+    setNameSlot(at?.querySelector<HTMLElement>('[data-name-offer-slot]') ?? null)
+  }, [editor])
   const [on, setOn] = useState(true)
   /** "Join them" pressed: the two are being joined (lib/join-notes.ts). */
   const [joining, setJoining] = useState(false)
@@ -502,7 +510,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       {one.widest ? <span className="grid justify-items-center tabular-nums">{[one.label, ...one.widest].map((text, at) => <span key={at} aria-hidden={at > 0 || undefined} className={`col-start-1 row-start-1 ${at ? 'invisible' : ''}`}>{text}</span>)}</span> : one.label}
     </button>
   ))
-  return (
+  const card = (
     // An offer of several says what it found on a line of its own, the whole width of the offer, and under it the
     // ticks to choose from with its button after them (a question on its own line, the choices under it): beside the
     // button, in a narrow pane, its words stood in a column a word or two wide.
@@ -533,6 +541,9 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       )}
     </div>
   )
+  // A name for the note is about its title: it sits right under the note's properties, where the name is, not after
+  // its last line (the user, 22 Nov). Every other offer is about the words, and stays under them.
+  return offer.kind === 'name' && nameSlot ? createPortal(card, nameSlot) : card
 }
 
 /** A button on an offer; one of several (`widest`) keeps the room of its widest wording, and is `off` with none ticked. */

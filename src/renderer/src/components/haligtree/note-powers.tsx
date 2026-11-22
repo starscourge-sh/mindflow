@@ -52,7 +52,7 @@ export function notePowers({ table, id, kind, fields, text, origin, onOpen, read
     offers: reading ? undefined : (editor) => <NoteOffers table={table} id={id} editor={editor} onOpen={onOpen} />,
     // Locked, the page is words only; the block comes with the keys.
     // Its source's card goes with it, locked or not.
-    belowTitle: reading ? card ?? undefined : <>{card}<PropertyStrip table={table} id={id} kind={kind} fields={fields} text={text} created={created} updated={updated} sourced={!!card} cited={!!cites?.where?.trim()} /></>,
+    belowTitle: reading ? card ?? undefined : <>{card}<PropertyStrip table={table} id={id} kind={kind} fields={fields} text={text} created={created} updated={updated} sourced={!!card} cited={!!cites?.where?.trim()} /><div data-name-offer-slot className="empty:hidden" /></>,
     stripFirst: titled,
     onPropertyLine: keepPropertyLine(table, id),
     findNotes: findCaptures,
