@@ -3048,8 +3048,7 @@ function useEscapeToHide(fold: { current: () => boolean }): void {
     // The editor marks every Escape as handled, so whether it was spent is
     // read before it gets there: in the editor, Escape hides the window only
     // when nothing else would take it (no menu open, no words selected). With
-    // Vim on it never does: Escape stays in the note, as in vim and Obsidian
-    // (18 Nov); the window's close dot puts it away.
+    // Vim on, the Escape that leaves Insert or Visual stays in the note; in Normal it puts the box away.
     let free = false
     // A menu or picker open when Escape came: that Escape closes it, never the window.
     let layered = false
@@ -3058,7 +3057,11 @@ function useEscapeToHide(fold: { current: () => boolean }): void {
       layered = layerOpen()
       const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
       if (!editor) return void (free = false)
-      free = !editor.hasAttribute('data-vim-mode') && (window.getSelection()?.isCollapsed ?? true) && !layerOpen() && !caretTakesEscape()
+      // With Vim on, the Escape that leaves Insert stays in the note; one pressed already in Normal (nothing left to
+      // leave) puts the box away, as quick capture's ⎋ does with Vim off. Before, nothing but the close dot did
+      // (the user, 22 Nov: "how then do I close it? I'm in vim and I have pressed esc multiple times").
+      const mode = editor.getAttribute('data-vim-mode')
+      free = (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) && !layerOpen() && !caretTakesEscape()
     }
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
