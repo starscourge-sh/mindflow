@@ -58,6 +58,14 @@ const lines = () => h.evaluate(() => {
   }
   return out.filter(Boolean)
 })
+// A book switch here never restarts (caught below), so the window stays on its "Opening …" screen as the real app would
+// for the moment before it restarts: a reload stands in for the restart, then the screen must be gone.
+const settled = async (why) => {
+  await electron.evaluate(() => void (globalThis.__relaunched = null))
+  await h.reload(); await wait(1500)
+  const gone = await waitFor(async () => !(await has('[data-going]')) && (await h.locator('[aria-label="Haligtree menu"]:not([data-book-more])').isVisible()), 8000)
+  if (!gone) console.log(`NOTE  the window was still on the book-switch screen 8 s after the reload (${why})`)
+}
 const shut = async () => { for (let i = 0; i < 3 && (await has('[role="menu"]')); i++) { await h.keyboard.press('Escape'); await wait(250) } }
 // The restart a switch asks for is caught, not made.
 await electron.evaluate(({ app }) => {
@@ -130,6 +138,8 @@ try {
   await shot('b2-new-book-typed')
   await h.keyboard.press('Enter')
   check('B. Enter makes the book by that name, and it is opened', await waitFor(async () => (await s.v('books:list')).books.some((one) => one.name === 'Field notes')) && await waitFor(() => electron.evaluate(() => !!globalThis.__relaunched)))
+  // The switch to it is caught, not made: the restart stood in for, so what follows starts from a settled window.
+  await settled('after B')
 
   // C. ⌘K's "New book…": the same row, naming; Esc leaves the name and makes nothing, the menu stays.
   await shut()
@@ -220,6 +230,8 @@ try {
   await shut()
 
   // H. A spine carried along the shelf: the order changes, kept in books.json, Settings' rows the same.
+  // From a settled window: no book-switch screen left over from an earlier step.
+  if (await has('[data-going]')) await settled('before H')
   const was = (await s.v('books:list')).books.map((one) => one.id)
   await foot.click(); await wait(500)
   const ids = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => one.getAttribute('data-book')))

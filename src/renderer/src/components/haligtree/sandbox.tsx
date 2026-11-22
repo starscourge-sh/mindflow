@@ -177,7 +177,8 @@ function Going(): React.JSX.Element | null {
   const [going, setGoing] = useState<GoingTo | null>(ARRIVED ? { text: SANDBOX ? 'Opening the sandbox' : 'Back to your notes', up: SANDBOX, ms: 0, bars: ARRIVED_BARS } : null)
   const motionOn = document.documentElement.dataset.motion !== 'off'
   useEffect(() => {
-    const on = (event: Event): void => setGoing((event as CustomEvent<GoingTo>).detail)
+    // No detail: the going was refused (lib/books.ts switchBook), and the screen goes.
+    const on = (event: Event): void => setGoing((event as CustomEvent<GoingTo | null>).detail ?? null)
     window.addEventListener('haligtree:going', on)
     // Long enough to be seen as the same moment going on, then into the app.
     const off = ARRIVED ? setTimeout(() => setGoing(null), 700) : undefined

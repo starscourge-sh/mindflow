@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { SANDBOX, barsOf, enterSandbox, gatherCarry, leaveSandbox, momentOn } from './sandbox'
 import { haligtree } from './haligtree'
+import { refuse } from '@/components/haligtree/ui'
 import { EASING, byKeys, still } from '@/lib/motion'
 import { num } from '../../../main/dates'
 
@@ -213,7 +214,12 @@ export async function switchBook(id: string, then?: 'vault' | 'files' | { root: 
   // A book that has its own bars keeps them; only a new one wears yours.
   if (await bars) delete carry.settings.progressBars
   await said
-  await window.api.haligtree('books:switch', id, carry, then)
+  // The window restarts into the book from here. Refused (its folder not found), or the ask failed, nothing restarts:
+  // the screen goes and says why, never left over the app.
+  const went = await window.api.haligtree<boolean>('books:switch', id, carry, then).then((ok) => (ok ? null : 'its folder could not be found'), (error: unknown) => String((error as Error)?.message ?? error))
+  if (went === null) return
+  window.dispatchEvent(new CustomEvent('haligtree:going', { detail: null }))
+  refuse(`Could not open ${name}: ${went}`, 'error')
 }
 
 /** What the main window's book asker is told when a session is running as you switch: answered with the choice, or null to stay. */
