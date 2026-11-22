@@ -70,7 +70,8 @@ import TrashIcon from '@/components/ui/trash-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader, PlaceChip, TopicName, WritingSpent } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
-import { askBook } from '@/lib/books'
+import { askBook, moveToBookItem } from '@/lib/books'
+import { askFolder } from '@/lib/folders'
 import { useOpened } from '@/lib/nav'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
@@ -719,6 +720,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               ...manyWays.filter((way) => way.id === 'question'),
               inbox.length > 0 && 'separator',
               ...manyWays.filter((way) => way.id === 'resolved'),
+              // Where they go, as one note's menu has it: a folder, or another book (lib/books.ts).
+              notes.length > 0 && { label: `Keep ${num(notes.length)} in folder…`, keys: '⇧⌘M', run: () => askFolder(notes.map((id) => ({ type: 'capture' as const, id }))) },
+              notes.length > 0 && moveToBookItem(notes.map((id) => ({ table: 'captures' as const, id })), binRefs(notes)),
               notes.length > 0 && { label: `Add a tag to ${num(notes.length)}…`, run: tagEach },
               notes.length > 0 && { label: archived ? `Unarchive ${num(notes.length)}` : `Archive ${num(notes.length)}`, hint: archived ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', notes, !archived).then(() => setChosen([])) },
               'separator',
