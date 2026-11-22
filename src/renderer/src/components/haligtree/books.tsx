@@ -282,11 +282,22 @@ const EYE = 700
 /** Pulled out and turned, and back: one spring for all, so the one turning out takes just what the one turning back gives up. */
 const PULL = { stiffness: 260, damping: 26 }
 /**
+ * The books not pulled out stand a little back in the shelf's shade (the user, 22 Nov: "slightly dim non-active
+ * books"): a black veil this strong over each (85% as bright), lifted as a book turns out, on its turn's own spring.
+ * Its name still reads at 4.5:1 or more on every spine through it (qa/book-shelf.mjs).
+ */
+const HELD_BACK = 0.15
+/**
+ * And the sliver of cover beside each spine deeper still, turned away into the shelf's shade, so its card's colours
+ * read as a hint of a cover, never bright fragments beside the spines (22 Nov).
+ */
+const SLIVER_SHADE = 0.42
+/**
  * Each colour's spine, as OKLCH lightness and strength, the hue the theme's own: deep ones and pale ones, as a real
  * shelf has, every one far enough from its ink (gilt on the deep, ink on the pale, picked by lightness in shelf.css) to
  * read at 5:1 or more. The deep ones deep enough for pale gilt, as a leather binding is.
  */
-const SPINE: Record<Hue, [number, number]> = { blue: [0.45, 0.13], purple: [0.44, 0.14], pink: [0.76, 0.11], red: [0.46, 0.16], orange: [0.74, 0.14], yellow: [0.87, 0.14], green: [0.45, 0.1], gray: [0.68, 0.01] }
+const SPINE: Record<Hue, [number, number]> = { blue: [0.45, 0.13], purple: [0.44, 0.14], pink: [0.76, 0.11], red: [0.46, 0.16], orange: [0.74, 0.14], yellow: [0.87, 0.14], green: [0.45, 0.1], gray: [0.71, 0.01] }
 /**
  * The spines' colours along the shelf. A book with no colour wears one of the theme's two neutrals (shelf.css), the
  * two taking turns, so two such books never stand alike; two books of one colour side by side, the second a shade
@@ -312,6 +323,12 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
   const turn = useTransform(out, (at) => 90 - LEAN - (90 - LEAN - (flat ? 0 : TURNED)) * at)
   const width = useTransform(out, (at) => SPINE_ROOM + (TURNED_ROOM - SPINE_ROOM) * at)
   const zIndex = useTransform(out, (at) => (at > 0.01 ? 1 : 0))
+  // Held back while it stands a spine, lifted as it turns out: the spring may overshoot, the veil never goes past either end.
+  const back = useTransform(out, (at) => 1 - Math.min(1, Math.max(0, at)))
+  const veil = {
+    spine: useTransform(back, (at) => HELD_BACK * at),
+    cover: useTransform(back, (at) => (1 - (1 - HELD_BACK) * (1 - SLIVER_SHADE)) * at)
+  }
   // Seen as tall as it is, whichever way it is turned: its nearest corner (where the spine meets the cover) stands
   // nearer the eye than the book's middle, by half its width and half its thickness as far as each is turned toward
   // you, so it is scaled back by just that, from the foot, and every book, spine or cover, stands on the ledge one
@@ -359,7 +376,7 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
       <motion.div className="mf-spine" style={{ width, height: SHELF_BOOK.high, zIndex, '--mf-spine-bg': spine } as React.ComponentProps<typeof motion.div>['style']}>
         {/* Every book wears its own reader card (reader-card.tsx), the one Settings shows, scaled: the open one read as
             Settings reads it, any other from its own file. */}
-        <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false} shelf
+        <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false} shelf veil={veil}
           className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -SHELF_BOOK.wide / 2, transformOrigin: '50% 100%' }}
           cover={{ className: 'mf-card-cover' }}>
           {book.current ? <ShelfCover name={book.name} high={SHELF_BOOK.high} /> : card !== undefined && <OtherCover name={book.name} high={SHELF_BOOK.high} card={card} />}

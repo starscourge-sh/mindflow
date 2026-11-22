@@ -54,16 +54,28 @@
   background-color: var(--mf-spine-bg);
   background-image: linear-gradient(to right, rgb(0 0 0 / 0.36), rgb(0 0 0 / 0.06) 22%, rgb(255 255 255 / 0.14) 48%, rgb(255 255 255 / 0.04) 62%, rgb(0 0 0 / 0.1) 80%, rgb(0 0 0 / 0.38));
 }
-/* The cloth's grain at a spine's scale: the cover's weave (book-box.tsx CLOTH) drawn at a third of its size, so on a
-   spine 24 wide it reads as cloth, never as noise; multiplied in, so it darkens the colour as a weave does. */
-.mf-shelf-spine-grain {
+/* The cloth's grain, drawn for a shelf book's size and never shrunk (the user, 22 Nov: "I'm not getting any sense of a
+   book graininess": the Settings book's grain, shrunk to half its tile, came out finer than a pixel and vanished).
+   One tile, made once from noise and laid on as a picture, never a filter worked out per book: its grains 1.4 to 2.2px
+   (a frequency of 0.7 across and 0.45 up, the threads running up the spine), the tile drawn at its own 64px. On the
+   spine, soft light, the grains lighter and darker about the cloth's own colour, so it is as deep as before and its
+   name reads as it did; on the cream cover, multiplied in, flecks of darker weave. qa/book-shelf.mjs reads the size. */
+.mf-shelf-spine-grain,
+.mf-shelf-cover-grain {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.32;
+  background-size: 64px 64px;
+}
+.mf-shelf-spine-grain {
+  opacity: 0.45;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7 0.45' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2' intercept='-0.5'/%3E%3CfeFuncG type='linear' slope='2' intercept='-0.5'/%3E%3CfeFuncB type='linear' slope='2' intercept='-0.5'/%3E%3CfeFuncA type='linear' slope='0' intercept='1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.mf-shelf-cover-grain {
+  opacity: 0.4;
   mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1 2.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 48px 48px;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7 0.45' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.4' intercept='0.15'/%3E%3CfeFuncG type='linear' slope='1.4' intercept='0.15'/%3E%3CfeFuncB type='linear' slope='1.4' intercept='0.15'/%3E%3CfeFuncA type='linear' slope='0' intercept='1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 /* The gilt rules at its head and foot, in the spine's own ink. */
 .mf-shelf-spine-rule {

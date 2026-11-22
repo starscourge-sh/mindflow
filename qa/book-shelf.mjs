@@ -70,7 +70,9 @@ try {
   check('the turned book stands on the ledge with the spines, not lifted: one foot line within 1px, its head at most 2px above theirs', spinesTall.every((one) => Math.abs(one.bottom - turnedTall.bottom) <= 1) && turnedTall.top >= spineTop - 2, JSON.stringify({ turned: turnedTall, spine: spinesTall[0] }))
   const slivered = (one) => one.sliver >= 2 && one.sliver <= 10 && Math.abs(one.side) <= 2 && one.card
   check('every book at rest shows a sliver of its cover (2 to 10px) at its spine\'s right, its card on it', spinesTall.every(slivered), JSON.stringify(spinesTall.filter((one) => !slivered(one)).concat(spinesTall.slice(0, 3))))
-  // Each spine's name against its own colour, read as the screen shows them (a 1px canvas turns any colour to sRGB).
+  // Each spine's name against its own colour, read as the screen shows them (a 1px canvas turns any colour to sRGB),
+  // through the veil a book not pulled out stands behind (22 Nov: "slightly dim non-active books"): both under its
+  // black at the veil's strength, as the screen blends them.
   const inks = await h.evaluate(() => {
     const paint = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
     const rgb = (colour) => { paint.clearRect(0, 0, 1, 1); paint.fillStyle = colour; paint.fillRect(0, 0, 1, 1); return [...paint.getImageData(0, 0, 1, 1).data].slice(0, 3) }
@@ -80,14 +82,33 @@ try {
       const face = one.querySelector('[data-reader-spine-face]')
       const look = getComputedStyle(title)
       // The spine's cloth colour, under its shading and grain.
-      const [ink, ground] = [rgb(look.color), rgb(getComputedStyle(face).backgroundColor)]
+      const shade = face.querySelector('[data-reader-veil]')
+      const veil = shade ? Number(getComputedStyle(shade).opacity) : 0
+      const [ink, ground] = [rgb(look.color), rgb(getComputedStyle(face).backgroundColor)].map((c) => c.map((v) => v * (1 - veil)))
       const [a, b] = [lum(ink), lum(ground)]
       const grain = face.querySelector('[data-spine-grain]')
-      return { name: title.textContent, ground: ground.join(','), ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100, cut: title.scrollHeight > title.clientHeight + 1 || title.scrollWidth > title.clientWidth + 1 ? 'ellipsis' : 'whole', font: look.fontFamily.split(',')[0], grain: !!grain && /url\(/.test(getComputedStyle(grain).backgroundImage) && Number(getComputedStyle(grain).opacity) > 0 }
+      return { name: title.textContent, veil, ground: ground.join(','), ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100, cut: title.scrollHeight > title.clientHeight + 1 || title.scrollWidth > title.clientWidth + 1 ? 'ellipsis' : 'whole', font: look.fontFamily.split(',')[0], grain: !!grain && /url\(/.test(getComputedStyle(grain).backgroundImage) && Number(getComputedStyle(grain).opacity) > 0 }
     })
   })
-  check('every spine\'s name reads against its colour at 4.5:1 or more', inks.every((one) => one.ratio >= 4.5), JSON.stringify(inks.filter((one) => one.ratio < 4.5).concat(inks.slice(0, 3))))
+  check('every spine\'s name reads against its colour at 4.5:1 or more, dimmed as it stands', inks.every((one) => one.ratio >= 4.5), JSON.stringify(inks.filter((one) => one.ratio < 4.5).concat(inks.slice(0, 3))))
   check('every spine is cloth with a grain, as the Settings book\'s', inks.every((one) => one.grain), JSON.stringify(inks.filter((one) => !one.grain).map((one) => one.name)))
+  // A grain you can see at the shelf's size (22 Nov: "I'm not getting any sense of a book graininess"): on every book's
+  // spine and cover, its cells (the tile as drawn over its pattern's frequency, and as the book is scaled on the shelf)
+  // 1 css px or more, never shrunk below a pixel where it vanishes.
+  const grains = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => {
+    const face = one.querySelector('[data-reader-spine-face]')
+    const shrink = face.getBoundingClientRect().height / face.offsetHeight
+    return [face.querySelector('[data-spine-grain]'), one.querySelector('.mf-card-cover [data-reader-grain]')].map((grain) => {
+      if (!grain) return 0
+      const look = getComputedStyle(grain)
+      const svg = decodeURIComponent(look.backgroundImage)
+      const tile = Number(/width='(\d+)'/.exec(svg)?.[1])
+      const shown = parseFloat(look.backgroundSize)
+      const freq = Math.max(...(/baseFrequency='([^']+)'/.exec(svg)?.[1] ?? '99').split(' ').map(Number))
+      return Number(look.opacity) > 0 ? Math.round((shown / tile / freq) * shrink * 100) / 100 : 0
+    })
+  }))
+  check('every book\'s spine and cover wears a grain whose cells are 1 css px or more at the shelf\'s size', grains.every((two) => two.every((px) => px >= 1)), JSON.stringify(grains.slice(0, 4)))
   check('no two neighbouring spines the same colour', inks.every((one, at) => !at || one.ground !== inks[at - 1].ground), JSON.stringify(inks.map((one) => one.ground)))
   check('the names are set in a sans, never wrapping', inks.every((one) => !/Fraunces|Georgia/.test(one.font)), inks[0]?.font)
   // The caption under the shelf: its whole box inside the menu, and neither line cut at its foot (21 Nov: clipped).
@@ -113,6 +134,11 @@ try {
   const pulled = lit.find((one) => one.id === other.id)
   check('the book pointed at is pulled out and turned', pulled?.w >= 80 && Number(pulled.face) > 0.9, JSON.stringify(pulled))
   check('and the open one goes back to a spine', lit.find((one) => one.open)?.w <= 36, JSON.stringify(lit.find((one) => one.open)))
+  // The one pulled out at full brightness, every other a little dimmer, and their slivers of cover dimmer still.
+  const veils = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => ({ id: one.getAttribute('data-book'), spine: Number(getComputedStyle(one.querySelector('[data-reader-veil="spine"]')).opacity), cover: Number(getComputedStyle(one.querySelector('[data-reader-veil="front"]')).opacity) })))
+  const up = veils.find((one) => one.id === other.id)
+  const held = veils.filter((one) => one.id !== other.id)
+  check('the book pulled out stands undimmed, the others dimmed to 80 to 90%, their slivers of cover deeper still', up?.spine < 0.01 && up.cover < 0.01 && held.every((one) => one.spine >= 0.1 && one.spine <= 0.2 && one.cover > one.spine + 0.15), JSON.stringify({ up, held: held.slice(0, 3) }))
   check('the shelf keeps one width', Math.abs(width(lit) - width(at)) <= 2, `${width(at)} then ${width(lit)}`)
   const still = await h.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-book]')?.getAttribute('data-book'), [box.x + 8, box.y + box.height / 2])
   check('the pointer is still on the book it pointed at', still === other.id, still)

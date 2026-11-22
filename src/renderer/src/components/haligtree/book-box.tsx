@@ -57,6 +57,8 @@ const toneOf = (normal: Normal): number => 0.5 + 0.5 * Math.max(0, normal[0] * L
 const FACING = toneOf([0, 0, 1])
 
 type Pose = { pitch: MotionValue<number>; turn: MotionValue<number>; lit: MotionValue<number> }
+/** A book held back on the shelf (books.tsx ShelfBook): a dark veil over its spine and over its cover, 0 none. */
+export type Veil = { spine: MotionValue<number>; cover: MotionValue<number> }
 
 /**
  * One face's light laid over it as the book turns: a black veil by how much darker than the cover facing you it is, a
@@ -64,7 +66,7 @@ type Pose = { pitch: MotionValue<number>; turn: MotionValue<number>; lit: Motion
  * rule), carried across the face as it turns, the way a laminated cover's gloss runs. All motion values, read off the
  * turn each frame, so the light moves without React drawing anything.
  */
-function Lit({ normal, pose: { pitch, turn, lit }, gloss = 0, face }: { normal: Normal; pose: Pose; gloss?: number; face: string }): React.JSX.Element {
+function Lit({ normal, pose: { pitch, turn, lit }, gloss = 0, face, veil }: { normal: Normal; pose: Pose; gloss?: number; face: string; veil?: MotionValue<number> }): React.JSX.Element {
   const seen = useTransform(() => facing(normal, pitch.get(), turn.get()))
   const shade = useTransform(() => lit.get() * Math.min(0.4, Math.max(0, 1 - toneOf(seen.get()) / FACING)))
   const glint = useTransform(() => lit.get() * Math.min(0.2, Math.max(0, toneOf(seen.get()) / FACING - 1)))
@@ -83,11 +85,13 @@ function Lit({ normal, pose: { pitch, turn, lit }, gloss = 0, face }: { normal: 
             style={{ x, opacity, background: 'linear-gradient(100deg, transparent 38%, rgb(255 255 255 / 0.55) 47%, rgb(255 255 255 / 0.9) 50%, rgb(255 255 255 / 0.55) 53%, transparent 62%)' }} />
         </span>
       )}
+      {/* Last, over the shine and the words too: a book held back on the shelf, a little darker, as a whole. */}
+      {veil && <motion.span aria-hidden data-reader-veil={face} className="pointer-events-none absolute inset-0 rounded-[inherit] bg-black" style={{ opacity: veil }} />}
     </>
   )
 }
 
-export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, edges = true, ribbon = false, shelf = false, cover, children, className = '', style }: {
+export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, edges = true, ribbon = false, shelf = false, veil, cover, children, className = '', style }: {
   size: BookSize
   /** Tipped back (rotateX) and turned (rotateY, 90 the spine to you, 0 the cover), in degrees. */
   pitch: MotionValue<number>
@@ -109,6 +113,8 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
    * the spine in the card's deepest ink, its name in the serif in gold foil.
    */
   shelf?: boolean
+  /** On the shelf, a book not pulled out: its spine and its cover dimmed, each by its own amount. */
+  veil?: Veil
   /** The cover's own element: its ref, data and padding. */
   cover?: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> } & { [data: `data-${string}`]: string }
   /** What is printed on the cover. */
@@ -173,7 +179,7 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
           <span className="mf-shelf-spine-rule" style={{ bottom: rule }} />
           {/* A name longer than the spine ends in an ellipsis between the rules, never over them. */}
           <motion.span data-spine-title className="mf-shelf-spine-title" style={{ maxHeight: high - 2 * (rule + 8), opacity: words }}>{name}</motion.span>
-          <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.5} face="spine" />
+          <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.5} face="spine" veil={veil?.spine} />
         </div>
       ) : (
         <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[3px] [backface-visibility:hidden]"
@@ -198,9 +204,13 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
         style={{ transform: `translateZ(${thick / 2}px)`, borderRadius: BOOK_CORNERS, color: 'var(--mf-card-c)', ...cover?.style }}>
         {children}
         <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[inherit]" style={{ width: hinge, background: HINGE }} />
-        <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />
+        {/* The cloth's grain. On the shelf, its own grain drawn for a shelf book's size (shelf.css): this one, made for
+            the full-size book, is too fine and too faint to see on a cover 96 wide. */}
+        {shelf
+          ? <span aria-hidden data-reader-grain className="mf-shelf-cover-grain pointer-events-none absolute inset-0 rounded-[inherit]" />
+          : <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />}
         {/* And the room's light on the cover as it turns: darker turned away, and a gloss that runs across it. */}
-        <Lit normal={[0, 0, 1]} pose={pose} gloss={0.55} face="front" />
+        <Lit normal={[0, 0, 1]} pose={pose} gloss={0.55} face="front" veil={veil?.cover} />
       </div>
     </motion.div>
   )
