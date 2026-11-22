@@ -3650,8 +3650,6 @@ html[data-sticky-window][data-tint] { --mf-pill-dot: oklch(0.7 0.13 var(--mf-tin
 }
 /* Paper prints everything flat: frosted still, as its glass card is, square and with its hairline only. */
 :root[data-style='paper'][data-glass] [data-desk-pill] { box-shadow: none; }
-/* A glass card grown out of its pill stays solid while it is out beside the stack: the blur is under the pill alone. */
-:root[data-pill-open][data-glass] { --mf-glass-wash: 100%; }
 html[data-pill-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
 /* Laid from the pill (desk-pill.tsx): the card's paper at the pill's own x and width, on either side. */
 html[data-pill-open] #root { position: fixed; top: 0; bottom: 0; left: var(--pill-left); width: var(--pill-card); }
@@ -4167,6 +4165,11 @@ textarea[data-talking]::selection {
 :root { --mf-glass-wash: 100%; }
 :root[data-glass='dark'] { --mf-glass-wash: 62%; }
 :root[data-glass='light'] { --mf-glass-wash: 74%; }
+/* But a sticky's card is whole paper on glass too, as its pill is (21 Nov): on the user's Mac the blur under it let the
+   window behind read straight through, so a goal's card over its own page in Goals drew its words over the page's
+   ("Finish Dune" over “How it went” and “Keep this goal on screen”, 23 Nov). A sticky floats over other windows, so
+   its paper must hide them. The glass keeps its rim and its round corners. */
+:root[data-sticky-window][data-glass] { --mf-glass-wash: 100%; }
 :root[data-glass] body[data-sticky='glass'] .mf-card {
   box-shadow: inset 0 0 0 1px color-mix(in oklab, white 9%, transparent), inset 0 1px 0 color-mix(in oklab, white 12%, transparent);
 }

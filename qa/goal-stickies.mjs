@@ -157,6 +157,20 @@ try {
     await wait(900)
     await glassAll?.screenshot({ path: join(SHOTS, `goals-all-glass-${theme}.png`) })
     await glassMars?.screenshot({ path: join(SHOTS, `goal-get-to-mars-glass-${theme}.png`) })
+    // A goal's card on glass, floating over its own page in Goals (the user, 23 Nov: "Finish Dune" read over “How it
+    // went” and “Keep this goal on screen”): its paper is whole, so nothing behind it reads through. Read as the
+    // card paints it: the wash it lays over the glass, resolved to a colour, has no see-through left.
+    const paper = await glassMars?.evaluate(() => {
+      const card = document.querySelector('[data-goal-card]')
+      if (!card) return null
+      const probe = card.appendChild(document.createElement('span'))
+      probe.style.backgroundColor = 'color-mix(in oklab, var(--popover) var(--mf-glass-wash), transparent)'
+      const painted = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      const alpha = /\/\s*([\d.]+)\)|rgba\([^)]*,\s*([\d.]+)\)/.exec(painted)
+      return { glass: document.documentElement.dataset.glass ?? null, wash: getComputedStyle(document.documentElement).getPropertyValue('--mf-glass-wash').trim(), painted, alpha: alpha ? Number(alpha[1] ?? alpha[2]) : 1 }
+    })
+    check(`as glass (${theme}), a goal's card is whole paper: nothing behind it reads through`, !!paper && paper.alpha === 1 && paper.wash === '100%', JSON.stringify(paper))
   }
   await v('settings:set', { stickiesGlass: false }); await wait(3000)
 
