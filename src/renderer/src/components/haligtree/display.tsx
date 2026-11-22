@@ -499,7 +499,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   const chips = (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     // Only a chip itself toggles: a click in the space beside one does nothing (the light's own click-through is left out here).
-    <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${extra ? 'flex-1' : ''} ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${extra ? '' : className}`}>
+    <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${extra ? 'flex-1 basis-60' : ''} ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${extra ? '' : className}`}>
       <Highlight light={hover.light} className="rounded-full bg-accent/60" />
       {/* Chosen filters from other facets first; the quick facet's options
           stay in their own order whether on or off, so a click never moves
@@ -525,11 +525,12 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   )
   if (!extra) return chips
   return (
-    // A view, not a filter: in its own group at the first line's far end, so it never reads as one more kind,
-    // and the kinds wrap under their own group while it stays put.
-    <div data-chip-row className={`flex w-full min-w-0 items-start gap-3 ${className}`}>
+    // A view, not a filter: in its own group at the first line's far end, so it never reads as one more kind, and the
+    // kinds wrap under their own group while it stays put. In a narrow list, where beside it they stood one a line
+    // (the user, 22 Nov), the kinds keep the whole width and it goes under them, still at the far end.
+    <div data-chip-row className={`flex w-full min-w-0 flex-wrap items-start gap-x-3 gap-y-1.5 ${className}`}>
       {chips}
-      <span data-chip-row-action className="flex shrink-0">{extra}</span>
+      <span data-chip-row-action className="ml-auto flex shrink-0">{extra}</span>
     </div>
   )
 }
