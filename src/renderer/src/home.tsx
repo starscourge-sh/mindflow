@@ -102,7 +102,7 @@ import { UnusedFiles } from '@/components/haligtree/unused-files'
 import { Tour } from '@/components/haligtree/tour'
 import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
-import { askBook, switchBook, useShelf, type Book } from '@/lib/books'
+import { askBook, deletedNote, switchBook, useShelf, type Book } from '@/lib/books'
 import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
 import { NAMING_MENU } from '@/components/haligtree/name-in-place'
 import { BookMark, BookName, BookShelf, NewBookRow, askNewBook, bookMenu, colourChoices, colourHeading, colourSwatches } from '@/components/haligtree/books'
@@ -1148,6 +1148,13 @@ export function Home(): React.JSX.Element {
   // A spine right-clicked on the shelf: its menu opens beside that spine, a layer over the book menu, which stays open
   // behind it (the user, 22 Nov: the book menu shut and the spine's menu floated in the middle of the sidebar, reading as
   // an unrelated popup). The spine stands pulled out while its menu is up; Esc or a click away shuts that menu alone.
+  // A book left to be deleted (it was open when asked): this run deleted it, and says so once, when it is done.
+  useEffect(() => {
+    const hear = (): void => void deletedNote().then((note) => note && (chime('away'), toast(note, undefined, 'info')))
+    hear()
+    window.addEventListener('haligtree:books-changed', hear)
+    return () => window.removeEventListener('haligtree:books-changed', hear)
+  }, [])
   const [spineMenu, setSpineMenu] = useState<string | null>(null)
   const spineHeld = useRef(false)
   const openBookMenu = (event: React.MouseEvent, book: Book | undefined, spine?: Element): void => {
@@ -2782,7 +2789,7 @@ export function Home(): React.JSX.Element {
             // Read afresh from the shelf on each draw: a colour picked with the menu open moves its tick.
             const book = shelfNow?.books.find((one) => one.id === (bookMenuFor.current ?? openBook)?.id) ?? bookMenuFor.current ?? openBook
             const inSettings = (what: 'book' | 'book-rename' | 'book-delete') => () => setView({ id: 'settings', focus: `${what}:${book!.id}`, nonce: Date.now() })
-            return book ? bookMenu(book, { rename: inSettings('book-rename'), show: inSettings('book'), remove: inSettings('book-delete') }) : []
+            return book ? bookMenu(book, { rename: inSettings('book-rename'), show: inSettings('book'), remove: inSettings('book-delete'), only: (shelfNow?.books.length ?? 1) < 2 }) : []
           }}>
             <span ref={bookMenuAt} aria-hidden data-book-menu-at className="pointer-events-none fixed top-0 left-0 size-0" />
           </RowMenu>

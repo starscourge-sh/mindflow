@@ -88,16 +88,16 @@ try {
   const fromFoot = await lines()
   await shot('a1-right-click-book-name')
   await shut()
-  // Delete… only for a book that can go; the open one and your first book say why instead, so every menu ends the same way.
-  const want = (book, settings = false) => ['swatches', 'Rename…', ...(settings ? [] : ['Show in Settings']), book.id === 'default' ? 'Your first book stays: it cannot be deleted' : book.current ? 'Open another book to delete this one' : 'Delete…']
-  check('A. the open book\'s name, right-clicked: its colour, Rename…, Show in Settings (no Delete…: it is open)', fromFoot?.[0]?.startsWith('Colour of ') && JSON.stringify(fromFoot.slice(1)) === JSON.stringify(want(open)), JSON.stringify(fromFoot))
+  // Delete… on every book while there is more than one (the open one is left for another first).
+  const want = (book, settings = false) => ['swatches', 'Rename…', ...(settings ? [] : ['Show in Settings']), 'Delete…']
+  check('A. the open book\'s name, right-clicked: its colour, Rename…, Show in Settings, Delete…', fromFoot?.[0]?.startsWith('Colour of ') && JSON.stringify(fromFoot.slice(1)) === JSON.stringify(want(open)), JSON.stringify(fromFoot))
   // A spine on the shelf, right-clicked: the same lines, for that book.
   await foot.click(); await wait(500)
   await h.locator(`[data-book-shelf] [data-book="${other.id}"]`).click({ button: 'right' }); await wait(400)
   const fromSpine = await lines()
   await shot('a2-right-click-spine')
   await shut()
-  check('A. a spine, right-clicked: the same lines, for its own book (Delete… too, as it is not open)', fromSpine?.[0] === `Colour of ${other.name.slice(0, 28)}` && JSON.stringify(fromSpine.slice(1)) === JSON.stringify(want(other)), JSON.stringify(fromSpine))
+  check('A. a spine, right-clicked: the same lines, for its own book', fromSpine?.[0] === `Colour of ${other.name.slice(0, 28)}` && JSON.stringify(fromSpine.slice(1)) === JSON.stringify(want(other)), JSON.stringify(fromSpine))
   // The left-click menu keeps the open book's own two where they were: its colour, and Rename… beside it, in the same words.
   await foot.click(); await wait(500)
   const left = await lines()

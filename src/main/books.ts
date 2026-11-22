@@ -58,7 +58,7 @@ export const books = (): { id: BookId; name: string; createdAt: string | null; c
   const shelf = readShelf()
   const at = (id: BookId): number => (typeof shelf.opened?.[id] === 'number' ? shelf.opened[id] : 0)
   return [
-    { id: 'default', name: nameOf('default'), createdAt: null, current: here() === 'default', color: hueOf(shelf.defaultColor) },
+    ...(shelf.defaultGone ? [] : [{ id: 'default', name: nameOf('default'), createdAt: null, current: here() === 'default', color: hueOf(shelf.defaultColor) }]),
     ...shelf.books.map((one) => ({ id: one.id, name: one.name, createdAt: one.createdAt, current: here() === one.id, color: hueOf(one.color) }))
   ].map((one, made) => ({ ...one, openedAt: at(one.id) || null, made }))
     .sort((a, b) => {
@@ -71,7 +71,7 @@ export const books = (): { id: BookId; name: string; createdAt: string | null; c
     })
     .map(({ made: _made, ...one }) => one)
 }
-const folderOf = (id: BookId): string | null => (id === 'default' ? realRoot() : isBookId(id) && readShelf().books.some((one) => one.id === id) ? bookRoot(id) : null)
+const folderOf = (id: BookId): string | null => (id === 'default' ? (readShelf().defaultGone ? null : realRoot()) : isBookId(id) && readShelf().books.some((one) => one.id === id) ? bookRoot(id) : null)
 const cleanName = (name: unknown): string => cut(String(name ?? '').replace(/\s+/g, ' ').trim(), 60)
 
 /** Every window's open editors write what is waiting, then the switch. */
@@ -337,6 +337,13 @@ function cardOf(id: BookId): Card | null {
   return card
 }
 
+/** What is My book's own in the app's folder (its notes, pictures, files and its windows' places), as a book's own folder holds them. */
+const MY_BOOK_PARTS = /^(haligtree\..*db(-wal|-shm|-journal)?|assets|notes|thumbs|meetings|Scenery|scenery-cache|giphy-cache|site-icons|arriving|[^/]+\.json|[^/]+\.part)$/
+/** What the app and every book share there: never My book's to delete. */
+const SHARED = new Set(['books', 'books.json', 'sandbox', 'sandbox-carry-out.json'])
+/** "… is deleted", owed to the window of the run that deleted a book it had left. */
+let deletedNote: string | null = null
+
 export function registerBooks(backupBase: () => string, onChange: () => void): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
     void ipcMain.handle(`haligtree:books:${channel}`, (_event, ...args) => run(...(args as never[])))
@@ -419,26 +426,52 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     return !SANDBOX && process.argv.some((arg) => arg.startsWith('--book='))
   })
 
-  // Never My book, never the one open. A whole copy of its folder is kept first, with the backups.
-  handle('delete', async (id: unknown) => {
-    if (SANDBOX || id === 'default' || id === here() || !isBookId(id)) return null
+  // Any book but your last one (the user, 22 Nov: "what if we just say you can't delete your last book"). The open one
+  // is left first: this run opens another, and that run deletes it (a book is never deleted by the run that has it open).
+  handle('delete', async (id: unknown): Promise<string | 'leaving' | null> => {
+    if (SANDBOX || (id !== 'default' && !isBookId(id)) || books().length < 2 || !folderOf(String(id))) return null
+    if (id === here()) {
+      // The first of the others in the shelf's order: the one Settings names as opening first.
+      const next = books().filter((one) => !one.current)[0]
+      writeShelf({ ...readShelf(), deleting: String(id) })
+      return (await switchTo(next.id, null)) ? 'leaving' : (writeShelf({ ...readShelf(), deleting: undefined }), null)
+    }
+    return removeBook(String(id))
+  })
+  // A book asked to be deleted while it was open, deleted now that this run is in another. Said once in its window.
+  const owed = readShelf().deleting
+  if (owed && owed !== here() && !SANDBOX) {
+    const name = nameOf(owed)
+    void removeBook(owed).then((kept) => {
+      writeShelf({ ...readShelf(), deleting: undefined })
+      deletedNote = kept ? `${name} is deleted. A whole copy of it is kept with your backups, under deleted books` : `${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was`
+      tell()
+    })
+  }
+  handle('deleted-note', () => { const note = deletedNote; deletedNote = null; return note })
+
+  /** A book's files gone, once a whole copy of them is kept with the backups: the copy's folder, or null when it could not be made. */
+  async function removeBook(id: BookId): Promise<string | null> {
     const folder = folderOf(id)
     if (!folder) return null
     const name = nameOf(id)
     const kept = join(backupBase(), 'deleted books', `${name.replace(/[^\p{L}\p{N} _-]+/gu, '').trim() || id} ${dayKey()} ${id}`)
-    if (existsSync(folder)) {
-      await mkdir(kept, { recursive: true })
-      await cp(folder, kept, { recursive: true })
-      // Only once the copy is there in full.
-      if (!existsSync(join(folder, 'haligtree.db')) || existsSync(join(kept, 'haligtree.db'))) await rm(folder, { recursive: true, force: true })
-      else return null
-    }
+    // My book's files sit in the app's own folder, beside what every book and the app share: only its own go.
+    const parts = id === 'default' ? (await readdir(folder)).filter((entry) => MY_BOOK_PARTS.test(entry) && !SHARED.has(entry)) : null
+    await mkdir(kept, { recursive: true })
+    if (parts) for (const entry of parts) await cp(join(folder, entry), join(kept, entry), { recursive: true })
+    else if (existsSync(folder)) await cp(folder, kept, { recursive: true })
+    // Only once the copy holds its notes.
+    if (existsSync(join(folder, 'haligtree.db')) && !existsSync(join(kept, 'haligtree.db'))) return null
+    if (parts) for (const entry of parts) await rm(join(folder, entry), { recursive: true, force: true })
+    else await rm(folder, { recursive: true, force: true })
     const shelf = readShelf()
     const { [id]: _gone, ...opened } = shelf.opened ?? {}
-    writeShelf({ ...shelf, books: shelf.books.filter((one) => one.id !== id), last: shelf.last === id ? 'default' : shelf.last, opened })
+    const left = shelf.books.filter((one) => one.id !== id)
+    writeShelf({ ...shelf, ...(id === 'default' ? { defaultGone: true } : { books: left }), order: shelf.order?.filter((one) => one !== id), last: shelf.last === id ? here() : shelf.last, opened })
     tell()
     return kept
-  })
+  }
 
   handle('switch', (id: unknown, carry: unknown, then: unknown) => switchTo(String(id), carry, then))
   // A vault or export folder chosen before its test book is made (vault-picker.tsx): the path, or null.

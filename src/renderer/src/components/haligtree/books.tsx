@@ -96,11 +96,11 @@ export const colourHeading = (book: Book): string => `Colour of ${cut(book.name,
  * A book's own menu: the one list, wherever a book is right-clicked (the book's name at the sidebar's foot, a spine
  * on the shelf in its menu, its row in Settings › Books and that row's "…"). Its colour (the nine, in the menu
  * itself: a submenu holding one row of swatches was a second step for nothing, the user, 21 Nov), Rename…, Show in
- * Settings (left out where it already is Settings), and Delete…, asked in the book's own row in Settings. Your
- * first book and the open one are never deleted (switch to another book first). The sandbox is someone else's
+ * Settings (left out where it already is Settings), and Delete…, asked in the book's own row in Settings. Any book
+ * but your last one can be deleted; the open one is left for another first. The sandbox is someone else's
  * book: nothing of a book can be changed from inside it, so only the way to Settings is left there.
  */
-export const bookMenu = (book: Book, { rename, remove, show }: { rename: () => void; remove: () => void; show?: () => void }): RowItem[] => [
+export const bookMenu = (book: Book, { rename, remove, show, only = false }: { rename: () => void; remove: () => void; show?: () => void; /** It is the one book there is. */ only?: boolean }): RowItem[] => [
   ...(SANDBOX ? [] : [
     { heading: colourHeading(book) },
     { swatches: colourSwatches(book) },
@@ -108,10 +108,8 @@ export const bookMenu = (book: Book, { rename, remove, show }: { rename: () => v
     { label: 'Rename…', run: rename }
   ]),
   ...(show ? [{ label: 'Show in Settings', run: show }] : []),
-  // Every book's menu ends the same way: Delete…, or the one line saying why this book cannot be (a Delete… that came
-  // and went with no word read as random, the user, 22 Nov: "the delete option showing is undeterministic").
-  ...(SANDBOX ? [] : book.id === 'default' ? ['separator' as const, { heading: 'Your first book stays: it cannot be deleted' }]
-    : book.current ? ['separator' as const, { heading: 'Open another book to delete this one' }]
+  // Any book can be deleted but your last one (the user, 22 Nov): the open one is left for another first, said where it is asked.
+  ...(SANDBOX ? [] : only ? ['separator' as const, { heading: 'Your only book: make another to delete this one' }]
     : [{ label: 'Delete…', danger: true, run: remove }])
 ]
 

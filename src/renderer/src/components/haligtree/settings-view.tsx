@@ -1498,6 +1498,8 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
   const remove = async (id: string, name: string): Promise<void> => {
     setAsking(null)
     const kept = await deleteBook(id).catch(() => null)
+    // The open one: another book opens now, and its run deletes this one and says so.
+    if (kept === 'leaving') return
     // Nothing goes until its whole copy is safe with the backups: that is the one way it fails.
     if (!kept) return refuse(`${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was. Check the backup folder under “Import and backups”, then try again`, 'error')
     chime('away')
@@ -1519,12 +1521,23 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
       </button>
     </Tip>
   )
+  const ask = (book: Book): React.JSX.Element => (
+    <span data-book-ask data-takes-keys className="flex basis-full flex-wrap items-center gap-2 rounded-[6px] bg-destructive/10 px-3 py-2"
+      onKeyDown={(event) => event.key === 'Escape' && (event.stopPropagation(), chime('off'), setAsking(null))}>
+      <span className="mr-auto min-w-0 text-control font-medium text-foreground">
+        Delete {quoted(book.name, 60)} and everything in it? A whole copy is kept with your backups first.
+        {book.current && <> You are in it now, so {quoted(others[0]?.name ?? 'another book', 60)} opens first.</>}
+      </span>
+      <HoldButton variant="destructive" hint={`${book.name} and everything in it`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Hold to delete</HoldButton>
+      <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>Keep it</Button>
+    </span>
+  )
   const sandboxShown = SANDBOX && matches(query, 'Sandbox', 'open now', BOOK_KEYS)
   const footShown = !SANDBOX && matches(query, 'New book', 'books book new another vault workspace')
   return (
     <>
       {open && (
-        <RowMenu items={bookMenu(open, { rename: () => (setAsking(null), setNaming(open.id)), remove: () => (chime('open'), setAsking(open.id)) })}>
+        <RowMenu items={bookMenu(open, { rename: () => (setAsking(null), setNaming(open.id)), remove: () => (chime('open'), setAsking(open.id)), only: shelf.books.length < 2 })}>
           <div data-setting data-setting-title={open.name} data-setting-anchor={`book:${open.id}`} data-book-row={open.id} data-book-lead aria-current="true"
             className="mb-3 flex min-h-16 items-center gap-3 px-1">
             {/* A small cover of its card, never a second full book: "Your card" above already stands it in 3D. */}
@@ -1539,6 +1552,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
           </div>
         </RowMenu>
       )}
+      {open && asking === open.id && <div className="mb-3">{ask(open)}</div>}
       <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">
       {sandboxShown && (
         // The sandbox: someone else's book, open now, with no name or colour of yours to change.
@@ -1555,7 +1569,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
       <SortableList items={others} keyOf={(book) => book.id} onMove={SANDBOX || shown ? undefined : (id, target) => moveBook(shelf.books.map((one) => one.id), id, target)}>
       {(order) => order.map((book) => (
         <SortableRow key={book.id} id={book.id}>
-        <RowMenu items={bookMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)) })}>
+        <RowMenu items={bookMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)), only: shelf.books.length < 2 })}>
           <div data-setting data-setting-title={book.name} data-setting-anchor={`book:${book.id}`} data-book-row={book.id} aria-current={book.current || undefined} className={BOOK_ROW}>
             <BookMark hue={book.color} className="size-4" />
             <span className="min-w-0 flex-1">
@@ -1570,14 +1584,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
               </span>
             )}
             {/* Deleting asked in the book's own row, as the Bin asks (bin-view.tsx): what goes and what is kept, said once, here. */}
-            {asking === book.id && (
-              <span data-book-ask data-takes-keys className="flex basis-full flex-wrap items-center gap-2 rounded-[6px] bg-destructive/10 px-3 py-2"
-                onKeyDown={(event) => event.key === 'Escape' && (event.stopPropagation(), chime('off'), setAsking(null))}>
-                <span className="mr-auto min-w-0 text-control font-medium text-foreground">Delete {quoted(book.name, 60)} and everything in it? A whole copy is kept with your backups first.</span>
-                <HoldButton variant="destructive" hint={`${book.name} and everything in it`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Hold to delete</HoldButton>
-                <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>Keep it</Button>
-              </span>
-            )}
+            {asking === book.id && ask(book)}
           </div>
         </RowMenu>
         </SortableRow>

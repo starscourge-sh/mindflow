@@ -13,6 +13,13 @@ if (/--sandbox/.test(process.env.QA_ARGS ?? '')) {
   console.log('FAIL  run on a copy of book-master, not the sandbox')
   process.exit(1)
 }
+// The book-master copy holds no notes file for My book: one is made, with a marker row, so deleting My book has notes to keep.
+{
+  const { existsSync: there } = await import('node:fs')
+  const { DatabaseSync } = await import('node:sqlite')
+  const mine = `${process.env.QA_DATA}/haligtree.db`
+  if (!there(mine)) { const db = new DatabaseSync(mine); db.exec("create table marker (words text); insert into marker values ('my book was here')"); db.close() }
+}
 const s = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, close, errors, v } = s
 const wait = (ms) => h.waitForTimeout(ms)
@@ -36,7 +43,7 @@ try {
   const menuLines = async () => (await h.locator('[data-slot="context-menu-content"] [data-slot="context-menu-item"], [data-slot="context-menu-content"] [data-slot="context-menu-sub-trigger"]').allTextContents()).map((one) => one.trim())
   // The open book's menu has no Delete; another book's has all three.
   await h.locator(`[data-book-more="${open.id}"]`).click(); await wait(400)
-  check('the open book’s … : its colours inline, Rename, no Delete, and a line saying why', ((l) => l.includes('Rename…') && !l.includes('Delete…'))((await menuLines()).filter(Boolean)) && (await h.locator('[data-slot="context-menu-content"]', { hasText: 'Open another book to delete this one' }).count()) === 1, (await menuLines()).join())
+  check('the open book’s … : its colours inline, Rename, and Delete… (any book but your last can go)', ((l) => l.includes('Rename…') && l.includes('Delete…'))((await menuLines()).filter(Boolean)), (await menuLines()).join())
   await h.keyboard.press('Escape'); await wait(300)
   await h.locator(`[data-book-row="${other.id}"]`).click({ button: 'right' }); await wait(400)
   check('another book’s right-click: its colours inline, Rename, Delete', ((l) => l.includes('Rename…') && l.includes('Delete…'))((await menuLines()).filter(Boolean)), (await menuLines()).join())
@@ -74,6 +81,38 @@ try {
   let gone = false
   for (let i = 0; i < 40 && !gone; i++) (await wait(150), (gone = !(await v('books:list')).books.some((one) => one.id === other.id)))
   check('held, it is deleted, its row gone, and said', gone && (await h.locator(`[data-book-row="${other.id}"]`).count()) === 0 && /deleted/.test(await notice()), await notice())
+  // My book, not open: deleted like any other (the user, 22 Nov: "what if we just say you can't delete your last book").
+  // Only its own files leave the app's folder; the list of books, the other books and the sandbox stay; its copy holds its notes.
+  const { existsSync, readdirSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const root = process.env.QA_DATA
+  if ((await v('books:list')).books.some((one) => one.id === 'default' && !one.current)) {
+    await h.locator('[data-book-more="default"]').click(); await wait(300)
+    await h.locator('[data-slot="context-menu-item"]', { hasText: 'Delete…' }).click(); await wait(500)
+    const holdMine = await h.locator('[data-book-ask] button', { hasText: 'Hold to delete' }).boundingBox()
+    await h.mouse.move(holdMine.x + holdMine.width / 2, holdMine.y + holdMine.height / 2); await h.mouse.down(); await wait(1500); await h.mouse.up()
+    let mineGone = false
+    for (let i = 0; i < 60 && !mineGone; i++) (await wait(200), (mineGone = !(await v('books:list')).books.some((one) => one.id === 'default')))
+    const deleted = existsSync(join(root, 'backups', 'deleted books')) ? readdirSync(join(root, 'backups', 'deleted books')) : []
+    const keptMine = deleted.find((one) => one.endsWith(' default'))
+    const { DatabaseSync } = await import('node:sqlite')
+    const keptFile = keptMine && join(root, 'backups', 'deleted books', keptMine, 'haligtree.db')
+    const keptWords = keptFile && existsSync(keptFile) ? (() => { const db = new DatabaseSync(keptFile, { readOnly: true }); try { return db.prepare('select words from marker').get()?.words ?? null } catch { return 'no marker table' } finally { db.close() } })() : null
+    const facts = { mineGone, keptMine, keptWords, keptDb: keptWords === 'my book was here', rootDb: existsSync(join(root, 'haligtree.db')), rootAssets: existsSync(join(root, 'assets')), shelf: existsSync(join(root, 'books.json')), others: existsSync(join(root, 'books')), notice: await notice() }
+    check('My book, held, is deleted: off the list, its notes and pictures gone from the app’s folder, its whole copy kept', facts.mineGone && facts.keptDb && !facts.rootDb && !facts.rootAssets && /deleted/.test(facts.notice), JSON.stringify(facts))
+    check('...and nothing it shares with the app or the other books went with it', facts.shelf && facts.others && (await v('books:list')).books.length >= 1, JSON.stringify(facts))
+  } else console.log('NOTE  My book was open or missing in this copy: its delete not driven')
+  // The open book: asked under it, saying which book opens first; held, this run leaves for that one (the restart is the
+  // probe's to catch), and the next run deletes it.
+  const left = (await v('books:list')).books
+  if (left.length >= 2) {
+    const here = left.find((one) => one.current)
+    await h.locator(`[data-book-more="${here.id}"]`).click(); await wait(300)
+    await h.locator('[data-slot="context-menu-item"]', { hasText: 'Delete…' }).click(); await wait(500)
+    const askOpen = await h.locator('[data-book-ask]').textContent().catch(() => '')
+    check('the open book’s Delete… asks under it and names the book that opens first', /You are in it now/.test(askOpen) && askOpen.includes(left.find((one) => !one.current).name), askOpen)
+    await h.keyboard.press('Escape'); await wait(300)
+  }
   check('no page error', errors.length === 0, errors.join(' | '))
 } finally {
   await close()

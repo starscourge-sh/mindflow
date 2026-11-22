@@ -44,7 +44,7 @@ export const sandboxRoot = (): string => join(realRoot(), 'sandbox')
 /** A book's colour, Arc's way with its spaces: one of the theme's hues for its accent and sidebar, or none for the theme's own. */
 /** `kept`: the book a focus session was left running in by a switch, for the pill elsewhere to name. */
 /** `opened`: when each book was last opened ("default" for My book), so every list of books puts the one you were just in first among the others. */
-export type Shelf = { defaultName?: string; defaultColor?: string; /** The books in the order the person dragged them into (ids, My book as "default"); unset until they first do. */ order?: string[]; last?: string; kept?: string; keptSlept?: { book: string; at: number }[]; opened?: Record<string, number>; books: { id: string; name: string; createdAt: string; color?: string }[] }
+export type Shelf = { defaultName?: string; defaultColor?: string; /** My book was deleted: it is on no list and never opened. */ defaultGone?: boolean; /** The book being deleted once this run has left it (it was open when asked): the next run deletes it. */ deleting?: string; /** The books in the order the person dragged them into (ids, My book as "default"); unset until they first do. */ order?: string[]; last?: string; kept?: string; keptSlept?: { book: string; at: number }[]; opened?: Record<string, number>; books: { id: string; name: string; createdAt: string; color?: string }[] }
 const SHELF = 'books.json'
 export const isBookId = (id: unknown): id is string => typeof id === 'string' && /^b-[a-z0-9]{6,24}$/.test(id)
 export const bookRoot = (id: string): string => join(realRoot(), 'books', id)
@@ -67,8 +67,11 @@ export function writeShelf(shelf: Shelf): void {
 function pickBook(): string | null {
   if (SANDBOX) return null
   const asked = process.argv.find((arg) => arg.startsWith('--book='))?.slice('--book='.length)
-  const want = asked ?? readShelf().last
-  return isBookId(want) && readShelf().books.some((one) => one.id === want) ? want : null
+  const shelf = readShelf()
+  const want = asked ?? shelf.last
+  if (isBookId(want) && shelf.books.some((one) => one.id === want)) return want
+  // My book deleted: the first of the others opens in its place.
+  return shelf.defaultGone ? (shelf.books[0]?.id ?? null) : null
 }
 // The first launch after the rename brings in the notes from the old folder
 // (old-data.ts), before anything reads this one: the book last open is in it.
