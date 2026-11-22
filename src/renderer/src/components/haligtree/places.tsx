@@ -147,7 +147,7 @@ export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'ro
  * that row is in the sidebar (`shown`).
  */
 export const litRow = (id: string, shown: string[] = []): string =>
-  TASK_PAGES.includes(id) ? 'today' : id === 'lookups' ? 'questions' : id === 'all' || id.startsWith('kind:') ? 'inbox' : id === 'pdf' ? 'media' : id === 'web' ? 'queue' : id === 'source' ? 'sources'
+  TASK_PAGES.includes(id) ? 'today' : id === 'folders' ? 'articles' : id === 'lookups' ? 'questions' : id === 'all' || id.startsWith('kind:') ? 'inbox' : id === 'pdf' ? 'media' : id === 'web' ? 'queue' : id === 'source' ? 'sources'
     : (id === 'weekpage' || id === 'monthpage') && shown.includes(id) ? id : id === 'weekpage' || id === 'monthpage' || id === 'yearpage' ? 'day' : id
 
 /** The sidebar's places, in their usual order: the same in every book. */

@@ -1,8 +1,9 @@
 // Folders, one tree for the whole book (src/main/folders.ts, side-folder-section.tsx, folder-view.tsx,
 // folder-picker.tsx), along a person's path on the sandbox: make a folder from the sidebar and name it in place, keep
-// a Writing page in it with "Keep in folder…" (typed, ↵), keep a gem in a new folder made from the picker's last row,
-// see Writing and Gems still list both with a quiet folder label, open the folder (only what is in it), "Not in a
-// folder" counting down, unstar and star a folder, find one on "All folders…", take a page out; Undo (⌘Z) of each.
+// a Writing page in it with "Keep in folder…" (typed, ↵): it leaves Writing's top level and Recent names its folder;
+// keep a gem in a new folder made from the picker's last row (Gems lists it with a quiet folder label), open the
+// folder (only what is in it), take a page out; Undo (⌘Z) of each. Folders live in Writing since 22 Nov: no Folders
+// section, no "Not in a folder" row, no "All folders…" page.
 // Frames of each surface in light and dark go to QA_SHOTS.
 //
 //   cp -cR <seeded sandbox> <copy>
@@ -19,6 +20,8 @@ const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const c = await sandbox({ width: 1180, height: 800 })
 const h = c.h
+// Every wait capped, so a miss fails fast with its reason.
+h.setDefaultTimeout(8000)
 const wait = (ms) => h.waitForTimeout(ms)
 const said = () => h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent?.trim()).filter(Boolean).join(' | '))
 const menu = async (target, line) => {
@@ -30,20 +33,30 @@ const menu = async (target, line) => {
 const shot = async (name) => shots && c.both(`${shots}/${name}`)
 // Asked again until it holds (a save and its notice land a moment after the key), for at most 5 s.
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
-// What has no folder, as the All folders page's own last row counts it (the sidebar lists only folders, as Tags lists only tags).
-const unfiled = async () => h.evaluate(async () => { const got = await window.api.haligtree('folders:unfiled'); return got.pages + got.gems })
+// Writing's own row in the sidebar: its folders hang under it, and it takes what leaves a folder.
+const writingRow = () => h.locator('aside button[data-side-row][aria-label="Writing"]')
+// Recent is a long list drawn as it scrolls (note-list.tsx `VirtualList`), as Pages' and Gems' are: a row not
+// touched lately sits further down, so it is scrolled to, as a person would, at most 60 screens.
+const reveal = async (sel) => {
+  for (let i = 0; i < 60 && !(await h.locator(sel).count()); i++) {
+    await h.evaluate(() => {
+      let box = document.querySelector('[data-recent] [data-row]')?.parentElement
+      while (box && !(box.scrollHeight > box.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+      if (box) box.scrollTop += box.clientHeight * 0.8
+    })
+    await h.waitForTimeout(60)
+  }
+  return h.locator(sel)
+}
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
-  // The sidebar's Folders section: under the places, folders only; the heading's arrow opens every folder.
-  check('the sidebar has its Folders section', await h.locator('[data-side-folders-section]').isVisible())
-  const before = await unfiled()
-  check('"Not in a folder" counts the pages and gems in none', before > 0 && before === (await c.v('folders:unfiled').then((got) => got.pages + got.gems)), `${before}`)
-  check('the sidebar lists folders only, as Tags lists tags: no "Not in a folder" or "All folders…" row', await h.evaluate(() => ![...document.querySelectorAll('[data-side-folders-section] [data-side-row]')].some((one) => /Not in a folder|All folders/.test(one.textContent ?? ''))))
+  // One place: no Folders section of its own, Writing holds the folders.
+  check('the sidebar has no Folders section: Writing holds the folders', (await h.locator('[data-side-section-handle="folders"]').count()) === 0)
+  check('no "Not in a folder" or "All folders…" row in the sidebar', await h.evaluate(() => ![...document.querySelectorAll('aside [data-side-row]')].some((one) => /Not in a folder|All folders/.test(one.textContent ?? ''))))
   check('every sidebar name is one line, cut with an ellipsis', await h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-row]')].every((one) => one.getBoundingClientRect().height <= 40)))
 
-  // Make one from the heading's +, named in place, starred so it shows.
-  await h.locator('[data-side-section-handle="folders"]').hover()
-  await h.locator('[data-folders-new]').click()
+  // Make one from Writing's right-click, named in place under Writing.
+  await menu(writingRow(), 'New folder')
   await wait(500)
   const field = h.locator('input[data-folder-name]')
   check('a new folder is named in place', await field.isVisible())
@@ -51,7 +64,7 @@ try {
   await h.keyboard.press('Enter')
   await wait(600)
   const thesis = (await c.v('folders')).find((one) => one.name === 'Thesis')
-  check('it is made, starred, and in the sidebar', !!thesis?.starred && (await h.locator(`[data-side-folder="${thesis?.id}"]`).isVisible()))
+  check('it is made, and in the sidebar under Writing', !!thesis && (await h.locator(`[data-side-folders-section] [data-side-folder="${thesis?.id}"]`).isVisible()))
   await shot('sidebar')
 
   // A page in Writing, kept in it with the picker: right-click, type, ↵.
@@ -66,41 +79,61 @@ try {
     const pick = document.querySelector('[data-folder-picker]')?.getBoundingClientRect()
     const dim = [...document.querySelectorAll('body *')].some((one) => { const s = getComputedStyle(one); return s.position === 'fixed' && one.getBoundingClientRect().width >= innerWidth - 2 && one.getBoundingClientRect().height >= innerHeight - 2 && /rgba\(0, 0, 0, 0\.[1-9]/.test(s.backgroundColor) })
     const side = document.querySelector('aside')?.getBoundingClientRect()
-    return row && pick ? { top: Math.round(pick.top - row.top), width: Math.round(pick.width), sidebar: Math.round(side?.width ?? 0), right: pick.left > row.left + 40, dim } : null
+    return row && pick ? { top: Math.round(pick.top - row.top), foot: Math.round(innerHeight - pick.bottom), width: Math.round(pick.width), sidebar: Math.round(side?.width ?? 0), right: pick.left > row.left + 40, dim } : null
   }, await row.getAttribute('data-id'))
   // As the sidebar's own cards: about its width, to the right of where it was asked, its top level with the row.
-  check('the picker is the sidebar card: beside the row, its top level with it, the window not dimmed', !!spot && Math.abs(spot.top) <= 8 && spot.width <= spot.sidebar + 40 && spot.right && !spot.dim, JSON.stringify(spot))
+  // Level with its row, or (a row low in the window, under Writing's folders) lifted only as far as keeps it in the window.
+  check('the picker is the sidebar card: beside the row, its top level with it (or lifted just clear of the window\'s foot), the window not dimmed', !!spot && (Math.abs(spot.top) <= 8 || (spot.top < 0 && spot.foot <= 24)) && spot.width <= spot.sidebar + 40 && spot.right && !spot.dim, JSON.stringify(spot))
   await shot('picker')
   await h.keyboard.type('thes')
   await wait(200)
   await h.keyboard.press('Enter')
   await wait(700)
-  check('↵ keeps it there, said with its notice', await until(async () => /Kept the page in Thesis/.test(await said())), await said())
+  check('↵ keeps it there, said with its notice', await until(async () => /Moved the page into “Thesis”/.test(await said())), await said())
   check('it is in Thesis', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
-  check('"Not in a folder" counts one fewer', await until(async () => (await unfiled()) === before - 1), `${await unfiled()}`)
-  check('Writing still lists it, with a quiet folder label', (await h.locator(`[data-page="articles"] [data-id="${page}"] [data-row-folder="${thesis.id}"]`).count()) === 1)
-  await shot('writing')
+  // Folders isolate: it shows inside Thesis, not loose at Writing's top level.
+  check('it leaves Writing\'s top level', await until(async () => (await h.locator(`[data-page="articles"] button[data-row][data-id="${page}"]`).count()) === 0))
   // ⌘Z puts it back.
   await h.keyboard.press('Meta+z')
   await wait(700)
   check('⌘Z takes it out again', await until(async () => !(await c.v('folders:of', 'nuggets'))[page]), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
-  // Again.
-  await menu(row, 'Keep in folder…')
+  // Again, from its own row (back at the top level, not necessarily first).
+  await menu(h.locator(`[data-page="articles"] button[data-row][data-id="${page}"]`), 'Keep in folder…')
   await h.keyboard.type('Thesis')
   await h.keyboard.press('Enter')
   await wait(700)
   check('kept in Thesis again', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id))
+  // Recent lists it, wherever it is kept, naming its folder on its meta line.
+  await h.locator('[data-folder-kinds] [aria-label^="Recent"]').click()
+  await wait(700)
+  check('Recent lists it, naming Thesis', ((await (await reveal(`[data-recent] button[data-row][data-id="${page}"]`)).locator('[data-row-folder]').textContent({ timeout: 2000 }).catch(() => '')) ?? '').includes('Thesis'))
+  await shot('writing-recent')
+  await h.locator('[data-folder-kinds] [aria-label^="Pages"]').click()
+  await wait(500)
 
+  // A gem, into a new folder made from the picker's last row.
+  await c.go('nuggets')
+  const gemRow = h.locator('[data-page="nuggets"] button[data-row]').first()
+  const gem = await gemRow.getAttribute('data-id')
+  await menu(gemRow, 'Keep in folder…')
+  await h.keyboard.type('Reading list')
+  await wait(200)
+  check('the picker\'s last row offers the new folder', /New folder “Reading list”/.test((await h.locator('[data-folder-new-pick]').textContent()) ?? ''))
+  await h.keyboard.press('Enter')
+  await wait(800)
+  const reading = await until(async () => (await c.v('folders')).find((one) => one.name === 'Reading list'))
+  check('one step makes the folder and keeps the gem in it', await until(async () => !!reading && (await c.v('folders:of', 'nuggets'))[gem] === reading.id), await said())
+  check('Gems lists it with its folder label', (await h.locator(`[data-page="nuggets"] [data-id="${gem}"] [data-row-folder="${reading?.id}"]`).count()) === 1)
   // The label sits at the row's right edge, centred on the row, one line; Display › "Show folder" off hides it, and
   // nothing else on the row moves.
   const label = () => h.evaluate((id) => {
-    const row = document.querySelector(`[data-page="articles"] button[data-row][data-id="${id}"]`)
+    const row = document.querySelector(`[data-page="nuggets"] button[data-row][data-id="${id}"]`)
     const end = row?.querySelector('[data-row-end]')
     const title = row?.querySelector('.private-text')
     if (!row) return null
     const r = row.getBoundingClientRect(), e = end?.getBoundingClientRect(), t = title?.getBoundingClientRect()
     return { shown: !!end, right: e ? Math.round(r.right - e.right) : null, centre: e ? Math.round(Math.abs((e.top + e.bottom) / 2 - (r.top + r.bottom) / 2)) : null, lines: e ? Math.round(e.height) : null, title: t ? [Math.round(t.left), Math.round(t.top)] : null }
-  }, page)
+  }, gem)
   const at = await label()
   check('its folder label sits at the row\'s right edge, centred, on one line', at?.shown && at.right <= 24 && at.centre <= 2 && at.lines <= 20, JSON.stringify(at))
   if (shots) for (const look of ['light', 'dark']) { await c.look(look); await wait(300); await h.screenshot({ path: `${shots}/folders-row-end-${look}.png` }) }
@@ -116,19 +149,6 @@ try {
   await h.keyboard.press('Escape'); await wait(300)
   check('and on again shows it', (await label())?.shown === true)
 
-  // A gem, into a new folder made from the picker's last row.
-  await c.go('nuggets')
-  const gemRow = h.locator('[data-page="nuggets"] button[data-row]').first()
-  const gem = await gemRow.getAttribute('data-id')
-  await menu(gemRow, 'Keep in folder…')
-  await h.keyboard.type('Reading list')
-  await wait(200)
-  check('the picker\'s last row offers the new folder', /New folder “Reading list”/.test((await h.locator('[data-folder-new-pick]').textContent()) ?? ''))
-  await h.keyboard.press('Enter')
-  await wait(800)
-  const reading = await until(async () => (await c.v('folders')).find((one) => one.name === 'Reading list'))
-  check('one step makes the folder and keeps the gem in it', await until(async () => !!reading && (await c.v('folders:of', 'nuggets'))[gem] === reading.id), await said())
-  check('Gems lists it with its folder label', (await h.locator(`[data-page="nuggets"] [data-id="${gem}"] [data-row-folder="${reading?.id}"]`).count()) === 1)
 
   // The folder's page is Writing's own list, holding only what the folder keeps: a second page, both in a group.
   const pages = (await c.v('items', 'article')).filter((one) => one.id !== page).slice(0, 1).map((one) => one.id)
@@ -165,15 +185,16 @@ try {
   await wait(900)
   check('↓ (Next) moves to the folder\'s next page', /2 \/ 2/.test(await bar()))
   // Writing at the same size with a page open, for the frames beside it: the list beside the page, or not, alike.
+  // A page each, by its own row (never a group's row, whose press opens the group, not a page).
   await c.go('articles')
-  await h.locator('[data-page="articles"] button[data-row]').first().click()
+  await h.locator('[data-page="articles"] button[data-row][data-id]:not([data-group-row]):not([data-group-row] *)').first().click()
   await wait(1200)
   await shot('writing-open')
   const listBeside = () => h.evaluate(() => [...document.querySelectorAll('button[data-row]')].filter((one) => one.getBoundingClientRect().width > 0).length > 0)
   const writingBeside = await listBeside()
   await h.locator(`[data-side-folder="${thesis.id}"]`).click()
   await wait(1200)
-  await rows().first().click().catch(() => {})
+  await h.locator(`[data-page="folders"] button[data-row][data-id="${pages[0]}"]`).click().catch(() => {})
   await wait(1200)
   check('with a page open, the folder\'s list stands beside it as Writing\'s does', (await listBeside()) === writingBeside, `Writing ${writingBeside}, folder ${await listBeside()}`)
   // Back (⌘[) to the folder's list, as from Writing's open page.
@@ -182,7 +203,7 @@ try {
   check('Back returns to the folder\'s list', (await rows().count()) === 2, `${await rows().count()}`)
   await c.v('folders:file', [{ type: 'article', id: page }], null)
   await c.v('folders:file', [{ type: 'article', id: pages[0] }], null)
-  check('the empty folder says how things get in, in one line', await until(async () => /Drag anything onto Thesis/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
+  check('the empty folder says how things get in, in one line', await until(async () => /Drag a page, note or gem onto Thesis/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
   // Its front: nothing until asked; the head pointed at, "Add a cover" and "Add words" as quiet icons among its actions
   // (never chips over or under the path); words typed are kept as it is left.
   check('its front is empty to start', (await h.locator('[data-folder-words]').count()) === 0 && (await h.locator('[data-folder-cover]').count()) === 0)
@@ -206,8 +227,7 @@ try {
   check('…its words written without a word count or a Vim mode chip under them', (await h.locator('[data-folder-words] [data-vim-status], [data-folder-words] .mf-word-count').count()) === 0)
   await shot('folder-front')
   // Left: the words go with the folder.
-  await h.locator('[data-folders-all]').click() // "All folders…" is the heading's arrow (63dc63cb7)
-  await wait(600)
+  await c.go('articles')
   check('the words are kept with the folder', await until(async () => /Chapters for the thesis/.test((await c.v('folders')).find((one) => one.id === thesis.id)?.front ?? '')))
 
   // The sidebar's tree, Notion's way: pointed at, a folder's icon gives way to its fold, "…" and "+" at its right.
@@ -215,8 +235,8 @@ try {
   const fRow = h.locator(`[data-side-folder="${thesis.id}"]`)
   await fRow.hover()
   await wait(250)
-  check('pointed at, a folder row shows its fold, "…" and "+"', (await h.locator(`[data-folder-fold="${thesis.id}"]`).isVisible()) && (await h.locator(`[data-folder-more="${thesis.id}"]`).isVisible()) && (await h.locator(`[data-folder-add="${thesis.id}"]`).isVisible()))
-  await h.locator(`[data-folder-fold="${thesis.id}"]`).click()
+  check('pointed at, a folder row shows its fold, "…" and "+"', (await h.locator(`aside [data-folder-fold="${thesis.id}"]`).isVisible()) && (await h.locator(`aside [data-folder-more="${thesis.id}"]`).isVisible()) && (await h.locator(`aside [data-folder-add="${thesis.id}"]`).isVisible()))
+  await h.locator(`aside [data-folder-fold="${thesis.id}"]`).click()
   await wait(700)
   // Under Folders: Writing's own fold may list the same page too (side-writing.tsx), one row each.
   const inTree = h.locator(`aside [data-side-folders-section] [data-side-thing="${page}"]`)
@@ -230,7 +250,7 @@ try {
   const before2 = Object.values(await c.v('folders:of', 'nuggets')).filter((one) => one === thesis.id).length
   await fRow.hover()
   await wait(200)
-  await h.locator(`[data-folder-add="${thesis.id}"]`).click()
+  await h.locator(`aside [data-folder-add="${thesis.id}"]`).click()
   check('"+" makes a page inside it and opens it', await until(async () => Object.values(await c.v('folders:of', 'nuggets')).filter((one) => one === thesis.id).length === before2 + 1))
   await wait(600)
   // Its menu, grouped as Notion's, with when it was last changed at its foot.
@@ -241,16 +261,8 @@ try {
   await h.keyboard.press('Escape')
   await wait(200)
   await fRow.hover()
-  await h.locator(`[data-folder-fold="${thesis.id}"]`).click()
+  await h.locator(`aside [data-folder-fold="${thesis.id}"]`).click()
   await wait(400)
-
-  // Unstarred from its right-click: off the sidebar; starred back by Undo.
-  await menu(h.locator(`[data-side-folder="${reading.id}"]`), 'Remove from the sidebar')
-  await wait(500)
-  check('unstarred, it leaves the sidebar', (await h.locator(`[data-side-folder="${reading.id}"]`).count()) === 0)
-  await h.keyboard.press('Meta+z')
-  await wait(600)
-  check('⌘Z stars it again', (await h.locator(`[data-side-folder="${reading.id}"]`).count()) === 1)
 
   // F2 on a folder's row renames it in place; Enter keeps the name, ⌘Z takes it back.
   await h.locator(`[data-side-folder="${reading.id}"]`).focus()
@@ -263,7 +275,7 @@ try {
   check('the new name is kept', await until(async () => (await c.v('folders')).find((one) => one.id === reading.id)?.name === 'To read'))
 
   // Carried by its row above Thesis: the order is saved, one line drawn, ⌘Z puts it back.
-  const order = async () => (await c.v('folders')).filter((one) => one.starred && !one.parent).map((one) => one.id)
+  const order = async () => (await c.v('folders')).filter((one) => !one.parent).map((one) => one.id)
   const was = await order()
   const from = await h.locator(`[data-side-folder="${reading.id}"]`).boundingBox()
   const to = await h.locator(`[data-side-folder="${thesis.id}"]`).boundingBox()
@@ -282,14 +294,6 @@ try {
   const drawn = () => h.evaluate(([a, b]) => { const all = [...document.querySelectorAll('[data-side-folder]')].map((one) => one.getAttribute('data-side-folder')); return all.indexOf(a) < all.indexOf(b) }, [thesis.id, reading.id])
   check('and the sidebar draws it back in its place', await until(drawn))
 
-  // All folders: found by its name.
-  await h.locator('[data-folders-all]').click()
-  await wait(700)
-  if (shots) await h.screenshot({ path: `${shots}/all-folders-click.png` })
-  await h.locator('[data-find-folder] input').fill('to re')
-  await wait(300)
-  check('"All folders…" finds a folder by part of its name', (await h.locator('[data-all-folder]').count()) === 1 && (await h.locator(`[data-all-folder="${reading.id}"]`).count()) === 1)
-  await shot('all-folders')
   // The picker's order and shape: the folder kept in most and most lately first; about seven rows, the rest under
   // the lists' fade; a folder inside another with its way there, faint, before its name.
   await c.go('articles')
@@ -307,12 +311,12 @@ try {
   await h.keyboard.press('Escape')
   await wait(300)
 
-  // The tree's own drag: a page under Thesis carried onto Reading list goes into it; onto "Not in a folder", out of
-  // every folder; ⌘Z puts it back. The app's one carry (split-drop.tsx), as a pin's.
+  // The tree's own drag: a page under Thesis carried onto Reading list goes into it; onto Writing's row, out of every
+  // folder; ⌘Z puts it back. The app's one carry (split-drop.tsx), as a pin's.
   const drag = async (from, to) => {
-    // The Folders section at the sidebar's top first: with Journal's Week, Month and Year and the rest above it, the
-    // page under Thesis sat under the sidebar's foot, and the press opened the book's menu instead of carrying it.
-    await h.locator('[data-side-section-handle="folders"]').evaluate((el) => el.scrollIntoView({ block: 'start' }))
+    // Writing's row at the sidebar's top first: with Journal's Week, Month and Year and the rest above it, the page
+    // under Thesis sat under the sidebar's foot, and the press opened the book's menu instead of carrying it.
+    await writingRow().evaluate((el) => el.scrollIntoView({ block: 'start' }))
     await wait(300)
     const a = await from.boundingBox()
     const b = await to.boundingBox()
@@ -324,20 +328,20 @@ try {
     await h.mouse.up()
     await wait(700)
   }
-  // The Folders heading takes what leaves a folder: the sidebar lists folders only, no "Not in a folder" row (63dc63cb7).
-  const unfiledRow = h.locator('[data-side-section-handle="folders"]')
+  // Writing's own row takes what leaves a folder: no "Not in a folder" row anywhere (22 Nov).
+  const unfiledRow = writingRow()
   const folderOfPage = async () => (await c.v('folders:of', 'nuggets'))[page] ?? null
   await c.v('folders:file', [{ type: 'article', id: page }], thesis.id)
   await fRow.hover()
-  await h.locator(`[data-folder-fold="${thesis.id}"]`).click()
+  await h.locator(`aside [data-folder-fold="${thesis.id}"]`).click()
   await wait(700)
   await drag(h.locator(`aside [data-side-folders-section] [data-side-thing="${page}"]`), h.locator(`[data-side-folder="${reading.id}"]`))
   check('a page carried in the tree onto another folder goes into it', await until(async () => (await folderOfPage()) === reading.id), JSON.stringify(await folderOfPage()))
   await h.locator(`[data-side-folder="${reading.id}"]`).hover()
-  await h.locator(`[data-folder-fold="${reading.id}"]`).click()
+  await h.locator(`aside [data-folder-fold="${reading.id}"]`).click()
   await wait(700)
   await drag(h.locator(`aside [data-side-folders-section] [data-side-thing="${page}"]`), unfiledRow)
-  check('carried onto the Folders heading, it leaves every folder', await until(async () => (await folderOfPage()) === null), JSON.stringify(await folderOfPage()))
+  check('carried onto Writing\'s row, it leaves every folder', await until(async () => (await folderOfPage()) === null), JSON.stringify(await folderOfPage()))
   await h.keyboard.press('Meta+z')
   check('⌘Z puts it back in its folder', await until(async () => (await folderOfPage()) === reading.id), JSON.stringify(await folderOfPage()))
   // The folder's "Copy link": a link to its page, as a note's Copy link makes one.
@@ -352,7 +356,7 @@ try {
   await h.keyboard.press('Enter')
   check('↵ puts it inside the folder picked', await until(async () => (await c.v('folders')).find((one) => one.id === reading.id)?.parent === thesis.id))
   // Its notice is up a moment after the move is saved: ⌘Z is pressed once it is, as a person would. The folder is "To read" by now (renamed above).
-  check('said with its notice', await until(async () => /Moved To read into Thesis/.test(await said())), await said())
+  check('said with its notice', await until(async () => /Moved “To read” into “Thesis”/.test(await said())), await said())
   await h.keyboard.press('Meta+z')
   check('⌘Z takes it back out', await until(async () => !(await c.v('folders')).find((one) => one.id === reading.id)?.parent))
 

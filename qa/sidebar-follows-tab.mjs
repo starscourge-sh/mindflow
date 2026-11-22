@@ -70,10 +70,10 @@ try {
   check('its row is in view', await noteRow.evaluate((el) => { const b = el.getBoundingClientRect(); const a = el.closest('aside').getBoundingClientRect(); return b.top >= a.top && b.bottom <= a.bottom }))
   await h.screenshot({ path: `${shots}/note-row-light.png` })
   await c.look('dark'); await wait(300); await h.screenshot({ path: `${shots}/note-row-dark.png` }); await c.look('light'); await wait(200)
-  // Folded by hand: the Folders section's heading holds the light.
-  await h.locator('[data-side-section-handle="folders"]').click(); await wait(500)
-  await one('its section folded by hand: Folders takes the light', { kind: 'place', text: 'Folders' })
-  check('it stays folded', (await h.locator('[data-side-section-handle="folders"]').getAttribute('aria-expanded')) === 'false')
+  // Folded by hand: Writing's own row, which holds the folders, takes the light.
+  await row('Writing').hover(); await h.locator('[data-folders-fold="article"]').click(); await wait(500)
+  await one('Writing folded by hand: its row takes the light', { kind: 'place', text: 'Writing' })
+  check('it stays folded', (await h.locator('[data-folders-fold="article"]').getAttribute('aria-expanded')) === 'false')
   await go('calendar')
   await send('article', inFolder.id); await wait(1200)
   await one('focus coming back to something in it unfolds it', { kind: 'note' })

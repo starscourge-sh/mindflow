@@ -470,7 +470,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
         ...live.slice(0, 40).map((folder) => ({ label: folder.name, icon: <FolderIcon />, trail: folder.id === one.folder ? <Check className="ml-auto size-3.5" /> : undefined,
           run: () => folder.id !== one.folder && tie(one, { folder: folder.id }, `A note for an event on ${one.name} now goes to ${folder.name}, and ${folder.name} shows its events`) })),
         ...(kept ? ['separator' as const, { label: 'Notes stay in the Inbox', icon: <X />, run: () => tie(one, { folder: null }, `Notes for ${one.name}'s events stay in the Inbox`) }] : [])
-      ] : [{ heading: 'Make a folder first, in Folders' }] },
+      ] : [{ heading: 'Make a folder first, in Writing' }] },
       { label: one.tag ? `Colour of #${one.tag}` : 'Colour from a tag', icon: <Hash />, items: used.length ? [
         ...used.map((each) => ({ label: `#${each.tag}`, icon: <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: calendarInk({ color: one.color, tag: each.tag }, tagList) }} />, trail: each.tag === one.tag ? <Check className="ml-auto size-3.5" /> : undefined,
           run: () => each.tag !== one.tag && tie(one, { tag: each.tag }, `${one.name} wears #${each.tag}'s colour`) })),

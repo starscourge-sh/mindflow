@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, CalendarDays, Check, ChevronRight, CircleCheck, FileText, HelpCircle, MoreHorizontal, Plus, StickyNote } from 'lucide-react'
+import type { Places } from './carry'
 import { Gem } from '@/components/ui/icons'
 import { openItems } from '@/lib/split'
 import { Branches } from './branches'
@@ -9,31 +10,39 @@ import { ROW_PAD, ROW_SHAPE } from './row-shape'
 import { cn } from '@/lib/cn'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
-import { useFold, useTreeFolds } from '@/lib/side-folds'
+import { useTreeFolds } from '@/lib/side-folds'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
-import { SortableList, SortableRow } from './sortable'
+import { SortableList, SortableRow, type NestCheck } from './sortable'
 import { age, num, plural } from '../../../../main/dates'
 import { haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { FOLDER_DEPTH, askFolder, askFolderFor, folders, writeFrom, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
+import { FOLDER_DEPTH, askFolder, askFolderFor, folders, writeFrom, keepIn, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { calendarInk, calendarsNow, events, type Calendar } from '@/lib/events'
 
-/** Starred folders shown before the rest fold behind "Show all". */
+/** Folders shown under Writing in the sidebar before the rest fold behind "Show all". */
 const SHOWN = 12
 
-/** Where the sidebar sends a press: a folder's page, "Not in a folder", or every folder (null). */
-export type FolderPlace = string | 'unfiled' | null
+/** Where the sidebar sends a press: a folder's page, or Writing's own top level (null). */
+export type FolderPlace = string | null
 
-/** Asks the Folders section for a new folder (in `parent`), named in place as Finder names one. */
-export const newFolderHere = (parent: string | null = null): void => void window.dispatchEvent(new CustomEvent('haligtree:folders-new', { detail: { parent } }))
+/**
+ * A new folder (in `parent`, or at Writing's top), named in place where it appears, as Finder names one: on Writing's
+ * page when the page shows that level (FolderRows takes it), else in Writing's tree in the sidebar (WritingFolders).
+ */
+export const newFolderHere = (parent: string | null = null): void => void folders.make('New folder', parent).then((id) => {
+  chime('promote')
+  quietly(() => void folders.remove(id))
+  const detail = { id, parent }
+  if (window.dispatchEvent(new CustomEvent('haligtree:folder-made', { cancelable: true, detail }))) window.dispatchEvent(new CustomEvent('haligtree:folder-name-side', { detail }))
+})
 
-/** What one folder holds, its folders' too, every kind, in sight. */
+/** What one folder holds, its folders' too, in Writing's kinds (pages, notes, gems; tasks stay in Tasks), in sight. */
 export const deepCount = (all: Folder[], id: string): number =>
-  all.reduce((sum, one) => sum + (one.id === id ? heldIn(one) : one.parent === id ? deepCount(all, one.id) : 0), 0)
+  all.reduce((sum, one) => sum + (one.id === id ? one.pages + one.gems + one.notes : one.parent === id ? deepCount(all, one.id) : 0), 0)
 
-/** The kinds a folder holds, writing first. */
-const KINDS_SAID = [['pages', 'page'], ['notes', 'note'], ['gems', 'gem'], ['tasks', 'task']] as const
+/** The kinds a folder holds in Writing, writing first. */
+const KINDS_SAID = [['pages', 'page'], ['notes', 'note'], ['gems', 'gem']] as const
 /**
  * What one folder holds, its folders' too, in words by kind, as Writing's folder rows said "4 pages": "41 notes",
  * "4 pages, 2 gems". Nothing for an empty folder (a "0" reads as something to see to).
@@ -43,30 +52,87 @@ export const heldSaid = (all: Folder[], id: string): string => {
   return KINDS_SAID.map(([kind, one]) => [deep(id, kind), one] as const).filter(([n]) => n > 0).map(([n, one]) => plural(n, one)).join(', ')
 }
 
+/** Whether `inner` is `outer` or sits anywhere inside it. */
+const within = (all: Folder[], inner: string | null, outer: string): boolean => {
+  for (let at = inner, steps = 0; at && steps < 16; at = all.find((one) => one.id === at)?.parent ?? null, steps++) if (at === outer) return true
+  return false
+}
+
+/** Where a folder is carried to besides its neighbours: Writing's own row or the path's "Writing" (the top), or a folder named in a path. */
+export const TOP_DROP = 'folders-top'
+export const folderDrop = (id: string): string => `folder:${id}`
+
 /**
- * The sidebar's Folders, under its places, as Tags keeps your favourite tags: only the folders you starred (and the
- * one you are in, while you are there), each with the folders right inside it hung under it, so "Imports" shows one
- * line per import, not every source's whole tree. Then "Not in a folder N", the pages and gems with no folder, and
- every folder's page from the heading (its arrow, its right-click). A row takes anything dropped on it (split-drop.tsx `keepDrop`).
+ * Every move of a folder by the app's one drag (sortable.tsx), the same in Writing's sidebar tree and on its page:
+ * beside another (its edge) reorders, rested on another's middle goes inside it, let go on Writing (its sidebar row,
+ * or the path over the page) goes to the top, on a folder in the path goes in there. Never into itself or a folder
+ * inside it: refused in words with the nope sound. Each move said with Undo.
  */
-export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem, style, noteIn, noteRow, noteKey }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void
-  /** A page, note, gem or task in a folder unfolded here: opened in that folder (`folder`), so ↓↑ step through what it
-   *  holds, as a press on its row in the folder's own list does; a new page made inside one (no folder) as anywhere. */
+export function useFolderMoves(): { epoch: number; place: (id: string, target: string, after: boolean) => void; nest: (id: string, target: string | null) => void; nests: NestCheck; places: Places; nestSays: (title: string) => string } {
+  const all = useFolders()
+  // The list holds a dropped order until the saved one is read back (sortable.tsx `useHeld`); a drop refused here
+  // changes nothing to read back, so the list starts afresh.
+  const [epoch, setEpoch] = useState(0)
+  const afresh = (): void => setEpoch((n) => n + 1)
+  const named = (id: string | null): string => (id ? `“${all.find((one) => one.id === id)?.name ?? 'the folder'}”` : 'the top of Writing')
+  const place = (id: string, target: string, after: boolean): void => {
+    void folders.place(id, target, after).then((was) => {
+      if (!was) return (afresh(), refuse('A folder can’t go inside itself or a folder inside it'))
+      chime('gather')
+      toast(`Moved ${named(id)} ${after ? 'after' : 'before'} ${named(target)}`, () => void folders.arrange(id, was).then(() => chime('undo')))
+    })
+  }
+  const nest = (id: string, target: string | null): void => {
+    const was = all.find((one) => one.id === id)
+    if (!was) return
+    if ((was.parent ?? null) === target) return (afresh(), refuse(target ? `Already in ${named(target)}` : 'Already at the top of Writing'))
+    if (target && within(all, target, id)) return (afresh(), refuse('A folder can’t go inside itself or a folder inside it'))
+    void folders.nest(id, target).then((done) => {
+      if (done !== true) return (afresh(), refuse(done))
+      chime('gather')
+      toast(`Moved ${named(id)} ${target ? 'into' : 'to'} ${named(target)}`, () => void folders.nest(id, was.parent ?? null).then(() => chime('undo')))
+    })
+  }
+  const nests: NestCheck = (carried, target) => (within(all, target, carried) ? { refused: 'A folder can’t go inside itself or a folder inside it' } : true)
+  const places: Places = {
+    drop: (id, spot) => nest(id, spot === TOP_DROP ? null : spot.slice('folder:'.length)),
+    said: (spot, id) => {
+      const me = all.find((one) => one.id === id)
+      // Only a folder is carried here: a page's row says nothing over these.
+      if (!me) return null
+      if (spot === TOP_DROP) return me.parent ? 'Move to the top of Writing' : null
+      if (!spot.startsWith('folder:')) return null
+      const to = spot.slice('folder:'.length)
+      return to === me.parent || within(all, to, id) ? null : `Move into ${named(to)}`
+    }
+  }
+  return { epoch, place, nest, nests, places, nestSays: (title) => `Move into “${title}”` }
+}
+
+/**
+ * Writing's folders in the sidebar, hung under its row as Finder's sidebar hangs a disk's: every folder at the top,
+ * each with the folders inside it under it on a trunk, then (unfolded) what it holds. A row takes anything dropped on
+ * it (split-drop.tsx `keepDrop`); carried, a folder reorders, goes inside another, or out onto Writing (useFolderMoves).
+ */
+export function WritingFolders({ open: unfoldedHere, here, counted, onOpen, onOpenItem, lit: litItem, onUnfold, noteIn, noteRow, noteKey }: { /** Writing's fold in the sidebar: always mounted, so a new folder can be named in it, drawn only while open. */ open: boolean
+  here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void
+  /** A page, note or gem in a folder unfolded here: opened in that folder (`folder`), so ↓↑ step through what it
+   *  holds, as a press on its row in the folder's own list does. */
   onOpenItem: (type: string, id: string, folder?: string) => void
   /** The thing open now, lit where it shows under its folder. */
   lit?: string
-  style?: React.CSSProperties
+  /** Opens Writing's fold, for a folder named in place or a note in one come to the front. */
+  onUnfold: () => void
   /** The folder the note in front lives in, with its one lit row to hang under that folder, and which note it is. */
-  noteIn?: string; noteRow?: React.ReactNode; noteKey?: string }): React.JSX.Element {
+  noteIn?: string; noteRow?: React.ReactNode; noteKey?: string }): React.JSX.Element | null {
   const all = useFolders()
-  // Its fold and its tree's, in the sidebar's one store, so the button beside the search folds them too (lib/side-folds.ts).
-  const [open, setOpen] = useFold('sidebar:folders')
-  const fold = (next: boolean): void => (chime(next ? 'slide' : 'fold'), setOpen(next))
-  // Folded by hand, it stays folded until focus next comes to something in a folder: then it opens on it, as Writing's did.
-  useEffect(() => void (noteKey && noteIn && setOpen(true)), [noteKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Folded by hand, it stays folded until focus next comes to something in a folder: then it opens on it.
+  useEffect(() => void (noteKey && noteIn && onUnfold()), [noteKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [naming, setNaming] = useState<string | null>(null)
   // Folders unfolded in the tree, Notion's way: what each holds hangs under it. Kept across launches.
   const [unfolded, setUnfolded] = useTreeFolds()
+  const unfoldedRef = useRef(unfolded)
+  unfoldedRef.current = unfolded
   const foldOne = (id: string): void => {
     const next = new Set(unfolded)
     if (next.has(id)) next.delete(id)
@@ -75,10 +141,12 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
     setUnfolded(next)
   }
   useEffect(() => {
+    // A new folder Writing's page does not show (newFolderHere): named here, Writing's fold (and the folder it goes in) opened on it first.
     const make = (event: Event): void => {
-      const { parent } = (event as CustomEvent<{ parent: string | null }>).detail
-      setOpen(true)
-      void folders.make('New folder', parent).then((id) => (chime('promote'), setNaming(id), quietly(() => void folders.remove(id))))
+      const { id, parent } = (event as CustomEvent<{ id: string; parent: string | null }>).detail
+      onUnfold()
+      if (parent && !unfoldedRef.current.has(parent)) setUnfolded(new Set([...unfoldedRef.current, parent]))
+      setNaming(id)
     }
     // ⌃⌘N anywhere a list has not taken it for its picked rows (items-view.tsx): a new, empty folder.
     const key = (event: KeyboardEvent): void => {
@@ -86,23 +154,26 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
       event.preventDefault()
       newFolderHere(null)
     }
-    window.addEventListener('haligtree:folders-new', make)
+    window.addEventListener('haligtree:folder-name-side', make)
     window.addEventListener('keydown', key)
-    return () => (window.removeEventListener('haligtree:folders-new', make), window.removeEventListener('keydown', key))
-  }, [])
+    return () => (window.removeEventListener('haligtree:folder-name-side', make), window.removeEventListener('keydown', key))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const live = all.filter((one) => !one.archived)
   const ids = new Set(live.map((one) => one.id))
-  // Starred, and the way down to the one you are in: shown at the top level unless a starred folder above holds it.
-  // The way down to the folder you are in, or to the one holding the note in front.
-  const at = typeof here === 'string' && here !== 'unfiled' ? here : noteIn
+  // The way down to the folder you are in, or to the one holding the note in front: shown open to it.
+  const at = typeof here === 'string' ? here : noteIn
   const path = at ? pathOf(live, at).map((one) => one.id) : []
-  const starredAbove = (one: Folder): boolean => pathOf(live, one.parent).some((up) => up.starred)
-  const tops = live.filter((one) => (one.starred && !starredAbove(one)) || (one.id === path[0] && !one.starred && !path.slice(0, -1).some((up) => live.find((f) => f.id === up)?.starred)))
   const inside = (id: string): Folder[] => live.filter((one) => one.parent === id)
+  const moves = useFolderMoves()
+  // One level of folders, carried by the app's one drag: beside each other, into each other, or out onto Writing.
+  const level = (rows: Folder[], depth: number): React.JSX.Element => (
+    <SortableList key={moves.epoch} items={rows} keyOf={(one) => one.id} onMove={moves.place} onNest={(id, target) => moves.nest(id, target)} nests={moves.nests} nestSays={moves.nestSays} places={moves.places}>{(items) => items.map((one) => (
+      <SortableRow key={one.id} id={one.id} glide={`side-folder-${one.id}`}><div className="flex flex-col gap-px">{row(one, depth)}</div></SortableRow>
+    ))}</SortableList>
+  )
   const row = (one: Folder, depth: number): React.JSX.Element[] => {
     // Unfolded, a folder shows what it holds: its folders, then its pages and notes (Notion's way). Folded, only the
-    // way down to the folder you are in.
-    // Holding nothing and no folder: nothing to fold open, no "Nothing in it yet" under it.
+    // way down to the folder you are in. Holding nothing and no folder: nothing to fold open.
     const holds = deepCount(live, one.id) > 0 || inside(one.id).length > 0
     const open = holds && unfolded.has(one.id)
     const kids = open ? inside(one.id) : inside(one.id).filter((kid) => path.includes(kid.id))
@@ -113,25 +184,24 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
       // Its own presses (lib/own-press.ts): a page carried from under it is that page, never the folder above it.
       ...(kids.length || open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
         <Branches className="ml-5 flex flex-col gap-px">
-          {kids.flatMap((kid) => row(kid, depth + 1))}
+          {kids.length > 0 && level(kids, depth + 1)}
           {open && <FolderThings key={`${one.id}:things`} folder={one} lit={litItem} onOpen={(type, id) => onOpenItem(type, id, one.id)} onAll={() => onOpen(one.id)} />}
         </Branches>
       </div>] : []),
-      // The note in front, under the folder it lives in, while the folder is folded: only that one row, lit. Unfolded,
-      // the folder's own list shows it, lit there (FolderThings).
+      // The note in front, under the folder it lives in, while the folder is folded: only that one row, lit.
       ...(noteRow && one.id === noteIn && !open ? [<div key={`${one.id}:note`} data-no-twig=""><Branches className="ml-5 flex flex-col gap-px">{noteRow}</Branches></div>] : [])
     ]
   }
-  // Many starred: the first 12, and the one you are in, the rest a press away, so they never push the sidebar long.
+  // Many folders: the first 12, and the one you are in, the rest a press away, so they never push the sidebar long.
   const [every, setEvery] = useState(false)
-  const starred = tops.filter((one) => ids.has(one.id))
-  const rows = every || starred.length <= SHOWN ? starred : starred.filter((one, n) => n < SHOWN || one.id === here || path.includes(one.id))
+  const tops = live.filter((one) => !one.parent || !ids.has(one.parent))
+  const rows = every || tops.length <= SHOWN ? tops : tops.filter((one, n) => n < SHOWN || one.id === here || path.includes(one.id))
   // F2 renames the folder whose row has the keys, or the one you are in, in place (Finder's way).
   useEffect(() => {
     const key = (event: KeyboardEvent): void => {
       if (event.key !== 'F2' || event.metaKey || event.ctrlKey || event.altKey) return
       const row = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-side-folder]')
-      const id = row?.dataset.sideFolder ?? (!typing() && typeof here === 'string' && here !== 'unfiled' && ids.has(here) ? here : null)
+      const id = row?.dataset.sideFolder ?? (!typing() && typeof here === 'string' && ids.has(here) ? here : null)
       if (!id) return
       event.preventDefault()
       setNaming(id)
@@ -139,70 +209,21 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
   })
-  // Carried by its row, the app's one drag (sortable.tsx, as Tags' rows are): by another's edge it goes before or
-  // after it, beside it; rested on another's middle it goes inside. Each said with Undo; refusals say why.
-  // The list holds a dropped order until the saved one is read back (sortable.tsx `useHeld`); Undo lets go of it
-  // there (`useLetGoOnUndo`). A drop refused here changes nothing to read back, so the list starts afresh.
-  const [epoch, setEpoch] = useState(0)
-  const afresh = (): void => setEpoch((n) => n + 1)
-  const place = (id: string, target: string, after: boolean): void => {
-    const name = live.find((one) => one.id === id)?.name ?? 'the folder'
-    void folders.place(id, target, after).then((was) => {
-      if (!was) return (afresh(), refuse('A folder can’t go inside itself'))
-      chime('gather')
-      toast(`Moved ${name} ${after ? 'after' : 'before'} ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.arrange(id, was))
-    })
-  }
-  const nest = (id: string, target: string): void => {
-    const was = live.find((one) => one.id === id)
-    void folders.nest(id, target).then((done) => {
-      if (done !== true) return (afresh(), refuse(done))
-      chime('gather')
-      toast(`Moved ${was?.name ?? 'the folder'} into ${live.find((one) => one.id === target)?.name ?? 'it'}`, () => void folders.nest(id, was?.parent ?? null))
-    })
-  }
+  if (!rows.length) return null
   return (
-    <div data-side-section="folders" data-side-folders-section="" style={style} className="flex flex-col">
-      <RowMenu items={[{ label: 'New folder', keys: '⌃⌘N', run: () => newFolderHere(null) }, { label: 'All folders…', run: () => onOpen(null) }]}>
-        <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
-          {/* Folded with the note in front inside it: the heading holds the light, so there is always one. A page or note
-              carried onto it leaves its folder (split-drop.tsx `keepDrop` "none"): Folders lists folders only (63dc63cb7). */}
-          <button type="button" data-side-row data-side-section-handle="folders" data-keep-drop="none" aria-expanded={rows.length ? open : undefined} aria-current={!open && noteRow && noteIn ? 'page' : undefined} onClick={() => (rows.length ? fold(!open) : onOpen(null))}
-            className={`absolute inset-0 flex items-center gap-1 rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground ${here === null ? 'text-foreground' : 'text-muted-foreground'}`}>
-            Folders
-            {/* A fold only with something to fold: with no folder in the sidebar the heading opens every folder. */}
-            {rows.length > 0 && <ChevronRight className={`size-3 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />}
+    <Unfold open={unfoldedHere} className="contents">
+      {/* Hung off Writing's trunk, as its groups and loose pages under them are (children look like children). */}
+      <div data-side-folders-section="" className="contents"><Branches rows=":scope > *" className="ml-5 flex flex-col gap-px">
+        {level(rows, 0)}
+        {tops.length > SHOWN && (
+          <button type="button" data-side-row data-folders-more={tops.length} onClick={() => (chime(every ? 'fold' : 'slide'), setEvery(!every))}
+            className="flex w-full min-w-0 cursor-pointer items-baseline gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
+            <span className="size-4 shrink-0" />
+            <span className="flex-1 text-left">{every ? 'Show fewer folders' : `Show all ${num(tops.length)} folders`}</span>
           </button>
-          <span aria-hidden className="invisible">Folders</span>
-          <span className="relative ml-auto flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/head:opacity-100 focus-within:opacity-100">
-            <Tip label="New folder  ⌃⌘N">
-              <button type="button" aria-label="New folder" data-folders-new="" onClick={() => newFolderHere(null)} className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground">
-                <Plus className="size-3" />
-              </button>
-            </Tip>
-            <Tip label="All folders">
-              <button type="button" aria-label="Open all folders" data-folders-all="" onClick={() => onOpen(null)} className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground">
-                <ArrowRight className="size-3" />
-              </button>
-            </Tip>
-          </span>
-        </div>
-      </RowMenu>
-      <Unfold open={open}>
-        <Branches rows=":scope > *" className="ml-5 flex flex-col gap-px">
-          <SortableList key={epoch} items={rows} keyOf={(one) => one.id} onMove={place} onNest={nest}>{(items) => items.map((one) => (
-            <SortableRow key={one.id} id={one.id} glide={`side-folder-${one.id}`}><div className="flex flex-col gap-px">{row(one, 0)}</div></SortableRow>
-          ))}</SortableList>
-          {starred.length > SHOWN && (
-            <button type="button" data-side-row data-folders-more={starred.length} onClick={() => (chime(every ? 'fold' : 'slide'), setEvery(!every))}
-              className="flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
-              <span className="size-4 shrink-0" />
-              <span className="flex-1 text-left">{every ? 'Show fewer folders' : `Show all ${num(starred.length)} folders`}</span>
-            </button>
-          )}
-        </Branches>
-      </Unfold>
-    </div>
+        )}
+      </Branches></div>
+    </Unfold>
   )
 }
 
@@ -214,9 +235,7 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
   const tie = (cal: Calendar, to: string | null, said: string): void =>
     void events.setCalendar({ id: cal.id, folder: to }).then((done) => done && (chime('tap'), toast(said, () => void events.setCalendar({ id: cal.id, folder: done.was?.folder ?? null }).then(() => chime('undo')))))
   return [
-    // As Notion's: first what it is to you (in the sidebar), then its name and place, then opening it, then the foot.
-    { label: folder.starred ? 'Remove from the sidebar' : 'Show in the sidebar', hint: folder.starred ? 'Unstar it' : 'Star it', run: () => (chime(folder.starred ? 'off' : 'on'), sayNow(folders.set(folder.id, { starred: !folder.starred }), folder.starred ? `Took ${folder.name} off the sidebar` : `Starred ${folder.name}`, () => void folders.set(folder.id, { starred: !!folder.starred }))) },
-    'separator',
+    // As Notion's: its name and place, then opening it, then the foot. Every folder shows under Writing in the sidebar.
     copyLinkItem(`folder:${folder.id}`, folder.name),
     { label: 'Rename…', run: onRename },
     // Into another folder, found in the one folder picker (folder-picker.tsx), as things are kept in one.
@@ -224,7 +243,7 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
     // A page in Writing with the folder's gems and highlights beside it; the folder stays a folder.
     { label: 'Write from this folder', run: () => void writeFrom(folder) },
     level < FOLDER_DEPTH && { label: 'New folder inside', run: () => newFolderHere(folder.id) },
-    folder.parent ? { label: 'Move to the top', run: () => void folders.nest(folder.id, null).then(() => (chime('gather'), toast(`Moved ${folder.name} to the top`, () => void folders.nest(folder.id, folder.parent)))) } : null,
+    folder.parent ? { label: 'Move to the top of Writing', run: () => void folders.nest(folder.id, null).then(() => (chime('gather'), toast(`Moved “${folder.name}” to the top of Writing`, () => void folders.nest(folder.id, folder.parent).then(() => chime('undo'))))) } : null,
     { label: folder.archived ? 'Unarchive folder' : 'Archive folder', hint: folder.archived ? undefined : 'Kept, out of sight', run: () => (chime('tuck'), sayNow(folders.set(folder.id, { archived: !folder.archived }), folder.archived ? `Unarchived ${folder.name}` : `Archived ${folder.name}: kept, out of sight`, () => void folders.set(folder.id, { archived: !!folder.archived }))) },
     { label: 'Delete folder, keep what’s in it', hint: 'It moves up a level', danger: true, run: () => void folders.remove(folder.id).then((was) => was && (chime('separate'), toast(`Deleted ${folder.name}: what it held stays`, () => void folders.restore(was)))) },
     // A calendar whose event notes are kept here, its events on this folder's page (the calendar's own menu ties it too).
@@ -239,7 +258,11 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
   ]
 }
 
-function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd, page = false }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold?: () => void; onAdd: () => void; /** On a folder's page, at the list's row size, as its list's first rows (FolderRows). */ page?: boolean }): React.JSX.Element {
+function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd, page = false, picked = false, onPick, many }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold?: () => void; onAdd: () => void; /** On a folder's page, at the list's row size, as its list's first rows (FolderRows). */ page?: boolean
+  /** Picked with others (⌘-click, ⇧-click, ⌘A), and what a press with ⌘ or ⇧ does: true when it picked rather than opened. */
+  picked?: boolean; onPick?: (event: React.MouseEvent) => boolean
+  /** Right-clicked while picked with others: the menu for all of them. */
+  many?: () => RowItem[] }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
   const name = (words: string | null): void => {
     onNamed()
@@ -272,12 +295,13 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
     <Popover open={picking} onOpenChange={setPicking}>
       <PopoverAnchor asChild>
         <div>
-    <RowMenu items={menu}>
+    <RowMenu items={many ?? menu}>
       <div className="group/fold relative flex flex-col">
         <button type="button" data-side-row={page ? undefined : ''} data-side-folder={page ? undefined : folder.id} data-folder-open={page ? folder.id : undefined} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
-          onClick={() => (chime('page'), onOpen())}
+          data-folder-picked={picked ? '' : undefined} aria-selected={onPick ? picked : undefined}
+          onClick={(event) => onPick?.(event) || (chime('page'), onOpen())}
           className={page
-            ? cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]')
+            ? cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 data-[folder-picked]:bg-accent data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]')
             : `flex w-full min-w-0 items-baseline gap-2 rounded-md pr-2 pl-2 py-1 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
           {page ? (
             // On a folder's page, Writing's folder row from before Folders (kept-groups.tsx `GroupTile`): the drawn folder
@@ -326,15 +350,31 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
 }
 
 /**
- * A folder page's subfolders, as the first rows of its list: the sidebar tree's own rows (icon, name, count, the fold
- * over the icon, the menu and + at the right), at the list's row size; unfolded, what each holds hangs under it on a
- * trunk, as in the sidebar. Never a card of their own (the user, 20 Nov: "Renaissance ... 3" in one wide island).
+ * The folders at one level of Writing's page (the top, or inside a folder), as the first rows of its list: the
+ * sidebar tree's own rows (icon, name, count, the fold over the icon, the menu and + at the right), at the list's row
+ * size; unfolded, what each holds hangs under it on a trunk, as in the sidebar. Carried by the app's one drag, as in
+ * the sidebar (useFolderMoves). Never a card of their own (the user, 20 Nov: "Renaissance ... 3" in one wide island).
  */
-export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string; onPlace: (id: string) => void; onOpenItem: (type: string, id: string, folder?: string) => void }): React.JSX.Element | null {
+export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string | null; onPlace: (id: string) => void; onOpenItem: (type: string, id: string, folder?: string) => void }): React.JSX.Element | null {
   const all = useFolders()
   const live = all.filter((one) => !one.archived)
   const [naming, setNaming] = useState<string | null>(null)
   const [unfolded, setUnfolded] = useState<Set<string>>(new Set())
+  const moves = useFolderMoves()
+  // Folders picked together (⌘-click, ⇧-click, ⌘A), as a list's rows are: ⌫ deletes them, keeping what they hold, with one Undo.
+  const [picked, setPicked] = useState<string[]>([])
+  const last = useRef<string | null>(null)
+  // A folder made at this level ("New folder" over the page, ⌃⌘N at the top) is named here, where it appears, not in the sidebar.
+  useEffect(() => {
+    const made = (event: Event): void => {
+      const detail = (event as CustomEvent<{ id: string; parent: string | null }>).detail
+      if (detail.parent !== parent) return
+      event.preventDefault()
+      setNaming(detail.id)
+    }
+    window.addEventListener('haligtree:folder-made', made)
+    return () => window.removeEventListener('haligtree:folder-made', made)
+  }, [parent])
   const fold = (id: string): void => setUnfolded((was) => {
     const next = new Set(was)
     if (next.has(id)) next.delete(id)
@@ -342,7 +382,7 @@ export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string; on
     chime(next.has(id) ? 'slide' : 'fold')
     return next
   })
-  const rows = (under: string, top: boolean): React.JSX.Element[] => live.filter((one) => one.parent === under).flatMap((one) => {
+  const rows = (one: Folder, top: boolean): React.JSX.Element[] => {
     const n = deepCount(live, one.id)
     // Nothing in it and no folder under it: nothing to fold open (the user, 22 Nov: "then don't be collapsible"), its
     // icon stays put and no "Nothing in it yet" hangs under it.
@@ -350,25 +390,68 @@ export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string; on
     const open = holds && unfolded.has(one.id)
     return [
       <FolderRow key={one.id} page={top} folder={one} all={live} here={false} n={n || null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)}
-        onOpen={() => onPlace(one.id)} open={open} onFold={holds ? () => fold(one.id) : undefined} onAdd={() => void addPageIn(one, onOpenItem)} />,
+        onOpen={() => onPlace(one.id)} open={open} onFold={holds ? () => fold(one.id) : undefined} onAdd={() => void addPageIn(one, onOpenItem)}
+        picked={top && picked.includes(one.id)} onPick={top ? (event) => pick(one.id, event) : undefined} many={top ? many(one.id) : undefined} />,
       ...(open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
         <Branches className="ml-5 flex flex-col gap-px">
-          {rows(one.id, false)}
+          {live.filter((kid) => kid.parent === one.id).flatMap((kid) => rows(kid, false))}
           <FolderThings key={`${one.id}:things`} folder={one} onOpen={(type, id) => onOpenItem(type, id, one.id)} onAll={() => onPlace(one.id)} />
         </Branches>
       </div>] : [])
     ]
-  })
-  const shown = rows(parent, true)
-  return shown.length ? <div data-folder-rows="" className="-mx-2 mb-2 flex flex-col">{shown}</div> : null
+  }
+  const here = live.filter((one) => (one.parent ?? null) === parent)
+  const pick = (id: string, event: React.MouseEvent): boolean => {
+    if (!event.metaKey && !event.shiftKey) return (setPicked([]), false)
+    chime('tick')
+    if (event.shiftKey && last.current) {
+      const [a, b] = [here.findIndex((one) => one.id === last.current), here.findIndex((one) => one.id === id)].sort((x, y) => x - y)
+      setPicked([...new Set([...picked, ...here.slice(Math.max(0, a), b + 1).map((one) => one.id)])])
+    } else setPicked(picked.includes(id) ? picked.filter((one) => one !== id) : [...picked, id])
+    last.current = id
+    return true
+  }
+  // Deleted together, what each held moving up a level, said once with one Undo for all (the folder menu's own delete).
+  const removeAll = (ids: string[]): void => {
+    if (!ids.length) return
+    setPicked([])
+    void Promise.all(ids.map((id) => folders.remove(id))).then((done) => {
+      const was = done.filter((one): one is NonNullable<typeof one> => !!one)
+      if (!was.length) return
+      chime('separate')
+      const one = live.find((f) => f.id === ids[0])
+      toast(was.length === 1 ? `Deleted “${one?.name ?? 'the folder'}”: what it held stays` : `Deleted ${num(was.length)} folders: what they held stays`, () => void Promise.all(was.map((row) => folders.restore(row))).then(() => chime('undo')))
+    })
+  }
+  const many = (id: string): (() => RowItem[]) | undefined => (picked.length > 1 && picked.includes(id) ? () => [
+    { label: `Delete ${num(picked.length)} folders, keep what’s in them`, hint: 'What they hold moves up a level', danger: true, run: () => removeAll(picked) },
+    { label: `Archive ${num(picked.length)} folders`, hint: 'Kept, out of sight', run: () => { const ids = picked; setPicked([]); chime('tuck'); void Promise.all(ids.map((one) => folders.set(one, { archived: true }))).then(() => toast(`Archived ${num(ids.length)} folders: kept, out of sight`, () => void Promise.all(ids.map((one) => folders.set(one, { archived: false }))).then(() => chime('undo')))) } }
+  ] : undefined)
+  // Keys on the rows, as on every list: ⌘A picks them all, ⌫ deletes what is picked (or the row with the keys), Esc lets go.
+  const keys = (event: React.KeyboardEvent): void => {
+    if (typing()) return
+    const row = (event.target as HTMLElement).closest<HTMLElement>('[data-folder-open]')?.dataset.folderOpen
+    if (event.metaKey && event.key.toLowerCase() === 'a') return (event.preventDefault(), event.stopPropagation(), chime('tick'), setPicked(here.map((one) => one.id)))
+    if ((event.key === 'Backspace' || event.key === 'Delete') && (picked.length || row)) return (event.preventDefault(), event.stopPropagation(), removeAll(picked.length ? picked : [row!]))
+    if (event.key === 'Escape' && picked.length) return (event.preventDefault(), event.stopPropagation(), chime('off'), setPicked([]))
+  }
+  if (!here.length) return null
+  return (
+    <div data-folder-rows="" onKeyDown={keys} className="-mx-2 mb-2 flex flex-col">
+      <SortableList key={moves.epoch} items={here} keyOf={(one) => one.id} onMove={moves.place} onNest={(id, target) => moves.nest(id, target)} nests={moves.nests} nestSays={moves.nestSays} places={moves.places}>{(items) => items.map((one) => (
+        <SortableRow key={one.id} id={one.id} glide={`page-folder-${one.id}`}><div className="flex flex-col">{rows(one, true)}</div></SortableRow>
+      ))}</SortableList>
+    </div>
+  )
 }
 
 /** A new page in Writing, kept in this folder, opened: the folder's "+" (Notion's "Add a page inside"). */
-async function addPageIn(folder: Folder, open: (type: string, id: string) => void): Promise<void> {
+async function addPageIn(folder: Folder, open: (type: string, id: string, folder?: string) => void): Promise<void> {
   const id = await haligtree.newArticle()
   const was = await folders.file([{ type: 'article', id }], folder.id)
   chime('promote')
-  open('article', id)
+  // Opened in the folder's own page, where it is listed (Writing's top lists only the pages in no folder).
+  open('article', id, folder.id)
   quietly(() => void folders.unfile(was))
 }
 
@@ -389,7 +472,8 @@ export const pagesShown = <T extends { id: string }>(all: T[], lit: string | und
 function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: string; onOpen: (type: string, id: string) => void; onAll: () => void }): React.JSX.Element | null {
   const things = useLive(() => folders.items(folder.id), null as FolderItem[] | null, [folder.id], undefined, `folders:items:${folder.id}`)
   if (!things) return null
-  const shown = things.filter((one) => !one.archived)
+  // Writing's kinds: a task kept in a folder stays in Tasks, not here.
+  const shown = things.filter((one) => !one.archived && one.type !== 'task')
   if (!shown.length) return <p data-folder-empty-row="" className="py-1 pr-2 pl-8 text-control text-muted-foreground">Nothing in it yet</p>
   return (
     <>
@@ -412,7 +496,7 @@ export function ThingRow({ thing: one, lit: here, onOpen, from }: { thing: { typ
       ...openItems(one.type, one.id),
       'separator',
       { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) },
-      !!from && { label: `Take out of ${from}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : one.type === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
+      !!from && { label: `Take out of ${from}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : 'Back to the top of Writing', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
     ]}>
       {/* Carried as a pin is (split-drop.tsx `data-drag-open`): onto another folder, into the page beside, the one card. */}
       <button type="button" data-side-row data-side-thing={one.id} data-type={one.type} data-drag-open={`${one.type}:${one.id}`} data-drag-kind={one.type} aria-current={here ? 'page' : undefined} title={one.title}

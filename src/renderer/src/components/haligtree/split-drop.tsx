@@ -105,13 +105,17 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   return { node: listed, carried: { row: { pane, id: listed.dataset.id! }, title: titleOf(listed), kind: listed.dataset.dragKind }, column: true, edgeOnly: !sorts || !!listed.closest('[data-split-edge]') }
 }
 
+/** How long a carried thing rests on a folded folder before it springs open (Finder's spring-loaded folders). */
+const SPRING_MS = 700
+
 /** Whether a sidebar place takes what is carried: Pinned takes a note (never a task or a list's row), the Queue anything but a task. */
 const takes = (place: HTMLElement, carried: Carried, node: HTMLElement | undefined): boolean => {
   const task = carried.open?.startsWith('task:') || !!node?.closest('[data-task-row]')
   if (place.dataset.sideDrop) return !!carried.open && !task
   if (place.dataset.queueDrop !== undefined) return !task
-  // Writing's own row takes a capture alone: it becomes a page there (lib/capture-links.tsx, `toWriting`).
-  if (place.dataset.writingDrop !== undefined) return node?.dataset.type === 'capture'
+  // Writing's own row takes a capture (it becomes a page there, lib/capture-links.tsx `toWriting`), and anything kept in
+  // a folder (it leaves it, for Writing's top level).
+  if (place.dataset.writingDrop !== undefined) return node?.dataset.type === 'capture' || (place.dataset.keepDrop !== undefined && !carried.tab)
   return true
 }
 
@@ -207,6 +211,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
     // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
+    // Rested on a folded folder, it springs open after a moment, as Finder's do, so what is carried can go further in.
+    let spring = 0
     // The height the card rests at while over that place: just clear of its row.
     let rest: number | null = null
     // Another pane's page, while the carried thing is over it: let go there, it opens there as a new tab.
@@ -366,6 +372,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       over = null
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
+      window.clearTimeout(spring)
       gapped = null
       setCarry({ from: null, width: 0, gap: null })
       unlift()
@@ -384,6 +391,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       over = null
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
+      window.clearTimeout(spring)
       gapped = null
       setCarry({ from: null, width: 0, gap: null })
       unlift()
@@ -456,6 +464,9 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         row.scrollLeft += px < box.left + 24 ? -12 : px > box.right - 24 ? 12 : 0
       } else if (gapped) letGap()
       if (queue !== queued) {
+        window.clearTimeout(spring)
+        const fold = queue?.dataset.keepDrop && queue.dataset.keepDrop !== 'none' ? queue.parentElement?.querySelector<HTMLElement>(`[data-folder-fold="${CSS.escape(queue.dataset.keepDrop)}"][aria-expanded="false"]`) : null
+        if (fold) spring = window.setTimeout(() => fold.isConnected && fold.click(), SPRING_MS)
         if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
         // A folder of the other list takes no note: it stays unlit, and says why on letting go.
         if (queue && wrongFolder(queue, down?.source.node)) queue.dataset.folderNo = ''
@@ -464,8 +475,10 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || (click('tick'), detent())
         queued = queue
         // "Not in a folder" (and the Folders heading) take it out of the one it is in.
+        // A capture over Writing's row becomes a page there (said first: the row also takes things out of their folders).
         if (queue?.dataset.projectDrop) setSaid(carriesTask(down?.source.node) ? `Move to “${queue.dataset.folderName ?? 'this project'}”` : 'Projects hold tasks')
-        else if (queue?.dataset.keepDrop) setSaid(carriesTask(down?.source.node) ? 'Folders keep notes: tasks go in projects' : queue.dataset.keepDrop === 'none' ? 'Take out of its folder' : `Keep in “${queue.dataset.folderName ?? 'this folder'}”`)
+        else if (down?.source.node.dataset.type === 'capture' && queue?.dataset.writingDrop !== undefined) setSaid(toWritingSaid(queue, down.source.node))
+        else if (queue?.dataset.keepDrop) setSaid(carriesTask(down?.source.node) ? 'Folders keep notes: tasks go in projects' : queue.dataset.keepDrop === 'none' ? (down?.source.node.dataset.type === 'capture' || down?.source.carried.open?.startsWith('capture:') ? 'Take out of its folder' : 'Move to the top of Writing') : `Move into “${queue.dataset.folderName ?? 'this folder'}”`)
         else if (down?.source.node.dataset.type === 'capture') setSaid(toWritingSaid(queue, down.source.node))
         else setSaid(undefined)
         // Where the card rests while it is over this place, read once as it comes over it.

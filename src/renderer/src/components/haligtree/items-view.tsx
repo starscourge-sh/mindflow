@@ -134,7 +134,7 @@ const NO_GROUPS: NoteGroup[] = []
  * The folder a page, gem or question lives in, quietly, on its row in Writing, Gems or Questions: these are views by
  * kind, listing filed and unfiled alike, so the row says where it is kept. A click on it is a click on the row.
  */
-function FolderCue({ home }: { home: Folder }): React.JSX.Element {
+export function FolderCue({ home }: { home: Folder }): React.JSX.Element {
   return (
     <span data-row-folder={home.id} className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
       <GroupIcon icon={home.icon} color={home.color} className="size-3 shrink-0" /><span className="truncate">{home.name}</span>
@@ -360,7 +360,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Questions is a view by kind, not a place: every question is a plain row there, and a folder (Writing's or Gems')
   // shows only in the section that owns it. A question in one says so on its row (`inFolder`, qa/questions-no-folders.mjs).
   const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? everyShown : null,
-    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, undefined, heads ? (id) => heads.get(id) : undefined, !!inFolder)
+    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, undefined, heads ? (id) => heads.get(id) : undefined, !!inFolder && inFolder.id !== 'unfiled')
   // Under headings (by kind, by date) the list's own rule says which heading a row stands under: carried over another
   // heading's rows it is refused in words, as Tasks' rows are (carry.tsx's useTargets), never offered a place it would not keep.
   const underHeads = heads ? {
