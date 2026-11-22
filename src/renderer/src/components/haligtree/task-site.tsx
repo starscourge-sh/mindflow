@@ -60,10 +60,11 @@ export function LinkChip({ href, title, icon, onRemove, hover = false, className
 export function unlinkTask(task: Pick<Task, 'id' | 'link' | 'linkTitle' | 'linkIcon'>): void {
   const was = { link: task.link ?? null, linkTitle: task.linkTitle ?? null, linkIcon: task.linkIcon ?? null }
   if (!was.link) return
-  void haligtree.saveTask(task.id, { link: null }).then(() => {
-    chime('off')
-    toast('Link removed', () => void haligtree.saveTask(task.id, was))
-  })
+  // Said at once, from wherever it was taken off (a row, the task's page, the side panel): the notice and its Undo
+  // (⌘Z too) never wait on the save, and an Undo pressed before the save lands still puts it back after it.
+  const saved = haligtree.saveTask(task.id, { link: null })
+  chime('off')
+  toast('Link removed', () => void saved.finally(() => void haligtree.saveTask(task.id, was)))
 }
 
 /** A task linked to another page: the old one comes back on Undo. A word that is not an address is said, not taken. */
