@@ -36,6 +36,16 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
       const body = JSON.stringify((await h.evaluate((id) => window.api.captures.get(id), note))?.body)
       check('ai: “Use this name” puts it at the top as a heading', /"type":"heading".*stand-in name/.test(body), body.slice(0, 200))
     }
+    // A gem whose title is far too long for a name (any shape): a shorter one offered, the whole title kept as its first line.
+    const longTitle = 'The tendency to search for, interpret, favour and recall information in a way that confirms what you already believe'
+    const gem = (await v('items', 'nugget')).find((one) => one.kind !== 'card')?.id
+    if (gem) {
+      await v('item:save', gem, { title: longTitle, body: { type: 'doc', content: [para('It is the default mode of all thinking, not a flaw in some.')] } })
+      await send('nugget', gem)
+      let short = null
+      for (let t = 0; t < 15000 && !short; t += 300) (await wait(300), (short = await h.evaluate(() => document.querySelector('[data-note-offer="name"]')?.textContent ?? null)))
+      check(`${level}: a gem with a very long title is ${ai ? 'offered a shorter name' : 'offered none'}`, ai ? /A shorter name: “.+”\?/.test(short ?? '') && /whole title stays/.test(short) : short === null, short)
+    } else console.log('NOTE  no gem in this book: the long title not driven')
     // The Week page.
     await c.go('weekpage')
     await wait(1500)

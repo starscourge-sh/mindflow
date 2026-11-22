@@ -49,7 +49,7 @@ type Offer =
   | { kind: 'people'; list: Person[] }
   | ({ kind: 'character' } & Cast)
   | { kind: 'characters'; list: Cast[] }
-  | { kind: 'name'; name: string }
+  | { kind: 'name'; name: string; /** A note whose title is too long: the short name for it, its whole title kept as its first line. */ shorter?: { id: string; meaning: string } }
   | ({ kind: 'tag' } & Fit)
   | { kind: 'deck'; tag: string; language: string }
   | { kind: 'tags'; list: Fit[] }
@@ -276,6 +276,13 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       }
       // Apple Intelligence, where the Mac has it: a name for a note that has none (ai-offers.tsx).
       // A note without a name is offered one first: it is how the note is found again.
+      // A title too long to be a name, whatever its shape ("Confirmation bias: The tendency to search for…", the user,
+      // 22 Nov): Apple Intelligence offers a short one, and the whole title is kept as the note's first line.
+      const long = item?.title?.trim() ?? ''
+      if (canName.current && titled && long.length > 60 && !gone.has(`${own}|name`)) {
+        named.current ??= await nameFor(`${long}\n${text}`)
+        if (named.current && named.current.length < long.length && live && turn === asked.current) all.unshift({ kind: 'name', name: named.current, shorter: { id, meaning: long } })
+      }
       if (canName.current && !titled && unnamed(editor) && !gone.has(`${own}|name`)) {
         named.current ??= await nameFor(text)
         if (named.current && live && turn === asked.current) all.unshift({ kind: 'name', name: named.current })
@@ -434,7 +441,20 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     icon = <Sparkles className="size-4" />
     lead = `Name it ${quoted(offer.name, 80)}?`
     rest = 'Written on this Mac by Apple Intelligence, from its words.'
+    if (offer.shorter) {
+      lead = `A shorter name: ${quoted(offer.name, 80)}?`
+      rest = 'Written on this Mac by Apple Intelligence. The whole title stays, as the first line.'
+    }
     actions = [{ label: 'Use this name', data: 'name', run: () => {
+      if (offer.shorter) {
+        const { id: gem, meaning } = offer.shorter
+        const was = meaning
+        editor.chain().focus().insertContentAt(0, { type: 'paragraph', content: [{ type: 'text', text: meaning }] }).run()
+        void haligtree.saveItem(gem, { title: offer.name })
+        chime('noted')
+        toast(`Named ${quoted(offer.name, 80)}`, () => (editor.commands.undo(), void haligtree.saveItem(gem, { title: was })))
+        return done()
+      }
       editor.chain().focus().insertContentAt(0, { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: offer.name }] }).run()
       chime('noted')
       toast(`Named ${quoted(offer.name, 80)}`, () => editor.commands.undo())
