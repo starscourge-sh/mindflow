@@ -1263,7 +1263,9 @@ export const refuseMic = (denied: boolean): void => {
  * stands beside the words, so they do not say it too.
  */
 export const whyFailed = (error: unknown, button = false): string => {
-  const raw = String((error as Error | undefined)?.message ?? error ?? '').replace(/^Error invoking remote method[^:]*:\s*(?:\w*Error:\s*)?/, '').split('\n')[0].trim()
+  // The channel's name ('haligtree:books:order') holds colons of its own: the whole quoted name is taken off, never up to its first colon.
+  const raw = String((error as Error | undefined)?.message ?? error ?? '').replace(/^Error invoking remote method(?: '[^']*')?:\s*(?:\w*Error:\s*)?/, '').split('\n')[0].trim()
+  if (/database is not open|database connection is not open/i.test(raw)) return `the book was closing just then${button ? '' : '. Open it again, then try again'}`
   if (/full|SQLITE_FULL|ENOSPC/i.test(raw)) return 'your disk is full. Free up some space, then try again'
   if (/locked|busy/i.test(raw)) return `your notes were busy for a moment${button ? '' : '. Try again'}`
   if (/readonly|read-only|EACCES|EPERM/i.test(raw)) return `${APP_NAME} is not allowed to write to its folder. Check its permissions in Finder, then try again`

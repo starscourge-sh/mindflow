@@ -339,7 +339,13 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     void ipcMain.handle(`haligtree:books:${channel}`, (_event, ...args) => run(...(args as never[])))
   const tell = (): void => {
     for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('books:changed')
-    onChange()
+    // What hears of it (the menu's book list, read from the open book) never undoes a change already kept on the shelf:
+    // read while the book is shut for a switch, it failed the save, and the order was said "Not saved" when it was.
+    try {
+      onChange()
+    } catch (error) {
+      console.warn(`[haligtree] the shelf changed, but what follows it could not be told: ${(error as Error)?.message ?? error}`)
+    }
   }
 
   // A book opened for the first time has nothing in it: Getting started, not the whole welcome.

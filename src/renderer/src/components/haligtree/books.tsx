@@ -355,15 +355,20 @@ function useSlid(carried: boolean, width: MotionValue<number>, at: number): { x:
   // Let go: how far it still is from its place, gliding to none.
   const back = useMotionValue(0)
   const settling = useRef(false)
+  // Every value read on every pass: motion listens only to those read as it is drawn, and one read only while held (the
+  // pointer, its room) was never heard, so the book stood still under a moving pointer (the lead's frames, 22 Nov).
   const x = useTransform(() => {
-    const wide = width.get()
-    if (!held.get()) return back.get()
+    const [wide, holding, from, at, room] = [width.get(), held.get(), back.get(), pointer.get(), home.get()]
+    if (!holding) return from
     const { off, wide: was } = grip.current
     const pulled = was > SPINE_ROOM + 1 ? off * Math.min(1, Math.max(0, (wide - SPINE_ROOM) / (was - SPINE_ROOM))) : off
-    return pointer.get() - pulled - home.get() - wide / 2
+    return at - pulled - room - wide / 2
   })
   const speed = useVelocity(x)
-  const leaning = useTransform(() => (held.get() && !calm ? Math.max(-MOST_LEAN, Math.min(MOST_LEAN, speed.get() * LEAN_BY_SPEED)) : 0))
+  const leaning = useTransform(() => {
+    const [holding, fast] = [held.get(), speed.get()]
+    return holding && !calm ? Math.max(-MOST_LEAN, Math.min(MOST_LEAN, fast * LEAN_BY_SPEED)) : 0
+  })
   const lean = useSpring(leaning, { stiffness: 400, damping: 30 })
   const rise = useMotionValue(0)
   const risen = useSpring(rise, { stiffness: 500, damping: 34 })
@@ -418,7 +423,10 @@ function ShelfBook({ book, said, up: pointedAt, spine, at, keyed, lit, onPick, o
   const width = useTransform(out, (at) => SPINE_ROOM + (TURNED_ROOM - SPINE_ROOM) * at)
   const slid = useSlid(carried, width, at)
   // The one carried stands in front of every other, and gliding to its place after.
-  const zIndex = useTransform(() => (slid.held.get() || Math.abs(slid.x.get()) > 0.5 ? 2 : out.get() > 0.01 ? 1 : 0))
+  const zIndex = useTransform(() => {
+    const [holding, by, at] = [slid.held.get(), slid.x.get(), out.get()]
+    return holding || Math.abs(by) > 0.5 ? 2 : at > 0.01 ? 1 : 0
+  })
   const shadeY = useTransform(slid.y, (by) => -by)
   // Held back while it stands a spine, lifted as it turns out: the spring may overshoot, the veil never goes past either end.
   const back = useTransform(out, (at) => 1 - Math.min(1, Math.max(0, at)))
@@ -526,7 +534,7 @@ export function BookShelf({ books, menuFor = null, onPick, onMenu }: { books: Bo
         >
         {/* Your books in your own order: a book pressed and carried along the shelf goes where it is let go (the shared
             drag, sortable.tsx), saved on the shelf for every list of them (Settings › Books too). */}
-        <ShelfList items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
+        <ShelfList room={SPINE_ROOM + 4} items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
           {(order) => {
             const spines = spinesOf(order)
             const ids = order.map((one) => one.id)

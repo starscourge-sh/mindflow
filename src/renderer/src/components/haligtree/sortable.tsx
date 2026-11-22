@@ -1,9 +1,9 @@
 import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { createPortal, flushSync } from 'react-dom'
-import { DndContext, DragOverlay, MeasuringStrategy, useDndMonitor, closestCenter, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { RowSensor } from '@/lib/own-press'
-import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
 import { CarriedCard, CarryRow, HELD, Hand, OwnRoom, RoomAt, Shaped, clearWay, makeWay, pointerAt, restBox, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, offWindow, type Parts, type Places, type Spot } from './carry'
@@ -564,7 +564,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
  * follows the pointer and no quiet room is drawn. The one held moves itself under the pointer (`useCarried` says it is
  * the one), and the others part to open its place. Its own list and rows, so no other list is touched by any of it.
  */
-export function ShelfList<T>({ items, keyOf, onMove, children }: { items: T[]; keyOf: (item: T) => string; onMove?: (id: string, target: string) => void; children: (items: T[]) => ReactNode }): React.JSX.Element {
+export function ShelfList<T>({ items, keyOf, onMove, room, children }: { items: T[]; keyOf: (item: T) => string; onMove?: (id: string, target: string) => void; /** The gap the others open for the one carried, its own room in the hand and the gap beside it (a spine's, however wide it was when taken). */ room: number; children: (items: T[]) => ReactNode }): React.JSX.Element {
   const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
   const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
   const ticks = useRef(slotTicker()).current
@@ -577,10 +577,10 @@ export function ShelfList<T>({ items, keyOf, onMove, children }: { items: T[]; k
     onMove(String(active.id), String(over.id))
   }
   return (
-    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nearPointer} modifiers={[sideways]} measuring={ALWAYS}
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nearPointer} modifiers={[sideways]}
       onDragStart={({ active }) => (chime('lift'), lifting(), ticks.start(String(active.id)))}
       onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (landed(), chime('stay'))}>
-      <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
+      <SortableContext items={keys} strategy={partFor(room)}>
         <Sorting.Provider value={sorting}><Order.Provider value={keys.join('\n')}>{children(shown)}</Order.Provider></Sorting.Provider>
       </SortableContext>
       {/* Nothing is drawn in the hand: the overlay is kept for the closed hand and Esc alone. */}
@@ -591,22 +591,33 @@ export function ShelfList<T>({ items, keyOf, onMove, children }: { items: T[]; k
 
 /**
  * Carried as itself, whose middle follows the pointer rather than the place it was taken: the place whose middle is
- * nearest the pointer, read where each stands in the row (their partings left out).
+ * nearest the pointer. Each place is read as it stands now in the row, their partings left out (offsetLeft, counted
+ * from the carried one's own room, which never moves): the carried one changes width under the hand (a book turning
+ * back to its spine), so places measured as it was taken stood 80px off and the others piled up (the lead's frames).
  */
-const nearPointer: CollisionDetection = ({ droppableRects, droppableContainers }) => {
+const nearPointer: CollisionDetection = ({ active, droppableContainers }) => {
   if (offWindow()) return []
   const { x } = pointerAt()
+  const mine = droppableContainers.find((one) => one.id === active.id)?.node.current
+  if (!mine) return []
+  const left = mine.getBoundingClientRect().left - mine.offsetLeft
   let best: { id: string | number; far: number } | null = null
   for (const one of droppableContainers) {
-    const box = droppableRects.get(one.id)
-    if (!box) continue
-    const far = Math.abs(box.left + box.width / 2 - x)
+    const node = one.node.current
+    if (!node) continue
+    const far = Math.abs(left + node.offsetLeft + node.offsetWidth / 2 - x)
     if (!best || far < best.far) best = { id: one.id, far }
   }
   return best ? [{ id: best.id, data: { value: best.far } }] : []
 }
-/** Its width may change under the hand (a book turning back to its spine): the places are read again at every move. */
-const ALWAYS = { droppable: { strategy: MeasuringStrategy.Always } }
+/**
+ * The others part by just the carried one's room, read from the list, never from its width as it was taken (a book
+ * pulled out is 112 wide, a spine in the hand 32): those between where it was and where it will go slide over by that.
+ */
+const partFor = (room: number): SortingStrategy => ({ activeIndex, overIndex, index }) => {
+  const x = index > activeIndex && index <= overIndex ? -room : index < activeIndex && index >= overIndex ? room : 0
+  return { x, y: 0, scaleX: 1, scaleY: 1 }
+}
 /** Whether this row's own child is the one carried (ShelfRow): it moves itself, under the pointer. */
 const Carried = createContext(false)
 export const useCarried = (): boolean => useContext(Carried)

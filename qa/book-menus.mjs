@@ -136,10 +136,9 @@ try {
   })
   check('B. the pointer crossing the other rows leaves the name where it is: focused, its words and caret kept, no card beside a row', held.focused && held.value === 'Field notes' && held.caret?.[0] === 11 && !held.peek, JSON.stringify(held))
   await shot('b2-new-book-typed')
-  await h.keyboard.press('Enter')
-  check('B. Enter makes the book by that name, and it is opened', await waitFor(async () => (await s.v('books:list')).books.some((one) => one.name === 'Field notes')) && await waitFor(() => electron.evaluate(() => !!globalThis.__relaunched)))
-  // The switch to it is caught, not made: the restart stood in for, so what follows starts from a settled window.
-  await settled('after B')
+  // Its Enter waits for the probe's end: the switch it starts shuts this book for the restart (caught here, never
+  // made), and every step after it ran against a shut book ("database is not open").
+  await h.keyboard.press('Escape'); await wait(300)
 
   // C. ⌘K's "New book…": the same row, naming; Esc leaves the name and makes nothing, the menu stays.
   await shut()
@@ -296,11 +295,15 @@ try {
     // How far the spine's menu is from the spine at its nearest: 0 where they touch or overlap.
     const gapX = Math.max(0, menu.left - spine.right, spine.left - menu.right)
     const gapY = Math.max(0, menu.top - spine.bottom, spine.top - menu.bottom)
-    return { gap: Math.round(Math.hypot(gapX, gapY)), top: Math.round(menu.top - spine.top), shelf: !!document.querySelector('[data-book-shelf]')?.getBoundingClientRect().width }
+    const heading = [...document.querySelectorAll('[role="menu"]')].find((one) => one.getBoundingClientRect().width > 0 && one.textContent.includes('Show in Settings') && !one.querySelector('[data-book-shelf]'))?.querySelector('[data-slot$="-label"]')?.textContent?.trim() ?? null
+    const pulled = document.querySelector('[data-book-caption] .mf-spine-said-name')?.textContent ?? null
+    return { gap: Math.round(Math.hypot(gapX, gapY)), top: Math.round(menu.top - spine.top), shelf: !!document.querySelector('[data-book-shelf]')?.getBoundingClientRect().width, heading, pulled }
   }, order[1])
+  const clicked = (await s.v('books:list')).books.find((one) => one.id === order[1])
   await shot('i1-spine-menu')
   check('I. a spine right-clicked keeps the book menu open behind its own menu', beside.shelf === true, JSON.stringify(beside))
   check('I. ...and its menu stands beside that spine (nearest edge within 12px)', typeof beside.gap === 'number' && beside.gap <= 12, JSON.stringify(beside))
+  check('I. ...names the spine right-clicked, and that spine is the one pulled out', beside.heading === `Colour of ${clicked?.name.slice(0, 28)}` && beside.pulled === clicked?.name, JSON.stringify({ clicked: clicked?.name, ...beside }))
   await h.keyboard.press('Escape'); await wait(400)
   const back = await h.evaluate(() => ({ shelf: !!document.querySelector('[data-book-shelf]')?.getBoundingClientRect().width, spineMenu: [...document.querySelectorAll('[role="menu"]')].some((one) => one.getBoundingClientRect().width > 0 && one.textContent.includes('Show in Settings') && !one.querySelector('[data-book-shelf]')) }))
   check('I. Esc shuts the spine\'s menu alone: the book menu is still open', back.shelf && !back.spineMenu, JSON.stringify(back))
@@ -310,6 +313,14 @@ try {
   await h.getByRole('menuitem', { name: 'Show in Settings' }).click(); await wait(1200)
   const rows = await h.evaluate(() => [...document.querySelectorAll('[data-book-row]')].map((one) => one.getAttribute('data-book-row')).filter((one) => one !== 'new'))
   check('H. Settings › Books lists them in the same order', JSON.stringify(rows) === JSON.stringify(order), JSON.stringify(rows))
+
+  // B, its end, last of all: Enter on the name makes the book and opens it (the switch is caught, not made).
+  await s.go('home'); await wait(500)
+  await foot.click(); await wait(500)
+  await h.locator('[data-book-new-row]').click(); await wait(300)
+  await h.keyboard.type('Field notes')
+  await h.keyboard.press('Enter')
+  check('B. Enter makes the book by that name, and it is opened', await waitFor(async () => (await s.v('books:list')).books.some((one) => one.name === 'Field notes')) && await waitFor(() => electron.evaluate(() => !!globalThis.__relaunched)))
 } finally {
   await close()
 }
