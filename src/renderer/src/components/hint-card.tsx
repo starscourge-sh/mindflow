@@ -33,21 +33,23 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   // Two bells once, when a hint arrives: not on every animation the card
   // runs afterwards, which rang them again as the page moved around it.
   // Picked while the box is away (below), a card rings as the box shows instead (onShown).
-  useEffect(() => void (hint && !document.hidden && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (hint && !away.current && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // The daily tidy, a quiet goal and an exam falling behind are not here: quick capture only catches, and they are a line at the top of the Inbox (inbox-lines.tsx).
   // A question you are holding, come back: "Still open: …".
   const [back, setBack] = useState<Awaited<ReturnType<typeof haligtree.questionBack>>>(null)
   // A clue kept on the card above and undone: the card back with its words.
   const [backWords, setBackWords] = useState('')
   useEffect(() => void (!back && setBackWords('')), [back])
-  useEffect(() => void (back && !document.hidden && chime('memory')), [back?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (back && !away.current && chime('memory')), [back?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A decision on its look-again day, an experiment past its run-until: you set the day, so it skips the dice.
   const [due, setDue] = useState<Returning | null>(null)
   // A finding written on the card above and undone: the card back with its words.
   const [dueWords, setDueWords] = useState('')
   useEffect(() => void (!due && setDueWords('')), [due])
-  useEffect(() => void (due && !document.hidden && chime('memory')), [due?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (due && !away.current && chime('memory')), [due?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownAt = useRef(0)
+  // The box put away (main's window:hiding) and not yet shown again: what is drawn now is its next first frame.
+  const away = useRef(false)
   // What the card says, set a beat after it arrives so the words roll in
   // from nothing rather than appearing already there.
   const [said, setSaid] = useState('')
@@ -97,23 +99,25 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     void save({ title: words, body }).then(() => quietly(() => void save(was).then(() => setHint((now) => (now?.id === was.id ? was : now)))))
   }
 
-  // Most opens show nothing: the rate is a setting, a tenth by default. The next open's card (or none) is picked and
-  // drawn while the box is away, so it is there from the box's first frame or not at all: picked as the box showed,
-  // last open's card was taken away in the first frames and the new one came in after, a card flashing away (the
-  // user, 22 Nov). Brought up again without having been away (kept open behind another window), it keeps its card.
-  // A note's own window (no room round its card) is shown without being put away first: it picks as it shows, as before.
+  // Most opens show nothing: the rate is a setting, a tenth by default. The box's next card (or none) is picked and
+  // drawn as it is put away (main's window:hiding), so it is there from the box's first frame or not at all: picked as
+  // the box showed, last open's card was taken away in the first frames and the new one came in after, a card flashing
+  // away (the user, 22 Nov). The box's page never reads as hidden (backgroundThrottling off), so main's word is the
+  // signal, not visibilitychange. Brought up again without being put away (kept open behind another window), it keeps
+  // its card. A note's own window (no room round its card) picks as it shows, as before.
   const now = useRef({ hint, back, due })
   now.current = { hint, back, due }
   useEffect(() => {
     const boxed = !!window.api.room.left
-    // Picked for the box while it is away; shown again meanwhile, the pick is dropped and its card kept as it is.
-    const still = (): boolean => !boxed || document.hidden
+    // Picked for the box while it is away; shown again before the pick came back, it is dropped and the card kept.
+    const still = (): boolean => !boxed || away.current
     const pick = async (): Promise<void> => {
       const coming = await returningHint()
       if (!still()) return
       setDue(coming)
       if (coming) return setHint(null)
       const { rate } = await haligtree.hintRate()
+      if (!still()) return
       if (Math.random() >= rate) return setHint(null)
       // Now and then, a question still held instead: low weight, at most
       // once a day, gated and switched off in Settings by the main process.
@@ -125,19 +129,22 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
       if (still()) (setHint(next), (shownAt.current = Date.now()))
     }
     // Every card put away at once (none drawn on its way out) as the box goes, and the next open's picked.
-    const away = (): void => void (document.hidden && (clearAll(), boxed && pick()))
-    // The box's page is made while it is away: its first open's card is picked then.
-    void (boxed && document.hidden && pick())
-    document.addEventListener('visibilitychange', away)
+    const goes = (): void => void (boxed && ((away.current = true), clearAll(), pick()))
+    // The box's page is made before its first open: that open's card is picked now.
+    if (boxed) (away.current = true), void pick()
+    const offHiding = window.api.onHiding(goes)
+    const hidden = (): void => void (!boxed && document.hidden && clearAll())
+    document.addEventListener('visibilitychange', hidden)
     const offShown = window.api.onShown(() => {
       if (!boxed) return void (clearAll(), pick())
+      away.current = false
       setAsking(false)
       shownAt.current = Date.now()
       const { hint: shown, back: held, due: owed } = now.current
       if (shown) chime(shown.memory ? 'memory' : 'hint')
       else if (held || owed) chime('memory')
     })
-    return () => (document.removeEventListener('visibilitychange', away), offShown())
+    return () => (offHiding(), document.removeEventListener('visibilitychange', hidden), offShown())
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [round, setRound] = useState(0)
   const clearAll = (): void => {
@@ -226,7 +233,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   // A memory may be something already dealt with, so it is opened, fixed or
   // shown less, never kept or moved to the Bin from here.
   // Drawn while the box is away, a card is there as it shows, never fading in after (no entrance then).
-  const enter = document.hidden ? false : { opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }
+  const enter = away.current ? false : { opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }
   const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2 && icon !== EyeOff) : actions
   return (
     <AnimatePresence key={round}>
