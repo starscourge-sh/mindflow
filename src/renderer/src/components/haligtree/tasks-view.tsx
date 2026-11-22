@@ -1446,6 +1446,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                     lineNumbers={false}
                     handles={false}
                     outline={false}
+                    // No find bar: its hidden, bordered dock sat inside the field as a second box.
+                    search={false}
                     foot={() => null}
                     autofocus="end"
                     placeholder="Details, links, steps…"
@@ -1611,8 +1613,13 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                                 A task open beside the list leaves the list no margin either: there the numbers stood against the pane's edge (16 Nov). */}
                             {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline ${beside ? 'inline' : 'hidden'}`} />}
                           </span>
+                          {/* Its small line folds open and shut (a link or a day taken off), never vanishing at once under the pointer. */}
+                          <AnimatePresence initial={false}>
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || task.link) && (
-                            <span data-task-meta className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            <motion.span key="meta" data-task-meta className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground"
+                              // The column's 4px gap goes with it (marginTop), so its last frame is not a step.
+                              initial={{ height: 0, opacity: 0, marginTop: -4, overflow: 'hidden' }} animate={{ height: 'auto', opacity: 1, marginTop: 0, transitionEnd: { overflow: 'visible' } }}
+                              exit={{ height: 0, opacity: 0, marginTop: -4, overflow: 'hidden' }} transition={{ duration: 0.18, ease: EASE }}>
                               <TaskWhen task={task} />
                               {carried(task) > 0 && !task.recurrence && (
                                 <Tip label="Times it was carried over: left undone past its day, or moved later">
@@ -1639,8 +1646,9 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                               <TaskLink task={task} />
                               {/* The time spent on it so far, last: it wraps to a line of its own before it pushes anything. */}
                               <TaskSpent task={task} time={time} />
-                            </span>
+                            </motion.span>
                           )}
+                          </AnimatePresence>
                         </button>
                         {/* Grouped by note, the subtasks show under their task, tickable where they are. */}
                         {/* Grouped by note, or getting ready for its due-by day, the subtasks show under their task, tickable where they are. */}

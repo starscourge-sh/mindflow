@@ -1,4 +1,7 @@
 import { Link2, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { EASE } from '@/lib/motion'
+import { taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { haligtree, type Task } from '@/lib/haligtree'
 import { looksLikeAddress, hrefFor } from '@/extensions/link-tidy'
@@ -8,11 +11,17 @@ import { RowMenu, type RowItem } from './row-menu'
 import { Tip, refuse, toast } from './ui'
 import { linkShown } from '../../../../main/task-links'
 
-type Linked = { link?: string | null; linkIcon?: string | null; linkTitle?: string | null }
+type Linked = { link?: string | null; linkIcon?: string | null; linkTitle?: string | null; title?: string }
 
 /** A linked page's name on its chip: its own title once asked, else the site's name; never the raw address. */
 export const siteName = (href: string): string => URL.parse(href)?.hostname.replace(/^www\./, '') || href
-export const pageName = (task: Linked): string => (task.link ? task.linkTitle?.trim() || siteName(task.link) : '')
+const same = (a: string): string => a.toLowerCase().replace(/\s+/g, ' ').trim()
+/** Where the task is named by the page's own title, the chip says the site instead: "Harry Potter" never twice in a row. */
+export const pageName = (task: Linked): string => {
+  if (!task.link) return ''
+  const title = task.linkTitle?.trim()
+  return title && !(task.title && same(taskName(task.title).text) === same(title)) ? title : siteName(task.link)
+}
 
 /** A link opened as a click asks: in the reader when it can read the page, else the browser; ⌘ a new tab, ⌥ to the side. */
 const follow = (href: string, event: { metaKey: boolean; altKey: boolean }, from?: Element | null): void => {
@@ -94,18 +103,25 @@ export const linkMenu = (task: Pick<Task, 'id' | 'link' | 'linkTitle' | 'linkIco
  */
 export function TaskLink({ task, edit = true, className = '' }: { task: Linked & Pick<Task, 'id'>; edit?: boolean; className?: string }): React.JSX.Element | null {
   const href = task.link
-  if (!href) return null
-  const chip = (
-    <LinkChip href={href} title={pageName(task)} icon={task.linkIcon} hover className={className} onRemove={edit ? () => unlinkTask(task) : undefined} />
-  )
-  if (!edit) return chip
+  const chip = href && <LinkChip href={href} title={pageName(task)} icon={task.linkIcon} hover className={className} onRemove={edit ? () => unlinkTask(task) : undefined} />
+  // Taken off, it folds away (its width and the line's height gliding) rather than leaving at once.
   return (
-    <RowMenu items={() => linkMenu(task, () => document.querySelector(`[data-task-link="${CSS.escape(href)}"]`))}>
-      <span className="contents" onContextMenu={(event) => event.stopPropagation()}
-        onPaste={(event) => (event.preventDefault(), event.stopPropagation(), relinkTask(task, event.clipboardData.getData('text/plain')))}>
-        {chip}
-      </span>
-    </RowMenu>
+    <AnimatePresence initial={false}>
+      {href && (
+        <motion.span key={href} data-task-link-wrap className="inline-flex min-w-0 overflow-hidden"
+          initial={{ opacity: 0, width: 0, height: 0 }} animate={{ opacity: 1, width: 'auto', height: 'auto' }} exit={{ opacity: 0, width: 0, height: 0 }}
+          transition={{ duration: 0.18, ease: EASE }}>
+          {edit ? (
+            <RowMenu items={() => linkMenu(task, () => document.querySelector(`[data-task-link="${CSS.escape(href)}"]`))}>
+              <span className="contents" onContextMenu={(event) => event.stopPropagation()}
+                onPaste={(event) => (event.preventDefault(), event.stopPropagation(), relinkTask(task, event.clipboardData.getData('text/plain')))}>
+                {chip}
+              </span>
+            </RowMenu>
+          ) : chip}
+        </motion.span>
+      )}
+    </AnimatePresence>
   )
 }
 

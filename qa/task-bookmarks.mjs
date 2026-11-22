@@ -62,8 +62,9 @@ try {
   const named = (await sql('select title, link_icon as icon, link_asked as asked from tasks where id = ?', coming.id))[0]
   check('2 the page answers (YouTube by oEmbed): its title names the task, its icon kept', named?.title === 'Rick Astley - Never Gonna Give You Up' && !!named.icon && named.asked === 1, JSON.stringify(named))
   const yt = row('Never Gonna Give You Up')
-  check('2 the row shows the title and the link as a chip: the site\'s icon and the page\'s title, no address', (await yt.count()) === 1 && (await yt.locator('[data-task-link] img').count()) === 1
-    && (await yt.locator('[data-link-title]').innerText()) === 'Rick Astley - Never Gonna Give You Up' && !/youtu\.be\//.test(await yt.innerText()), await yt.innerText().catch(() => ''))
+  check('2 the row shows the title and the link as a chip: the site\'s icon and the site (the name is the page\'s title), no address', (await yt.count()) === 1 && (await yt.locator('[data-task-link] img').count()) === 1
+    // Named by the page's own title, the chip says the site: the title is never said twice in a row.
+    && (await yt.locator('[data-link-title]').innerText()) === 'youtu.be' && !/youtu\.be\//.test(await yt.innerText()), await yt.innerText().catch(() => ''))
 
   // 3 Words typed beside a link stay the name; the page's title never goes over them.
   await h.click(ADD)
@@ -85,7 +86,7 @@ try {
   await yt.locator('[data-title]').click()
   await h.waitForSelector('[data-task-name]', { timeout: 5000 })
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/bm2-detail`)
-  check('5 the open task shows the same chip under its name', (await h.locator('[data-task-link-row] [data-link-title]').innerText()) === 'Rick Astley - Never Gonna Give You Up')
+  check('5 the open task shows the same chip under its name', (await h.locator('[data-task-link-row] [data-link-title]').innerText()) === 'youtu.be')
   await h.click('[data-task-name] .ProseMirror')
   await h.keyboard.press('Meta+a')
   await h.keyboard.type('Watch the Rick talk', { delay: 5 })

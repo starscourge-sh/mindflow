@@ -5,7 +5,7 @@
 // link off with an Undo that puts it back; ⇧↵ grows the add bar itself downward into a details area (one border,
 // not a second box), and ⌘↵ adds the task with its description. Main's link lookup is stood in for: nothing is asked
 // of the web, and pastes are synthetic events, so the Mac's clipboard is never touched.
-//   QA_ARGS=--sandbox QA_DATA=<copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=/abs/dir] node qa/task-link-chip.mjs
+//   QA_ARGS=--sandbox QA_DATA=<copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=/abs/dir] node qa/task-link-chip.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
@@ -17,6 +17,8 @@ const sql = (q, ...args) => electron.evaluate((_, [q, args]) => globalThis.qaFee
 const FANDOM = 'https://harrypotter.fandom.com/wiki/Harry_Potter'
 const WIKI = 'https://en.wikipedia.org/wiki/Commonplace_book'
 const ADD = 'form input[data-task-input]'
+// Pictures for the lead to read by eye: the bar shut and open, the row with its chip, the task's page.
+const SHOT = process.env.QA_SHOTS ?? process.env.SHOTS
 const ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="3" fill="#fa005a"/></svg>')}`
 const paste = (text) => h.evaluate((t) => {
   const data = new DataTransfer()
@@ -57,14 +59,14 @@ try {
   const after = await chip.boundingBox()
   const shown = await row.locator('[data-link-remove]').evaluate((el) => getComputedStyle(el).opacity)
   check('3 hovering the chip shows its × without the chip changing size', hidden === '0' && shown === '1' && Math.abs(before.width - after.width) < 0.5, JSON.stringify({ hidden, shown, w: [before.width, after.width] }))
-  if (process.env.SHOTS) await both(`${process.env.SHOTS}/lc1-row-hover`)
+  if (SHOT) await both(`${SHOT}/lc1-row-hover`)
 
   await row.locator('[data-title]').click()
   await h.waitForSelector('[data-task-name]', { timeout: 5000 })
   await wait(400)
   const pageRow = h.locator('[data-task-link-row]')
   check('4 the task\'s page shows the same chip under its name, no raw address', (await pageRow.locator('[data-link-title]').innerText()) === 'Harry Potter' && !rawShown(await pageRow.innerText()))
-  if (process.env.SHOTS) await both(`${process.env.SHOTS}/lc2-page`)
+  if (SHOT) await both(`${SHOT}/lc2-page`)
 
   // 5 The × on the page takes the link off; Undo puts it back, title and icon too.
   await pageRow.locator('[data-task-link]').hover()
@@ -79,12 +81,23 @@ try {
   check('5 Undo puts the link back as it was, its chip again', back?.link === FANDOM && back.linkTitle === 'Harry Potter' && !!back.icon && (await h.locator('[data-task-link-row] [data-link-title]').innerText().catch(() => '')) === 'Harry Potter', JSON.stringify(back))
   await h.keyboard.press('Escape'); await wait(500)
 
+  // 5b Taken off from the row's own ×: the chip folds away over frames (its width gliding), never gone in one.
+  await row.locator('[data-task-link]').hover()
+  await wait(250)
+  await row.locator('[data-link-remove]').click()
+  const widths = []
+  for (let n = 0; n < 8; n++) { widths.push(Math.round((await row.locator('[data-task-link-wrap]').boundingBox().catch(() => null))?.width ?? 0)); await wait(30) }
+  check('5b removed from the row, the chip glides away rather than vanishing', widths[0] > 0 ? widths.some((one, n) => n > 0 && one > 0 && one < widths[0] - 2) : false, JSON.stringify(widths))
+  await h.getByRole('button', { name: /^Undo/ }).first().click()
+  await wait(900)
+
   // 6 ⇧↵ grows the add bar into one surface with a details area; ⌘↵ adds the task with its description.
   await h.click(ADD)
   await paste(WIKI)
   await wait(500)
   const form = h.locator('form:has(input[data-task-input])').first()
   const shut = (await form.boundingBox()).height
+  if (SHOT) await both(`${SHOT}/lc0-bar-shut`)
   await h.keyboard.press('Shift+Enter')
   // Read through the opening: the height moves in steps, never all at once.
   const heights = []
@@ -93,17 +106,27 @@ try {
   const surface = await h.evaluate(() => {
     const box = document.querySelector('[data-task-details-box]')
     const form = box?.closest('form')
-    const borders = [...(form?.querySelectorAll('*') ?? [])].filter((el) => parseFloat(getComputedStyle(el).borderTopWidth) > 0 && el.getBoundingClientRect().width > 200 && !el.closest('[data-task-link]'))
-    return { inside: !!form, borders: borders.length, typing: !!document.activeElement?.closest('[data-task-details-box] .ProseMirror'), chrome: !!box?.querySelector('.tiptap-drag-handle, .tiptap-word-count') }
+    // Any drawn line inside the field but the link chips' own pills: a side with width and colour, on something on show.
+    const lined = (el) => {
+      const look = getComputedStyle(el)
+      const rect = el.getBoundingClientRect()
+      return rect.width > 0 && rect.height > 0 && look.visibility !== 'hidden' && ['Top', 'Right', 'Bottom', 'Left'].some((side) => parseFloat(look[`border${side}Width`]) > 0 && look[`border${side}Style`] !== 'none' && !/rgba\(.*,\s*0\)$|transparent/.test(look[`border${side}Color`]))
+    }
+    const borders = [...(form?.querySelectorAll('*') ?? [])].filter((el) => lined(el) && !el.closest('[data-task-link]'))
+    return { inside: !!form, borders: borders.map((el) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 3).join('.')}`), typing: !!document.activeElement?.closest('[data-task-details-box] .ProseMirror'), chrome: !!box?.querySelector('.tiptap-drag-handle, .tiptap-word-count') }
   })
-  check('6 ⇧↵ grows the add bar itself: the details sit inside its one border, no second box', surface.inside && surface.borders === 0 && open > shut + 16 && surface.typing && !surface.chrome, JSON.stringify({ surface, shut, open }))
+  check('6 ⇧↵ grows the add bar itself: the details sit inside its one border, no second box', surface.inside && surface.borders.length === 0 && open > shut + 16 && surface.typing && !surface.chrome, JSON.stringify({ surface, shut, open }))
   check('6 it grows smoothly: frames between shut and open', heights.some((one) => one > shut + 2 && one < open - 2), JSON.stringify(heights))
   await h.keyboard.type('Start one in the new notebook.', { delay: 10 })
-  if (process.env.SHOTS) await both(`${process.env.SHOTS}/lc3-details`)
+  if (SHOT) await both(`${SHOT}/lc3-details`)
   await h.keyboard.press('Meta+Enter')
   await wait(1500)
   const withNotes = (await sql('select title, notes, link, link_title as linkTitle from tasks where link = ?', WIKI))[0]
   check('7 ⌘↵ adds the task with its description, its link titled by the page', String(withNotes?.notes ?? '').includes('Start one in the new notebook') && withNotes.linkTitle === 'Commonplace book', JSON.stringify(withNotes))
+  // Named by the page's own title, the task's chip says the site instead: "Commonplace book" never twice in its row.
+  const wikiRow = h.locator('[data-task-row]', { hasText: 'Commonplace book' }).first()
+  check('8 a task named by its page\'s title: the chip says the site, so the title is not said twice', withNotes.title === 'Commonplace book' && (await wikiRow.locator('[data-link-title]').innerText().catch(() => '')) === 'en.wikipedia.org', await wikiRow.innerText().catch(() => ''))
+  if (SHOT) await both(`${SHOT}/lc4-row-site`)
   check('7 the bar folds back to one line, empty', !(await h.$('[data-task-details-box]')) && !(await h.$('form [data-task-link]')) && Math.abs((await form.boundingBox()).height - shut) < 2)
 
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
