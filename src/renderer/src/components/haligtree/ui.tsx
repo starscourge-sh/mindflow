@@ -1364,31 +1364,46 @@ function AskSheet({ at, review, label, onLeave, children, ...rest }: { at: Eleme
         onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).querySelector<HTMLElement>('input, [data-sure-yes]')?.focus() }}
         // Only a press outside, Esc or Cancel lets it go: the menu that opened it still moves the focus about as it closes.
         onFocusOutside={(event) => event.preventDefault()}
-        className="z-[80] w-[min(22rem,calc(100vw-1.5rem))] gap-2.5 rounded-xl p-3 text-control">
+        className="z-[80] w-[min(22rem,calc(100vw-1.5rem))] gap-3 rounded-xl p-3.5 text-control">
         {children}
       </PopoverContent>
     </Popover>
   )
 }
 
-/** A sheet's heading: its question in bold at the app's size, and the quiet line that led to it. */
+/**
+ * A sheet's heading: its question at the words' own size in semibold (a heavier, larger line stacked over a bare field
+ * read as a web form's label, the user, 22 Nov: "looks like a first draft"), and the quiet line that led to it.
+ */
 function AskHead({ title, hint }: { title: string; hint?: ReactNode }): React.JSX.Element {
   return (
     <div className="grid gap-0.5">
-      <h2 data-ask-title className="text-heading font-semibold text-balance text-foreground">{title}</h2>
+      <h2 data-ask-title className="text-body font-semibold text-balance text-foreground">{title}</h2>
       {hint && <p data-ask-hint className="text-control text-pretty text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">{hint}</p>}
     </div>
   )
 }
 
-/** A sheet's foot: other ways out on the left, Cancel and the one button on the right, each with its key. */
+/**
+ * A button's key, drawn quietly after its word: no cap of its own (a grey cap glued to the word read as part of the
+ * label, "Cancel Esc"), the button's own ink at half strength, kept apart by a little room. Read aloud as the key.
+ */
+function AskKey({ children, label }: { children: ReactNode; label: string }): React.JSX.Element {
+  return <kbd data-ask-key aria-label={label} className="ml-1 font-sans text-key font-normal opacity-55">{children}</kbd>
+}
+
+/**
+ * A sheet's foot: other ways out on the left, Cancel and the one button on the right, each its word then its key.
+ * The button in the accent, its ink picked for 4.5:1 or more on it (assets/main.css --primary-foreground), at full
+ * strength under the pointer too: a fill gone pale on hover took the words' contrast with it.
+ */
 function AskFoot({ go, no = 'Cancel', ready = true, danger = false, onGo, onCancel, children }: { go: string; /** The way out's own word ("Keep"), Cancel unless said. */ no?: string; ready?: boolean; /** Deleting: the button in the red tint every destructive action wears, never the accent. */ danger?: boolean; onGo: () => void; onCancel: () => void; children?: ReactNode }): React.JSX.Element {
   return (
-    <div data-ask-keys className="flex flex-wrap items-center gap-1.5 pt-0.5">
+    <div data-ask-keys className="flex flex-wrap items-center gap-1 pt-0.5">
       {children}
       <span className="flex-1" />
-      <Button type="button" variant="ghost" size="sm" data-ask-cancel className="cursor-pointer" onClick={onCancel}>{no} <ShadKbd>Esc</ShadKbd></Button>
-      <Button type="button" size="sm" variant={danger ? 'destructive' : 'default'} data-ask-go data-sure-yes="" disabled={!ready} className="cursor-pointer" onClick={onGo}>{go} <ShadKbd>↵</ShadKbd></Button>
+      <Button type="button" variant="ghost" size="sm" data-ask-cancel className="cursor-pointer text-(--mf-muted-strong) hover:text-foreground" onClick={onCancel}>{no}<AskKey label="Escape">Esc</AskKey></Button>
+      <Button type="button" size="sm" variant={danger ? 'destructive' : 'default'} data-ask-go data-sure-yes="" disabled={!ready} className={`cursor-pointer ${danger ? '' : 'hover:bg-primary hover:brightness-110'}`} onClick={onGo}>{go}<AskKey label="Return">↵</AskKey></Button>
     </div>
   )
 }
