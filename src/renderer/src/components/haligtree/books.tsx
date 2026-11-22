@@ -279,7 +279,7 @@ export function BookName(): React.JSX.Element {
  * side part for the one turning by just what the one turning back gives up, on one spring. A press opens the book
  * (the open one: its name and colour in Settings); a right-click, its menu.
  */
-/** A shelf book: every one the same, six times as tall as its spine is wide, its cover two wide to three tall (the reader card's shape, so the open book's cover is its card scaled), its boards thin. */
+/** A shelf book: every one the same, six times as tall as its spine is wide, its cover two wide to three tall (the Settings book's shape, so the label on its cloth is the reader card scaled), its boards thin. */
 const SHELF_BOOK = { thick: 24, wide: 96, high: 144, board: 1.5, overhang: 1.5 }
 /** The room a turned book takes on the shelf: its cover turned, a little of its spine, and a gap either side. */
 const TURNED_ROOM = 112
@@ -394,7 +394,7 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
         <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false} shelf veil={veil}
           className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -SHELF_BOOK.wide / 2, transformOrigin: '50% 100%' }}
           cover={{ className: 'mf-card-cover' }}>
-          {book.current ? <ShelfCover name={book.name} high={SHELF_BOOK.high} /> : card !== undefined && <OtherCover name={book.name} high={SHELF_BOOK.high} card={card} />}
+          {book.current ? <ShelfCover name={book.name} size={SHELF_BOOK} /> : card !== undefined && <OtherCover name={book.name} size={SHELF_BOOK} card={card} />}
         </BookBox>
         {book.current && <span data-book-open className="sr-only">Open now</span>}
       </motion.div>

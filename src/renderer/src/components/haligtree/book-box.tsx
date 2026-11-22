@@ -1,14 +1,16 @@
 import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from 'react'
-import { motion, useTransform, type MotionValue } from 'motion/react'
+import { motion, useTransform, type MotionStyle, type MotionValue } from 'motion/react'
 import markGold from '@/assets/mark-gold-leaves.png'
+import './shelf.css'
 
 /**
  * A hardback in 3D, the one book every place draws: the reader card on the welcome and in Settings (reader-card.tsx),
- * and each book on the shelf at the sidebar foot's menu (books.tsx BookShelf). Built as a hardback is: two boards
- * (the cover at the front, the back behind), each with its own thickness at the head, foot and fore-edge, standing a
- * little proud of the old yellowed pages set in between, and the spine round the left with the name blocked down it in
- * gold. Each face takes the room's light by how it stands to it. Its inks are the `--mf-card-a`, `-b` and `-c` set on
- * it or above it (light to deep): the spine and the cover's words wear the deepest.
+ * and each book on the shelf at the sidebar foot's menu (books.tsx BookShelf). Built as a clothbound pocket classic is
+ * (the user's photos, 22 Nov): the whole case in one woven cloth (shelf.css .mf-cloth), two boards (the cover at the
+ * front, the back behind), each with its own thickness at the head, foot and fore-edge, standing a little proud of the
+ * cream pages set in between (the squares), a sunken groove at each joint, and the rounded spine round the left with
+ * the name blocked in foil. The card is a paper label pasted on the cover. Each face takes the room's light by how it
+ * stands to it. Its inks are the `--mf-card-a`, `-b` and `-c` set on it or above it (light to deep).
  */
 
 export type BookSize = { wide: number; high: number; thick: number; board: number; overhang: number }
@@ -24,12 +26,10 @@ export const inked = (hue: string, light: number, strength: number): string => `
  * a grain, and a yellowing that deepens toward the outer edges as old books' pages do.
  */
 const LEAVES = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0 0.15  0 0 0 0.55 0"/></filter><rect width="120" height="120" filter="url(#g)"/></svg>')}")`
-const OLD_PAGES = [LEAVES, 'radial-gradient(120% 120% at 30% 25%, #f1e6c4, #e2d09c 70%, #cdb377)'].join(', ')
+const OLD_PAGES = [LEAVES, 'radial-gradient(120% 120% at 30% 25%, #f4ecd3, #e8dcb5 70%, #d6c391)'].join(', ')
 /** Each leaf's edge, a fine line: running down the fore-edge, across the foot, a little uneven as real pages lie. */
 const EDGE_LINES = (way: 'down' | 'across'): string =>
   `repeating-linear-gradient(${way === 'down' ? 90 : 180}deg, rgb(110 85 35 / 0.28) 0 0.6px, transparent 0.6px 1.9px, rgb(110 85 35 / 0.14) 1.9px 2.4px, transparent 2.4px 3.4px)`
-/** The cover's cloth: fine grey noise, laid on with multiply so the cream reads as a bound cover, not a screen. */
-export const CLOTH = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.9 0"/></filter><rect width="160" height="160" filter="url(#n)"/></svg>')}")`
 /** The serif a spine's name is blocked in, on the Settings book and on the shelf's: foil reads as lettering in it. */
 const SPINE_SERIF = "'Fraunces Variable', Georgia, serif"
 /** The tracking of a spine's name, in ems, as foil blocking spaces small capitals. */
@@ -84,8 +84,48 @@ export function spineType(name: string, length: number, across: number, most: nu
 }
 /** The cover's corners: square at the spine, a little round at the fore-edge. */
 export const BOOK_CORNERS = '2px 5px 5px 2px'
-/** The hinge: the cloth pressed into a groove a little in from the spine, shadowed on its spine side, catching the light on the other. */
-const HINGE = 'linear-gradient(to right,rgb(0 0 0/0.16),rgb(0 0 0/0.05) 35%,rgb(255 255 255/0.12) 55%,rgb(0 0 0/0.04) 64%,rgb(0 0 0/0.24) 70%,rgb(0 0 0/0.1) 76%,rgb(255 255 255/0.5) 82%,rgb(255 255 255/0.12) 90%,transparent)'
+
+/**
+ * The hinge groove (a French joint), as on the user's clothbound pocket classic (22 Nov: "notice how on the spine, on
+ * both sides, there is a valley?"): where the spine meets each board the cloth is pressed down into a narrow channel
+ * that runs the full height, about 3.5% of the cover's width (2 to 3 mm), so the board reads as stepping in from the
+ * spine. On a board, from the spine: the valley, darkest a little past its middle, then the board's lip catching the
+ * light. At the shelf's size 4px: a dark line of 2.75px and a lip of 1.25px.
+ */
+const grooveOf = (wide: number): number => Math.max(4, Math.round(wide * 0.036))
+const grooveOn = (wide: number, way: 'right' | 'left'): { background: string; lip: number } => {
+  const lip = wide >= 7 ? 2 : 1.25
+  const floor = wide - lip
+  return {
+    lip,
+    background: `linear-gradient(to ${way}, rgb(0 0 0 / 0.3) 0, rgb(0 0 0 / 0.5) ${floor * 0.25}px, rgb(0 0 0 / 0.62) ${floor * 0.55}px, rgb(0 0 0 / 0.45) ${floor - 0.4}px, rgb(255 255 255 / 0.34) ${floor + 0.3}px, rgb(255 255 255 / 0.12) ${wide - 0.4}px, transparent ${wide}px)`
+  }
+}
+/**
+ * The same valley seen from the spine, at each of its edges: the board's edge as a lit lip at the very edge, then the
+ * channel, then the spine's rounded back rising out of it.
+ */
+const jointOn = (wide: number, way: 'right' | 'left'): { background: string; lip: number } => {
+  const lip = wide >= 6 ? 1.5 : 1.25
+  return {
+    lip,
+    background: `linear-gradient(to ${way}, rgb(255 255 255 / 0.4) 0, rgb(255 255 255 / 0.18) ${lip - 0.35}px, rgb(0 0 0 / 0.55) ${lip + 0.3}px, rgb(0 0 0 / 0.62) ${(lip + wide) / 2}px, rgb(0 0 0 / 0.42) ${wide - 0.6}px, transparent ${wide}px)`
+  }
+}
+/**
+ * The cover's printed card, pasted on the cloth as a label is: inset from the board's edges by about 3.4% of its width
+ * (4px on the shelf, 9 in Settings), and from the groove by as much again, so the cloth shows all round it.
+ */
+export function labelOf({ wide, high }: Pick<BookSize, 'wide' | 'high'>): { top: number; left: number; wide: number; high: number } {
+  const edge = Math.max(4, Math.round(wide * 0.034))
+  const left = grooveOf(wide) + edge
+  return { top: edge, left, wide: wide - left - edge, high: high - 2 * edge }
+}
+/** The cloth turned over each board's edges, seen on its face: a hair lighter at the head and fore-edge, darker at the foot. */
+const TURNED_OVER = (fore: 'right' | 'left'): string =>
+  `inset ${fore === 'right' ? -1 : 1}px 0 0 rgb(255 255 255 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 -1px 0 rgb(0 0 0 / 0.2)`
+/** A paper label's edge on cloth: a hairline where it is cut, and the least shadow, as it lies flat, pasted down. */
+const LABEL_EDGE = '0 0 0 0.5px rgb(50 30 10 / 0.42), 0 0.5px 1.5px rgb(0 0 0 / 0.3)'
 
 /**
  * Where the light comes from: above, a little to the right and in front, as a window over your shoulder. A unit
@@ -143,7 +183,15 @@ function Lit({ normal, pose: { pitch, turn, lit }, gloss = 0, face, veil }: { no
   )
 }
 
-export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, edges = true, ribbon = false, shelf = false, veil, cover, children, className = '', style }: {
+/**
+ * Where the foil on a rounded spine catches the light, as a share of the spine's width from its back joint (0) to its
+ * front (1): the point whose face turns half way between the light and your eye (`HALF`), the spine's back taken as
+ * rounded through 60 degrees each way from its middle. It moves toward the front joint as the cover comes round.
+ */
+const GLINT = (Math.atan2(HALF[0], HALF[2]) * 180) / Math.PI
+const glintAt = (turn: number): string => String(Math.min(1.3, Math.max(-0.3, (1 + (GLINT + 90 - turn) / 60) / 2)))
+
+export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, edges = true, ribbon = false, shelf = false, veil, cover, label, children, className = '', style }: {
   size: BookSize
   /** Tipped back (rotateX) and turned (rotateY, 90 the spine to you, 0 the cover), in degrees. */
   pitch: MotionValue<number>
@@ -159,44 +207,55 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
   /** A ribbon to keep your place, hanging out at the foot. */
   ribbon?: boolean
   /**
-   * On the shelf (books.tsx BookShelf): the same hardback, quarter bound: a woven cloth spine in the book's own colour
-   * (`--mf-spine-bg`), rounded, with head and tail caps and foil rules, its name up it from the foot whole in the serif
-   * in foil, bright gold on a deep spine and antique bronze on a pale one (shelf.css); the cover printed paper, its card
-   * crisp. Off: the spine in the card's deepest ink, its name in the serif in gold foil.
+   * On the shelf (books.tsx BookShelf): its cloth the book's own colour (`--mf-spine-bg`), its name up the spine from
+   * the foot, as a row of spines reads. Off (Settings): its cloth the card's deepest ink, its name down the spine.
    */
   shelf?: boolean
   /** On the shelf, a book not pulled out: its spine and its cover dimmed, each by its own amount. */
   veil?: Veil
-  /** The cover's own element: its ref, data and padding. */
+  /** The cover's own element: its ref and data. */
   cover?: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> } & { [data: `data-${string}`]: string }
-  /** What is printed on the cover. */
+  /** The paper label pasted on the cover, that the card is printed on: its ref and its layout. */
+  label?: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> }
+  /** What is printed on the cover's label. */
   children?: ReactNode
   className?: string
   style?: CSSProperties
 }): React.JSX.Element {
   const pose = { pitch, turn, lit }
-  const hinge = Math.round(wide * 0.072)
-  // The gold rules on the spine, set in from the head and foot as far as the book is tall allows.
+  const groove = grooveOf(wide)
+  const front = grooveOn(groove, 'right')
+  const back = grooveOn(groove, 'left')
+  // The valley seen from the spine at each joint, and the spine's round back between them.
+  const joint = Math.round(thick * 0.2)
+  const paper = labelOf({ wide, high })
+  // The foil rules on the spine, set in from the head and foot as far as the book is tall allows.
   const rule = Math.max(5, Math.round(high * 0.048))
   // The spine's words only while the spine stands toward you: gone before the cover comes round, so none ever shows at
   // the cover's edge of a book turned out (21 Nov: the spine's name, squeezed thin, read as a ghost down the cover).
   const words = useTransform(turn, (at) => Math.min(1, Math.max(0, (Math.sin((at * Math.PI) / 180) - 0.55) / 0.3)))
-  // The name's room along the spine, between the rules, and the size and lines it is set in there, whole.
+  // The foil's bright line, carried across the spine as it turns (shelf.css .mf-book-spine-title).
+  const glint = useTransform(turn, glintAt)
+  // The name's room along the spine, between the rules, and across it, between the valleys; the size and lines it is set in there, whole.
   const along = high - 2 * (rule + (shelf ? 8 : 9))
-  const type = spineType(name, along, thick - (shelf ? 5 : 8), shelf ? 12 : 11)
-  const set = { maxHeight: along, fontSize: type.size, lineHeight: SPINE_LEAD, whiteSpace: type.lines > 1 ? 'normal' : 'nowrap' } as const
+  const type = spineType(name, along, thick - 2 * joint + 2, shelf ? 12 : 11)
+  const set = { maxHeight: along, fontSize: type.size, lineHeight: SPINE_LEAD, whiteSpace: type.lines > 1 ? 'normal' : 'nowrap', '--mf-foil-at': glint } as unknown as MotionStyle
+  // Its cloth: the shelf's spine colour, or the card's deepest ink; the weave finer on the larger book, as the same linen is.
+  const cloth = { '--mf-cloth': shelf ? 'var(--mf-spine-bg)' : 'var(--mf-card-c)', '--mf-weave': shelf ? '6px' : '4px' } as CSSProperties
+  // A board's edge, the cloth turned over it: a little lighter than the board's face, and rounded, so lit along its middle.
+  const edgeOf = (way: 'right' | 'bottom'): string => `linear-gradient(to ${way}, rgb(0 0 0 / 0.3), rgb(255 255 255 / 0.18) 50%, rgb(0 0 0 / 0.3)), oklch(from var(--mf-cloth) calc(l + 0.06) c h)`
   return (
-    <motion.div className={`${className || 'relative'} [transform-style:preserve-3d]`} style={{ width: wide, height: high, rotateX: pitch, rotateY: turn, scale, transformPerspective: perspective, ...style }}>
+    <motion.div className={`${className || 'relative'} mf-book-case [transform-style:preserve-3d]`} style={{ width: wide, height: high, rotateX: pitch, rotateY: turn, scale, transformPerspective: perspective, ...cloth, ...style }}>
       {edges && (
         <>
-          {/* The back cover: plain cloth, the press's mark small in its middle, as a hardback's back board. */}
-          <div aria-hidden data-reader-back className="absolute inset-0 flex flex-col items-center justify-center gap-1 [backface-visibility:hidden]" style={{ transform: `rotateY(180deg) translateZ(${thick / 2}px)`, borderRadius: '5px 2px 2px 5px', background: `${CLOTH}, #f3ecd6`, color: 'var(--mf-card-c)' }}>
-            <img src={markGold} alt="" draggable={false} className="size-9 opacity-80" />
-            <span className="text-[0.5rem] font-semibold tracking-[0.18em] uppercase" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>Haligtree</span>
-            <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 rounded-r-[inherit]" style={{ width: hinge, background: HINGE.replace('to right', 'to left') }} />
-            <Lit normal={[0, 0, -1]} pose={pose} gloss={0.5} face="back" />
+          {/* The back board: the same cloth, the press's mark small in its middle in foil, and its own groove at the spine. */}
+          <div aria-hidden data-reader-back className="mf-cloth absolute inset-0 flex flex-col items-center justify-center gap-1 [backface-visibility:hidden]" style={{ transform: `rotateY(180deg) translateZ(${thick / 2}px)`, borderRadius: '5px 2px 2px 5px', boxShadow: TURNED_OVER('left'), color: 'var(--mf-foil-mid)' }}>
+            <img src={markGold} alt="" draggable={false} className="size-9 opacity-90" />
+            <span className="text-[0.5rem] font-semibold tracking-[0.18em] uppercase" style={{ fontFamily: SPINE_SERIF }}>Haligtree</span>
+            <span aria-hidden data-hinge-groove="back" data-lip={back.lip} className="pointer-events-none absolute inset-y-0 right-0" style={{ width: groove, background: back.background }} />
+            <Lit normal={[0, 0, -1]} pose={pose} gloss={0.3} face="back" />
           </div>
-          {/* The page block, set in from the boards' edges, its leaves a fine line each and shadowed where the boards close over them. */}
+          {/* The page block, set in from the boards' edges (the squares), its leaves a fine line each and shadowed where the boards close over them. */}
           <div aria-hidden data-reader-pages className="absolute [backface-visibility:hidden]"
             style={{ top: overhang, left: (wide - (thick - 2 * board)) / 2, width: thick - 2 * board, height: high - 2 * overhang, transform: `rotateY(90deg) translateZ(${wide / 2 - overhang}px)`, background: `linear-gradient(to right, rgb(60 40 10 / 0.35), transparent 22%, transparent 80%, rgb(60 40 10 / 0.3)), ${EDGE_LINES('down')}, ${OLD_PAGES}` }}>
             <Lit normal={[1, 0, 0]} pose={pose} face="fore" />
@@ -211,45 +270,37 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
           ))}
           {/* Each board's own edge, cloth turned over a board: at the fore-edge, the head and the foot of each. */}
           {[1, -1].map((side) => [
-            <div key={`fore${side}`} aria-hidden data-reader-board className="absolute top-0 h-full [backface-visibility:hidden]"
-              style={{ left: (wide - board) / 2, width: board, transform: `translateZ(${side * (thick / 2 - board / 2)}px) rotateY(90deg) translateZ(${wide / 2}px)`, background: `${CLOTH}, #e6dcbc` }}>
+            <div key={`fore${side}`} aria-hidden data-reader-board className="absolute top-0 h-full rounded-[1px] [backface-visibility:hidden]"
+              style={{ left: (wide - board) / 2, width: board, transform: `translateZ(${side * (thick / 2 - board / 2)}px) rotateY(90deg) translateZ(${wide / 2}px)`, background: edgeOf('right') }}>
               <Lit normal={[1, 0, 0]} pose={pose} face="board" />
             </div>,
             ...[-1, 1].map((down) => (
-              <div key={`${down}${side}`} aria-hidden className="absolute left-[2px] [backface-visibility:hidden]"
-                style={{ top: (high - board) / 2, height: board, width: wide - 2, transform: `translateZ(${side * (thick / 2 - board / 2)}px) rotateX(${-90 * down}deg) translateZ(${high / 2}px)`, background: `${CLOTH}, #e6dcbc` }}>
+              <div key={`${down}${side}`} aria-hidden className="absolute left-[2px] rounded-[1px] [backface-visibility:hidden]"
+                style={{ top: (high - board) / 2, height: board, width: wide - 2, transform: `translateZ(${side * (thick / 2 - board / 2)}px) rotateX(${-90 * down}deg) translateZ(${high / 2}px)`, background: edgeOf('bottom') }}>
                 <Lit normal={[0, down, 0]} pose={pose} face="board" />
               </div>
             ))
           ])}
         </>
       )}
-      {/* The spine, rounded, so lit in a band down its middle and falling dark to either hinge, a quarter binding as many
-          cloth books have, its name blocked down it between two gilt rules. On the shelf, cloth in the book's own colour;
-          else the cover's ink with its name in gold foil. */}
-      {shelf ? (
-        <div aria-hidden data-reader-spine-face className="mf-shelf-spine absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[2px] [backface-visibility:hidden]"
-          style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)` }}>
-          <span className="mf-shelf-spine-rule" style={{ top: rule }} />
-          <span className="mf-shelf-spine-rule" style={{ bottom: rule }} />
-          {/* Its name whole between the rules, in foil pressed into the cloth: the foil over its own impression. */}
-          <motion.span data-spine-words className="mf-shelf-spine-words" style={{ ...set, opacity: words }}>
-            <span aria-hidden className="mf-shelf-spine-deboss">{name}</span>
-            <span data-spine-title className="mf-shelf-spine-title">{name}</span>
-          </motion.span>
-          <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.5} face="spine" veil={veil?.spine} />
-        </div>
-      ) : (
-        <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[3px] [backface-visibility:hidden]"
-          style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.42), rgb(0 0 0 / 0.08) 22%, rgb(255 255 255 / 0.16) 48%, rgb(255 255 255 / 0.05) 62%, rgb(0 0 0 / 0.12) 80%, rgb(0 0 0 / 0.45)), ${CLOTH}, var(--mf-card-c)` }}>
-          <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ top: rule }} />
-          <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ bottom: rule }} />
-          {/* Its name whole between the rules, smaller or on two lines when long, never cut. */}
-          <motion.span data-spine-title className="bg-[linear-gradient(to_bottom,#f3dfa2,#c9a55a_45%,#f0d894_60%,#b8924a)] bg-clip-text text-center font-bold tracking-[0.06em] text-balance text-transparent"
-            style={{ writingMode: 'vertical-rl', fontFamily: SPINE_SERIF, ...set, opacity: words }}>{name}</motion.span>
-          <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.8} face="spine" />
-        </div>
-      )}
+      {/* The spine, rounded, the same cloth as the boards: lit in a band down its middle and falling into the valley at
+          each joint, its head and tail caps domed a little, its name blocked in foil between two foil rules. */}
+      <div aria-hidden data-reader-spine-face className="mf-book-spine absolute top-0 flex h-full items-center justify-center overflow-hidden [backface-visibility:hidden]"
+        style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)`, borderRadius: `${Math.round(thick * 0.25)}px / ${shelf ? 2 : 3}px` }}>
+        {(['back', 'front'] as const).map((side) => {
+          const valley = jointOn(joint, side === 'back' ? 'right' : 'left')
+          return <span key={side} aria-hidden data-joint={side} data-lip={valley.lip} className="pointer-events-none absolute inset-y-0" style={{ [side === 'back' ? 'left' : 'right']: 0, width: joint, background: valley.background }} />
+        })}
+        <span className="mf-book-spine-rule" style={{ top: rule, insetInline: joint }} />
+        <span className="mf-book-spine-rule" style={{ bottom: rule, insetInline: joint }} />
+        {/* Its name whole between the rules, in foil pressed into the cloth: the foil over its own impression. Up from
+            the foot on the shelf, as a row of spines reads; down from the head in Settings. */}
+        <motion.span data-spine-words data-up={shelf || undefined} className="mf-book-spine-words" style={{ ...set, opacity: words }}>
+          <span aria-hidden className="mf-book-spine-deboss">{name}</span>
+          <span data-spine-title className="mf-book-spine-title">{name}</span>
+        </motion.span>
+        <Lit normal={[-1, 0, 0]} pose={pose} gloss={shelf ? 0.5 : 0.8} face="spine" veil={veil?.spine} />
+      </div>
       {ribbon && (
         // Laid in at the head and hanging out at the foot between the pages.
         <div aria-hidden data-reader-ribbon className="absolute w-[9px]"
@@ -257,17 +308,17 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
           <Lit normal={[0, 0, 1]} pose={pose} face="ribbon" />
         </div>
       )}
-      {/* The cover: cream paper in every theme, as a printed card is, its words in the book's own ink, never the theme's. */}
-      <div {...cover} className={`absolute inset-0 bg-[#fffbea] [backface-visibility:hidden] ${cover?.className ?? ''}`}
-        style={{ transform: `translateZ(${thick / 2}px)`, borderRadius: BOOK_CORNERS, color: 'var(--mf-card-c)', ...cover?.style }}>
-        {children}
-        <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[inherit]" style={{ width: hinge, background: HINGE }} />
-        {/* The cloth's grain, on the full-size book. Not on the shelf's: there the cover is the printed paper, crisp under
-            its card's art and words as a label is (the user, 22 Nov: grain laid over it, "I can barely even read the text
-            now"); the cloth is the spine's (shelf.css). */}
-        {!shelf && <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />}
-        {/* And the room's light on the cover as it turns: darker turned away, and a gloss that runs across it. */}
-        <Lit normal={[0, 0, 1]} pose={pose} gloss={0.55} face="front" veil={veil?.cover} />
+      {/* The cover: the same cloth as the spine, its groove at the spine, and the card printed on a cream paper label
+          pasted on it, crisp, its words in the book's own ink in every theme, the cloth showing all round it. */}
+      <div {...cover} data-book-cover className={`mf-cloth absolute inset-0 [backface-visibility:hidden] ${cover?.className ?? ''}`}
+        style={{ transform: `translateZ(${thick / 2}px)`, borderRadius: BOOK_CORNERS, boxShadow: TURNED_OVER('right'), ...cover?.style }}>
+        <span aria-hidden data-hinge-groove="front" data-lip={front.lip} className="pointer-events-none absolute inset-y-0 left-0" style={{ width: groove, background: front.background }} />
+        <div {...label} data-cover-label className={`absolute overflow-hidden rounded-[1.5px] bg-[#fffbea] ${label?.className ?? ''}`}
+          style={{ top: paper.top, left: paper.left, width: paper.wide, height: paper.high, boxShadow: LABEL_EDGE, color: 'var(--mf-card-c)', ...label?.style }}>
+          {children}
+        </div>
+        {/* And the room's light on the cover as it turns: darker turned away, and the soft sheen cloth has running across it. */}
+        <Lit normal={[0, 0, 1]} pose={pose} gloss={0.3} face="front" veil={veil?.cover} />
       </div>
     </motion.div>
   )

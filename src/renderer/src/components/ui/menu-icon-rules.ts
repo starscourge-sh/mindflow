@@ -309,7 +309,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^not done/i, RotateCcw],
   [/^mark as read/i, CheckCheck],
   [/^unmark/i, RotateCcw],
-  [/task|^complete|^done|^mark (it )?done/i, SquareCheck],
+  [/task|^complete|^done|^mark (it )?done|^finish it$/i, SquareCheck],
   [/^save as a gem/i, Lightbulb],
   [/^resolve|^made it|^cross it off|answered/i, CircleCheck],
   [/^remind|^alarm/i, AlarmClock],
