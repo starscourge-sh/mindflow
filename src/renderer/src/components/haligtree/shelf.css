@@ -13,20 +13,31 @@
   flex: none;
   align-items: flex-end;
   gap: 4px;
-  /* A book (144, spine or cover: one height, never raised) on its foot room (4), and a little air. */
-  height: 156px;
+  /* A book (144, spine or cover: one height, never raised) on the plank (14), and a little air. */
+  height: 166px;
   margin: 2px 0 0;
   padding: 0 8px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  /* The ledge they stand on: a hairline and a soft shadow under the books. */
-  border-bottom: 1px solid var(--border);
-  box-shadow: inset 0 -4px 0 color-mix(in oklab, var(--foreground) 5%, transparent);
+  /* The plank they stand on, oak (the user, 22 Nov: "a little thicker and oak wood"): its top seen a little from
+     above (4px, lit), then its front edge (10px) with long grain, darker at the foot, and a soft shadow under it.
+     Drawn on the shelf itself, `local`, so it runs under every book when 30 of them scroll. */
+  --mf-oak-top: oklch(0.83 0.065 78);
+  --mf-oak-face: oklch(0.7 0.085 68);
+  --mf-oak-foot: oklch(0.6 0.09 60);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='10'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.9' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.25 0 0 0 0 0.14 0 0 0 0 0.05 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='300' height='10' filter='url(%23g)'/%3E%3C/svg%3E") left bottom / 300px 10px repeat-x local,
+    linear-gradient(to bottom, var(--mf-oak-top), color-mix(in oklab, var(--mf-oak-top) 85%, var(--mf-oak-face)) 3.5px, var(--mf-oak-foot) 4px, var(--mf-oak-face) 5px, var(--mf-oak-foot) 13px, color-mix(in oklab, var(--mf-oak-foot) 70%, black) 14px) left bottom / 100% 14px no-repeat local;
+  box-shadow: 0 4px 5px -3px oklch(0.25 0.04 60 / 0.45);
 }
 :root:not([data-light]) .mf-shelf {
   --mf-spine-plain-0: oklch(from var(--mf-theme-accent, var(--primary)) 0.92 0.015 h);
   --mf-spine-plain-1: oklch(from var(--mf-theme-accent, var(--primary)) 0.45 0.015 h);
+  /* The same oak in a dim room: deeper, never a different wood. */
+  --mf-oak-top: oklch(0.6 0.06 72);
+  --mf-oak-face: oklch(0.48 0.07 64);
+  --mf-oak-foot: oklch(0.38 0.07 58);
 }
 .mf-shelf::-webkit-scrollbar { display: none; }
 /* A book's room on the shelf: its width is the book's own spring (books.tsx ShelfBook); the book stands in it. */
@@ -35,7 +46,8 @@
   flex: none;
   display: block;
   min-height: 0;
-  margin-bottom: 4px;
+  /* Standing on the plank's top, a little in from its front edge. */
+  margin-bottom: 11px;
   padding: 0;
   border-radius: 3px;
   background: none;
