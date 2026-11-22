@@ -42,6 +42,7 @@ import { execFile } from 'child_process'
 import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'fs'
 import { catchFreezes } from './freeze-catch'
 import { appendFile, copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
+import { convertOnMac, MAC_CONVERTS } from './mac-convert'
 import { writeWhole, writeWholeSync } from './write-whole'
 import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
@@ -4692,10 +4693,17 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   // Stored by the hash of its bytes, as a pasted picture or a dropped file
   // is, so one embedded in ten notes is kept once.
   const keep = async (path: string): Promise<{ url: string; size: number; image: boolean } | null> => {
-    const ending = path.split('.').pop()?.toLowerCase() ?? ''
-    const extension = IMAGE[ending] ?? (/^[a-z0-9]{1,12}$/.test(ending) ? ending : 'bin')
-    const bytes = await readFile(path).catch(() => null)
+    let ending = path.split('.').pop()?.toLowerCase() ?? ''
+    let bytes: Uint8Array | null = await readFile(path).catch(() => null)
     if (!bytes) return null
+    // An iPhone's HEIC or a scan's TIFF: the Mac turns it into a JPEG or PNG on its way in (mac-convert.ts), so it is shown.
+    const into = MAC_CONVERTS[`image/${ending === 'tif' ? 'tiff' : ending}`]
+    if (into) {
+      bytes = await convertOnMac(bytes, into).catch(() => null)
+      if (!bytes) return null
+      ending = into === 'jpeg' ? 'jpg' : 'png'
+    }
+    const extension = IMAGE[ending] ?? (/^[a-z0-9]{1,12}$/.test(ending) ? ending : 'bin')
     const name = `${createHash('sha256').update(bytes).digest('hex')}.${extension}`
     await mkdir(assetsDir(), { recursive: true })
     // Written beside and renamed in, as a pasted picture is: a file there only
@@ -4868,8 +4876,6 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
       showsPictures = true
       break
     }
-  // iPhone and scanner pictures the windows cannot show: counted, and said in the report.
-  let unshown = 0
   // Chosen folders bring their notes, never loose pictures as notes of their own.
   if (!showsPictures && !pick && !signal?.aborted) {
     let seen = 0
@@ -4877,8 +4883,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
       if (signal?.aborted) break
       if (!quiet) importProgress({ done: ++seen, total: everyFile.size, what: 'pictures', stop: !!signal })
       const ending = path.split('.').pop()?.toLowerCase() ?? ''
-      if (/^(heic|heif|tiff?)$/.test(ending)) unshown += 1
-      if (!IMAGE[ending]) continue
+      if (!IMAGE[ending] && !MAC_CONVERTS[`image/${ending === 'tif' ? 'tiff' : ending}`]) continue
       const stored = await keep(path)
       if (!stored) continue
       // Known by the picture's own bytes and name, not its place in this folder:
@@ -4918,7 +4923,6 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     updated ? `${plural(updated, 'was', 'were')} changed in ${basename(root)} since the last import: ${updated === 1 ? 'its' : 'their'} words are the new ones, where${updated === 1 ? 'ver it is' : 'ver they are'} kept here.` : '',
     !made.length && !updated && already ? `Everything is already here: ${plural(already, 'note')}.` : '',
     empty ? `${num(empty)} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
-    unshown ? `${plural(unshown, 'picture was', 'pictures were')} skipped: HEIC and TIFF cannot be shown here yet. Export them as JPEG to bring them in.` : '',
     marked ? `${plural(marked, 'note came', 'notes came')} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : '',
     unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : '',
@@ -4928,7 +4932,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   if (pick) report.splice(1, 0, filedSaid(filed, made.length - inbox))
   if (!quiet) importProgress(null)
   if (quiet) {
-    if (!only) console.log(`imported ${made.length} new, ${updated} updated, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
+    if (!only) console.log(`imported ${made.length} new, ${updated} updated, ${already} already here, ${empty} empty, ${kept.length} left out, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
     return made
   }
   // Said in the main window, on a card of its own, while the notes become documents behind it.
@@ -6758,6 +6762,13 @@ app.whenReady().then(() => {
   ipcMain.handle('save-image', (_event, mime: unknown, bytes: unknown) =>
     typeof mime === 'string' && bytes instanceof Uint8Array ? storeImage(mime, bytes) : '')
   async function storeImage(mime: string, bytes: Uint8Array): Promise<string> {
+    // A picture kind no page can show (an iPhone's HEIC, a scan's TIFF) is turned into one by the Mac itself on its way
+    // in, never refused (the user, 22 Nov: "Not added: cannot store image/heic").
+    const into = MAC_CONVERTS[mime]
+    if (into && bytes.byteLength) {
+      const shown = await convertOnMac(bytes, into).catch(() => null)
+      return shown ? storeImage(into === 'jpeg' ? 'image/jpeg' : 'image/png', shown) : ''
+    }
 
     const extension = EXTENSIONS[mime]
     if (!extension) return ''

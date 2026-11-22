@@ -1,3 +1,4 @@
+import { convertOnMac, MAC_CONVERTS } from './mac-convert'
 import { spawn } from 'child_process'
 import { createHash, randomUUID } from 'crypto'
 import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises'
@@ -171,11 +172,18 @@ const EXT: Record<string, string> = { png: 'png', jpeg: 'jpg', jpg: 'jpg', gif: 
 /** A picture written into a note as data, kept in Haligtree's store by the hash of its bytes, as a pasted one is. */
 async function keepPicture(data: string): Promise<string | null> {
   const match = /^data:image\/([\w+.-]+);base64,(.*)$/s.exec(data)
-  const ext = match && EXT[match[1].toLowerCase()]
-  // HEIC and TIFF cannot be shown in the windows: left out and counted.
-  if (!match || !ext || ext === 'heic' || ext === 'tiff') return null
-  const bytes = Buffer.from(match[2], 'base64')
+  let ext = match && EXT[match[1].toLowerCase()]
+  if (!match || !ext) return null
+  let bytes: Uint8Array = Buffer.from(match[2], 'base64')
   if (!bytes.byteLength) return null
+  // HEIC and TIFF cannot be shown in the windows: the Mac turns them into JPEG or PNG (mac-convert.ts), never left out.
+  const into = MAC_CONVERTS[`image/${match[1].toLowerCase()}`]
+  if (into) {
+    const shown = await convertOnMac(bytes, into).catch(() => null)
+    if (!shown) return null
+    bytes = shown
+    ext = into === 'jpeg' ? 'jpg' : 'png'
+  }
   const dir = assetsDir()
   const name = `${createHash('sha256').update(bytes).digest('hex')}.${ext}`
   await mkdir(dir, { recursive: true })
