@@ -1258,7 +1258,8 @@ export function Home(): React.JSX.Element {
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
   // "New" makes a blank page, as in Obsidian (a new book's way), or a capture in quick capture.
-  const newPage = settings?.newMakes === 'page'
+  // In the window, New makes a blank page, as Apple Notes does; quick capture keeps its own key from anywhere.
+  const newPage = settings?.newMakes !== 'capture'
   // In one of Writing's or Gems' folders, "New" (and ⌘N) makes a note there, of its list (groups.ts).
   const inFolderRef = useRef<{ id: string; tier: string } | null>(null)
   inFolderRef.current = (view.id === 'articles' || view.id === 'nuggets') && view.folder ? { id: view.folder, tier: view.id === 'articles' ? 'article' : 'nugget' } : null

@@ -682,7 +682,7 @@ const DEFAULTS = {
   // The pages (feed, stats) whose goal was met and said once: real from then on, whatever the counts do.
   readyShown: [] as string[],
   // What "New" at the top of the main window and ⌘N there make: a blank page, or a capture in quick capture.
-  newMakes: 'capture' as 'page' | 'capture',
+  newMakes: 'page' as 'page' | 'capture',
   // The page the main window opens on: Home to start, or any section by its id.
   startPage: 'day',
   // The sidebar on the window's left, as in Finder, or its right.
