@@ -146,6 +146,8 @@ export function fileThings(things: Thing[], folder: string | null): Was[] {
   const was: Was[] = []
   atomically(() => {
     for (const thing of things) {
+      // Tasks live in projects (projects.ts), never in folders: one is only ever taken out of a folder, never put in.
+      if (thing.type === 'task' && folder) continue
       const table = tableOf(thing.type)
       const row = db.prepare(`select folder_id as folder${table === 'captures' ? ', status' : ''} from ${table} where id = ?`).get(thing.id) as { folder: string | null; status?: string } | undefined
       if (!row) continue

@@ -118,6 +118,8 @@ const said = (things: Thing[]): string => {
  */
 export async function keepIn(things: Thing[], folder: { id: string; name: string } | null, { away = false }: { /** Kept from quick capture as it goes: said in the main window too, where it can be read, with the same Undo. */ away?: boolean } = {}): Promise<void> {
   if (!things.length) return
+  // Tasks live in projects, never in folders (main/folders.ts `fileThings` refuses them): said, not silently dropped.
+  if (folder && things.every((one) => one.type === 'task')) return refuse('Tasks live in projects: use “Move to project…”')
   const was = await folders.file(things, folder?.id ?? null)
   const moved = was.filter((one) => one.folder !== (folder?.id ?? null))
   if (!moved.length) return refuse(folder ? `Already in “${folder.name}”` : 'Already in no folder')

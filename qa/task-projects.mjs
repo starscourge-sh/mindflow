@@ -50,7 +50,7 @@ try {
   await wait(700)
   check('the Projects tab opens the projects page', await h.locator('[data-projects-page]').isVisible())
   await h.locator('[data-projects-first], [data-projects-new]').first().click()
-  const field = h.locator('input[data-project-name]').first()
+  const field = h.locator('[data-projects-page] input[data-folder-name]').first()
   check('a new project is named in place, never a form', await until(() => field.isVisible()))
   await field.fill('Thesis')
   await h.keyboard.press('Enter')

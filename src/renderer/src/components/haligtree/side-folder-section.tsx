@@ -68,32 +68,37 @@ export const folderDrop = (id: string): string => `folder:${id}`
  * or the path over the page) goes to the top, on a folder in the path goes in there. Never into itself or a folder
  * inside it: refused in words with the nope sound. Each move said with Undo.
  */
-export function useFolderMoves(): { epoch: number; place: (id: string, target: string, after: boolean) => void; nest: (id: string, target: string | null) => void; nests: NestCheck; places: Places; nestSays: (title: string) => string } {
-  const all = useFolders()
+export function useFolderMoves(of?: { /** Another tree moved the same way: projects (side-projects.tsx). */ all: { id: string; name: string; parent: string | null }[]; api: { place: typeof folders.place; arrange: typeof folders.arrange; nest: typeof folders.nest }; word: string; top: string }):
+  { epoch: number; place: (id: string, target: string, after: boolean) => void; nest: (id: string, target: string | null) => void; nests: NestCheck; places: Places; nestSays: (title: string) => string } {
+  const folderAll = useFolders()
+  const all = (of?.all ?? folderAll) as Folder[]
+  const api = of?.api ?? folders
+  const word = of?.word ?? 'folder'
+  const inItself = `A ${word} can’t go inside itself or a ${word} inside it`
   // The list holds a dropped order until the saved one is read back (sortable.tsx `useHeld`); a drop refused here
   // changes nothing to read back, so the list starts afresh.
   const [epoch, setEpoch] = useState(0)
   const afresh = (): void => setEpoch((n) => n + 1)
-  const named = (id: string | null): string => (id ? `“${all.find((one) => one.id === id)?.name ?? 'the folder'}”` : 'the top of Writing')
+  const named = (id: string | null): string => (id ? `“${all.find((one) => one.id === id)?.name ?? `the ${word}`}”` : of?.top ?? 'the top of Writing')
   const place = (id: string, target: string, after: boolean): void => {
-    void folders.place(id, target, after).then((was) => {
-      if (!was) return (afresh(), refuse('A folder can’t go inside itself or a folder inside it'))
+    void api.place(id, target, after).then((was) => {
+      if (!was) return (afresh(), refuse(inItself))
       chime('gather')
-      toast(`Moved ${named(id)} ${after ? 'after' : 'before'} ${named(target)}`, () => void folders.arrange(id, was).then(() => chime('undo')))
+      toast(`Moved ${named(id)} ${after ? 'after' : 'before'} ${named(target)}`, () => void api.arrange(id, was).then(() => chime('undo')))
     })
   }
   const nest = (id: string, target: string | null): void => {
     const was = all.find((one) => one.id === id)
     if (!was) return
-    if ((was.parent ?? null) === target) return (afresh(), refuse(target ? `Already in ${named(target)}` : 'Already at the top of Writing'))
-    if (target && within(all, target, id)) return (afresh(), refuse('A folder can’t go inside itself or a folder inside it'))
-    void folders.nest(id, target).then((done) => {
+    if ((was.parent ?? null) === target) return (afresh(), refuse(target ? `Already in ${named(target)}` : `Already at ${named(null)}`))
+    if (target && within(all, target, id)) return (afresh(), refuse(inItself))
+    void api.nest(id, target).then((done) => {
       if (done !== true) return (afresh(), refuse(done))
       chime('gather')
-      toast(`Moved ${named(id)} ${target ? 'into' : 'to'} ${named(target)}`, () => void folders.nest(id, was.parent ?? null).then(() => chime('undo')))
+      toast(`Moved ${named(id)} ${target ? 'into' : 'to'} ${named(target)}`, () => void api.nest(id, was.parent ?? null).then(() => chime('undo')))
     })
   }
-  const nests: NestCheck = (carried, target) => (within(all, target, carried) ? { refused: 'A folder can’t go inside itself or a folder inside it' } : true)
+  const nests: NestCheck = (carried, target) => (within(all, target, carried) ? { refused: inItself } : true)
   const places: Places = {
     drop: (id, spot) => nest(id, spot === TOP_DROP ? null : spot.slice('folder:'.length)),
     said: (spot, id) => {
@@ -258,18 +263,44 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
   ]
 }
 
-function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd, page = false, picked = false, onPick, many }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold?: () => void; onAdd: () => void; /** On a folder's page, at the list's row size, as its list's first rows (FolderRows). */ page?: boolean
+/**
+ * What makes a tree's row a folder's or a project's (side-projects.tsx): the one row below draws both. Left out, a
+ * folder's: its store, its menu (with "Change icon…"), what it holds in words, its drop and its "+" for a page.
+ */
+export type TreeKind = {
+  set: (id: string, patch: { name?: string; icon?: string | null }) => Promise<unknown>
+  /** Its whole menu, "Change icon…" in it. */
+  menu: (onIcon: () => void) => RowItem[]
+  /** On a page's row: what it holds, in words, on the right. */
+  held: string
+  /** Its row's marks: what it is (`data-project-row`) and what it takes dropped on it (`data-project-drop`). */
+  marks: Record<`data-${string}`, string>
+  /** The "+" at its right, or none. */
+  add: { label: string; run: () => void } | null
+  /** Folded, with rows inside: a carried thing rested on it opens it. */
+  spring?: () => void
+}
+
+/** How long a carried thing rests on a folded row before it springs open, as Finder's folders do. */
+const SPRING_MS = 600
+
+export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd, page = false, picked = false, onPick, many, kind }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold?: () => void; onAdd: () => void; /** On a folder's page, at the list's row size, as its list's first rows (FolderRows). */ page?: boolean
   /** Picked with others (⌘-click, ⇧-click, ⌘A), and what a press with ⌘ or ⇧ does: true when it picked rather than opened. */
   picked?: boolean; onPick?: (event: React.MouseEvent) => boolean
   /** Right-clicked while picked with others: the menu for all of them. */
-  many?: () => RowItem[] }): React.JSX.Element {
+  many?: () => RowItem[]
+  /** Another kind of thing in a tree drawn the same way: a project (side-projects.tsx). */
+  kind?: TreeKind }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
+  const spring = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(spring.current), [])
+  const store = kind ?? folders
   const name = (words: string | null): void => {
     onNamed()
     const next = words?.trim()
     if (!next || next === folder.name) return
     const was = folder.name
-    void folders.set(folder.id, { name: next }).then(() => quietly(() => void folders.set(folder.id, { name: was })))
+    void store.set(folder.id, { name: next }).then(() => quietly(() => void store.set(folder.id, { name: was })))
   }
   if (naming)
     return (
@@ -286,9 +317,9 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
     const was = folder.icon
     if (icon === was) return
     chime('tap')
-    void folders.set(folder.id, { icon }).then(() => toast(`Changed ${folder.name}’s icon`, () => void folders.set(folder.id, { icon: was })))
+    void store.set(folder.id, { icon }).then(() => toast(`Changed ${folder.name}’s icon`, () => void store.set(folder.id, { icon: was })))
   }
-  const menu = (): RowItem[] => { const all_ = folderMenu(folder, all, onOpen, onRename); const at = all_.findIndex((one) => !!one && typeof one === 'object' && 'label' in one && one.label === 'Rename…'); return [...all_.slice(0, at + 1), { label: 'Change icon…', run: () => setPicking(true) }, ...all_.slice(at + 1)] }
+  const menu = (): RowItem[] => { if (kind) return kind.menu(() => setPicking(true)); const all_ = folderMenu(folder, all, onOpen, onRename); const at = all_.findIndex((one) => !!one && typeof one === 'object' && 'label' in one && one.label === 'Rename…'); return [...all_.slice(0, at + 1), { label: 'Change icon…', run: () => setPicking(true) }, ...all_.slice(at + 1)] }
   // Writing's own row in the sidebar, copied (home.tsx): the icon gives way to its fold on pointing, and its "…" and
   // "+" take the count's place at the right; while anything is carried, the icon and count stay.
   return (
@@ -296,8 +327,10 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
       <PopoverAnchor asChild>
         <div>
     <RowMenu items={many ?? menu}>
-      <div className="group/fold relative flex flex-col">
-        <button type="button" data-side-row={page ? undefined : ''} data-side-folder={page ? undefined : folder.id} data-folder-open={page ? folder.id : undefined} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
+      <div className="group/fold relative flex flex-col"
+        onPointerEnter={() => kind?.spring && document.documentElement.dataset.dragging !== undefined && (spring.current = setTimeout(kind.spring, SPRING_MS))}
+        onPointerLeave={() => clearTimeout(spring.current)}>
+        <button type="button" data-side-row={page ? undefined : ''} data-side-folder={page || kind ? undefined : folder.id} data-folder-open={page && !kind ? folder.id : undefined} data-keep-drop={kind ? undefined : folder.id} {...kind?.marks} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
           data-folder-picked={picked ? '' : undefined} aria-selected={onPick ? picked : undefined}
           onClick={(event) => onPick?.(event) || (chime('page'), onOpen())}
           className={page
@@ -309,7 +342,7 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
             <>
               <GroupTile group={folder} empty={!n} className={cn('transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100')} />
               <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{folder.name}</span>
-              {!!n && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100">{heldSaid(all, folder.id)}</span>}
+              {!!n && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100">{kind ? kind.held : heldSaid(all, folder.id)}</span>}
             </>
           ) : (
             <>
@@ -331,12 +364,14 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
               <MoreHorizontal className="size-3.5" />
             </button>
           </Tip>
-          <Tip label="Add a page inside">
-            <button type="button" data-folder-add={folder.id} aria-label={`Add a page inside ${folder.name}`} onClick={onAdd}
-              className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-              <Plus className="size-3.5" />
-            </button>
-          </Tip>
+          {(kind ? kind.add : { label: 'Add a page inside', run: onAdd }) && (
+            <Tip label={kind?.add?.label ?? 'Add a page inside'}>
+              <button type="button" data-folder-add={folder.id} aria-label={`${kind?.add?.label ?? 'Add a page inside'} ${folder.name}`} onClick={kind?.add?.run ?? onAdd}
+                className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                <Plus className="size-3.5" />
+              </button>
+            </Tip>
+          )}
         </span>
       </div>
     </RowMenu>
