@@ -108,7 +108,11 @@ export const bookMenu = (book: Book, { rename, remove, show }: { rename: () => v
     { label: 'Rename…', run: rename }
   ]),
   ...(show ? [{ label: 'Show in Settings', run: show }] : []),
-  ...(SANDBOX ? [] : [{ label: 'Delete…', danger: true, can: () => !book.current && book.id !== 'default', run: remove }])
+  // Every book's menu ends the same way: Delete…, or the one line saying why this book cannot be (a Delete… that came
+  // and went with no word read as random, the user, 22 Nov: "the delete option showing is undeterministic").
+  ...(SANDBOX ? [] : book.id === 'default' ? ['separator' as const, { heading: 'Your first book stays: it cannot be deleted' }]
+    : book.current ? ['separator' as const, { heading: 'Open another book to delete this one' }]
+    : [{ label: 'Delete…', danger: true, run: remove }])
 ]
 
 /** What the main window wears as a book opens: your look as it came along, once. */

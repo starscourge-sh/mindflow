@@ -135,7 +135,12 @@ export function MenuScroll({ children }: { children: React.ReactNode }): React.J
       const row = rowOf(event.target)
       if (row && el.contains(row)) show(row, byKeys())
     }
+    // Parts of a menu that are neither a row nor the gap between rows (the book menu's shelf and the name under it): the
+    // pointer over them lights no row, and a click on them chooses none (the user, 22 Nov: a click on the book's name
+    // under the shelf started "New book…", the nearest row).
+    const ownPart = (node: EventTarget | null): boolean => node instanceof Element && !!node.closest('[data-book-shelf], [data-book-caption], [data-not-a-row]')
     const moved = (event: PointerEvent): void => {
+      if (ownPart(event.target)) return left()
       if (rowOf(event.target) || held() || !el.contains(event.target as Node)) return
       const at = el.getBoundingClientRect()
       const y = event.clientY - at.top + el.scrollTop
@@ -156,7 +161,7 @@ export function MenuScroll({ children }: { children: React.ReactNode }): React.J
     }
     const clicked = (event: MouseEvent): void => {
       const row = litRow.current
-      if (row && !rowOf(event.target) && el.contains(event.target as Node) && row.isConnected) row.click()
+      if (row && !rowOf(event.target) && !ownPart(event.target) && el.contains(event.target as Node) && row.isConnected) row.click()
     }
     el.addEventListener("focusin", focused)
     el.addEventListener("pointermove", moved)

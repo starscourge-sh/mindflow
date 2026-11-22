@@ -88,8 +88,8 @@ try {
   const fromFoot = await lines()
   await shot('a1-right-click-book-name')
   await shut()
-  // Delete… only for a book that can go: never the open one, never your first book.
-  const want = (book, settings = false) => ['swatches', 'Rename…', ...(settings ? [] : ['Show in Settings']), ...(book.current || book.id === 'default' ? [] : ['Delete…'])]
+  // Delete… only for a book that can go; the open one and your first book say why instead, so every menu ends the same way.
+  const want = (book, settings = false) => ['swatches', 'Rename…', ...(settings ? [] : ['Show in Settings']), book.id === 'default' ? 'Your first book stays: it cannot be deleted' : book.current ? 'Open another book to delete this one' : 'Delete…']
   check('A. the open book\'s name, right-clicked: its colour, Rename…, Show in Settings (no Delete…: it is open)', fromFoot?.[0]?.startsWith('Colour of ') && JSON.stringify(fromFoot.slice(1)) === JSON.stringify(want(open)), JSON.stringify(fromFoot))
   // A spine on the shelf, right-clicked: the same lines, for that book.
   await foot.click(); await wait(500)
