@@ -223,7 +223,7 @@ try {
 
     // 7. A question that needs a sheet (a tag, asked from a deck): hung from the deck, the app's type and field, a named
     // button and Cancel, no dim. A study set is no longer asked for in one: it is named in place (7b).
-    const askFromDeck = () => h.evaluate(() => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question: 'Tag it with', placeholder: 'thesis', field: 'tag', action: 'Tag it', at: document.querySelector('[data-own-deck="zoo"]'), review: true, answer: () => {} } })))
+    const askFromDeck = () => h.evaluate(() => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question: 'Tag it with', placeholder: 'thesis', field: 'tag', action: 'Tag it', at: document.querySelector('[data-own-deck="zoo"]').getBoundingClientRect(), review: true, answer: () => {} } })))
     for (const to of ['satin', 'paper']) {
       await finish(to)
       await burst(`tag-ask-open-${to}`, askFromDeck, 6)

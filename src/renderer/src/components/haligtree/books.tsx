@@ -421,8 +421,6 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   const last = books.filter((one) => !one.current && one.openedAt).sort((a, b) => (b.openedAt ?? 0) - (a.openedAt ?? 0))[0]?.id
   const saidOf = (book: Book): string => (book.current ? 'Open now' : book.id === last ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
   const shown = Math.max(0, books.findIndex((one) => (pointed ? one.id === pointed : one.current)))
-  // Where a press began: a press that went on to move (a book carried along the shelf) never opens a book as it lets go.
-  const down = useRef<{ x: number; y: number } | null>(null)
   return (
     <>
       <div ref={row} role="group" aria-label="Your books" data-book-shelf data-unlit className="mf-shelf" style={style}
@@ -433,11 +431,8 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
         // While a book is carried, the one turned out stays as it was: the shelf never reshapes under the hand.
         onFocus={(event) => document.documentElement.dataset.dragging === undefined && setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
         onBlur={(event) => document.documentElement.dataset.dragging === undefined && !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}
-        onPointerDownCapture={(event) => void (down.current = { x: event.clientX, y: event.clientY })}
-        onClickCapture={(event) => {
-          const at = down.current
-          if (at && Math.hypot(event.clientX - at.x, event.clientY - at.y) > 4) (event.preventDefault(), event.stopPropagation())
-        }}>
+        // A book carried and let go opens nothing: the shared drag swallows the click that ends a carry (dnd-kit).
+        >
         {/* Your books in your own order: a book pressed and carried along the shelf goes where it is let go (the shared
             drag, sortable.tsx), saved on the shelf for every list of them (Settings › Books too). */}
         <SortableList axis="x" items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>

@@ -48,9 +48,10 @@ const lines = () => h.evaluate(() => {
   if (!menu) return null
   const out = []
   for (const el of menu.querySelectorAll('[data-slot$="-label"], [role="menuitem"], [role="group"]')) {
-    if (el.matches('[role="group"]')) { if (el.querySelector('[role="menuitemradio"], [role="menuitem"]') && !out.includes('swatches')) out.push('swatches'); continue }
+    if (el.matches('[role="group"]')) { out.push(el.matches('[data-book-shelf]') ? 'shelf' : el.querySelector('[role="menuitemradio"]') ? 'swatches' : 'group'); continue }
     if (el.closest('[role="group"]')) continue
-    out.push((el.childNodes[0]?.textContent ?? el.textContent).trim())
+    // A line's words, its icon (an svg, no words) left off.
+    out.push(el.textContent.trim())
   }
   return out.filter(Boolean)
 })
@@ -64,7 +65,7 @@ await electron.evaluate(({ app }) => {
   app.quit = () => void (globalThis.__quit = true)
   app.exit = () => void (globalThis.__quit = true)
 })
-const foot = h.locator('[aria-label="Haligtree menu"]')
+const foot = h.locator('[aria-label="Haligtree menu"]:not([data-book-more])')
 try {
   const shelf = await s.v('books:list')
   const open = shelf.books.find((one) => one.current)
@@ -76,15 +77,16 @@ try {
   const fromFoot = await lines()
   await shot('a1-right-click-book-name')
   await shut()
-  const want = (book) => [`Colour of ${book.name.slice(0, 28)}`, 'swatches', 'Rename…', 'Show in Settings', 'Delete…']
-  check('A. the book\'s name, right-clicked: its colour, Rename…, Show in Settings, Delete…', fromFoot?.[0]?.startsWith('Colour of ') && JSON.stringify(fromFoot.slice(1)) === JSON.stringify(want(open).slice(1)), JSON.stringify(fromFoot))
+  // Delete… only for a book that can go: never the open one, never your first book.
+  const want = (book, settings = false) => ['swatches', 'Rename…', ...(settings ? [] : ['Show in Settings']), ...(book.current || book.id === 'default' ? [] : ['Delete…'])]
+  check('A. the open book\'s name, right-clicked: its colour, Rename…, Show in Settings (no Delete…: it is open)', fromFoot?.[0]?.startsWith('Colour of ') && JSON.stringify(fromFoot.slice(1)) === JSON.stringify(want(open)), JSON.stringify(fromFoot))
   // A spine on the shelf, right-clicked: the same lines, for that book.
   await foot.click(); await wait(500)
   await h.locator(`[data-book-shelf] [data-book="${other.id}"]`).click({ button: 'right' }); await wait(400)
   const fromSpine = await lines()
   await shot('a2-right-click-spine')
   await shut()
-  check('A. a spine, right-clicked: the same lines, for its own book', fromSpine?.[0]?.startsWith('Colour of ') && JSON.stringify(fromSpine.slice(1)) === JSON.stringify(fromFoot?.slice(1)), JSON.stringify(fromSpine))
+  check('A. a spine, right-clicked: the same lines, for its own book (Delete… too, as it is not open)', fromSpine?.[0] === `Colour of ${other.name.slice(0, 28)}` && JSON.stringify(fromSpine.slice(1)) === JSON.stringify(want(other)), JSON.stringify(fromSpine))
   // The left-click menu keeps the open book's own two where they were: its colour, and Rename… beside it, in the same words.
   await foot.click(); await wait(500)
   const left = await lines()
@@ -102,8 +104,7 @@ try {
   await h.locator(`[data-book-more="${other.id}"]`).click(); await wait(400)
   const fromMore = await lines()
   await shut()
-  const inSettings = fromFoot?.filter((one) => one !== 'Show in Settings')
-  check('A. Settings\' row, right-clicked, and its "…": the same lines, less "Show in Settings"', JSON.stringify(fromRow?.slice(1)) === JSON.stringify(inSettings?.slice(1)) && JSON.stringify(fromMore) === JSON.stringify(fromRow), JSON.stringify({ fromRow, fromMore }))
+  check('A. Settings\' row, right-clicked, and its "…": the same lines, less "Show in Settings"', fromRow?.[0] === fromSpine?.[0] && JSON.stringify(fromRow.slice(1)) === JSON.stringify(want(other, true)) && JSON.stringify(fromMore) === JSON.stringify(fromRow), JSON.stringify({ fromRow, fromMore }))
 
   // B. "New book…" chosen: the row is the name, focused, in the menu; the pointer over other rows never takes it away.
   await foot.click(); await wait(500)

@@ -2780,9 +2780,10 @@ export function Home(): React.JSX.Element {
               // choosing that row, made a book pressed long and moved away open "New book…" (the user, 22 Nov: "Nothing is
               // clear about how and why"): a press on a book now carries it along the shelf, and letting go anywhere else does nothing.
               onPointerDownCapture={(event) => void (footPressed.current = event.target instanceof Element ? event.target.closest('[role^="menuitem"]') : null)}
+              // Only a row let go on that is not the row pressed is held back: a plain click on any row, a book included, runs it.
               onPointerUpCapture={(event) => {
                 const on = event.target instanceof Element ? event.target.closest('[role^="menuitem"]') : null
-                if (on !== footPressed.current) event.preventDefault()
+                if (on && on !== footPressed.current) event.preventDefault()
                 footPressed.current = null
               }}
               // Shut by a right-click on one of its books: the keys go to that book's menu, not back to the button.
