@@ -104,7 +104,8 @@ import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
 import { askBook, switchBook, useShelf, type Book } from '@/lib/books'
 import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
-import { BookMark, BookName, BookShelf, askNewBook, bookMenu, colourChoices, colourSwatches } from '@/components/haligtree/books'
+import { NAMING_MENU } from '@/components/haligtree/name-in-place'
+import { BookMark, BookName, BookShelf, NewBookRow, askNewBook, bookMenu, colourChoices, colourHeading, colourSwatches } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint, pageSaid } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
@@ -161,7 +162,7 @@ import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligt
 import { kMeansLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
 import { countUse, takeWay, via, type Via } from '@/lib/usage'
-import { cut, quoted } from '../../main/clip'
+import { quoted } from '../../main/clip'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -1127,6 +1128,17 @@ export function Home(): React.JSX.Element {
   const [footMenu, setFootMenu] = useState(false)
   // Shut that way it is gone at once: its 60ms fade would show for a moment under the book's own menu.
   const [footCut, setFootCut] = useState(false)
+  // A new book being named in the menu's own row (New book…, here, from ⌘K or the menu bar): the menu holds open while it is typed.
+  const [namingBook, setNamingBook] = useState(false)
+  useEffect(() => {
+    const onNaming = (): void => {
+      setFootCut(false)
+      setNamingBook(true)
+      setFootMenu(true)
+    }
+    window.addEventListener('haligtree:book-naming', onNaming)
+    return () => window.removeEventListener('haligtree:book-naming', onNaming)
+  }, [])
   const bookMenuAt = useRef<HTMLSpanElement>(null)
   const bookMenuFor = useRef<Book | null>(null)
   const footGave = useRef(false)
@@ -2740,10 +2752,14 @@ export function Home(): React.JSX.Element {
           {/* A book's own menu (its colour, its name, its place in Settings), opened where it was right-clicked: on
               its row in the menu below, which shuts as this opens, or on the book's name here. Held by a point of
               its own, so the menu below can go without taking it along. */}
-          <RowMenu items={() => { const book = bookMenuFor.current ?? openBook; return book ? bookMenu(book, (rename) => setView({ id: 'settings', focus: `${rename ? 'book-rename' : 'book'}:${book.id}`, nonce: Date.now() })) : [] }}>
+          <RowMenu items={() => {
+            const book = bookMenuFor.current ?? openBook
+            const inSettings = (what: 'book' | 'book-rename' | 'book-delete') => () => setView({ id: 'settings', focus: `${what}:${book!.id}`, nonce: Date.now() })
+            return book ? bookMenu(book, { rename: inSettings('book-rename'), show: inSettings('book'), remove: inSettings('book-delete') }) : []
+          }}>
             <span ref={bookMenuAt} aria-hidden data-book-menu-at className="pointer-events-none fixed top-0 left-0 size-0" />
           </RowMenu>
-          <DropdownMenu modal={false} open={footMenu} onOpenChange={(open) => (open && setFootCut(false), setFootMenu(open))}>
+          <DropdownMenu modal={false} open={footMenu} onOpenChange={(open) => (open && setFootCut(false), !open && setNamingBook(false), setFootMenu(open))}>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={`${APP_NAME} menu`} onContextMenu={(event) => openBookMenu(event, openBook)}
                 className={`flex min-w-0 items-center gap-2 text-(--mf-muted-strong) transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? NARROW_ICON : 'flex-1 rounded-md px-2 py-1.5'}`}>
@@ -2752,7 +2768,10 @@ export function Home(): React.JSX.Element {
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className={`w-60 ${footCut ? 'data-[state=closed]:hidden' : ''}`}
+            <DropdownMenuContent side="top" align="start" className={`w-60 ${footCut ? 'data-[state=closed]:hidden' : ''} ${namingBook ? NAMING_MENU : ''}`}
+              // While a new book is named in its row, the rows under the pointer never take the focus from the name (so
+              // they are not pointed at), and Esc leaves the name, not the menu.
+              onEscapeKeyDown={(event) => namingBook && event.preventDefault()}
               // Shut by a right-click on one of its books: the keys go to that book's menu, not back to the button.
               onCloseAutoFocus={(event) => { if (footGave.current) (footGave.current = false, event.preventDefault()) }}>
               {/* Each row's card beside the menu: what it does, before you choose it. A book's says its whole name, however long. */}
@@ -2760,14 +2779,17 @@ export function Home(): React.JSX.Element {
               {/* Your books first, on a shelf: the open one turned to its face, the one pointed at pulled out (books.tsx). */}
               {!!shelfNow?.books.length && <BookShelf books={shelfNow.books} onMenu={openBookMenu}
                 onPick={(book) => (book.current ? setView({ id: 'settings', focus: `book:${book.id}`, nonce: Date.now() }) : void switchBook(book.id))} />}
-              {!SANDBOX && <DropdownMenuItem data-peek="new-book" onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
+              {/* New book…: the row itself becomes the new book's name, typed in place as Finder names a folder (books.tsx NewBookRow). */}
+              {!SANDBOX && (namingBook ? <NewBookRow onDone={() => setNamingBook(false)} /> : (
+                <DropdownMenuItem data-peek="new-book" data-book-new-row onSelect={(event) => (event.preventDefault(), chime('open'), setNamingBook(true))}>New book…</DropdownMenuItem>
+              ))}
               {/* The open book's colour, where a person looks for it first: under the books, the nine in the menu itself
                   under a small heading, as its right-click menu has them (row-menu.tsx lines). A submenu holding one row of
                   swatches was a second step for nothing (the user, 21 Nov: "why did color have to be a submenu"). */}
               {!SANDBOX && openBook && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel data-book-colour>Colour of {cut(openBook.name, 28)}</DropdownMenuLabel>
+                  <DropdownMenuLabel data-book-colour>{colourHeading(openBook)}</DropdownMenuLabel>
                   <div role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
                     {colourSwatches(openBook).map((one) => (
                       <DropdownMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
@@ -2776,6 +2798,8 @@ export function Home(): React.JSX.Element {
                       </DropdownMenuItem>
                     ))}
                   </div>
+                  {/* Its name beside its colour: the open book's own two, worded as its right-click menu words them. */}
+                  <DropdownMenuItem data-book-rename onSelect={() => setView({ id: 'settings', focus: `book-rename:${openBook.id}`, nonce: Date.now() })}>Rename…</DropdownMenuItem>
                 </>
               )}
               <DropdownMenuSeparator />

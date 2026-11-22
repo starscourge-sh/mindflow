@@ -58,3 +58,45 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
     />
   )
 }
+
+/** On a menu while one of its rows is a name being typed: the rows under the pointer never take the focus from the name. */
+export const NAMING_MENU = '[&_[role^=menuitem]]:pointer-events-none'
+
+/**
+ * A menu's "New …" row turned into the new thing's name where it was chosen, as Finder names a new folder: its mark,
+ * then the field in the menu's own type. Enter or a click away makes it (`onMake`), Esc leaves it unmade; either way
+ * `onDone` puts the row back. The menu holds open while it is typed: its content wears NAMING_MENU and keeps Esc for
+ * the name (onEscapeKeyDown prevented). The sidebar's "New book…" and the deck picker's "New deck…" name things here,
+ * never in a box with a title over a field.
+ */
+export function NameInMenu({ mark, placeholder, label, onMake, onDone, ...rest }: {
+  mark: React.ReactNode
+  placeholder: string
+  label: string
+  onMake: (words: string) => void
+  onDone: () => void
+} & React.ComponentProps<'span'>): React.JSX.Element {
+  const made = useRef(false)
+  const row = useRef<HTMLSpanElement>(null)
+  const make = (words: string): void => {
+    if (made.current || !words) return
+    made.current = true
+    onMake(words)
+  }
+  // The menu shut by a press outside it: what was typed is kept, as a click away keeps a name anywhere (a dev build's
+  // practice unmount finds the field empty and makes nothing).
+  useEffect(() => () => make(row.current?.querySelector('input')?.value.trim() ?? ''), []) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <span ref={row} data-name-in-menu data-takes-keys className="flex items-center gap-2 rounded-sm px-2 py-1.5" {...rest}>
+      {mark}
+      <NameInPlace placeholder={placeholder} label={label}
+        className="-mx-1 min-w-0 flex-1 rounded-[4px] bg-transparent px-1 text-control text-foreground outline-none ring-1 ring-ring/45 placeholder:text-muted-foreground"
+        onDone={(words) => {
+          // Esc (or nothing typed) is an answer too: the row going away after it makes nothing.
+          if (words) make(words)
+          else made.current = true
+          onDone()
+        }} />
+    </span>
+  )
+}

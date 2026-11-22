@@ -79,7 +79,7 @@ import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/san
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
 import { askBook, deleteBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
-import { BookMark, bookRowMenu } from './books'
+import { BookMark, bookMenu } from './books'
 import { RowMenu, openFromGrip } from './row-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { NameInPlace } from './name-in-place'
@@ -1455,12 +1455,12 @@ const BOOK_KEYS = 'book books rename delete open switch colour color accent tint
  * Your books, under “Your book”: one list, as System Settings lists users and Finder its sidebar, in main's order (the
  * open one first, then the one you were in last). Each a compact row: its mark in its colour, its name, one quiet fact
  * (“Open now”, “Your first book”, “Made 13 Oct 2026”), and at the right “Open” (not on the open one) and a “…” holding
- * Rename, Colour and Delete, the same menu as its right-click (a row of it under 56px tall, so it fills, never rings, while open) (books.tsx bookRowMenu). Delete asks in the book's own row,
+ * Colour, Rename and Delete, the same menu as its right-click and the sidebar's (a row of it under 56px tall, so it fills, never rings, while open) (books.tsx bookMenu). Delete asks in the book's own row,
  * held, its warning said there and nowhere else. “New book” once, at the list's foot, named in place as Finder names
  * a folder. (The user, 20 Nov, of the old rows, each with nine swatches, a paragraph and three buttons: "something
  * feels busy about this and un-Apple/Dia like".)
  */
-function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>', from a book's own menu. */ asked?: string; nonce?: number }): React.JSX.Element | null {
+function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or 'book-delete:<id>', from a book's own menu. */ asked?: string; nonce?: number }): React.JSX.Element | null {
   const shelf = useShelf()
   const { query, all } = useContext(Query)
   const shown = all ? '' : query
@@ -1470,10 +1470,12 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>',
   const [asking, setAsking] = useState<string | null>(null)
   const loaded = !!shelf
   useEffect(() => {
-    const [, what, id] = /^(book|book-rename):(.+)$/.exec(asked ?? '') ?? []
+    const [, what, id] = /^(book|book-rename|book-delete):(.+)$/.exec(asked ?? '') ?? []
     if (!what || !loaded || nonce === bookAsked) return
     bookAsked = nonce
     if (what === 'book-rename' && !SANDBOX) setNaming(id)
+    // Delete… from the book's menu in the sidebar: asked here, in its own row, as its own "…" asks.
+    if (what === 'book-delete' && !SANDBOX) (chime('open'), setAsking(id))
     document.querySelector(`[data-setting-anchor="book:${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [asked, nonce, loaded])
   if (!shelf) return null
@@ -1517,7 +1519,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>',
         </div>
       )}
       {books.map((book) => (
-        <RowMenu key={book.id} items={bookRowMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)) })}>
+        <RowMenu key={book.id} items={bookMenu(book, { rename: () => (setAsking(null), setNaming(book.id)), remove: () => (chime('open'), setAsking(book.id)) })}>
           <div data-setting data-setting-title={book.name} data-setting-anchor={`book:${book.id}`} data-book-row={book.id} aria-current={book.current || undefined} className={BOOK_ROW}>
             <BookMark hue={book.color} className="size-4" />
             <span className="min-w-0 flex-1">
