@@ -15,7 +15,7 @@ import { still } from '@/lib/motion'
 import { dayMonth } from '../../../../main/dates'
 import { Tip, refuse, toast } from './ui'
 import { useTilt } from './tilt'
-import { BookBox, inked, labelOf, type BookSize } from './book-box'
+import { BookBox, clothOf, inked, labelOf, type BookSize } from './book-box'
 
 /**
  * The reader card, Arc's member card for a commonplace book: a printed card of
@@ -215,6 +215,9 @@ function ShapePicture({ shape, rise, grain = true }: { shape: Shape; rise: boole
   )
 }
 
+/** The card's foot line, and the fact under a book's name in Settings › Books: since its oldest note. */
+export const sinceSaid = (since: string | null | undefined): string => (since ? `Kept since ${dayMonth(since, 'always')}` : 'Not begun')
+
 /** A card's three inks (light to deep), set on what wears them: the whole book in Settings, the cover alone on the shelf. */
 export const cardInks = (hues: [string, string, string]): CSSProperties =>
   ({ '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) }) as CSSProperties
@@ -262,7 +265,7 @@ export function CardFace({ seed, name, facts, small = false }: { seed: number; n
         <div className="flex">
           {/* One quiet line, as a member card's "Member since": no box, no hatching. */}
           <span data-reader-since className="font-mono text-[0.5rem] leading-none font-medium tracking-[0.14em] whitespace-nowrap uppercase">
-            {facts?.since ? `Kept since ${dayMonth(facts.since, 'always')}` : 'Not begun'}
+            {sinceSaid(facts?.since)}
           </span>
         </div>
       </div>
@@ -463,8 +466,9 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
             both narrowing as it turns edge on and lying away from the light. */}
         <motion.div aria-hidden data-reader-shadow className="pointer-events-none absolute inset-x-3 -bottom-5 h-8 rounded-[50%] bg-black/25 blur-[18px]" style={{ x: shadowAt, scaleX: shadowWide }} />
         <motion.div aria-hidden className="pointer-events-none absolute inset-x-6 -bottom-1.5 h-3 rounded-[50%] bg-black/40 blur-[6px]" style={{ x: shadowAt, scaleX: shadowWide }} />
-        {/* The book (book-box.tsx): its colours set on the whole book, so the spine and the cover wear the same ink. */}
-        <BookBox size={BOOK} pitch={pitched} turn={turned} lit={lit} scale={tilt.grow} perspective={1000} name={name} ribbon
+        {/* The book (book-box.tsx): its colours set on the whole book, so the spine and the cover wear the same ink, and
+            its cloth the one the shelf's book wears (clothOf). */}
+        <BookBox size={BOOK} pitch={pitched} turn={turned} lit={lit} scale={tilt.grow} perspective={1000} name={name} cloth={clothOf(shelf?.color)} ribbon
           style={{ transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', ...cardInks(hues) }}
           cover={{ 'data-reader-card': '', 'data-hues': hues.join(' ') }} label={{ ref: card, className: 'flex flex-col p-4' }}>
           <CardFace seed={seed} name={name} facts={facts} />

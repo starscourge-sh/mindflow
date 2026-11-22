@@ -1,6 +1,7 @@
 import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from 'react'
 import { motion, useTransform, type MotionStyle, type MotionValue } from 'motion/react'
 import markGold from '@/assets/mark-gold-leaves.png'
+import type { Hue } from '@/lib/books'
 import './shelf.css'
 
 /**
@@ -20,6 +21,19 @@ export type BookSize = { wide: number; high: number; thick: number; board: numbe
  * pale) as on a light one, and the theme still chooses the hue.
  */
 export const inked = (hue: string, light: number, strength: number): string => `oklch(from var(--tt-color-text-${hue}) ${light} ${strength} h)`
+
+/**
+ * Each colour's cloth, as OKLCH lightness and strength, the hue the theme's own: deep ones and pale ones, as a real
+ * shelf has, every one far enough from its foil (bright gold on the deep, antique bronze on the pale, picked by lightness in
+ * shelf.css) to read at 3:1 or more. The deep ones deep enough for pale gold, as a leather binding is.
+ */
+const CLOTH: Record<Hue, [number, number]> = { blue: [0.45, 0.13], purple: [0.44, 0.14], pink: [0.76, 0.11], red: [0.46, 0.16], orange: [0.74, 0.14], yellow: [0.87, 0.14], green: [0.45, 0.1], gray: [0.71, 0.01] }
+/**
+ * A book's cloth, the one rule for every place it is drawn (Settings' reader card, the welcome, the sidebar's shelf):
+ * the book's own colour, or with none, its reader card's deepest ink (`--mf-card-c`, set on the book with cardInks).
+ * The user, 23 Nov: one book wore grey cloth on the shelf and brown in Settings.
+ */
+export const clothOf = (hue: Hue | null | undefined): string => (hue ? inked(hue, ...CLOTH[hue]) : 'var(--mf-card-c)')
 
 /**
  * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
@@ -191,7 +205,7 @@ function Lit({ normal, pose: { pitch, turn, lit }, gloss = 0, face, veil }: { no
 const GLINT = (Math.atan2(HALF[0], HALF[2]) * 180) / Math.PI
 const glintAt = (turn: number): string => String(Math.min(1.3, Math.max(-0.3, (1 + (GLINT + 90 - turn) / 60) / 2)))
 
-export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, edges = true, ribbon = false, shelf = false, veil, cover, label, children, className = '', style }: {
+export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, turn, lit, scale, perspective, name, cloth: clothColor, edges = true, ribbon = false, shelf = false, veil, cover, label, children, className = '', style }: {
   size: BookSize
   /** Tipped back (rotateX) and turned (rotateY, 90 the spine to you, 0 the cover), in degrees. */
   pitch: MotionValue<number>
@@ -207,10 +221,12 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
   /** A ribbon to keep your place, hanging out at the foot. */
   ribbon?: boolean
   /**
-   * On the shelf (books.tsx BookShelf): its cloth the book's own colour (`--mf-spine-bg`), its name up the spine from
-   * the foot, as a row of spines reads. Off (Settings): its cloth the card's deepest ink, its name down the spine.
+   * On the shelf (books.tsx BookShelf): its name up the spine from the foot, as a row of spines reads. Off (Settings):
+   * its name down the spine.
    */
   shelf?: boolean
+  /** The cloth's colour (clothOf): the same for one book wherever it is drawn. */
+  cloth: string
   /** On the shelf, a book not pulled out: its spine and its cover dimmed, each by its own amount. */
   veil?: Veil
   /** The cover's own element: its ref and data. */
@@ -240,8 +256,8 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
   const along = high - 2 * (rule + (shelf ? 8 : 9))
   const type = spineType(name, along, thick - 2 * joint + 2, shelf ? 12 : 11)
   const set = { maxHeight: along, fontSize: type.size, lineHeight: SPINE_LEAD, whiteSpace: type.lines > 1 ? 'normal' : 'nowrap', '--mf-foil-at': glint } as unknown as MotionStyle
-  // Its cloth: the shelf's spine colour, or the card's deepest ink; the weave finer on the larger book, as the same linen is.
-  const cloth = { '--mf-cloth': shelf ? 'var(--mf-spine-bg)' : 'var(--mf-card-c)', '--mf-weave': shelf ? '6px' : '4px' } as CSSProperties
+  // Its cloth, one colour wherever the book is drawn; the weave finer on the larger book, as the same linen is.
+  const cloth = { '--mf-cloth': clothColor, '--mf-weave': shelf ? '6px' : '4px' } as CSSProperties
   // A board's edge, the cloth turned over it: a little lighter than the board's face, and rounded, so lit along its middle.
   const edgeOf = (way: 'right' | 'bottom'): string => `linear-gradient(to ${way}, rgb(0 0 0 / 0.3), rgb(255 255 255 / 0.18) 50%, rgb(0 0 0 / 0.3)), oklch(from var(--mf-cloth) calc(l + 0.06) c h)`
   return (

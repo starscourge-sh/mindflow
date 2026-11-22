@@ -1,12 +1,7 @@
 /* Your books on a shelf (books.tsx BookShelf): the Settings book (book-box.tsx), scaled, standing spine out in a row on
-   a ledge, every spine one height in cloth of its own colour, the one pointed at pulled out and turned to its cover (its
+   a ledge, every spine one height in its own cloth (book-box.tsx clothOf, as Settings' book wears it), the one pointed at pulled out and turned to its cover (its
    own reader card), named under the shelf. Unlayered, so it wins over the menu row's own utilities that the item hands its book. */
 .mf-shelf {
-  /* The two neutrals a book with no colour wears (books.tsx spinesOf), from the theme's own accent, nearly grey: on a
-     light menu a deep one first and a pale one, on a dark menu a pale one first and a mid one, so each stands off the
-     menu behind it. */
-  --mf-spine-plain-0: oklch(from var(--mf-theme-accent, var(--primary)) 0.3 0.015 h);
-  --mf-spine-plain-1: oklch(from var(--mf-theme-accent, var(--primary)) 0.88 0.015 h);
   /* As wide as the menu, never widening it: 30 books scroll inside it rather than stretch it across the window. */
   contain: inline-size;
   display: flex;
@@ -32,8 +27,6 @@
   box-shadow: 0 4px 5px -3px oklch(0.25 0.04 60 / 0.45);
 }
 :root:not([data-light]) .mf-shelf {
-  --mf-spine-plain-0: oklch(from var(--mf-theme-accent, var(--primary)) 0.92 0.015 h);
-  --mf-spine-plain-1: oklch(from var(--mf-theme-accent, var(--primary)) 0.45 0.015 h);
   /* The same oak in a dim room: deeper, never a different wood. */
   --mf-oak-top: oklch(0.6 0.06 72);
   --mf-oak-face: oklch(0.48 0.07 64);

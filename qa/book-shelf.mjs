@@ -1,5 +1,5 @@
 // The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the Settings book, cased in woven
-// cloth of its own colour with a valley at both joints, its name up the spine whole in foil, its card crisp on a paper
+// cloth of the Settings book's colour (book-box.tsx clothOf) with a valley at both joints, its name up the spine whole in foil, its card crisp on a paper
 // label pasted on the cover's cloth, turned a little so a sliver of its
 // cover shows, every book one height on one foot line, the open one turned to its cover, the one pointed at (or reached by the keys) pulled out and
 // turned instead and named under the shelf, the shelf one width throughout; a press on another book opens it. Real
@@ -61,6 +61,20 @@ try {
   // Its cover is its reader card (reader-card.tsx ShelfCover), as Settings draws it, the picture at its size.
   const card = await h.evaluate(() => { const one = document.querySelector('[data-book-shelf] [aria-current] [data-shelf-card]'); return one && { name: one.querySelector('[data-reader-name]')?.textContent, title: one.querySelector('[data-reader-title]')?.textContent, since: one.querySelector('[data-reader-since]')?.textContent, shape: Math.round(one.querySelector('[data-reader-shape] > svg:not(.size-0)')?.getBoundingClientRect().width ?? 0) } })
   check('the open book wears its own reader card: its name, title, day begun and picture', card?.name === books.books.find((one) => one.current)?.name && !!card.title && /Kept since|Not begun/.test(card.since) && card.shape >= 45, JSON.stringify(card))
+  // One book, one look (the user, 23 Nov: Garden of Loose Ends, no colour of its own, wore grey cloth on the shelf and
+  // brown in Settings, and its row said "Made 10 Oct 2026" under a card saying "Kept since 4 May 2026"). The open book's
+  // cloth on the shelf is the Settings book's, read as each paints it; and Settings' row for it says its card's own day.
+  const shelfCloth = await h.evaluate(() => { const cover = document.querySelector('[data-book-shelf] [aria-current] [data-book-cover]'); return cover && getComputedStyle(cover).backgroundColor })
+  await h.keyboard.press('Escape'); await wait(300)
+  await s.go('settings'); await h.click('[data-section="Your book"]'); await wait(1200)
+  const own = await h.evaluate(() => {
+    const cover = document.querySelector('[data-reader-card]')
+    return { cloth: cover && getComputedStyle(cover).backgroundColor, since: cover?.querySelector('[data-reader-since]')?.textContent?.trim(), fact: document.querySelector('[data-group="Books"] [data-book-lead] [data-book-fact]')?.textContent?.trim() }
+  })
+  check('the shelf\'s open book wears the Settings book\'s cloth, the same colour', !!shelfCloth && shelfCloth === own.cloth, JSON.stringify({ shelfCloth, ...own }))
+  check('its row in Settings › Books names the day its card names', /^Kept since /.test(own.since ?? '') && (own.fact ?? '').includes(own.since) && !/Made /.test(own.fact ?? ''), JSON.stringify(own))
+  await s.go('home'); await wait(400)
+  await h.locator('[aria-label="Haligtree menu"]').click(); await wait(600)
   // Every spine one height; the turned book on the same line, as the user's references stand theirs (21 Nov: "still
   // don't get why active book is lifted"): its foot on the ledge with theirs, its head no higher. And every book at rest
   // turned a little, a sliver of its cover showing at its spine's right ("rather than look dead straight into the side").
@@ -144,7 +158,6 @@ try {
   const valley = (side) => side && side.dark >= 2 && side.lip >= 1 && side.lit
   check('every spine has a valley at both joints, a dark line 2px or more and a lit lip 1px or more as shown, and its cover its groove', joints.length === 29 && joints.every((one) => valley(one.back) && valley(one.front) && one.groove), JSON.stringify(joints.filter((one) => !(valley(one.back) && valley(one.front) && one.groove)).concat(joints.slice(0, 2))))
   check('every cover is the spine\'s cloth: woven, in the spine\'s own colour', joints.every((one) => one.woven && one.same), JSON.stringify(joints.filter((one) => !(one.woven && one.same)).slice(0, 3)))
-  check('no two neighbouring spines the same colour', inks.every((one, at) => !at || one.ground !== inks[at - 1].ground), JSON.stringify(inks.map((one) => one.ground)))
   // The caption under the shelf: its whole box inside the menu, and neither line cut at its foot (21 Nov: clipped).
   const captionRoom = await h.evaluate(() => { const one = document.querySelector('[data-book-caption]'); const menu = one.closest('[role="menu"]').getBoundingClientRect(); const box = one.getBoundingClientRect(); return { inside: box.top >= menu.top && box.bottom <= menu.bottom && box.left >= menu.left && box.right <= menu.right, lines: [...one.children].map((line) => line.scrollHeight - line.clientHeight), box: [Math.round(box.top), Math.round(box.bottom)], menu: [Math.round(menu.top), Math.round(menu.bottom)] } })
   check('the caption sits wholly inside the menu, neither of its lines cut', captionRoom.inside && captionRoom.lines.every((over) => over <= 0), JSON.stringify(captionRoom))

@@ -3,8 +3,8 @@ import { useSideEnds } from '@/lib/side-ends'
 import { animate, motion, useMotionValue, useSpring, useTransform, useVelocity, type MotionValue } from 'motion/react'
 import { still } from '@/lib/motion'
 import { onlyRealLeaves, realMove } from '@/lib/real-move'
-import { BookBox, inked } from './book-box'
-import { OtherCover, ShelfCover } from './reader-card'
+import { BookBox, clothOf } from './book-box'
+import { OtherCover, ShelfCover, cardInks, cardOf, seedOf } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -14,7 +14,7 @@ import { HUES, askBook, moveBook, askCards, bookCardNow, bookCardOf, copyToBook,
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
-import { haligtree } from '@/lib/haligtree'
+import { haligtree, useLive } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { ago } from '../../../../main/dates'
@@ -310,29 +310,6 @@ const HELD_BACK = 0.15
  * read as a hint of a cover, never bright fragments beside the spines (22 Nov).
  */
 const SLIVER_SHADE = 0.42
-/**
- * Each colour's spine, as OKLCH lightness and strength, the hue the theme's own: deep ones and pale ones, as a real
- * shelf has, every one far enough from its foil (bright gold on the deep, antique bronze on the pale, picked by lightness in
- * shelf.css) to read at 3:1 or more. The deep ones deep enough for pale gold, as a leather binding is.
- */
-const SPINE: Record<Hue, [number, number]> = { blue: [0.45, 0.13], purple: [0.44, 0.14], pink: [0.76, 0.11], red: [0.46, 0.16], orange: [0.74, 0.14], yellow: [0.87, 0.14], green: [0.45, 0.1], gray: [0.71, 0.01] }
-/**
- * The spines' colours along the shelf. A book with no colour wears one of the theme's two neutrals (shelf.css), the
- * two taking turns, so two such books never stand alike; two books of one colour side by side, the second a shade
- * deeper (or paler), so no two neighbours ever match.
- */
-function spinesOf(books: Book[]): string[] {
-  let plain = 0
-  let before = ''
-  return books.map((book) => {
-    if (!book.color) return (before = `var(--mf-spine-plain-${plain++ % 2})`)
-    const [light, strength] = SPINE[book.color]
-    const again = before === book.color
-    before = again ? '' : book.color
-    return inked(book.color, again ? (light > 0.8 ? light - 0.13 : light < 0.64 ? light - 0.12 : light + 0.1) : light, strength)
-  })
-}
-
 /** Picked up, a book rises this far off the ledge, as one slid along a shelf is lifted just clear of it. */
 const LIFT = 4
 /** Its lean as it is slid, by how fast: degrees for each pixel a second, and never past this. */
@@ -413,7 +390,7 @@ function useSlid(carried: boolean, width: MotionValue<number>, at: number): { x:
   return { x, y, rotate: lean, shade, held, ref }
 }
 
-function ShelfBook({ book, said, up: pointedAt, spine, at, keyed, lit, onPick, onMenu, onShift }: { book: Book; said: string; up: boolean; spine: string; at: number; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void; /** ⌥← and ⌥→: one place along. */ onShift: (by: -1 | 1) => void }): React.JSX.Element {
+function ShelfBook({ book, said, up: pointedAt, ownSeed, at, keyed, lit, onPick, onMenu, onShift }: { book: Book; said: string; up: boolean; /** The open book's reader card seed, kept in settings. */ ownSeed: number | undefined; at: number; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void; /** ⌥← and ⌥→: one place along. */ onShift: (by: -1 | 1) => void }): React.JSX.Element {
   // Picked up, it turns back to its spine for as long as it is carried.
   const carried = useHeldInRow()
   const up = pointedAt && !carried
@@ -477,6 +454,8 @@ function ShelfBook({ book, said, up: pointedAt, spine, at, keyed, lit, onPick, o
     return () => void (live = false)
   }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
   const pitch = useMotionValue(0)
+  // Its case in the inks of its own reader card and the cloth Settings' book wears (book-box.tsx clothOf): one book, one look.
+  const seed = book.current ? (ownSeed ?? seedOf(book.name)) : (card?.seed ?? seedOf(book.name))
   return (
     <DropdownMenuItem asChild data-book={book.id} data-shelf-book={book.id} data-carried={carried || undefined} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
       onContextMenu={onMenu} onSelect={onPick} onPointerLeave={onlyRealLeaves}
@@ -486,13 +465,13 @@ function ShelfBook({ book, said, up: pointedAt, spine, at, keyed, lit, onPick, o
         event.stopPropagation()
         onShift(event.key === 'ArrowLeft' ? -1 : 1)
       }}>
-      <motion.div ref={slid.ref} className="mf-spine" style={{ width, height: SHELF_BOOK.high, zIndex, x: slid.x, y: slid.y, rotate: slid.rotate, '--mf-spine-bg': spine } as React.ComponentProps<typeof motion.div>['style']}>
+      <motion.div ref={slid.ref} className="mf-spine" style={{ width, height: SHELF_BOOK.high, zIndex, x: slid.x, y: slid.y, rotate: slid.rotate } as React.ComponentProps<typeof motion.div>['style']}>
         {/* Its shadow on the ledge while it is lifted off it, staying on the ledge as the book rises. */}
         <motion.span aria-hidden className="mf-spine-lift" style={{ opacity: slid.shade, y: shadeY }} />
         {/* Every book wears its own reader card (reader-card.tsx), the one Settings shows, scaled: the open one read as
             Settings reads it, any other from its own file. */}
-        <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false} shelf veil={veil}
-          className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -SHELF_BOOK.wide / 2, transformOrigin: '50% 100%' }}
+        <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} cloth={clothOf(book.color)} edges={false} shelf veil={veil}
+          className="mf-book absolute bottom-0 left-1/2" style={{ marginLeft: -SHELF_BOOK.wide / 2, transformOrigin: '50% 100%', ...cardInks(cardOf(seed).hues) }}
           cover={{ className: 'mf-card-cover' }}>
           {book.current ? <ShelfCover name={book.name} size={SHELF_BOOK} /> : card !== undefined && <OtherCover name={book.name} size={SHELF_BOOK} card={card} />}
         </BookBox>
@@ -515,6 +494,7 @@ export function BookShelf({ books, menuFor = null, onPick, onMenu }: { books: Bo
   const [pointed, setPointed] = useState<string | null>(null)
   const keyed = useRef(false)
   const lit = useMotionValue(1)
+  const settings = useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null)
   // Each opening asks every other book's reader card afresh, so each is there before the book is pulled out.
   useState(() => askCards(books.filter((one) => !one.current).map((one) => one.id)))
   // The one you were in last, wherever it stands on the shelf (its order may be yours).
@@ -538,7 +518,6 @@ export function BookShelf({ books, menuFor = null, onPick, onMenu }: { books: Bo
             drag, sortable.tsx), saved on the shelf for every list of them (Settings › Books too). */}
         <ShelfList room={SPINE_ROOM + 4} items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
           {(order) => {
-            const spines = spinesOf(order)
             const ids = order.map((one) => one.id)
             // ⌥← and ⌥→ on a book: one place along, gliding there (ShelfRow's glide), the focus still on it.
             const shift = (id: string, by: -1 | 1): void => {
@@ -549,7 +528,7 @@ export function BookShelf({ books, menuFor = null, onPick, onMenu }: { books: Bo
             }
             return order.map((book, at) => (
               <ShelfRow key={book.id} id={book.id} glide={`shelf-book-${book.id}`} className="flex-none">
-                <ShelfBook book={book} said={saidOf(book)} up={book.id === books[shown]?.id} spine={spines[at]} at={at} keyed={() => keyed.current} lit={lit}
+                <ShelfBook book={book} said={saidOf(book)} up={book.id === books[shown]?.id} ownSeed={settings?.readerSeed} at={at} keyed={() => keyed.current} lit={lit}
                   onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} onShift={(by) => shift(book.id, by)} />
               </ShelfRow>
             ))

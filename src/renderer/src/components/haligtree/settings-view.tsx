@@ -54,7 +54,7 @@ import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
 import { PageContents } from './page-contents'
 import { SectionSearch, SectionTabs } from './section-tabs'
-import { ReaderCard, ShelfCover } from './reader-card'
+import { ReaderCard, ShelfCover, sinceSaid, type Facts } from './reader-card'
 import { DeckFace } from './deck-shelf'
 import { BringBack, StartFresh } from './start-fresh'
 import { CoverChoice, DimPreview, FolderStrips, InFinder, isBuiltInScenery } from './settings-looks'
@@ -79,7 +79,7 @@ import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
-import { askBook, deleteBook, moveBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
+import { askBook, askCards, bookCardNow, bookCardOf, deleteBook, moveBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
 import { SortableList, SortableRow } from './sortable'
 import { BookMark, bookMenu } from './books'
 import { RowMenu, openFromGrip } from './row-menu'
@@ -1462,7 +1462,7 @@ const BOOK_KEYS = 'book books rename delete open switch colour color accent tint
 /**
  * Your books, under “Your book”: one list, as System Settings lists users and Finder its sidebar, in main's order (the
  * open one first, then the one you were in last). Each a compact row: its mark in its colour, its name, one quiet fact
- * (“Open now”, “Your first book”, “Made 13 Oct 2026”), and at the right “Open” (not on the open one) and a “…” holding
+ * (“Open now”, “Kept since 4 May 2026”: the line its reader card ends with, from its oldest note), and at the right “Open” (not on the open one) and a “…” holding
  * Colour, Rename and Delete, the same menu as its right-click and the sidebar's (a row of it under 56px tall, so it fills, never rings, while open) (books.tsx bookMenu). Delete asks in the book's own row,
  * held, its warning said there and nowhere else. “New book” once, at the list's foot, named in place as Finder names
  * a folder. (The user, 20 Nov, of the old rows, each with nine swatches, a paragraph and three buttons: "something
@@ -1477,6 +1477,19 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
   // The book whose deleting is being asked about, in its own row.
   const [asking, setAsking] = useState<string | null>(null)
   const loaded = !!shelf
+  // Each book's "Kept since", the same words its reader card ends with: the open one's as its card reads it, every
+  // other's from its own file (main/books.ts cardOf), as the shelf reads them.
+  const facts = useLive(() => call<Facts>('reader:card'), null as Facts | null, [], undefined, 'reader:card')
+  const [, cardsCame] = useState(0)
+  const otherIds = shelf?.books.filter((book) => !book.current).map((book) => book.id).join('\n') ?? ''
+  useEffect(() => {
+    if (!otherIds) return undefined
+    const ids = otherIds.split('\n')
+    askCards(ids)
+    let live = true
+    void Promise.all(ids.map(bookCardOf)).then(() => live && cardsCame((count) => count + 1))
+    return () => void (live = false)
+  }, [otherIds])
   useEffect(() => {
     const [, what, id] = /^(book|book-rename|book-delete):(.+)$/.exec(asked ?? '') ?? []
     if (!what || !loaded || nonce === bookAsked) return
@@ -1510,8 +1523,11 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
     chime('away')
     toast(`${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, undefined, 'info')
   }
-  const factOf = (book: Book): string =>
-    [book.current && 'Open now', book.id === 'default' ? 'Your first book' : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}`].filter(Boolean).join(' · ')
+  // Until its card has come, a space holds the line, so the row never grows under the pointer.
+  const factOf = (book: Book): string => {
+    const card = book.current ? facts && { facts } : bookCardNow(book.id)
+    return [book.current && 'Open now', card !== undefined && sinceSaid(card?.facts.since)].filter(Boolean).join(' · ') || '\u00a0'
+  }
   const fact = 'block truncate text-meta text-(--mf-muted-strong)'
   const books = shelf.books.filter((book) => matches(query, book.name, factOf(book), BOOK_KEYS))
   // The open book stands above the list, out of its panel, as the 3D book Settings shows (the lead, 22 Nov); the panel
