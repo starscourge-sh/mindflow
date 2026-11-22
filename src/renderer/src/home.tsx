@@ -2383,7 +2383,8 @@ export function Home(): React.JSX.Element {
               // The folder to light the way down to: where the open note lives, or the one on show.
               const inFolder = list === 'article' && view.id === 'folders' ? view.folder : list && noteList === list ? homeFolder ?? undefined : view.id === section.id && !noteNow ? view.folder : undefined
               const inScale = light === `scale:${view.id}` && scales.some((one) => one.id === view.id)
-              const here = light === `place:${section.id}`
+              // Writing folded with the note in front kept in one of its folders: its row holds the light, so there is always one.
+              const here = light === `place:${section.id}` || (list === 'article' && !unfolded && light.startsWith('kept:'))
               return (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               {/* Its menu is made as it opens (RowMenu): made with the row, sixteen menus were built each time the window drew. */}

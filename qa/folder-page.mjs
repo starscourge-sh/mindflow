@@ -198,7 +198,7 @@ try {
   check('a section let go within 100ms lands where its line showed, 5 times', landed.length === 5 && landed.every((one) => one.endsWith(', ok') && !one.includes('line none')), landed.join(' | '))
 
   // A heading reached by keys fills, as its row would; never a blue box.
-  await h.locator('[data-side-section-handle="folders"]').focus()
+  await h.locator('[data-side-section-handle="tags"]').focus()
   await h.keyboard.press('Shift+Tab')
   await h.keyboard.press('Tab')
   const ring = await h.evaluate(() => { const one = document.activeElement; return one ? `${one.getAttribute('data-side-section-handle') ?? one.tagName} ${getComputedStyle(one).outlineStyle}` : '' })

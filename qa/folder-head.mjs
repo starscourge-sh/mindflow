@@ -1,5 +1,5 @@
-// An everyday user going in and out of folders (folder-view.tsx `FolderPath`): Folders → a folder → back, several
-// times, by the path's own words. The path row ("Folders", or "Folders › Films and books") and the first row of what is
+// An everyday user going in and out of folders (folder-view.tsx `FolderPath`): Writing → a folder → back, several
+// times, by the path's own words. The path row ("Writing", or "Writing › Films and books") and the first row of what is
 // under it sit at the same height on both pages, within 1px, in every 50 ms frame of each move (the user, 21 Nov: the
 // page "kinda moves between pages"). "Add a cover" and "Add words" are never chips: nothing offers them until the head
 // is pointed at, and then they are quiet icons among the head's actions. A folder's gem offer, when up, is on the
@@ -21,11 +21,11 @@ const wait = (ms) => h.waitForTimeout(ms)
 const shot = async (name) => shots && c.both(`${shots}/${name}`)
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
 // The path row's top and the first thing of the list under it: a folder's own subfolders first, else its list's first
-// line, which is a date heading ("Previous 7 days") where the list is grouped, as Folders' first row is its first line.
+// line, which is a date heading ("Previous 7 days") where the list is grouped, as Writing's first row is its first folder.
 const tops = () => h.evaluate(() => {
   const top = (node) => (node ? Math.round(node.getBoundingClientRect().top * 10) / 10 : null)
   const path = document.querySelector('[data-folder-path]')
-  const first = document.querySelector('[data-all-folder], [data-folder-rows] > *, [data-page="folders"] [data-group-head], [data-page="folders"] button[data-row]')
+  const first = document.querySelector('[data-folder-rows] > *, [data-page="folders"] [data-group-head], [data-page="folders"] button[data-row]')
   return { path: top(path), row: top(first), title: path?.textContent ?? '' }
 })
 // Every 50 ms for 700 ms after a move: the path's top in each frame it is drawn.
@@ -53,18 +53,18 @@ try {
   await c.v('folders:file', [{ type: 'article', id: pages[0] }], films)
   await c.v('folders:file', [{ type: 'article', id: pages[1] }], letters)
 
-  await c.send('folder', 'all')
-  check('the Folders page opens with its path row', await until(async () => (await tops()).path !== null && (await tops()).row !== null), JSON.stringify(await tops()))
+  await c.send('view', 'articles')
+  check('Writing opens with its path row', await until(async () => (await tops()).path !== null && (await tops()).row !== null), JSON.stringify(await tops()))
   const home = await tops()
-  check('the Folders page\'s path says "Folders" alone, with "New folder" on its right', /^Folders\s*New folder$/.test(home.title.trim()), home.title)
-  await shot('folders-page')
+  check('Writing\'s path says "Writing" alone, with "New folder" on its right', /^Writing\s*New folder$/.test(home.title.trim()), home.title)
+  await shot('writing-top')
 
   const drift = []
   for (const [round, folder, name] of [[1, films, 'Films and books'], [2, letters, 'Letters'], [3, films, 'Films and books']]) {
-    await h.locator(`[data-all-folder="${folder}"]`).click()
+    await h.locator(`[data-page="articles"] [data-folder-open="${folder}"]`).click()
     const goingIn = await frames()
     const inside = await tops()
-    check(`round ${round}: ${name}'s page shows its path`, inside.title.includes(`Folders${name}`) || inside.title.includes(name), inside.title)
+    check(`round ${round}: ${name}'s page shows its path`, inside.title.includes(`Writing${name}`) || inside.title.includes(name), inside.title)
     const off = goingIn.filter((one) => one.path !== null && Math.abs(one.path - home.path) > 1)
     if (off.length) drift.push(`in ${round}: path ${off.map((one) => one.path).join(',')} vs ${home.path}`)
     if (inside.row === null || Math.abs(inside.row - home.row) > 1) drift.push(`in ${round}: first row ${inside.row} vs ${home.row}`)
@@ -81,8 +81,8 @@ try {
       await shot('folder-head-hovered')
       await h.mouse.move(5, 790)
     }
-    // Back by the path's own "Folders".
-    await h.locator('[data-folder-path] button', { hasText: /^Folders$/ }).click()
+    // Back by the path's own "Writing".
+    await h.locator('[data-folder-path] button', { hasText: /^Writing$/ }).click()
     const goingOut = await frames()
     const back = await tops()
     const offOut = goingOut.filter((one) => one.path !== null && Math.abs(one.path - home.path) > 1)

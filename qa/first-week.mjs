@@ -1,7 +1,7 @@
 // A first-timer's first Sunday: a brand-new book with one page in Writing ("Untitled") and nothing else (the user, 22 Nov).
 // Home's "Your week" says it in one line ("1 page kept this week."), no row of zeros and no "Your week, wrapped";
 // opening the week's Wrapped anyway from ⌘K gives one honest card ("Not much to wrap yet this week", the page by
-// name) with nothing to share; Folders shows "Not in a folder · 1 page" under a small "New folder", never "nothing".
+// name) with nothing to share; Writing shows the page loose at its top level with "New folder" in its head, never "nothing".
 // Frames of each, light and dark, go to QA_SHOTS.
 // It always runs on a brand-new book of its own: a folder it makes beside QA_DATA (inside the same .noindex folder),
 // never the book QA_DATA holds, and without --sandbox, then deletes it. Given a seeded copy, the first run read two
@@ -107,21 +107,15 @@ try {
   await h.keyboard.press('Escape')
   await h.waitForSelector('[data-wrap-story]', { state: 'detached', timeout: 5000 })
 
-  // 3. Folders, with a page in Writing and no folder made: where that page is, never "nothing".
-  await c.go('folders')
+  // 3. Writing, with a page and no folder made: the page loose at its top level, never "nothing", never a
+  // "Not in a folder" row; "New folder" in its head (one place, Writing, since 22 Nov).
+  await c.go('articles')
   await wait(1200)
-  const unfiled = h.locator('[data-all-unfiled]')
-  const row = await unfiled.innerText().catch(() => '')
-  check('Folders shows "Not in a folder" with its count, "1 page"', (await unfiled.count()) === 1 && /Not in a folder/.test(row) && /^1 page$/.test((await unfiled.locator('[data-folder-held]').innerText().catch(() => '')).trim()), row.replace(/\s+/g, ' '))
-  check('…a small "New folder" above it, not the big empty page', (await h.locator('[data-folders-none] [data-folders-first]').count()) === 1 && (await h.locator('[data-empty]').count()) === 0)
-  // The empty line reads whole: no keys in it, and every word of it is there once typed out.
-  await wait(1500)
-  const line = (await h.locator('[data-folders-none] p').innerText()).trim()
-  check('…its line reads whole, no keycaps', /whatever their kind\.$/.test(line) && (await h.locator('[data-folders-none] kbd').count()) === 0, line)
-  await shot('folders-unfiled')
-  await unfiled.click()
-  await wait(1200)
-  check('pressing it opens the page\'s place, with the page in it', /Untitled|New page/.test(await h.evaluate(() => document.querySelector('.\\@container\\/page')?.textContent ?? '')))
+  const page = () => h.evaluate(() => document.querySelector('.\\@container\\/page')?.textContent ?? '')
+  check('Writing shows the page at its top level', /Untitled|New page/.test(await page()), (await page()).slice(0, 200))
+  check('…no "Not in a folder" anywhere', !/Not in a folder/.test(await h.evaluate(() => document.body.textContent ?? '')))
+  check('…"New folder" in its head, not the big empty page', (await h.locator('[data-folder-head] [data-folders-new-page]').count()) === 1 && (await h.locator('[data-empty]').count()) === 0)
+  await shot('writing-top')
 } catch (error) {
   check('ran', false, error.stack)
 } finally {

@@ -35,15 +35,15 @@ try {
   await send('folder', `folders:${folder}`); await wait(1500)
   const shown = await h.evaluate(() => [...document.querySelectorAll('[data-folder-event]')].map((one) => one.textContent))
   check('the folder\'s page shows the calendar\'s coming events', shown.some((one) => one.includes('Lisbon flight')), JSON.stringify(shown))
-  // 2. From the folder's side: untied from its own menu (on Folders' page).
-  await send('folder', 'folders:all'); await wait(1500)
-  const row = h.locator(`[data-all-folder="${folder}"]`).first()
+  // 2. From the folder's side: untied from its own menu (on Writing's page, where its folders are).
+  await go('articles'); await wait(1500)
+  const row = h.locator(`[data-page="articles"] [data-folder-open="${folder}"]`).first()
   if (await row.count()) {
     await row.click({ button: 'right' }); await wait(400)
     await menuLine('Notes of Travel').hover(); await wait(400)
     await h.getByRole('menuitem', { name: 'Travel', exact: true }).click(); await wait(600)
     check('a folder\'s own menu unties it', (await cal(made.id))?.folder === null, JSON.stringify(await cal(made.id)))
-  } else check('Folders lists the folder', false)
+  } else check('Writing lists the folder', false)
   // 3. A tag's colour.
   const tag = (await v('tags'))[0]?.tag
   await go('calendar'); await wait(1200)

@@ -100,7 +100,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
     const done = await folders.nest(moving.id, to.id)
     if (done !== true) return refuse(done)
     chime('gather')
-    toast(`Moved ${moving.name} into ${to.name}`, () => void folders.nest(moving.id, moving.parent))
+    toast(`Moved “${moving.name}” into “${to.name}”`, () => void folders.nest(moving.id, moving.parent).then(() => chime('undo')))
   }
   const exact = shown.some((one) => one.name.toLowerCase() === name.toLowerCase())
   const what = things.length === 1 ? 'it' : `these ${num(things.length)}`

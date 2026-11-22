@@ -1,6 +1,6 @@
 // Folders at scale: 1,000 folders six levels deep and 5,000 things in them, laid into a COPY of the seeded sandbox
-// before it opens, then timed as a person meets them: the sidebar drawn, "All folders…" opened and searched, the
-// biggest folder's page opened, the picker opened and filtered.
+// before it opens, then timed as a person meets them: the sidebar drawn, Writing opened on its folders, the biggest
+// folder's page opened, the picker opened and filtered.
 //
 //   QA_ARGS=--sandbox QA_DATA=<copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/folders-scale.mjs
 import { DatabaseSync } from 'node:sqlite'
@@ -55,14 +55,13 @@ const time = async (label, run, done) => {
 try {
   const list = await time('every folder read with its counts', () => c.v('folders'), () => true)
   check('the folders read in under a second', list < 1000)
-  const all = await time('"All folders…" opened', () => h.locator('[data-folders-all]').click(), () => document.querySelectorAll('[data-all-folder]').length > 0)
-  check('"All folders…" opens in under a second', all < 1000, `${all}`)
-  check('it draws the top level folded, not 1,000 rows', (await h.locator('[data-all-folder]').count()) <= 20, `${await h.locator('[data-all-folder]').count()}`)
-  const find = await time('found by typing', () => h.locator('[data-find-folder] input, input[data-find-folder]').fill('Area 1'), () => document.querySelectorAll('[data-all-folder]').length >= 1 && document.querySelectorAll('[data-all-folder]').length <= 200)
-  check('a search answers in under half a second', find < 500, `${find}`)
+  // Writing's top level: its folders first (folded, not 1,000 rows), then the pages in none.
+  const all = await time('Writing opened', () => c.send('view', 'articles'), () => document.querySelectorAll('[data-page="articles"] [data-folder-open]').length > 0)
+  check('Writing opens in under a second', all < 1000, `${all}`)
+  check('it draws the top level folded, not 1,000 rows', (await h.locator('[data-page="articles"] [data-folder-open]').count()) <= 20, `${await h.locator('[data-page="articles"] [data-folder-open]').count()}`)
   const page = await time('a folder of 2,500 opened', () => c.send('folder', big.id).then(() => h.waitForTimeout(0)), () => document.querySelectorAll('[data-folder-item]').length > 0)
   check('a folder of 2,500 opens in under a second', page < 1500, `${page}`)
-  const deep = await time('the deepest folder opened', () => c.send('folder', deepest.id), () => !!document.querySelector('[data-folder-path]') && document.querySelector('[data-folder-path]').textContent.includes('Folders'))
+  const deep = await time('the deepest folder opened', () => c.send('folder', deepest.id), () => !!document.querySelector('[data-folder-path]') && document.querySelector('[data-folder-path]').textContent.includes('Writing'))
   check('a folder six deep opens, its path drawn', deep < 1500, `${deep}`)
   await c.go('articles')
   const row = h.locator('[data-page="articles"] button[data-row]').first()
