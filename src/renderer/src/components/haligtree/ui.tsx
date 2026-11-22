@@ -148,7 +148,10 @@ function useListWidth(): [string, React.JSX.Element] {
       onPointerDown={(event) => {
         event.preventDefault()
         const section = event.currentTarget.parentElement
-        const page = section?.parentElement
+        // The page it stands in: the first box around it with a width of its own. A wrapper drawn with none
+        // (display: contents) measured 0, so the most the list could take was 0 and every drag pinned it to its least.
+        let page = section?.parentElement ?? null
+        while (page && !page.getBoundingClientRect().width) page = page.parentElement
         if (!section || !page) return
         const left = section.getBoundingClientRect().left
         const most = page.getBoundingClientRect().width * 0.6
