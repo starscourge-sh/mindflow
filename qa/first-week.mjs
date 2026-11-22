@@ -36,24 +36,32 @@ try {
   check('the book is new: no captures, one page kept this week', captures === 0 && week.caught === 0 && week.kept === 1 && week.pages === 1 && week.reviewed === 0 && week.finished === 0, counts)
   await h.evaluate(() => localStorage.removeItem('weekly-digest:away'))
   await c.go('home')
-  await wait(2500)
+  // Waited for (a loaded machine reads the week slowly), for at most 15 s.
+  const card = h.locator('[data-weekly-digest]')
+  await card.waitFor({ timeout: 15000 }).catch(() => {})
+  await h.locator('[data-weekly-digest] [data-digest-line], [data-weekly-digest] [data-digest]').first().waitFor({ timeout: 5000 }).catch(() => {})
 
   // 1. Home's week card: the one figure as a sentence, no zeros, no Wrapped offered.
-  const card = h.locator('[data-weekly-digest]')
-  const seen = await card.innerText().catch(() => '')
-  check('Home shows the week card on a Sunday', (await card.count()) === 1, seen)
-  check('…saying the week in one line: "1 page kept this week."', /1 page kept this week\./.test(seen), seen.replace(/\s+/g, ' '))
+  const seen = (await card.count()) ? await card.innerText() : ''
+  const where = `${seen ? `card: "${seen.replace(/\s+/g, ' ')}"` : `no week card; Home: "${(await h.evaluate(() => document.querySelector('.\\@container\\/page')?.textContent ?? '')).slice(0, 300)}"`} (${counts})`
+  check('Home shows the week card on a Sunday', (await card.count()) === 1, where)
+  check('…saying the week in one line: "1 page kept this week."', /1 page kept this week\./.test(seen), where)
   check('…with no row of figures and no 0 anywhere', (await card.locator('[data-digest]').count()) === 0 && !/\b0\b/.test(seen), seen.replace(/\s+/g, ' '))
   check('…and no "Your week, wrapped" for a week with nothing to tell', (await card.locator('[data-digest-wrap]').count()) === 0, counts)
   await shot('home-week')
 
   // 2. Opened anyway, from ⌘K: one honest card, the page named, nothing to share.
+  // As a person does: ⌘K, the words, and ↵ once the row is the first one shown (waited for, at most 10 s).
   await h.keyboard.press('Meta+k')
-  await wait(500)
+  await h.locator('[cmdk-input], [role="dialog"] input').first().waitFor({ timeout: 10000 }).catch(() => {})
   await h.keyboard.type('Your week, wrapped', { delay: 15 })
-  await wait(600)
+  let first = ''
+  for (let i = 0; i < 50 && !/Your week, wrapped/.test(first); i++) { await wait(200); first = (await h.locator('[data-search-at]').first().innerText().catch(() => '')).trim() }
+  check('⌘K lists "Your week, wrapped" first for its name, even in a week with nothing to tell', /Your week, wrapped/.test(first), `first row: "${first.replace(/\s+/g, ' ')}"`)
   await h.keyboard.press('Enter')
-  await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 })
+  const opened = await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 30000 }).then(() => true, () => false)
+  check('↵ opens the week\'s Wrapped', opened, `first row was "${first.replace(/\s+/g, ' ')}"; story: ${await h.locator('[data-wrap-story]').count()}, card: ${await h.locator('[data-wrap-card]').getAttribute('data-wrap-card').catch(() => 'none')}`)
+  if (!opened) throw new Error('the week\'s Wrapped did not open from ⌘K')
   await wait(1500)
   const kind = await h.getAttribute('[data-wrap-card]', 'data-wrap-card')
   const said = (await h.locator('[data-wrap-card]').innerText()).replace(/\s+/g, ' ')
