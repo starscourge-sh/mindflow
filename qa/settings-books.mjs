@@ -42,8 +42,8 @@ try {
   // Colour, from the …: said with Undo, the row's mark wears it, Undo puts it back.
   const was = await h.locator(`[data-book-row="${other.id}"] [data-book-mark]`).getAttribute('data-book-mark')
   await more.click(); await wait(300)
-  await h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Colour' }).hover(); await wait(500)
-  const pick = h.locator('[data-slot="context-menu-sub-content"] [role="menuitemradio"][aria-checked="false"]').nth(1)
+  // The colours are in the menu itself now (no "Colour ▸" submenu).
+  const pick = h.locator('[role="menu"] [role="menuitemradio"][aria-checked="false"]').nth(1)
   const picked = await pick.getAttribute('aria-label')
   await pick.click(); await wait(600)
   const now = await h.locator(`[data-book-row="${other.id}"] [data-book-mark]`).getAttribute('data-book-mark')
