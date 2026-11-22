@@ -35,6 +35,7 @@ import { wordFor } from '@/lib/words'
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
 import { BookAsker } from './books'
+import { NameInPlace } from './name-in-place'
 import { VaultPicker } from './vault-picker'
 import { ImportFolders } from './import-folders'
 import { GoalAsker } from './goals-view'
@@ -1461,6 +1462,61 @@ function Asker(): React.JSX.Element | null {
   )
 }
 
+/**
+ * A thing's name changed where its name is shown, as Finder renames a file: a field stands over the name in the row
+ * (or the link) that was right-clicked, in its own type, the words picked so typing replaces them. Enter or a click
+ * away keeps, Esc leaves it as it was. Never a box with a title over a field (the user, 22 Nov: "I still hate these
+ * forms"). `at`: the thing whose name it is, when the caller knows it (a link in the writing); else what was last
+ * pressed. Resolves to the new name, or null when it is unchanged or left.
+ */
+export const renameHere = (title: string, label: string, at?: Element | null): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:rename-here', { detail: { title, label, at: at ?? pressed?.el ?? null, answer } })))
+
+/** The innermost thing in `host` that shows just these words (the row's name, not the whole row), a tag's with its "#" too. */
+const wordsIn = (host: Element, title: string): Element | null => {
+  const is = (el: Element): boolean => { const said = el.textContent?.trim() ?? ''; return said === title.trim() || said === `#${title.trim()}` }
+  let found: Element | null = null
+  // In the page's order a thing inside comes after what holds it: the last to match is the innermost.
+  for (const el of host.querySelectorAll('*')) if (is(el) && el.getBoundingClientRect().width > 0) found = el
+  return found ?? (is(host) ? host : null)
+}
+
+type Renaming = { title: string; label: string; answer: (name: string | null) => void; place: React.CSSProperties; font: string }
+
+function RenameHere(): React.JSX.Element | null {
+  const [now, setNow] = useState<Renaming | null>(null)
+  useEffect(() => {
+    const on = (event: Event): void => {
+      const { title, label, at, answer } = (event as CustomEvent<{ title: string; label: string; at: Element | null; answer: (name: string | null) => void }>).detail
+      const host = at?.isConnected ? (at.closest('[data-row-menu], [data-side-row], [role="row"], [role="button"], button, li, a') ?? at) : null
+      const words = host && host.getBoundingClientRect().height <= 280 ? wordsIn(host, title) : null
+      const box = words?.getBoundingClientRect()
+      const room = host?.getBoundingClientRect()
+      // Over the name where it is; with no name on show to stand over (asked by keys), under the window's top, as ⌘K sits.
+      const place: React.CSSProperties = box && room
+        ? { left: box.left - 4, top: box.top + box.height / 2 - 14, width: Math.min(window.innerWidth - box.left - 8, Math.max(180, room.right - box.left)) }
+        : { left: window.innerWidth / 2 - 170, top: Math.round(window.innerHeight * 0.18), width: 340 }
+      chime('open')
+      setNow({ title, label, answer, place, font: words ? getComputedStyle(words).font : '' })
+    }
+    window.addEventListener('haligtree:rename-here', on)
+    return () => window.removeEventListener('haligtree:rename-here', on)
+  }, [])
+  if (!now) return null
+  return (
+    <span data-rename-here data-takes-keys className="fixed z-[80] flex h-7 items-center" style={now.place}>
+      <NameInPlace initial={now.title} placeholder={now.title} label={now.label} style={now.font ? { font: now.font } : undefined}
+        className="h-7 w-full rounded-md bg-popover px-1 text-body text-foreground shadow-(--mf-shadow-control) outline-none ring-1 ring-ring/45 placeholder:text-muted-foreground"
+        onDone={(words) => {
+          const name = words && words !== now.title ? words : null
+          if (name) chime('tap')
+          now.answer(name)
+          setNow(null)
+        }} />
+    </span>
+  )
+}
+
 /** A yes or no, asked in the same sheet as a question: true for `yes`, false for Cancel, Escape or a click away. */
 export const askSure = (question: string, detail: ReactNode, yes: string, { at, danger = false, no, tag }: { at?: Element | null; /** It deletes or replaces: the button in the red tint. */ danger?: boolean; /** The way out's word, Cancel unless said. */ no?: string; /** Its `data-sure`, for the key that asked to find it again (a pinned tab's second ⌘W). */ tag?: string } = {}): Promise<boolean> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:sure', { detail: { question, detail, yes, danger, no, tag, at: at ?? opener(), review: inReview(at), answer } })))
@@ -1864,6 +1920,7 @@ export function Toaster(): React.JSX.Element | null {
   return (
     <>
     <Asker />
+    <RenameHere />
     <SureAsker />
     <KindAsker />
     <QuestionAsker />

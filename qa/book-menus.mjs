@@ -9,7 +9,12 @@
 //   D. the deck picker's "New deck…" names in place too; and a sweep of the source: no question asks "Name the new …".
 //   E. the one sheet still used for questions (a tag, say): its title at the words' size, its keys quiet after each word
 //      (no cap of their own), its button's words at 4.5:1 or more on the accent.
-// QA_SHOTS keeps a picture of each changed one: the three book menus, the book named in place, the deck named in place, the sheet.
+//   F. everyday: a colour picked in the book's menu keeps the menu open, its tick moved, and the accent glides there over
+//      several frames, never in one step.
+//   G. first-timer: a book pressed long and moved off it, let go over "New book…": nothing opens, no sheet, no name field.
+//   H. a person tidying: a spine carried along the shelf goes where it is let go; books.json keeps the order; Settings' rows match.
+// QA_SHOTS keeps a picture of each changed one: the three book menus, the book named in place, the deck named in place,
+// the sheet, the menu kept open after a colour, the shelf mid-carry and after.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=dir node qa/book-menus.mjs
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
@@ -22,13 +27,12 @@ if (/--sandbox/.test(process.env.QA_ARGS ?? '') || !existsSync(join(process.env.
   process.exit(1)
 }
 
-// D, the source half: no question in the app asks for a name in a sheet titled "Name the new …". One is let be: a
-// card's right-click "Move to deck › New deck…" (decks.tsx makeDeck), a menu that shuts with no list of decks to name in.
+// D, the source half: no question in the app asks for a name in a sheet: not "Name the new …", not "A new name", not
+// "A study set from …" (each is named where it appears now: NameInMenu, renameHere, the study sets' own row).
 const SRC = new URL('../src/renderer/src/', import.meta.url).pathname
 const files = (dir) => readdirSync(dir).flatMap((one) => { const at = join(dir, one); return statSync(at).isDirectory() ? files(at) : /\.tsx?$/.test(one) ? [at] : [] })
-const LET_BE = ['components/haligtree/decks.tsx']
-const asking = files(SRC).filter((file) => !LET_BE.includes(file.slice(SRC.length))).flatMap((file) => [...readFileSync(file, 'utf8').matchAll(/\bask\([^)\n]*['"`]Name the new[^'"`]*/g)].map((m) => `${file.slice(SRC.length)}: ${m[0]}`))
-check('D. no question asks "Name the new …" in a sheet: new things are named where they appear', asking.length === 0, asking.join(' | '))
+const asking = files(SRC).flatMap((file) => [...readFileSync(file, 'utf8').matchAll(/\bask\([^)\n]*['"`](Name the new|A new name|A study set from|A deck inside|Rename #)[^'"`]*/g)].map((m) => `${file.slice(SRC.length)}: ${m[0]}`))
+check('D. no question asks for a name in a sheet: new and renamed things are named where they appear', asking.length === 0, asking.join(' | '))
 
 const s = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, electron, close } = s
@@ -167,6 +171,60 @@ try {
     await shot('e1-ask-sheet')
     await h.keyboard.press('Escape')
   } else check('E. the question sheet opened', false)
+
+  // F. A colour picked in the book's menu: the menu stays, the tick moves, the accent glides over several frames.
+  await s.go('home')
+  await foot.click({ button: 'right' }); await wait(400)
+  const accent = () => h.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--book-hue').trim())
+  const first = await accent()
+  const target = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitemradio"]')].findIndex((one) => one.getAttribute('aria-checked') !== 'true' && /Green|Blue/.test(one.getAttribute('aria-label') ?? '')))
+  await h.locator('[role="menu"] [role="menuitemradio"]').nth(target).click()
+  const frames = []
+  for (let i = 0; i < 12; i++) { frames.push(await accent()); await wait(30) }
+  await wait(200)
+  const kept = await h.evaluate((at) => ({ open: !!document.querySelector('[role="menu"]'), ticked: document.querySelectorAll('[role="menu"] [role="menuitemradio"]')[at]?.getAttribute('aria-checked') }), target)
+  await shot('f1-colour-picked-menu-open')
+  check('F. a colour picked keeps the menu open, the tick on the one picked', kept.open && kept.ticked === 'true', JSON.stringify(kept))
+  const between = new Set(frames.filter((one) => one && one !== first && one !== frames[frames.length - 1]))
+  check('F. the accent glides through colours between the two (3 or more), never one step', between.size >= 3, JSON.stringify({ first, frames }))
+  await shut()
+
+  // G. A book pressed long, moved off it and let go over "New book…": nothing opens.
+  await foot.click(); await wait(500)
+  const spine = await h.locator(`[data-book-shelf] [data-book="${other.id}"]`).boundingBox()
+  const row = await h.locator('[data-book-new-row]').boundingBox()
+  await h.mouse.move(spine.x + spine.width / 2, spine.y + spine.height / 2)
+  await h.mouse.down(); await wait(900)
+  await h.mouse.move(row.x + 30, row.y + row.height / 2, { steps: 10 }); await wait(200)
+  await h.mouse.up(); await wait(500)
+  const after = await h.evaluate(() => ({ sheet: !!document.querySelector('[data-ask]'), naming: !!document.querySelector('[data-new-book]') }))
+  check('G. a long press moved off a book and let go over "New book…" opens nothing: no sheet, no name field', !after.sheet && !after.naming, JSON.stringify(after))
+  check('G. ...and opens no book', !(await electron.evaluate(() => globalThis.__relaunched))?.some?.((one) => one.includes(other.id)))
+  await shut()
+
+  // H. A spine carried along the shelf: the order changes, kept in books.json, Settings' rows the same.
+  const was = (await s.v('books:list')).books.map((one) => one.id)
+  await foot.click(); await wait(500)
+  const ids = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => one.getAttribute('data-book')))
+  const [a, b] = [await h.locator(`[data-book-shelf] [data-book="${ids[0]}"]`).boundingBox(), await h.locator(`[data-book-shelf] [data-book="${ids[ids.length - 1]}"]`).boundingBox()]
+  await h.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+  await h.mouse.down()
+  await h.mouse.move(a.x + a.width / 2 + 12, a.y + a.height / 2, { steps: 4 })
+  await h.mouse.move(b.x + b.width - 4, b.y + b.height / 2, { steps: 16 })
+  await shot('h1-spine-carried')
+  await h.mouse.up(); await wait(800)
+  const now = (await s.v('books:list')).books.map((one) => one.id)
+  check('H. the book carried to the end of the shelf stands there now', now[now.length - 1] === ids[0] && now.join() !== was.join(), JSON.stringify({ was, now }))
+  const file = JSON.parse(readFileSync(join(process.env.QA_DATA, 'books.json'), 'utf8'))
+  check('H. books.json keeps that order', JSON.stringify(file.order) === JSON.stringify(now), JSON.stringify(file.order))
+  check('H. the carry opened no book and no sheet', !(await has('[data-ask]')) && !(await electron.evaluate(() => globalThis.__relaunched))?.some?.((one) => one.includes(ids[0])))
+  await shot('h2-shelf-after')
+  await shut()
+  await s.go('settings'); await wait(800)
+  await foot.click({ button: 'right' }); await wait(400)
+  await h.getByRole('menuitem', { name: 'Show in Settings' }).click(); await wait(1200)
+  const rows = await h.evaluate(() => [...document.querySelectorAll('[data-book-row]')].map((one) => one.getAttribute('data-book-row')).filter((one) => one !== 'new'))
+  check('H. Settings › Books lists them in the same order', JSON.stringify(rows) === JSON.stringify(now), JSON.stringify(rows))
 } finally {
   await close()
 }

@@ -3,7 +3,7 @@ import { NAMING_MENU, NameInMenu } from './name-in-place'
 import { chime } from '@/lib/sound'
 import { call, haligtree, useLive } from '@/lib/haligtree'
 import { plural } from '../../../../main/dates'
-import { ask, toast } from './ui'
+import { toast } from './ui'
 import type { BrowsedCard } from './card-browser'
 import { ChevronDown, Layers } from 'lucide-react'
 import { EXAMPLE_TAG } from '../../../../main/name'
@@ -55,7 +55,7 @@ export const inDeck = (tags: string[], deck: string): boolean => tags.some((one)
 /**
  * A deck named `words` made (under `inside`), said with Undo. Resolves to its
  * tag, or null when the words make no deck. Review's grid names it in place
- * first, and so does the deck picker's own row; a card's "Move to deck" menu asks (`makeDeck`).
+ * first, and so do the deck picker's own row and a card's "Move to deck" menu (NameInMenu).
  */
 export async function madeDeck(words: string | null, inside?: string): Promise<string | null> {
   const tag = words && deckTagOf(inside ? `${inside}/${words}` : words)
@@ -64,11 +64,6 @@ export async function madeDeck(words: string | null, inside?: string): Promise<s
   chime('noted')
   toast(`The deck ${deckTitle(tag)} is made`, () => void haligtree.setTag(tag, { deck: false }).then(() => chime('undo')))
   return tag
-}
-
-/** Away from the decks and any list of them (a card's right-click menu): the name asked in a small sheet from where you are. */
-export async function makeDeck(inside?: string): Promise<string | null> {
-  return madeDeck(await ask(inside ? `A deck inside ${deckTitle(inside)}` : 'Name the new deck', inside ? 'Cells' : 'Biology, or Biology/Cells for one inside it', { action: 'Make the deck' }), inside)
 }
 
 /**
