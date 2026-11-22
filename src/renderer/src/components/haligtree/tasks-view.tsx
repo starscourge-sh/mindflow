@@ -1,6 +1,7 @@
 import { PlainField, type PlainHandle } from './presets'
 import { TabChips } from './tab-chips'
-import { askProject, groupTasks, joinGroup, moveToProject, projects, ungroupTasks, useTaskGroups } from '@/lib/projects'
+import { askProject, groupTasks, joinGroup, moveToProject, projectPath, projects, ungroupTasks, useProjects, useTaskGroups } from '@/lib/projects'
+import { GroupIcon } from './kept-groups'
 import { GroupHeading } from './projects-view'
 import { LengthMark } from './length-mark'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
@@ -757,6 +758,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   const real = useMemo(() => (keep && !unloaded(every) ? every.filter(keep) : every), [every, keep])
   // A project's groups (lib/projects.ts), and the one being named in place on its heading, just made.
   const taskGroups = useTaskGroups()
+  const projectName = useProjects().find((one) => one.id === project)?.name ?? 'this project'
   const [namingGroup, setNamingGroup] = useState<string | null>(null)
   useEffect(() => {
     if (!project) return
@@ -769,7 +771,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   // What a fresh start holds stays in its own tab, folded and dimmed under "On hold" at the foot: never moved out of sight.
   // Kept by name, as the lists are: Back to this page draws it at once from what was read last, and reads afresh.
   const allHeld = useLive(() => call<Task[]>('tasks:held'), [] as Task[], [], undefined, 'tasks-held')
-  const held = allHeld.filter((task) => mode === 'alltasks' || homeOf(task) === home)
+  // Only its own on a project's page, as its list is (a fresh start held every project's there).
+  const held = allHeld.filter((task) => (mode === 'alltasks' || homeOf(task) === home) && (!keep || keep(task)))
   const [heldOpen, setHeldOpen] = useState(false)
   // Grouped by tag, each tag folds on its own, kept per tab: a long Later reads as a few interests, not one pile.
   const [folds, setFoldsRaw] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(`tasks.folds.${mode}`) ?? '[]') } catch { return [] } })
@@ -1381,7 +1384,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : givenLead ?? lead} search={!example && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder={`Find in ${TASK_TABS.find((one) => one.id === mode)?.label ?? 'Tasks'}`} className="w-40" />} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : givenLead ?? lead} search={!example && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder={`Find in ${project ? projectName : TASK_TABS.find((one) => one.id === mode)?.label ?? 'Tasks'}`} className="w-40" />} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
         {/* A folder's head, where it sits on its Pages and Notes (list-words, 16px down), so switching tabs moves nothing. */}
         {said && <div data-kind-chips="" className="list-words pt-4 pb-2">{said}</div>}
 
@@ -1763,8 +1766,10 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
           </Rest>
         ) : (
           <Rest seed="today" off={mode !== 'today'}>
-          <Empty title={mode === 'today' ? 'Nothing due today' : mode === 'tomorrow' ? 'Nothing for tomorrow yet' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : mode === 'alltasks' ? 'No open tasks' : 'Nothing coming up'}>
-            {mode === 'routines'
+          <Empty title={project ? `Nothing to do in ${projectName}` : mode === 'today' ? 'Nothing due today' : mode === 'tomorrow' ? 'Nothing for tomorrow yet' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : mode === 'alltasks' ? 'No open tasks' : 'Nothing coming up'}>
+            {project
+              ? 'Type a task in the line above and it lands here, or carry tasks onto this project under Tasks in the sidebar.'
+              : mode === 'routines'
               ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the line above with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
@@ -1938,6 +1943,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         {focusTools && <TaskFocusNumbers taskId={task.id} estimate={task.estimate} />}
         {/* What happened to it, session by session and thought by thought: never written over. */}
         <TaskLog taskId={task.id} />
+        {/* Where it lives, Todoist's project: a press opens the one picker to move it. */}
+        <TaskProject task={task} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}
         <Island compact title="Scheduled">
           {/* Equal columns that may shrink: a narrow panel squeezes the words rather than pushing a button past its edge.
@@ -2711,4 +2718,19 @@ export function taskFacets(tasks: Task[]): Facet<Task>[] {
     { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A note' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.fromId && task.fromType !== 'task' ? 'capture' : 'typed') === from }
   ]
+}
+
+/** A task's project on its page: its icon and name, or none; a press moves it with the one picker (⇧⌘M). */
+function TaskProject({ task }: { task: Task }): React.JSX.Element {
+  const all = useProjects()
+  const project = all.find((one) => one.id === task.projectId)
+  return (
+    <Island compact title="Project">
+      <span data-task-project={project?.id ?? ''} className="contents">
+        <Prop tip="Move it to a project  ⇧⌘M" onClick={() => askProject([task.id])}>
+          <span className="flex min-w-0 items-center gap-2"><GroupIcon icon={project?.icon ?? null} color={project?.color ?? null} className="size-3.5" />{project ? projectPath(all, project.id).map((one) => one.name).join(' › ') : 'No project'}</span>
+        </Prop>
+      </span>
+    </Island>
+  )
 }
