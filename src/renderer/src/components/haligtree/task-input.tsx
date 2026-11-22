@@ -183,8 +183,12 @@ const TAG_AT = new RegExp(String.raw`(?:^|\s)#((?:${TAG_HERE})?)$`, 'u')
  * input over a copy of its own text, so the typing is the browser's and only
  * the colour is drawn: every key, ⌥3's "#" with it, types as it does anywhere.
  */
-export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, onBlur, autoFocus, label, kept }: {
+export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, onBlur, autoFocus, label, kept, attrs, trail }: {
   value: string
+  /** The field's own marks and handlers beyond these (a subtask's `data-subtask`, its paste). */
+  attrs?: React.InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | number | undefined>
+  /** Drawn after the words in place of the chips, from the field's own reading of them (a subtask's offer to be a task). */
+  trail?: (read: ReadTask | null) => React.ReactNode
   /** Words kept as plain words (`useKept`): the chips' × and ⌫ just after lit words keep them. */
   kept?: Kept
   onChange: (value: string) => void
@@ -272,6 +276,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
             if (typeof inputRef === 'function') inputRef(node)
             else if (inputRef) (inputRef as React.RefObject<HTMLInputElement | null>).current = node
           }}
+          {...attrs}
           data-task-input
           aria-label={label}
           autoFocus={autoFocus}
@@ -307,7 +312,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
           </div>
         )}
       </span>
-      <TaskChips read={read} value={value} onKeep={kept && ((kind) => keep(read?.spans.filter((one) => one.kind === kind) ?? []))} />
+      {trail ? trail(read) : <TaskChips read={read} value={value} onKeep={kept && ((kind) => keep(read?.spans.filter((one) => one.kind === kind) ?? []))} />}
     </span>
   )
 }
