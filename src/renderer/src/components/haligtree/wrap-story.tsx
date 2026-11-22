@@ -1,5 +1,3 @@
-import { writing } from '@/lib/keys'
-import { keysHere, usePane } from '@/lib/split'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from 'react'
 import { WrappedParagraph } from './ai-offers'
 import { AnimatePresence, motion } from 'motion/react'
@@ -348,13 +346,9 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     setDir(next > at ? 1 : -1)
     setAt(next)
   }
-  const pane = usePane()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      // Its keys only while its own pane is in front and nothing is being typed: in a split, ⇧↵ in the other pane's
-      // task field turned this story's page (the user, 22 Nov).
-      if (!keysHere(pane) || writing()) return
       if ((event.key === 'Enter' || event.key === ' ') && (event.target as HTMLElement | null)?.closest?.('[data-wrap-keep] button')) return
       if (event.key === 'Escape') onClose()
       else if (['ArrowRight', ' ', 'Enter', 'l', 'j'].includes(event.key)) go(at + 1, true)
