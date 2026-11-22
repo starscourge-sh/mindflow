@@ -62,6 +62,10 @@ export function unlinkTask(task: Pick<Task, 'id' | 'link' | 'linkTitle' | 'linkI
   if (!was.link) return
   // Said at once, from wherever it was taken off (a row, the task's page, the side panel): the notice and its Undo
   // (⌘Z too) never wait on the save, and an Undo pressed before the save lands still puts it back after it.
+  // Counted for a probe (qa/task-link-chip.mjs): whether a × reached here, and with which task.
+  const qa = window as { __qaUnlinks?: number; __qaUnlinkLast?: unknown }
+  qa.__qaUnlinks = (qa.__qaUnlinks ?? 0) + 1
+  qa.__qaUnlinkLast = { id: task.id, ...was }
   const saved = haligtree.saveTask(task.id, { link: null })
   chime('off')
   toast('Link removed', () => void saved.finally(() => void haligtree.saveTask(task.id, was)))
@@ -109,7 +113,7 @@ export function TaskLink({ task, edit = true, className = '' }: { task: Linked &
   return (
     <AnimatePresence initial={false}>
       {href && (
-        <motion.span key={href} data-task-link-wrap className="inline-flex min-w-0 overflow-hidden"
+        <motion.span key={href} data-task-link-wrap className="inline-flex shrink-0 overflow-hidden"
           initial={{ opacity: 0, width: 0, height: 0 }} animate={{ opacity: 1, width: 'auto', height: 'auto' }} exit={{ opacity: 0, width: 0, height: 0 }}
           transition={{ duration: 0.18, ease: EASE }}>
           {edit ? (
