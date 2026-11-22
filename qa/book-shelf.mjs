@@ -95,7 +95,7 @@ try {
       const dim = (c) => c.map((v) => v * (1 - veil))
       const ground = dim(rgb(getComputedStyle(face).backgroundColor))
       const ratio = Math.min(...foil.map((stop) => { const [a, b] = [lum(dim(stop)), lum(ground)]; return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }))
-      const [head, foot] = [...face.querySelectorAll('.mf-shelf-spine-rule')].map((rule) => rule.getBoundingClientRect())
+      const [head, foot] = [...face.querySelectorAll('.mf-book-spine-rule')].map((rule) => rule.getBoundingClientRect())
       const box = title.getBoundingClientRect()
       const edge = face.getBoundingClientRect()
       return {
