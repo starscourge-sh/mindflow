@@ -1846,11 +1846,14 @@ body {
   background-color: var(--accent);
   border-radius: calc(var(--radius) - 4px);
 }
-/* Taller than a row (a deck's stack, a card, a tile): a ring round it, never a fill behind it. */
+/* Taller than a row (a deck's stack, a card, a tile): shaded a little, as Finder shades an icon it shows a menu for;
+   never a ring round it (the user, 22 Nov: "this weird outline that keeps showing up whenever I right click"). */
 [data-slot='context-menu-trigger'][data-state='open'][data-menu-tall]:not(.pdf-reader-scroll) {
-  outline: 2px solid color-mix(in oklab, var(--foreground) 30%, transparent);
-  outline-offset: 3px;
-  border-radius: 8px;
+  filter: brightness(0.94);
+  transition: filter 120ms var(--mf-ease);
+}
+:root:not([data-light]) [data-slot='context-menu-trigger'][data-state='open'][data-menu-tall]:not(.pdf-reader-scroll) {
+  filter: brightness(1.12);
 }
 
 /* A private item's words in a list or card: blurred to anyone glancing at the
