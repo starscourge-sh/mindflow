@@ -4275,7 +4275,8 @@ export function registerHaligtree(): void {
     link, link_icon as linkIcon, blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
-  const FROM = `coalesce(origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
+  // Named in full: read inside a lookup of another task (`tasks f`), a bare column was that task's own.
+  const FROM = `coalesce(tasks.origin_capture_id, (select item_id from task_links where task_id = tasks.id limit 1))`
   // Each day a task is left undone past its day is one carry over, counted once a day;
   // and one held by a fresh start comes back by itself when a day after the fresh
   // start comes that it is for, or must be ready by. Late ones wait until opened.
