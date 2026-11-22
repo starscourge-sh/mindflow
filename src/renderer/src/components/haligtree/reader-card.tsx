@@ -15,7 +15,7 @@ import { still } from '@/lib/motion'
 import { dayMonth } from '../../../../main/dates'
 import { Tip, refuse, toast } from './ui'
 import { useTilt } from './tilt'
-import { BookBox, inked, type BookSize } from './book-box'
+import { BookBox, inked, labelOf, type BookSize } from './book-box'
 
 /**
  * The reader card, Arc's member card for a commonplace book: a printed card of
@@ -219,13 +219,13 @@ function ShapePicture({ shape, rise, grain = true }: { shape: Shape; rise: boole
 export const cardInks = (hues: [string, string, string]): CSSProperties =>
   ({ '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) }) as CSSProperties
 
-/** The card's own size: drawn at it, and scaled wherever it is shown smaller (the open book on the sidebar's shelf). */
-export const CARD = { wide: 250, high: 375 }
+/** The card's own size, the label pasted on the Settings book's cover: drawn at it, and scaled wherever it is shown smaller (the sidebar's shelf). */
+const LABEL = labelOf(BOOK)
 
 /**
- * What is printed on the cover: the picture, the book's name, its title, the stamps and the day it began. One drawing
- * for the reader card (Settings, the welcome) and for the open book on the sidebar's shelf, scaled. Laid out in the
- * cover's own padding (`flex flex-col py-4 pr-4 pl-[1.75rem]`). `small`, on the shelf: no hover tips on its stamps (the
+ * What is printed on the cover's label: the picture, the book's name, its title, the stamps and the day it began. One
+ * drawing for the reader card (Settings, the welcome) and for every book on the sidebar's shelf, scaled. Laid out in the
+ * label's own padding (`flex flex-col p-4`). `small`, on the shelf: no hover tips on its stamps (the
  * shelf sits in a menu, and a tip there is a second floating thing) and its picture there at once, never rising in each
  * time the menu opens.
  */
@@ -266,35 +266,38 @@ export function CardFace({ seed, name, facts, small = false }: { seed: number; n
           </span>
         </div>
       </div>
-      {/* A tooled frame on the cover, two fine rules in its ink, as a cloth binding is blocked; clear of the spine. */}
-      <span aria-hidden data-reader-frame className="pointer-events-none absolute top-[7px] right-[7px] bottom-[7px] left-[19px] rounded-[2px] border border-current opacity-[0.14]" />
+      {/* A printed rule round the label, in its ink, as a pasted cover label has. */}
+      <span aria-hidden data-reader-frame className="pointer-events-none absolute inset-[7px] rounded-[1px] border border-current opacity-[0.14]" />
     </>
   )
 }
 
 /**
- * A book's cover on the sidebar's shelf: its reader card, the same drawing as in Settings, scaled to the shelf book's
- * cover (`high` tall) in the card's own inks. The open book's read as Settings reads it: the seed kept in settings, else
+ * A book's cover on the sidebar's shelf: its reader card, the same drawing as in Settings, scaled to the label on the
+ * shelf book's cover (`size`) in the card's own inks. The open book's read as Settings reads it: the seed kept in settings, else
  * the name's, and the stamps from the book.
  */
-export function ShelfCover({ name, high }: { name: string; high: number }): React.JSX.Element {
+export function ShelfCover({ name, size }: { name: string; size: BookSize }): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null)
   const facts = useLive(() => call<Facts>('reader:card'), null as Facts | null, [], undefined, 'reader:card')
-  return <CardCover name={name} high={high} seed={settings?.readerSeed ?? seedOf(name)} facts={facts} />
+  return <CardCover name={name} size={size} seed={settings?.readerSeed ?? seedOf(name)} facts={facts} />
 }
 
 /**
  * Any other book's cover on the shelf: its own reader card, as main read it from that book's file (books:card,
  * main/books.ts cardOf), so Caelid wears its octagon and Garden its starburst. A book with no file yet: its name's seed, no stamps.
  */
-export function OtherCover({ name, high, card }: { name: string; high: number; card: BookCard | null }): React.JSX.Element {
-  return <CardCover name={name} high={high} seed={card?.seed ?? seedOf(name)} facts={card?.facts ?? null} />
+export function OtherCover({ name, size, card }: { name: string; size: BookSize; card: BookCard | null }): React.JSX.Element {
+  return <CardCover name={name} size={size} seed={card?.seed ?? seedOf(name)} facts={card?.facts ?? null} />
 }
 
-function CardCover({ name, high, seed, facts }: { name: string; high: number; seed: number; facts: Facts | null }): React.JSX.Element {
+function CardCover({ name, size, seed, facts }: { name: string; size: BookSize; seed: number; facts: Facts | null }): React.JSX.Element {
+  // Laid out as the Settings label is and scaled to this book's label, a hair wider or narrower to fill it exactly.
+  const label = labelOf(size)
+  const scale = label.high / LABEL.high
   return (
-    <div data-shelf-card className="absolute top-0 left-0 flex origin-top-left flex-col py-4 pr-4 pl-[1.75rem]"
-      style={{ width: CARD.wide, height: CARD.high, scale: high / CARD.high, color: 'var(--mf-card-c)', ...cardInks(cardOf(seed).hues) }}>
+    <div data-shelf-card className="absolute top-0 left-0 flex origin-top-left flex-col p-4"
+      style={{ width: label.wide / scale, height: LABEL.high, scale, color: 'var(--mf-card-c)', ...cardInks(cardOf(seed).hues) }}>
       <CardFace seed={seed} name={name} facts={facts} small />
     </div>
   )
@@ -463,7 +466,7 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
         {/* The book (book-box.tsx): its colours set on the whole book, so the spine and the cover wear the same ink. */}
         <BookBox size={BOOK} pitch={pitched} turn={turned} lit={lit} scale={tilt.grow} perspective={1000} name={name} ribbon
           style={{ transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', ...cardInks(hues) }}
-          cover={{ ref: card, 'data-reader-card': '', 'data-hues': hues.join(' '), className: 'flex flex-col py-4 pr-4 pl-[1.75rem]' }}>
+          cover={{ 'data-reader-card': '', 'data-hues': hues.join(' ') }} label={{ ref: card, className: 'flex flex-col p-4' }}>
           <CardFace seed={seed} name={name} facts={facts} />
           {/* A soft light where the pointer is, as the card tips. */}
           <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ background: tilt.sheen, opacity: tilt.glow }} />

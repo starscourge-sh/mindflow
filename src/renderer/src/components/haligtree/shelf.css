@@ -31,15 +31,6 @@
 .mf-shelf::-webkit-scrollbar { display: none; }
 /* A book's room on the shelf: its width is the book's own spring (books.tsx ShelfBook); the book stands in it. */
 .mf-shelf .mf-spine {
-  /* Its foil, chosen by its cloth's lightness as a binder chooses the foil: bright gold on a deep spine, antique bronze on
-     a pale one, where bright gold would vanish. Three stops each (shadow, body, shine), every one 3:1 or more on its
-     spine through the shelf's dimming (qa/book-shelf.mjs). The switch is 1 on a deep spine, 0 on a pale one. */
-  --mf-foil-lo: oklch(from var(--mf-spine-bg) calc(0.3 + 0.5 * clamp(0, (0.64 - l) * 999, 1)) calc(0.055 + 0.045 * clamp(0, (0.64 - l) * 999, 1)) calc(70 + 10 * clamp(0, (0.64 - l) * 999, 1)));
-  --mf-foil-mid: oklch(from var(--mf-spine-bg) calc(0.36 + 0.51 * clamp(0, (0.64 - l) * 999, 1)) calc(0.075 + 0.045 * clamp(0, (0.64 - l) * 999, 1)) calc(75 + 11 * clamp(0, (0.64 - l) * 999, 1)));
-  --mf-foil-hi: oklch(from var(--mf-spine-bg) calc(0.39 + 0.56 * clamp(0, (0.64 - l) * 999, 1)) calc(0.085 - 0.02 * clamp(0, (0.64 - l) * 999, 1)) calc(82 + 13 * clamp(0, (0.64 - l) * 999, 1)));
-  /* Foil seen across a rounded spine: dull at its edges, a bright line where it faces the light, where the cloth shines
-     (a third in from the cover's side). Laid left to right on the rules; on the name, which stands turned, right to left. */
-  --mf-foil-stops: var(--mf-foil-lo), var(--mf-foil-mid) 36%, var(--mf-foil-hi) 60%, var(--mf-foil-mid) 74%, var(--mf-foil-lo);
   position: relative;
   flex: none;
   display: block;
@@ -53,60 +44,94 @@
 }
 .mf-shelf .mf-spine:active { scale: 0.97; }
 .mf-shelf .mf-spine * { cursor: pointer; }
-/* A shelf spine: book cloth of its own colour (the user, 22 Nov: "too much grain", noise read as dirt). Three layers,
-   top first, every one a gradient or a tiny drawn tile, nothing worked out per book:
+/* Every book's case (book-box.tsx), on the shelf and in Settings: one cloth all over, as a clothbound pocket classic
+   (the user's photos, 22 Nov), in the book's colour `--mf-cloth` (set on the book), and its foil chosen from it. */
+.mf-book-case {
+  /* Its foil, chosen by its cloth's lightness as a binder chooses the foil: bright gold on a deep cloth, antique bronze
+     on a pale one, where bright gold would vanish. Three stops each (shadow, body, shine), every one 3:1 or more on its
+     cloth through the shelf's dimming (qa/book-shelf.mjs), and the glint, the narrow line where the light catches it.
+     The switch is 1 on a deep cloth, 0 on a pale one. */
+  --mf-foil-lo: oklch(from var(--mf-cloth) calc(0.3 + 0.5 * clamp(0, (0.64 - l) * 999, 1)) calc(0.055 + 0.045 * clamp(0, (0.64 - l) * 999, 1)) calc(70 + 10 * clamp(0, (0.64 - l) * 999, 1)));
+  --mf-foil-mid: oklch(from var(--mf-cloth) calc(0.36 + 0.51 * clamp(0, (0.64 - l) * 999, 1)) calc(0.075 + 0.045 * clamp(0, (0.64 - l) * 999, 1)) calc(75 + 11 * clamp(0, (0.64 - l) * 999, 1)));
+  --mf-foil-hi: oklch(from var(--mf-cloth) calc(0.39 + 0.56 * clamp(0, (0.64 - l) * 999, 1)) calc(0.085 - 0.02 * clamp(0, (0.64 - l) * 999, 1)) calc(82 + 13 * clamp(0, (0.64 - l) * 999, 1)));
+  --mf-foil-glint: oklch(from var(--mf-cloth) calc(0.45 + 0.54 * clamp(0, (0.64 - l) * 999, 1)) calc(0.09 - 0.065 * clamp(0, (0.64 - l) * 999, 1)) calc(82 + 13 * clamp(0, (0.64 - l) * 999, 1)));
+  /* Foil seen across a rounded spine: dull at its edges, bright where it faces the light (a third in from the cover's side). */
+  --mf-foil-stops: var(--mf-foil-lo), var(--mf-foil-mid) 36%, var(--mf-foil-hi) 60%, var(--mf-foil-mid) 74%, var(--mf-foil-lo);
+}
+/* The cloth: a plain weave tile of two threads each way (6px repeat on the shelf, 3px threads; 4px in Settings), the
+   threads over and under lit and shaded by under a tenth, so it reads as linen near and as an even colour at arm's
+   length (the user, 22 Nov: "too much grain", noise read as dirt). A tiny drawn tile, nothing worked out per book. */
+.mf-cloth,
+.mf-book-spine {
+  --mf-weave-tile: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v3H0zM3 3h1v3H3z' fill-opacity='.06'/%3E%3Cpath d='M1 0h1v3H1zM4 3h1v3H4z' fill='%23fff' fill-opacity='.09'/%3E%3Cpath d='M2 0h1v3H2zM5 3h1v3H5z' fill='%23fff' fill-opacity='.03'/%3E%3Cpath d='M3 0h3v1H3zM0 3h3v1H0z' fill='%23fff' fill-opacity='.07'/%3E%3Cpath d='M3 2h3v1H3zM0 5h3v1H0z' fill-opacity='.08'/%3E%3C/svg%3E");
+  background-color: var(--mf-cloth);
+}
+.mf-cloth {
+  background-image: var(--mf-weave-tile);
+  background-size: var(--mf-weave) var(--mf-weave);
+}
+/* The spine: the same cloth under two lights, top first:
    1. the head and tail caps, where the cloth turns over the top and foot: a thin dark band with a lit fold under it;
    2. the light of a rounded spine, the light coming from the front: dark at both joints, brightest a third in from the
-      cover's side, as a round back catches a window;
-   3. the weave: a plain weave tile of 3px threads (6px repeat, two threads each way), the threads over and under lit
-      and shaded by under a tenth, so it reads as cloth near and as an even colour at arm's length. */
-.mf-shelf-spine {
-  background-color: var(--mf-spine-bg);
+      cover's side, as a round back catches a window. The valley at each joint is its own layer (book-box.tsx jointOn). */
+.mf-book-spine {
   background-image:
     linear-gradient(to bottom, rgb(0 0 0 / 0.34), rgb(0 0 0 / 0.12) 1.5px, rgb(255 255 255 / 0.08) 2.5px, transparent 4px, transparent calc(100% - 4px), rgb(255 255 255 / 0.05) calc(100% - 2.5px), rgb(0 0 0 / 0.14) calc(100% - 1.5px), rgb(0 0 0 / 0.38)),
-    linear-gradient(to right, rgb(0 0 0 / 0.34), rgb(0 0 0 / 0.1) 16%, rgb(255 255 255 / 0.03) 40%, rgb(255 255 255 / 0.13) 64%, rgb(255 255 255 / 0.05) 76%, rgb(0 0 0 / 0.1) 88%, rgb(0 0 0 / 0.34)),
-    url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v3H0zM3 3h1v3H3z' fill-opacity='.06'/%3E%3Cpath d='M1 0h1v3H1zM4 3h1v3H4z' fill='%23fff' fill-opacity='.09'/%3E%3Cpath d='M2 0h1v3H2zM5 3h1v3H5z' fill='%23fff' fill-opacity='.03'/%3E%3Cpath d='M3 0h3v1H3zM0 3h3v1H0z' fill='%23fff' fill-opacity='.07'/%3E%3Cpath d='M3 2h3v1H3zM0 5h3v1H0z' fill-opacity='.08'/%3E%3C/svg%3E");
-  background-size: auto, auto, 6px 6px;
+    linear-gradient(to right, rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.1) 16%, rgb(255 255 255 / 0.03) 40%, rgb(255 255 255 / 0.13) 64%, rgb(255 255 255 / 0.05) 76%, rgb(0 0 0 / 0.1) 88%, rgb(0 0 0 / 0.3)),
+    var(--mf-weave-tile);
+  background-size: auto, auto, var(--mf-weave) var(--mf-weave);
 }
 /* The rules at its head and foot: two fine lines of the same foil, shining where the spine does. */
-.mf-shelf-spine-rule {
+.mf-book-spine-rule {
   position: absolute;
-  inset-inline: 4px;
   height: 3px;
   border-block: 1px solid transparent;
   border-image: linear-gradient(to right, var(--mf-foil-stops)) 1;
 }
-/* Its name up it from the foot, whole: one line, or two (or more) when long, its size measured once per name
-   (book-box.tsx spineType). The foil over its own impression, a hair higher, as a blocked name sits pressed into the
-   cloth: the cloth darker where the die went in. The menu inks a lit row's words in its own colour: a book keeps its own. */
-.mf-shelf .mf-spine .mf-shelf-spine-words {
+/* Its name, whole: one line, or two (or more) when long, its size measured once per name (book-box.tsx spineType). Down
+   from the head in Settings; up from the foot on the shelf (`data-up`), as a row of spines reads. The foil over its own
+   impression, as a blocked name sits pressed into the cloth: the cloth darker where the die went in, showing a hair
+   above each letter, where the light from above leaves the pressed edge in shade. The menu inks a lit row's words in
+   its own colour: a book keeps its own (unlayered, so it wins). */
+.mf-book-spine-words {
+  --mf-foil-way: to right;
+  --mf-foil-at: 0.6;
   position: relative;
   writing-mode: vertical-rl;
-  rotate: 180deg;
   font-family: 'Fraunces Variable', Georgia, serif;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-align: center;
   text-wrap: balance;
 }
-.mf-shelf .mf-spine .mf-shelf-spine-deboss {
+.mf-book-spine-words[data-up] {
+  --mf-foil-way: to left;
+  rotate: 180deg;
+}
+.mf-book-spine-deboss {
   position: absolute;
   inset: 0;
-  translate: 0 0.7px;
-  color: oklch(from var(--mf-spine-bg) calc(l - 0.2) c h / 0.85);
+  translate: 0 -0.7px;
+  color: oklch(from var(--mf-cloth) calc(l - 0.2) c h / 0.85);
   -webkit-text-fill-color: currentColor;
 }
-.mf-shelf .mf-spine .mf-shelf-spine-title {
+.mf-book-spine-words[data-up] .mf-book-spine-deboss { translate: 0 0.7px; }
+/* The foil, bright metal: its stops across the rounded spine, and over them the glint, a narrow bright line where the
+   light catches it, carried across the spine as the book turns (`--mf-foil-at`, book-box.tsx glintAt, 0 at the back
+   joint and 1 at the front). Laid across the spine as the screen shows it: the name that stands turned runs right to left. */
+.mf-book-spine-title {
   position: relative;
   display: block;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  background-image: linear-gradient(to left, var(--mf-foil-stops));
+  background-image:
+    linear-gradient(var(--mf-foil-way), transparent calc(var(--mf-foil-at) * 100% - 11%), var(--mf-foil-glint) calc(var(--mf-foil-at) * 100%), transparent calc(var(--mf-foil-at) * 100% + 11%)),
+    linear-gradient(var(--mf-foil-way), var(--mf-foil-stops));
   background-clip: text;
   -webkit-background-clip: text;
 }
 .mf-shelf .mf-spine .mf-card-cover * { color: inherit; }
-/* Every book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx), on the cream paper. */
+/* Every book's cover: its reader card on the label pasted on its cloth, drawn at the Settings label's size and scaled to it (reader-card.tsx CardCover). */
 .mf-card-cover { overflow: hidden; }
 /* Its picture at the card's own size, and its words wrapping as on the card: a menu row draws every svg in it at 14px
    unless told, and keeps its words on one line (dropdown-menu.tsx). */

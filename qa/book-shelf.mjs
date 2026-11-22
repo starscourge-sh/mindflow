@@ -1,10 +1,12 @@
-// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the Settings book, a woven cloth
-// spine in its own colour with its name up it whole in foil, its cover printed paper with its card crisp, turned a little so a sliver of its
+// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the Settings book, cased in woven
+// cloth of its own colour with a valley at both joints, its name up the spine whole in foil, its card crisp on a paper
+// label pasted on the cover's cloth, turned a little so a sliver of its
 // cover shows, every book one height on one foot line, the open one turned to its cover, the one pointed at (or reached by the keys) pulled out and
 // turned instead and named under the shelf, the shelf one width throughout; a press on another book opens it. Real
 // pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
 // QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms, and keeps a picture of the menu with
-// the pointer on each of the first books, in the light look and the dark, and the Settings book in each for comparison.
+// the pointer on each of the first books, in the light look and the dark, the pulled-out book close (pulled-out-close.png),
+// and the Settings book in each for comparison.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 node qa/book-shelf.mjs
 import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -62,7 +64,7 @@ try {
   // Every spine one height; the turned book on the same line, as the user's references stand theirs (21 Nov: "still
   // don't get why active book is lifted"): its foot on the ledge with theirs, its head no higher. And every book at rest
   // turned a little, a sliver of its cover showing at its spine's right ("rather than look dead straight into the side").
-  const tall = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => { const face = (one.getAttribute('aria-current') ? one.querySelector('[data-shelf-card]')?.parentElement : one.querySelector('[data-reader-spine-face]'))?.getBoundingClientRect(); const spine = one.querySelector('[data-reader-spine-face]').getBoundingClientRect(); const cover = one.querySelector('.mf-card-cover').getBoundingClientRect(); return { open: !!one.getAttribute('aria-current'), w: Math.round(face?.width ?? 0), h: Math.round(face?.height ?? 0), top: face?.top ?? 0, bottom: face?.bottom ?? 0, sliver: Math.round(cover.width * 10) / 10, side: Math.round(cover.left - spine.right), card: !!one.querySelector('.mf-card-cover [data-shelf-card]') } }))
+  const tall = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => { const face = (one.getAttribute('aria-current') ? one.querySelector('.mf-card-cover') : one.querySelector('[data-reader-spine-face]'))?.getBoundingClientRect(); const spine = one.querySelector('[data-reader-spine-face]').getBoundingClientRect(); const cover = one.querySelector('.mf-card-cover').getBoundingClientRect(); return { open: !!one.getAttribute('aria-current'), w: Math.round(face?.width ?? 0), h: Math.round(face?.height ?? 0), top: face?.top ?? 0, bottom: face?.bottom ?? 0, sliver: Math.round(cover.width * 10) / 10, side: Math.round(cover.left - spine.right), card: !!one.querySelector('.mf-card-cover [data-shelf-card]') } }))
   const spinesTall = tall.filter((one) => !one.open)
   const turnedTall = tall.find((one) => one.open)
   check('every spine stands one height, within 1px, about six times as tall as it is wide', Math.max(...spinesTall.map((one) => one.h)) - Math.min(...spinesTall.map((one) => one.h)) <= 1 && spinesTall.every((one) => one.h >= one.w * 5 && one.h <= one.w * 7), JSON.stringify(spinesTall.slice(0, 6)))
@@ -122,6 +124,26 @@ try {
     return { thread: Math.round(thread * 100) / 100, noise: /feTurbulence/.test(tile) || !!face.querySelector('[data-spine-grain]'), woven: /<path/.test(tile) }
   }))
   check('every spine is woven cloth, no noise, its threads 2 css px or more as the shelf shows it', weaves.every((one) => one.woven && !one.noise && one.thread >= 2), JSON.stringify(weaves.slice(0, 3)))
+  // The valley at both joints (22 Nov, the user's clothbound book: "notice how on the spine, on both sides, there is a
+  // valley?"): on every spine as it stands, a groove at the back board's joint and one at the front's, each a dark line
+  // 2 css px or more beside a lit lip of 1px or more, as the shelf shows them. And the whole case is that cloth: every
+  // cover woven, in the spine's own colour.
+  const joints = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].filter((one) => !one.getAttribute('aria-current')).map((one) => {
+    const face = one.querySelector('[data-reader-spine-face]')
+    const cover = one.querySelector('.mf-card-cover')
+    const look = getComputedStyle(cover)
+    const sides = Object.fromEntries(['back', 'front'].map((side) => {
+      const joint = face.querySelector(`[data-joint="${side}"]`)
+      if (!joint) return [side, null]
+      const shown = joint.getBoundingClientRect().width / joint.offsetWidth
+      const lip = Number(joint.getAttribute('data-lip'))
+      return [side, { dark: Math.round((joint.offsetWidth - lip) * shown * 100) / 100, lip: Math.round(lip * shown * 100) / 100, lit: /255, 255, 255/.test(getComputedStyle(joint).backgroundImage) }]
+    }))
+    return { id: one.getAttribute('data-book'), ...sides, groove: !!cover.querySelector('[data-hinge-groove="front"]'), woven: /<path/.test(decodeURIComponent(look.backgroundImage)), same: look.backgroundColor === getComputedStyle(face).backgroundColor }
+  }))
+  const valley = (side) => side && side.dark >= 2 && side.lip >= 1 && side.lit
+  check('every spine has a valley at both joints, a dark line 2px or more and a lit lip 1px or more as shown, and its cover its groove', joints.length === 29 && joints.every((one) => valley(one.back) && valley(one.front) && one.groove), JSON.stringify(joints.filter((one) => !(valley(one.back) && valley(one.front) && one.groove)).concat(joints.slice(0, 2))))
+  check('every cover is the spine\'s cloth: woven, in the spine\'s own colour', joints.every((one) => one.woven && one.same), JSON.stringify(joints.filter((one) => !(one.woven && one.same)).slice(0, 3)))
   check('no two neighbouring spines the same colour', inks.every((one, at) => !at || one.ground !== inks[at - 1].ground), JSON.stringify(inks.map((one) => one.ground)))
   // The caption under the shelf: its whole box inside the menu, and neither line cut at its foot (21 Nov: clipped).
   const captionRoom = await h.evaluate(() => { const one = document.querySelector('[data-book-caption]'); const menu = one.closest('[role="menu"]').getBoundingClientRect(); const box = one.getBoundingClientRect(); return { inside: box.top >= menu.top && box.bottom <= menu.bottom && box.left >= menu.left && box.right <= menu.right, lines: [...one.children].map((line) => line.scrollHeight - line.clientHeight), box: [Math.round(box.top), Math.round(box.bottom)], menu: [Math.round(menu.top), Math.round(menu.bottom)] } })
@@ -175,6 +197,28 @@ try {
     return { hit: hit?.closest('[data-reader-title]') ? 'title' : hit?.tagName ?? 'none', grain: book.querySelectorAll('[data-reader-grain]').length, over: over.map((one) => String(one.className)) }
   }, other.id)
   check('its card is crisp: its title under the pointer is the card\'s own words, no grain or texture laid over it', crisp.hit === 'title' && crisp.grain === 0 && crisp.over.length === 0, JSON.stringify(crisp))
+  // The card printed on a paper label pasted on the cloth, as the user's clothbound book wears its own: the card inside a
+  // label of its own, set in from the cover's every edge by 3px or more as shown, the cloth round it; and the cover's
+  // groove at the spine, facing you now, a dark line of 2px or more and a lit lip of 1px or more.
+  const pasted = await h.evaluate((id) => {
+    const book = document.querySelector(`[data-book-shelf] [data-book="${id}"]`)
+    const cover = book.querySelector('.mf-card-cover')
+    const label = cover.querySelector('[data-cover-label]')
+    const groove = cover.querySelector('[data-hinge-groove="front"]')
+    if (!label || !groove) return { label: !!label, groove: !!groove }
+    const [c, l, g] = [cover, label, groove].map((one) => one.getBoundingClientRect())
+    const shown = g.width / groove.offsetWidth
+    const lip = Number(groove.getAttribute('data-lip'))
+    const round = (n) => Math.round(n * 10) / 10
+    return { label: true, groove: true, holds: label.contains(book.querySelector('[data-shelf-card]')), inset: [l.top - c.top, c.right - l.right, c.bottom - l.bottom, l.left - c.left].map(round), paper: getComputedStyle(label).backgroundColor, dark: round((groove.offsetWidth - lip) * shown), lip: round(lip * shown) }
+  }, other.id)
+  check('the card is a label pasted on the cloth: its own box, set in 3px or more from each edge of the cover', pasted.label && pasted.holds && pasted.inset.every((one) => one >= 3) && !/rgba\(0, 0, 0, 0\)/.test(pasted.paper), JSON.stringify(pasted))
+  check('and the cover turned to you shows its groove at the spine: a dark line 2px or more, a lit lip 1px or more', pasted.groove && pasted.dark >= 2 && pasted.lip >= 1, JSON.stringify(pasted))
+  // The pulled-out book close, at the screen's own pixels, to read its groove, its cloth and its label by eye.
+  if (shots) {
+    const near = await h.locator(`[data-book-shelf] [data-book="${other.id}"]`).boundingBox()
+    if (near) await h.screenshot({ path: `${shots}/pulled-out-close.png`, scale: 'device', clip: { x: Math.max(0, near.x - 30), y: Math.max(0, near.y - 12), width: near.width + 60, height: near.height + 24 } })
+  }
   // No spine words over the turned cover (21 Nov: the spine's name, squeezed thin, ghosted down the cover's left edge):
   // the cover's left strip is the cover, and the spine's name is gone once it is turned.
   const ghost = await h.evaluate((id) => {
