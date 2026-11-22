@@ -61,11 +61,11 @@ try {
     [...document.querySelectorAll('.web-reader .pdf-reader-bar button')].map((one) => {
       const box = one.getBoundingClientRect()
       // A rolling figure ("100%", lib/roll.tsx) is measured whole: its letters stand in boxes of their own that roll.
-      const marks = [...one.querySelectorAll('svg, [data-roll]')].map((part) => part.getBoundingClientRect())
+      const marks = [...one.querySelectorAll('svg, [data-roll], .tiptap-button-text')].map((part) => part.getBoundingClientRect())
       const walk = document.createTreeWalker(one, NodeFilter.SHOW_TEXT)
       for (let node = walk.nextNode(); node; node = walk.nextNode()) {
         // The highlights count laid over the icon's corner is not the button's room.
-        if (!node.textContent.trim() || node.parentElement.closest('[data-roll], [data-marks-count]')) continue
+        if (!node.textContent.trim() || node.parentElement.closest('[data-roll], .tiptap-button-text, [data-marks-count]')) continue
         const range = document.createRange()
         range.selectNodeContents(node)
         marks.push(range.getBoundingClientRect())
