@@ -247,7 +247,8 @@ try {
     const carried = document.querySelector('[data-book-shelf] [data-carried]')
     const box = carried?.getBoundingClientRect()
     // What is there at the pointer's x, half way up the carried spine: the book, never a pill or a gap.
-    const hit = box ? document.elementFromPoint(px, box.top + box.height / 2) : document.elementFromPoint(px, py)
+    // The drag's own invisible layer (the closed hand, Esc) lies over everything: read what is under it.
+    const hit = document.elementsFromPoint(px, box ? box.top + box.height / 2 : py).find((el) => !el.closest('.mf-drag-picture')) ?? null
     const under = hit?.closest('[data-shelf-book]')?.getAttribute('data-shelf-book') ?? (hit ? `${hit.tagName.toLowerCase()}.${String(hit.className).slice(0, 40)}` : null)
     // A grey room the size of a pulled-out book, or the shared drag's title pill: none may be on screen.
     const rooms = [...document.querySelectorAll('[data-own-room]')].filter((one) => one.getBoundingClientRect().width > 0).length

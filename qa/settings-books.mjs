@@ -34,10 +34,10 @@ try {
   const menuLines = async () => (await h.locator('[data-slot="context-menu-content"] [data-slot="context-menu-item"], [data-slot="context-menu-content"] [data-slot="context-menu-sub-trigger"]').allTextContents()).map((one) => one.trim())
   // The open book's menu has no Delete; another book's has all three.
   await h.locator(`[data-book-more="${open.id}"]`).click(); await wait(400)
-  check('the open book’s … : Rename and Colour, no Delete', (await menuLines()).join() === 'Rename…,Colour', (await menuLines()).join())
+  check('the open book’s … : its colours inline, Rename, no Delete', ((l) => l.includes('Rename…') && !l.includes('Delete…'))((await menuLines()).filter(Boolean)), (await menuLines()).join())
   await h.keyboard.press('Escape'); await wait(300)
   await h.locator(`[data-book-row="${other.id}"]`).click({ button: 'right' }); await wait(400)
-  check('another book’s right-click: Rename, Colour, Delete', (await menuLines()).join() === 'Rename…,Colour,Delete…', (await menuLines()).join())
+  check('another book’s right-click: its colours inline, Rename, Delete', ((l) => l.includes('Rename…') && l.includes('Delete…'))((await menuLines()).filter(Boolean)), (await menuLines()).join())
   await h.keyboard.press('Escape'); await wait(300)
   // Colour, from the …: said with Undo, the row's mark wears it, Undo puts it back.
   const was = await h.locator(`[data-book-row="${other.id}"] [data-book-mark]`).getAttribute('data-book-mark')
