@@ -95,7 +95,7 @@ try {
   for (let n = 0; n < 8; n++) { widths.push(Math.round((await row.locator('[data-task-link-wrap]').boundingBox().catch(() => null))?.width ?? 0)); await wait(30) }
   check('5b removed from the row, the chip glides away rather than vanishing', widths[0] > 0 ? widths.some((one, n) => n > 0 && one > 0 && one < widths[0] - 2) : false, JSON.stringify(widths))
   // The row's removal says so with Undo too; it is taken back by its button, or ⌘Z if the notice has gone.
-  console.log('  5c notices before Undo:', JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('[data-toast]')].map((el) => el.textContent?.trim()))))
+  console.log('  5c notices before Undo:', JSON.stringify(await h.evaluate(() => ({ shown: [...document.querySelectorAll('[data-toast]')].map((el) => el.textContent?.trim()), trace: window.__qaToasts ?? [], now: Math.round(performance.now()) }))))
   const undo = h.getByRole('button', { name: /^Undo/ }).first()
   if (await undo.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) await undo.click()
   else await h.keyboard.press('Meta+z')
