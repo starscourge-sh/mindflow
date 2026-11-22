@@ -1,5 +1,4 @@
 import { writing } from '@/lib/keys'
-import { keysHere, usePane } from '@/lib/split'
 import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { quoted } from '../../../../main/clip'
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, type Variants } from 'motion/react'
@@ -272,13 +271,12 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     setDir(next > at ? 1 : -1)
     setAt(next)
   }
-  const pane = usePane()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      // Its keys only while its own pane is in front and nothing is being typed: in a split, ⇧↵ in the other pane's
-      // task field turned this story's page (the user, 22 Nov).
-      if (!keysHere(pane) || writing()) return
+      // Never while words are being typed somewhere: in a split, ⇧↵ in the other pane's task field turned this story's
+      // page (the user, 22 Nov). Its own pane is not asked: the story stands over the window, whatever pane is in front.
+      if (writing()) return
       if (event.key === 'Escape') onClose()
       else if (['ArrowRight', ' ', 'Enter', 'l', 'j'].includes(event.key)) go(at + 1)
       else if (['ArrowLeft', 'h', 'k'].includes(event.key)) go(at - 1)
