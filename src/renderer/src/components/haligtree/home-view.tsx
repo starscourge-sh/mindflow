@@ -89,6 +89,19 @@ type HomeData = {
 }
 const NONE: HomeData = { opened: [], edited: [], due: [], unseen: [], questions: [], tags: [], week: [], memory: null, article: null, returning: [] }
 const home = (): Promise<HomeData> => window.api.haligtree<HomeData>('home')
+/**
+ * Home's lead card, rested once it has led three days without being opened: kept as the days each led on (this window
+ * only). Studied, it leaves the due list; rested, the next due card leads, or the rest of Home.
+ */
+const LED = 'home-led'
+const ledDays = (): Record<string, string[]> => { try { return JSON.parse(localStorage.getItem(LED) ?? '{}') } catch { return {} } }
+const ledTooLong = (id: string): boolean => (ledDays()[id] ?? []).length >= 3
+const noteLed = (id: string): void => {
+  const all = ledDays()
+  const days = all[id] ?? []
+  if (days.includes(dayKey())) return
+  try { localStorage.setItem(LED, JSON.stringify(Object.fromEntries([...Object.entries(all), [id, [...days, dayKey()].slice(-7)]].slice(-50)))) } catch { /* This window only. */ }
+}
 
 const CHIPS = [
   { id: 'all', label: 'All', keep: () => true },
@@ -908,10 +921,13 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const feature = [
     letter && { card: { type: 'capture', id: letter.id, title: letter.label, kind: letter.kind, private: letter.private, at: letter.capturedAt, excerpt: '' } as Card, line: backSaid(letter) },
     data.memory && { card: data.memory, line: data.memory.memory },
-    data.due[0] && { card: data.due[0], line: 'Due for review today' },
+    // The first due card not left unopened at the top three days already: the same one led for weeks (the user, 22 Nov).
+    ((due) => due && { card: due, line: 'Due for review today' })(data.due.find((card) => !ledTooLong(card.id))),
     data.article && { card: data.article, line: 'Your newest page' }
   ].find((one) => one && keep(one.card.type)) || null
 
+  const ledId = feature?.line === 'Due for review today' ? feature.card.id : null
+  useEffect(() => void (ledId && noteLed(ledId)), [ledId])
   const dated = (card: Card): Card => ({ ...card, sub: card.sub ?? whenInLine(card.at) })
   const only = (cards: Card[]): Card[] => cards.filter((card) => keep(card.type) && !binned.has(card.id) && card.id !== feature?.card.id)
   // Not what the tiles already show: further back in what you had open or changed.
