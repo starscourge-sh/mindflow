@@ -191,7 +191,18 @@ function RecentList({ lead, said, onOpen }: { lead?: React.ReactNode; said: Reac
       {recent && !recent.length ? (
         <Empty title="Nothing written yet" art={<FileText className="size-8 text-muted-foreground" />}>A page you write or a gem you keep shows here first.</Empty>
       ) : (
-        <div data-recent="" className="list-edge my-2 flex flex-col">
+        // ↑↓ (j/k) step from row to row, ↵ opens one (the button's own), as on every list.
+        <div data-recent="" className="list-edge my-2 flex flex-col" onKeyDown={(event) => {
+          const step = event.key === 'ArrowDown' || event.key === 'j' ? 1 : event.key === 'ArrowUp' || event.key === 'k' ? -1 : 0
+          if (!step || event.metaKey || event.ctrlKey || event.altKey) return
+          const rows = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-recent-row]')]
+          const at = rows.indexOf(document.activeElement as HTMLElement)
+          const next = rows[Math.max(0, Math.min(rows.length - 1, at + step))]
+          if (!next) return
+          event.preventDefault()
+          next.focus()
+          next.scrollIntoView({ block: 'nearest' })
+        }}>
           {parts.map(([part, rows], at) => (
             <div key={part} data-recent-part={part} className="flex flex-col">
               <SectionHead head={[part, rows.length]} first={at === 0} />
