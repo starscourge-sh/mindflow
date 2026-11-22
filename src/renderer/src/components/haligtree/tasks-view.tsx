@@ -530,8 +530,10 @@ const HOW = ['professional', 'digital-admin', 'physical-admin', 'calls', 'orders
 /** Tasks grouped by how they get done (the first tag on each), not by how much they matter. */
 const byHow = (list: Task[]): [string, Task[]][] => {
   const first = (task: Task): string => taskName(task.title).tags[0] ?? ''
-  const tags = [...new Set(list.map(first).filter(Boolean))].sort((a, b) => (HOW.indexOf(a) + 1 || 99) - (HOW.indexOf(b) + 1 || 99) || a.localeCompare(b, undefined, { numeric: true }))
-  return [...tags.map((tag): [string, Task[]] => [howSaid(tag), list.filter((task) => first(task) === tag)]), ['No tag yet', list.filter((task) => !first(task))]]
+  // One group per heading: #calls and #Calls (or #to-do and #to_do) read the same, so they are one group, never two
+  // headings of one name drawn as one row twice.
+  const tags = [...new Map(list.map(first).filter(Boolean).map((tag) => [howSaid(tag), tag])).values()].sort((a, b) => (HOW.indexOf(a) + 1 || 99) - (HOW.indexOf(b) + 1 || 99) || a.localeCompare(b, undefined, { numeric: true }))
+  return [...tags.map((tag): [string, Task[]] => [howSaid(tag), list.filter((task) => !!first(task) && howSaid(first(task)) === howSaid(tag))]), ['No tag yet', list.filter((task) => !first(task))]]
 }
 
 /** One task back from a fresh start's hold, asked for by name: said where it went, with Undo. */
@@ -729,7 +731,9 @@ export const homeOf = (task: Task): 'today' | 'upcoming' | 'later' | 'routines' 
 const ON_HOLD = 'On hold'
 
 const byWhen = (list: Task[]): [string, Task[]][] => {
-  const weekEnd = dayjs().startOf('week').add(1, 'week').valueOf()
+  // Never before the day after tomorrow: weeks start on Monday, so on a Sunday the week ended where tomorrow starts,
+  // and a task for tomorrow stood under Tomorrow and Later both (22 Nov: drawn twice, and more each draw after).
+  const weekEnd = Math.max(dayjs().startOf('week').add(1, 'week').valueOf(), startOfDay(2))
   const after = list.filter((task) => dayOf(task) >= weekEnd)
   return [
     ['Overdue', list.filter((task) => dayOf(task) < startOfDay())],
