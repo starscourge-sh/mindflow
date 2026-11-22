@@ -22,7 +22,17 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1180, height: 800, seeded: false, at: CALM_HOUR, weekday: 0 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const shot = async (name) => shots && c.both(`${shots}/${name}`)
+// Every step bounded: a missing element fails its check in seconds, never a 30 s wait each.
+h.setDefaultTimeout(8000)
+// Light and dark of the window as it is, each picture given 10 s; one that cannot be taken is said, not waited on.
+const shot = async (name) => {
+  if (!shots) return
+  for (const look of ['light', 'dark']) {
+    await c.look(look)
+    await h.screenshot({ path: `${shots}/${name}-${look}.png`, timeout: 10000 }).then(() => console.log(`shot ${shots}/${name}-${look}.png`), (error) => console.log(`shot ${name}-${look} not taken: ${error.message.split('\n')[0]}`))
+  }
+  await c.look('light')
+}
 try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
   await v('settings:set', { sounds: false, hintRate: 0, rotCount: 0, quietStart: '00:00', quietEnd: '00:00', weeklyDigest: true })
@@ -36,15 +46,20 @@ try {
   check('the book is new: no captures, one page kept this week', captures === 0 && week.caught === 0 && week.kept === 1 && week.pages === 1 && week.reviewed === 0 && week.finished === 0, counts)
   await h.evaluate(() => localStorage.removeItem('weekly-digest:away'))
   await c.go('home')
-  // Waited for (a loaded machine reads the week slowly), for at most 15 s.
+  // The card is on Home once its week is read (at most 10 s). Home's "Now" shows one card at a time (now-slot.tsx): if
+  // another card of the moment is first, the week card waits behind "N more for today", and a person opens that to see it.
   const card = h.locator('[data-weekly-digest]')
-  await card.waitFor({ timeout: 15000 }).catch(() => {})
-  await h.locator('[data-weekly-digest] [data-digest-line], [data-weekly-digest] [data-digest]').first().waitFor({ timeout: 5000 }).catch(() => {})
+  await card.waitFor({ state: 'attached', timeout: 10000 }).catch(() => {})
+  const firstNow = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-now-slot] [data-now]')].find((el) => el.childElementCount && !el.hasAttribute('data-now-later')); return one ? `${one.dataset.now}: ${(one.textContent ?? '').slice(0, 60)}` : 'none' })
+  const behind = (await card.count()) === 1 && !(await card.isVisible())
+  if (behind) { await h.locator('[data-now-more]').click(); await card.waitFor({ timeout: 3000 }).catch(() => {}) }
+  const now = `Now shows first: ${firstNow}${behind ? '; the week card was behind "more for today", opened' : ''}`
 
   // 1. Home's week card: the one figure as a sentence, no zeros, no Wrapped offered.
   const seen = (await card.count()) ? await card.innerText() : ''
-  const where = `${seen ? `card: "${seen.replace(/\s+/g, ' ')}"` : `no week card; Home: "${(await h.evaluate(() => document.querySelector('.\\@container\\/page')?.textContent ?? '')).slice(0, 300)}"`} (${counts})`
-  check('Home shows the week card on a Sunday', (await card.count()) === 1, where)
+  const where = `${seen ? `card: "${seen.replace(/\s+/g, ' ')}"` : `no week card; Home: "${(await h.evaluate(() => document.querySelector('.\\@container\\/page')?.textContent ?? '')).slice(0, 300)}"`} (${counts}; ${now})`
+  console.log(now)
+  check('Home shows the week card on a Sunday', (await card.count()) === 1 && (await card.isVisible()), where)
   check('…saying the week in one line: "1 page kept this week."', /1 page kept this week\./.test(seen), where)
   check('…with no row of figures and no 0 anywhere', (await card.locator('[data-digest]').count()) === 0 && !/\b0\b/.test(seen), seen.replace(/\s+/g, ' '))
   check('…and no "Your week, wrapped" for a week with nothing to tell', (await card.locator('[data-digest-wrap]').count()) === 0, counts)
@@ -59,7 +74,7 @@ try {
   for (let i = 0; i < 50 && !/Your week, wrapped/.test(first); i++) { await wait(200); first = (await h.locator('[data-search-at]').first().innerText().catch(() => '')).trim() }
   check('⌘K lists "Your week, wrapped" first for its name, even in a week with nothing to tell', /Your week, wrapped/.test(first), `first row: "${first.replace(/\s+/g, ' ')}"`)
   await h.keyboard.press('Enter')
-  const opened = await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 30000 }).then(() => true, () => false)
+  const opened = await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 20000 }).then(() => true, () => false)
   check('↵ opens the week\'s Wrapped', opened, `first row was "${first.replace(/\s+/g, ' ')}"; story: ${await h.locator('[data-wrap-story]').count()}, card: ${await h.locator('[data-wrap-card]').getAttribute('data-wrap-card').catch(() => 'none')}`)
   if (!opened) throw new Error('the week\'s Wrapped did not open from ⌘K')
   await wait(1500)
@@ -86,7 +101,7 @@ try {
   check('Folders shows "Not in a folder" with its count, "1 page"', (await unfiled.count()) === 1 && /Not in a folder/.test(row) && /^1 page$/.test((await unfiled.locator('[data-folder-held]').innerText().catch(() => '')).trim()), row.replace(/\s+/g, ' '))
   check('…a small "New folder" above it, not the big empty page', (await h.locator('[data-folders-none] [data-folders-first]').count()) === 1 && (await h.locator('[data-empty]').count()) === 0)
   // The empty line reads whole: no keys in it, and every word of it is there once typed out.
-  await wait(2500)
+  await wait(1500)
   const line = (await h.locator('[data-folders-none] p').innerText()).trim()
   check('…its line reads whole, no keycaps', /whatever their kind\.$/.test(line) && (await h.locator('[data-folders-none] kbd').count()) === 0, line)
   await shot('folders-unfiled')
