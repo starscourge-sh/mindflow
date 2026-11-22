@@ -26,6 +26,7 @@ try {
   // The open book above the list, out of its panel, as the 3D book; the panel the others, in the shelf's order.
   const lead = await h.evaluate(() => { const el = document.querySelector('[data-group="Books"] [data-book-lead]'); return el ? { id: el.getAttribute('data-book-row'), inPanel: !!el.closest('.mf-island'), book: !!el.querySelector('[data-reader-card], .mf-book-case, [data-shelf-card]') } : null })
   check('the open book stands above the list, outside its panel, as the 3D book with its name', lead?.id === open.id && !lead.inPanel && lead.book, JSON.stringify(lead))
+  if (process.env.QA_SHOTS) for (const t of ['light', 'dark']) { await s.look(t); await wait(400); await h.screenshot({ path: `${process.env.QA_SHOTS}/settings-books-${t}.png` }) } if (process.env.QA_SHOTS) await s.look('light')
   check('one row a book, in the shelf’s order: the open one above, the panel the others', rows.map((one) => one.id).join() === [open.id, ...books.filter((one) => !one.current).map((one) => one.id)].join(), JSON.stringify(rows))
   check('each listed row compact: under 56px, no swatches or buttons beyond Open and …', rows.filter((one) => one.id !== open.id).every((one) => one.h < 56 && one.swatches === 0 && one.more), JSON.stringify(rows))
   check('Open on every book but the open one, whose fact says so', rows.every((one) => one.open === (one.id !== open.id)) && /^Open now/.test(rows.find((one) => one.id === open.id)?.fact), JSON.stringify(rows))
