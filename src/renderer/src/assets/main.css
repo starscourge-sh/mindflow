@@ -3092,20 +3092,6 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
 :root[data-theme-glide]::view-transition-new(root) {
   animation: mf-plain-in 120ms var(--mf-ease) both;
 }
-/* A book's colour changed in place (lib/books.ts, turnTo): the same plain crossing, on the app's short clock.
-   The two pictures differ only where the colour is worn (the sidebar's tint, the accent), so that is all that
-   is seen to change: no blur, and nothing crossing the page. */
-:root[data-hue-turn]::view-transition-old(root) {
-  animation: mf-plain-out 200ms var(--mf-ease) both;
-}
-:root[data-hue-turn]::view-transition-new(root) {
-  animation: mf-plain-in 200ms var(--mf-ease) both;
-}
-/* The window keeps its size and place through it: nothing to glide, so the crossing ends with the fade (the
-   browser's own 250ms glide of the group would otherwise hold it open a little longer, moving nothing). */
-:root[data-hue-turn]::view-transition-group(root) {
-  animation: none;
-}
 
 /* Something clicked growing into what it opens, and back (lib/hero.ts): a
    view transition. The group (the real pictures of the thing and the page)
@@ -3151,6 +3137,13 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
    to one of the theme's own hues, so it suits every theme, and the main
    window's sidebar takes a tint of it. No colour, and the theme is as drawn.
    html:root beats a theme's :root.<name>. */
+/* A book's colour changed in place (lib/books.ts, turnTo) glides there: the hue is a colour the browser can ease
+   between, so the sidebar's tint and the accent everywhere pass through the colours between the two over 300ms,
+   one change of colour and nothing else (the user, 22 Nov: "switching accent colours is not a smooth experience").
+   "none" is the theme's own accent, worn for the glide to or from no colour. */
+@property --book-hue { syntax: '<color>'; inherits: true; initial-value: transparent; }
+html:root[data-book-glide] { transition: --book-hue 300ms var(--mf-ease); }
+html:root[data-book-hue='none'] { --book-hue: var(--mf-theme-accent, var(--primary)); }
 html:root[data-book-hue='blue'] { --book-hue: var(--tt-color-text-blue); }
 html:root[data-book-hue='purple'] { --book-hue: var(--tt-color-text-purple); }
 html:root[data-book-hue='pink'] { --book-hue: var(--tt-color-text-pink); }

@@ -112,7 +112,9 @@ export const lines =(items: Shown[]): React.ReactNode =>
     ) : 'swatches' in item ? (
       <div key={`swatches-${index}`} role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
         {item.swatches.map((one) => (
-          <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
+          // A colour picked keeps the menu open, its tick moving to the one picked, so the next can be tried at once (the
+          // user, 22 Nov: "I don't like that clicking on a colour closes the menu"); Esc or a click away shuts it.
+          <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={(event) => (event.preventDefault(), one.run())}
             className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
             <Swatch color={one.color} on={one.on} />
           </ContextMenuItem>
