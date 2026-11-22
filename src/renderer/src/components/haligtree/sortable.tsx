@@ -133,12 +133,6 @@ type ListProps<T> = {
   nests?: NestCheck
   /** Down a list (the usual), or along a row (tabs). */
   axis?: 'y' | 'x'
-  /**
-   * Along a row only: what is carried is the thing itself, never a card (a book slid along its shelf, books.tsx): no
-   * picture follows the pointer and no quiet room is drawn; the row's own child moves itself under the pointer
-   * (`useCarried` says it is the one held), and the others part to open its place.
-   */
-  self?: boolean
   keyOf: (item: T) => string
   /** A row dropped onto another lands before it (going up) or after it (going down). */
   onMove?: (id: string, target: string, after: boolean) => void
@@ -322,30 +316,8 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
 /** A row of tabs, carried side to side: they slide along to make room, the carried one's place kept quiet where it will land. */
 /** The nearest tab to the one carried; none out of the window, so a tab let go there goes back (quick capture's small window). */
 const inWindow: CollisionDetection = (args) => (offWindow() ? [] : closestCenter(args))
-/**
- * Carried as itself, whose middle follows the pointer rather than the place it was taken: the place whose middle is
- * nearest the pointer, read where each stands in the row (their partings left out).
- */
-const nearPointer: CollisionDetection = ({ droppableRects, droppableContainers }) => {
-  if (offWindow()) return []
-  const { x } = pointerAt()
-  let best: { id: string | number; far: number } | null = null
-  for (const one of droppableContainers) {
-    const box = droppableRects.get(one.id)
-    if (!box) continue
-    const far = Math.abs(box.left + box.width / 2 - x)
-    if (!best || far < best.far) best = { id: one.id, far }
-  }
-  return best ? [{ id: best.id, data: { value: best.far } }] : []
-}
-/** Carried as itself, its width may change under the hand (a book turning back to its spine): the places are read again at every move. */
-const ALWAYS = { droppable: { strategy: MeasuringStrategy.Always } }
-/** Whether this row's own child is the one carried (`self` rows): it moves itself, under the pointer. */
-const Carried = createContext(false)
-const Self = createContext(false)
-export const useCarried = (): boolean => useContext(Carried)
 
-function TabRow<T>({ items, keyOf, onMove, self = false, children }: ListProps<T>): React.JSX.Element {
+function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.Element {
   const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
   const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
   const [shot, setShot] = useState<Lift | null>(null)
@@ -364,14 +336,13 @@ function TabRow<T>({ items, keyOf, onMove, self = false, children }: ListProps<T
     onMove(String(active.id), String(over.id), to > from)
   }
   return (
-    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={self ? nearPointer : inWindow} modifiers={[sideways]} measuring={self ? ALWAYS : undefined}
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={inWindow} modifiers={[sideways]}
       onDragStart={({ active, activatorEvent }) => (chime('lift'), lifting(), ticks.start(String(active.id)), setShot(carriedOf(String(active.id), activatorEvent)))}
       onDragOver={({ active, over }) => (ticks(over?.id), setOnto(!!over && over.id !== active.id))} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), setOnto(false), landed(), chime('stay'))}>
       <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
-        <Axis.Provider value="x"><Sorting.Provider value={sorting}><On.Provider value><Self.Provider value={self}><Order.Provider value={keys.join('\n')}>{children(shown)}</Order.Provider></Self.Provider></On.Provider></Sorting.Provider></Axis.Provider>
+        <Axis.Provider value="x"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={keys.join('\n')}>{children(shown)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
-      {/* Carried as itself, nothing is drawn in the hand: the overlay is kept for the closed hand and Esc alone. */}
-      <Overlay dropAnimation={still() || self ? null : SETTLE}>{shot && !self && <Lifted shot={shot} axis="x" words={onto ? 'Move here' : null} />}</Overlay>
+      <Overlay dropAnimation={still() ? null : SETTLE}>{shot && <Lifted shot={shot} axis="x" words={onto ? 'Move here' : null} />}</Overlay>
     </DndContext>
   )
 }
@@ -393,15 +364,9 @@ export function SortableRow({ id, glide, grip = false, className, children }: { 
   return <motion.div layout={sorting || still() ? false : 'position'} layoutDependency={order} layoutId={glide} transition={spring.moderate} className={className}>{row}</motion.div>
 }
 
-/** Carried as itself, the one held glides to its new place on its own (books.tsx): dnd-kit's slide from where it was taken would jump. */
-const ownGlide = (): boolean => false
-
 function Tab({ id, className, children }: { id: string; className?: string; children: ReactNode }): React.JSX.Element {
-  const self = useContext(Self)
-  const { setNodeRef, attributes, listeners, transform: moved, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING }, ...(self ? { animateLayoutChanges: ownGlide } : {}) })
-  // The one carried as itself is moved by its own child, under the pointer; the rest part as ever.
-  const transform = self && isDragging ? null : moved
-  const tab = (
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING } })
+  return (
     <div
       ref={setNodeRef}
       data-sortable-id={id}
@@ -410,15 +375,14 @@ function Tab({ id, className, children }: { id: string; className?: string; chil
       // The tab's own button keeps the focus and the keys; this is only the grip.
       tabIndex={-1}
       role={undefined}
-      className={`${className ?? ''} ${isDragging && !self ? HELD : ''} rounded-md`}
-      style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition: self && isDragging ? undefined : transition }}
+      className={`${className ?? ''} ${isDragging ? HELD : ''} rounded-md`}
+      style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition }}
     >
       {/* Its own place slides along to where it will land: the quiet band every list draws there (carry.tsx). */}
-      {isDragging && !self && <OwnRoom />}
+      {isDragging && <OwnRoom />}
       {children}
     </div>
   )
-  return self ? <Carried.Provider value={isDragging}>{tab}</Carried.Provider> : tab
 }
 
 /** A row's new place: the block it goes into, and the row it goes before (null: that block's end). */
@@ -593,4 +557,74 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
       </Overlay>
     </DndContext>
   )
+}
+
+/**
+ * A row whose things are carried as themselves, never as a card (a book slid along its shelf, books.tsx): no picture
+ * follows the pointer and no quiet room is drawn. The one held moves itself under the pointer (`useCarried` says it is
+ * the one), and the others part to open its place. Its own list and rows, so no other list is touched by any of it.
+ */
+export function ShelfList<T>({ items, keyOf, onMove, children }: { items: T[]; keyOf: (item: T) => string; onMove?: (id: string, target: string) => void; children: (items: T[]) => ReactNode }): React.JSX.Element {
+  const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
+  const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
+  const ticks = useRef(slotTicker()).current
+  if (!onMove) return <>{children(items)}</>
+  const onDragEnd = ({ active, over }: DragEndEvent): void => {
+    landed()
+    if (!over || over.id === active.id) return chime('stay')
+    const [from, to] = [keys.indexOf(String(active.id)), keys.indexOf(String(over.id))]
+    setHeld(arrayMove(keys, from, to))
+    onMove(String(active.id), String(over.id))
+  }
+  return (
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nearPointer} modifiers={[sideways]} measuring={ALWAYS}
+      onDragStart={({ active }) => (chime('lift'), lifting(), ticks.start(String(active.id)))}
+      onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (landed(), chime('stay'))}>
+      <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
+        <Sorting.Provider value={sorting}><Order.Provider value={keys.join('\n')}>{children(shown)}</Order.Provider></Sorting.Provider>
+      </SortableContext>
+      {/* Nothing is drawn in the hand: the overlay is kept for the closed hand and Esc alone. */}
+      <Overlay dropAnimation={null} />
+    </DndContext>
+  )
+}
+
+/**
+ * Carried as itself, whose middle follows the pointer rather than the place it was taken: the place whose middle is
+ * nearest the pointer, read where each stands in the row (their partings left out).
+ */
+const nearPointer: CollisionDetection = ({ droppableRects, droppableContainers }) => {
+  if (offWindow()) return []
+  const { x } = pointerAt()
+  let best: { id: string | number; far: number } | null = null
+  for (const one of droppableContainers) {
+    const box = droppableRects.get(one.id)
+    if (!box) continue
+    const far = Math.abs(box.left + box.width / 2 - x)
+    if (!best || far < best.far) best = { id: one.id, far }
+  }
+  return best ? [{ id: best.id, data: { value: best.far } }] : []
+}
+/** Its width may change under the hand (a book turning back to its spine): the places are read again at every move. */
+const ALWAYS = { droppable: { strategy: MeasuringStrategy.Always } }
+/** Whether this row's own child is the one carried (ShelfRow): it moves itself, under the pointer. */
+const Carried = createContext(false)
+export const useCarried = (): boolean => useContext(Carried)
+/** The one held glides to its new place on its own (books.tsx): dnd-kit's slide from where it was taken would jump. */
+const ownGlide = (): boolean => false
+
+/** One thing of a ShelfList. With `glide`, moved some other way (⌥← and ⌥→), it slides to its new place on a spring. */
+export function ShelfRow({ id, glide, className, children }: { id: string; glide?: string; className?: string; children: ReactNode }): React.JSX.Element {
+  const sorting = useContext(Sorting)
+  const order = useContext(Order)
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING }, animateLayoutChanges: ownGlide })
+  // The one carried is moved by its own child, under the pointer; the rest part as ever.
+  const row = (
+    <div ref={setNodeRef} data-sortable-id={id} {...attributes} {...listeners} tabIndex={-1} role={undefined} className={`${className ?? ''} rounded-md`}
+      style={{ transform: transform && !isDragging ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition: isDragging ? undefined : transition }}>
+      <Carried.Provider value={isDragging}>{children}</Carried.Provider>
+    </div>
+  )
+  if (!glide) return row
+  return <motion.div layout={sorting || still() ? false : 'position'} layoutDependency={order} layoutId={glide} transition={spring.moderate} className={className}>{row}</motion.div>
 }

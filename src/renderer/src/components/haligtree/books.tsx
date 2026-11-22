@@ -8,7 +8,7 @@ import { OtherCover, ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { SortableList, SortableRow, useCarried as useHeldInRow } from './sortable'
+import { ShelfList, ShelfRow, useCarried as useHeldInRow } from './sortable'
 import { pointerAt } from './carry'
 import { HUES, askBook, moveBook, askCards, bookCardNow, bookCardOf, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookCard, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
@@ -526,11 +526,11 @@ export function BookShelf({ books, menuFor = null, onPick, onMenu }: { books: Bo
         >
         {/* Your books in your own order: a book pressed and carried along the shelf goes where it is let go (the shared
             drag, sortable.tsx), saved on the shelf for every list of them (Settings › Books too). */}
-        <SortableList axis="x" self items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
+        <ShelfList items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
           {(order) => {
             const spines = spinesOf(order)
             const ids = order.map((one) => one.id)
-            // ⌥← and ⌥→ on a book: one place along, gliding there (SortableRow's glide), the focus still on it.
+            // ⌥← and ⌥→ on a book: one place along, gliding there (ShelfRow's glide), the focus still on it.
             const shift = (id: string, by: -1 | 1): void => {
               const target = ids[ids.indexOf(id) + by]
               if (SANDBOX || !target) return chime('nope')
@@ -538,13 +538,13 @@ export function BookShelf({ books, menuFor = null, onPick, onMenu }: { books: Bo
               moveBook(ids, id, target)
             }
             return order.map((book, at) => (
-              <SortableRow key={book.id} id={book.id} glide={`shelf-book-${book.id}`} className="flex-none">
+              <ShelfRow key={book.id} id={book.id} glide={`shelf-book-${book.id}`} className="flex-none">
                 <ShelfBook book={book} said={saidOf(book)} up={book.id === books[shown]?.id} spine={spines[at]} at={at} keyed={() => keyed.current} lit={lit}
                   onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} onShift={(by) => shift(book.id, by)} />
-              </SortableRow>
+              </ShelfRow>
             ))
           }}
-        </SortableList>
+        </ShelfList>
       </div>
       {/* The turned book named under the shelf, as a video shelf names the tape it has out. */}
       {books[shown] && (
