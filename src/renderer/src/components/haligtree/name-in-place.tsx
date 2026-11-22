@@ -60,7 +60,7 @@ export function NameInPlace({ initial = '', suggested, placeholder, label, onDon
 }
 
 /** On a menu while one of its rows is a name being typed: the rows under the pointer never take the focus from the name. */
-export const NAMING_MENU = '[&_[role^=menuitem]]:pointer-events-none'
+export const NAMING_MENU = 'mf-naming-menu'
 
 /**
  * A menu's "New …" row turned into the new thing's name where it was chosen, as Finder names a new folder: its mark,
