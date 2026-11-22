@@ -1,6 +1,7 @@
 import { PlainField, type PlainHandle } from './presets'
 import { TabChips } from './tab-chips'
-import { askFolder } from '@/lib/folders'
+import { askProject, groupTasks, joinGroup, moveToProject, projects, ungroupTasks, useTaskGroups } from '@/lib/projects'
+import { GroupHeading } from './projects-view'
 import { LengthMark } from './length-mark'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Branches } from './branches'
@@ -635,7 +636,9 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
     !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'New note', 80)}`, hint: task.fromType === 'task' ? 'The task it was a subtask of' : 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: task.fromType ?? 'capture', id: task.fromId } }))) },
     thought && { label: 'Add a thought…', keys: ';', run: thought },
-    { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: 'task', id: task.id }]) }
+    // Tasks live in projects, never in folders (lib/projects.ts).
+    { label: 'Move to project…', keys: '⇧⌘M', run: () => askProject([task.id]) },
+    !!task.projectId && { label: 'Take out of its project', hint: 'Stays in Tasks', run: () => void moveToProject([task.id], null) }
   ]
   const leaving: RowItem[] = [
     copyLinkItem(`task:${task.id}`, splitTags(task.title).text || task.title),
@@ -700,7 +703,17 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
 /** Every order a Tasks tab offers; a later list leaves out Scheduled, a routine Due by. */
 // "Priority" orders by priority and, among the same, the soonest day: one choice, not two near-twins.
 const TASK_SORTS = [{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]
-const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }, { id: 'alltasks', label: 'All' }] as const
+const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }, { id: 'alltasks', label: 'All' }, { id: 'projects', label: 'Projects' }] as const
+
+/** Tasks' one row of tabs, the same on every Tasks page, a project's own too (projects-view.tsx). */
+export function TasksTabs({ mode, onOpen, drops }: { mode: string; onOpen?: (type: string, id: string) => void; drops?: Record<string, string> }): React.JSX.Element {
+  return (
+    // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
+    <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
+      <TabChips name="tasks" tabs={TASK_TABS.map((one) => ({ value: one.id as string, label: one.label }))} value={mode} onChange={(id) => onOpen?.('view', id)} drops={drops} />
+    </div>
+  )
+}
 
 /** Every open task in one list, by when: overdue, today, tomorrow, this week, later, no date. */
 /**
@@ -728,18 +741,29 @@ const byWhen = (list: Task[]): [string, Task[]][] => {
   ]
 }
 
-export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later' | 'alltasks'; focus?: string; onOpen?: (type: string, id: string) => void
-  /** Only these, as a folder's page shows its own tasks (folder-view.tsx): the same list, rows and keys. */
+export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, project }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later' | 'alltasks'; focus?: string; onOpen?: (type: string, id: string) => void
+  /** A project's own page (projects-view.tsx): new tasks land in it, and its groups head the list. */
+  project?: string
+  /** Only these, as a project's page shows its own tasks (projects-view.tsx): the same list, rows and keys. */
   keep?: (task: Task) => boolean
-  /** In place of the tabs at the line's left: a folder's kinds. */
+  /** In place of the tabs at the line's left. */
   lead?: React.ReactNode
-  /** A line over the list: a folder's fact and its folders. */
+  /** Over the list: a project's head (its name, path and the projects inside it). */
   said?: React.ReactNode
 }): React.JSX.Element {
   // Tomorrow is the top of Upcoming: its tasks live there.
   const home = mode === 'tomorrow' ? 'upcoming' : mode
   const every = useLive(haligtree.tasks, [] as Task[])
   const real = useMemo(() => (keep && !unloaded(every) ? every.filter(keep) : every), [every, keep])
+  // A project's groups (lib/projects.ts), and the one being named in place on its heading, just made.
+  const taskGroups = useTaskGroups()
+  const [namingGroup, setNamingGroup] = useState<string | null>(null)
+  useEffect(() => {
+    if (!project) return
+    const name = (event: Event): void => setNamingGroup((event as CustomEvent<{ id: string }>).detail.id)
+    window.addEventListener('haligtree:task-group-name', name)
+    return () => window.removeEventListener('haligtree:task-group-name', name)
+  }, [project])
   // Drawn again at midnight: Overdue, Today and Tomorrow are the new day's when the page is left open.
   useToday()
   // What a fresh start holds stays in its own tab, folded and dimmed under "On hold" at the foot: never moved out of sight.
@@ -936,7 +960,16 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
   // By tag, a folded tag keeps its heading and count, its tasks out of the list until it is opened again.
   const tagCounts = new Map<string, number>()
   if (view.group === 'tag') for (const group of groups) if (group[2] === undefined && group[1].length) (tagCounts.set(group[0], group[1].length), (group[2] = `fold:${group[0]}`), folds.includes(group[0]) && (group[1] = []))
+  // A project's groups head its list, each folding on its own (kept on the group), what is in none by day under them.
+  const groupCounts = new Map<string, number>()
+  if (project) {
+    const mine = taskGroups.filter((one) => one.project === project)
+    const held_ = new Map(mine.map((one) => [one.id, [] as Task[]]))
+    for (const group of groups) group[1] = group[1].filter((task) => !(task.taskGroup && held_.get(task.taskGroup)?.push(task)))
+    groups.unshift(...mine.filter((one) => held_.get(one.id)!.length).map((one): [string, Task[], string] => (groupCounts.set(one.id, held_.get(one.id)!.length), [one.name, one.folded ? [] : held_.get(one.id)!, `tgroup:${one.id}`])))
+  }
   const foldedCount = [...tagCounts].reduce((sum, [tag, n]) => sum + (folds.includes(tag) ? n : 0), 0)
+    + taskGroups.reduce((sum, one) => sum + (one.folded ? groupCounts.get(one.id) ?? 0 : 0), 0)
   const shown = groups.flatMap(([, list]) => list)
   /** Where a row stands in a fold opened this moment, for its turn to ease in; -1 for any other. */
   const fresh = (id: string): number => (unfolded && performance.now() - unfolded.at < 600 ? unfolded.ids.indexOf(id) : -1)
@@ -955,7 +988,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
     let at = 0
     return rows.map((row) => ('id' in row ? order[at++] ?? row : row))
   }
-  const rows: Row[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : key?.startsWith('fold:') ? [{ heading, count: tagCounts.get(heading) ?? 0, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
+  const rows: Row[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : key?.startsWith('fold:') ? [{ heading, count: tagCounts.get(heading) ?? 0, key }, ...list] : key?.startsWith('tgroup:') ? [{ heading, count: groupCounts.get(key.slice(7)) ?? 0, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // The line being written, right under the task it follows (a step is written inside its task's row), or at the end of the day's own tasks.
   if (writing && !writing.step && !example) {
     const above = writing.before ? rows.findIndex((row) => 'id' in row && row.id === writing.before) : -1
@@ -1039,7 +1072,24 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
   // Split, only the pane in front answers keys.
   const here = useHere()
   // x, ⇧-click and ⌘A pick several, to do, move or close together.
-  const several = useTaskPick(example || matrixed ? [] : shown, cursor, { here, off: example || matrixed })
+  const several = useTaskPick(example || matrixed ? [] : shown, cursor, { here, off: example || matrixed, project })
+  // ⌘G gathers the picked tasks (or the one under the cursor and the next) into a group, ⇧⌘G lets them out: in a project,
+  // as Writing's and Gems' lists do (items-view.tsx).
+  const pickNow = useRef({ chosen: several.chosen, at: shown[cursor]?.id })
+  pickNow.current = { chosen: several.chosen, at: shown[cursor]?.id }
+  useEffect(() => {
+    if (!project) return
+    const key = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.code !== 'KeyG' || typing() || !here()) return
+      const { chosen, at } = pickNow.current
+      const ids = chosen.length ? chosen : at ? [at] : []
+      if (!ids.length) return
+      event.preventDefault()
+      void (event.shiftKey ? ungroupTasks(ids) : groupTasks(ids))
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [project]) // eslint-disable-line react-hooks/exhaustive-deps
   // One light over the rows, gliding to the nearest, as the sidebar's does: the gap between two tasks never goes dark.
   const rowsBox = useRef<HTMLDivElement>(null)
   const rowsHover = useFluidHover(rowsBox, { items: '[data-task-row]' })
@@ -1170,6 +1220,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
     const saved = haligtree.saveTasks([{ id: target, patch: { subtasks: [...steps, { text: task.title, done: false }] } }, { id, patch: { status: 'dropped', stepOf: target } }])
     toast(`Now a step of ${taskName(parent.title).text}`, () => void saved.then(() => haligtree.saveTasks([{ id: target, patch: { subtasks: steps } }, { id, patch: { status: task.status, stepOf: null } }])))
   }
+  /** In a project, a row let go on another's middle makes a group of the two, or joins the group that one is in. */
+  const groupRow = (id: string, target: string): void => {
+    const group = taskGroups.find((one) => one.id === tasks.find((task) => task.id === target)?.taskGroup)
+    void (group ? joinGroup([id], group) : groupTasks([target, id]))
+  }
   /** A row dropped on the Upcoming tab goes to tomorrow; on Later, to someday. Said, with Undo. */
   const dropOnTab = (id: string, place: string): void => {
     const task = shown.find((one) => one.id === id)
@@ -1268,13 +1323,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
   // Today's list; then Display and ⋯ for the rest, at the right end, where they stay on every tab.
   // Nothing in it comes or goes after a click, so nothing moves under the pointer.
   // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
-  const lead = (
-    <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
-      <TabChips name="tasks" tabs={TASK_TABS.map((one) => ({ value: one.id as string, label: one.label }))} value={mode} onChange={(id) => onOpen?.('view', id)}
-        // Today's rows, dragged onto a tab, go there.
-        drops={mode === 'today' ? { upcoming: 'upcoming', later: 'later' } : undefined} />
-    </div>
-  )
+  // Today's rows, dragged onto a tab, go there.
+  const lead = <TasksTabs mode={mode} onOpen={onOpen} drops={mode === 'today' ? { upcoming: 'upcoming', later: 'later' } : undefined} />
   // On Today alone, where it writes; the controls after it sit at the bar's right end, so nothing moves without it.
   const writeOut = mode === 'today' && (
     <>
@@ -1367,6 +1417,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
               for (const line of lines) {
                 const one = await haligtree.addTask(line.text, undefined, mode === 'today')
                 made.push(one)
+                if (project && !one.existed) await projects.file([one.id], project)
                 if (one.existed) continue
                 if (line.steps.length) await haligtree.saveTask(one.id, { subtasks: line.steps })
                 if (line.done) await haligtree.saveTask(one.id, { status: 'done' })
@@ -1391,7 +1442,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             detail.current = null
             setDrafts((n) => n + 1)
             // Taken back, the words are in the line again, ahead of anything typed since, and what went with them.
-            void makeTask({ text, today: mode === 'today', plain }, (made) => landed(made, mode), { onUndo: () => {
+            // On a project's page, it lands in that project, said as made here.
+            void makeTask({ text, today: mode === 'today', plain }, (made) => (project ? projects.file([made.id], project).then(() => 'Task added') : landed(made, mode)), { onUndo: () => {
               setDraft((now) => (now.trim() ? `${typed} ${now}` : typed))
               setExtra({ ...was, open: false })
               requestAnimationFrame(() => (addRef.current?.focus(), addRef.current?.setSelectionRange(typed.length, typed.length)))
@@ -1512,7 +1564,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
           <Highlight light={rowsHover.light} className="bg-accent/25" />
           {/* On Today, a row is dragged into your own order, or onto the Upcoming or Later tab. */}
           {/* On every list, a row rested on another's middle becomes its step. */}
-          <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : nestRow} nests={nests}
+          <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : project ? groupRow : nestRow} nests={nests}
             places={sortable ? { drop: dropOnTab, said: (place) => (place === 'upcoming' ? 'Move to tomorrow' : 'Move to Later, someday') } : undefined}
             parts={sortable ? { of: (id) => partOf.get(id), take: takenBy, drop: dropInPart } : undefined}>
           {(order) => (
@@ -1543,6 +1595,10 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                       <span className="ml-auto font-normal text-(--mf-muted-strong)">From a fresh start · right-click one to bring it back</span>
                     </button>
                   </h2>
+                ) : row.key.startsWith('tgroup:') ? (
+                  // A group in a project: its heading folds it, renames in place (F2, its menu), and lets its tasks go.
+                  <GroupHeading id={row.key.slice(7)} name={row.heading} count={row.count} folded={!!taskGroups.find((one) => one.id === row.key.slice(7))?.folded} naming={namingGroup === row.key.slice(7)}
+                    onNaming={(on) => setNamingGroup(on ? row.key.slice(7) : null)} members={tasks.filter((task) => task.taskGroup === row.key.slice(7)).map((task) => task.id)} />
                 ) : row.key.startsWith('fold:') ? (
                   // A tag's heading folds its tasks away and back, as the box's islands do.
                   <h2 className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">

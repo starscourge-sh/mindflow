@@ -75,6 +75,7 @@ import { fitSmall, isSmall, registerSmallWindows } from './small-window'
 import { registerGroups } from './groups'
 import { registerSections } from './sections'
 import { registerFolders } from './folders'
+import { registerProjects } from './projects'
 import { registerFolderGems } from './folder-gems'
 import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
@@ -5639,6 +5640,8 @@ app.whenReady().then(() => {
   registerGroups()
   registerSections()
   registerFolders()
+  // After Folders: its tasks move into projects once (projects.ts `moveTasksToProjects`).
+  registerProjects()
   registerFolderGems()
   registerNoteImports()
   registerPeriods()

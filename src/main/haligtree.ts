@@ -1318,6 +1318,9 @@ export function registerHaligtree(): void {
   column('tasks', 'plan_for text')
   // Hidden until a day ("2026-11-03"), and how many days before its due-by date it comes up to get ready for.
   column('tasks', 'snoozed_until text')
+  // Its project and the group inside it (projects.ts): here too, so every read of a task finds them from the first.
+  column('tasks', 'project_id text')
+  column('tasks', 'task_group text')
   column('tasks', 'get_ready integer')
   column('task_done', 'session_id text')
   column('nuggets', 'superseded_by text')
@@ -4280,7 +4283,7 @@ export function registerHaligtree(): void {
   const TASK = `id, number, title, status, due_at as dueAt, all_day as allDay, recurrence, origin_capture_id as captureId,
     created_at as createdAt, completed_at as completedAt, waiting_on as waitingOn, estimate, sort_order as sortOrder, repeat_until as repeatUntil,
     important, deadline_at as deadline, deadline_timed as deadlineTimed, blocker, reschedules, notify, priority, plan_for as planFor, snoozed_until as snoozedUntil, get_ready as getReady, rollovers, skips, held_at as heldAt,
-    link, link_icon as linkIcon, link_title as linkTitle, blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
+    link, link_icon as linkIcon, link_title as linkTitle, project_id as projectId, task_group as taskGroup, blocked_by as blockedBy, (select b.title from tasks b where b.id = tasks.blocked_by) as blockedByTitle, (select b.status from tasks b where b.id = tasks.blocked_by) as blockedByStatus`
   // Where an open task came from, for grouping by note: the capture it was
   // made from, or else the first thing linked to it.
   // Named in full: read inside a lookup of another task (`tasks f`), a bare column was that task's own.

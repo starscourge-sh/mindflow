@@ -57,6 +57,9 @@ import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { RailFolders, SideFolders } from './components/haligtree/side-folders'
 import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
+import { ProjectsTree } from './components/haligtree/side-projects'
+import { ProjectView, ProjectsView } from './components/haligtree/projects-view'
+import { askProject, newProjectHere, useProjects } from '@/lib/projects'
 import { WritingPages } from './components/haligtree/side-writing'
 import { useEveryFold, useFold, type FoldKey } from '@/lib/side-folds'
 import { askFolder, folders, useFolderOf, useFolders, type FolderKind } from '@/lib/folders'
@@ -263,6 +266,8 @@ const stepOf = (type: string, id: string): View =>
   // One tag's cards studied in Review.
   type === 'study' ? { id: 'review', focus: id }
   : type === 'folder' ? { id: 'folders', folder: id.slice(id.indexOf(':') + 1) }
+  // A project: its own page, under Tasks.
+  : type === 'project' ? { id: 'project', folder: id }
   // A person's link: their own page in People, the one the People list opens.
   : type === 'person' || type === 'character' ? { id: 'source', focus: `attribution:${id}` }
   // A work found in ⌘K: its page among the sources.
@@ -474,6 +479,10 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
         <ReviewArea key={view.focus ?? ''} focus={view.focus} onOpen={go} />
       ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' || view.id === 'alltasks' ? (
         <TasksView mode={view.id} focus={view.focus} onOpen={go} />
+      ) : view.id === 'projects' ? (
+        <ProjectsView onOpen={go} />
+      ) : view.id === 'project' && view.folder ? (
+        <ProjectView id={view.folder} focus={view.focus} onOpen={go} />
       ) : view.id === 'calendar' ? (
         <CalendarView focus={view.focus} onOpen={go} />
       ) : view.id === 'matrix' ? (
@@ -1225,6 +1234,7 @@ export function Home(): React.JSX.Element {
   const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const fullMenu = useFullMenu()
   const everyFolder = useFolders()
+  const everyProject = useProjects()
   // The button beside the search: every fold in the sidebar at once, Folders' tree too (lib/side-folds.ts).
   const everyFold = useEveryFold(everyFolder.filter((one) => !one.archived).map((one) => one.id))
   const tags = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
@@ -1718,7 +1728,7 @@ export function Home(): React.JSX.Element {
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   // A folder's page is named for the folder in its tab, as a note's is for the note.
   const folderLabel = (focus?: string): string => (!focus || focus === 'all' ? 'Folders' : focus === 'unfiled' ? 'Not in a folder' : everyFolder.find((one) => one.id === focus)?.name ?? 'Folder')
-  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'folders' ? folderLabel(view.folder) : null) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' || view.id === 'lookups' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New tab' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'folders' ? folderLabel(view.folder) : null) ?? (view.id === 'project' ? everyProject.find((one) => one.id === view.folder)?.name ?? 'Project' : null) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' || view.id === 'lookups' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New tab' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1818,6 +1828,8 @@ export function Home(): React.JSX.Element {
     // at a time: with no key of its own, the light stayed on the last folder when "All folders…" was opened).
     // A note open on it is the one lit instead: its row under its folder (`kept:` below).
     if (view.id === 'folders' && !(keptFolder && noteNow)) return `folders:${view.folder ?? 'all'}`
+    // A project's page: its row under Tasks is the one lit.
+    if (view.id === 'project' && view.folder && !narrow && !quiet) return `project:${view.folder}`
     if (noteList && homeFolder && foldersOn(noteList)) return `note:${noteNow!.id}`
     // A note kept in one of Folders' folders: its row under that folder (the section lights its heading when folded),
     // wherever it was opened from: ahead of Writing's own fold, which lists it too.
@@ -1979,7 +1991,7 @@ export function Home(): React.JSX.Element {
     <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} data-frame-grain={settings?.frameGrain === false ? undefined : ''} style={{ '--mf-frame-depth': settings?.frameDepth ?? 75 } as CSSProperties} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div data-toast-lane className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
-      <FolderPicker onFolders={() => setView({ id: 'folders', folder: 'all' })} />
+      <FolderPicker onFolders={() => setView({ id: 'folders', folder: 'all' })} onProjects={() => setView({ id: 'projects' })} />
       <PracticeAsked onHome={split.panes.some((one) => onShow(one).id === 'home')} />
       <PickDays />
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
@@ -2161,7 +2173,11 @@ export function Home(): React.JSX.Element {
             // The starter lists, found by name too ("Start a list: Overheard"), not only from Gems' right-click.
             ...STARTER_LISTS.map(([icon, name]) => ({ label: `Start a list: ${name}`, hint: `${icon} A folder for what you keep`, cue: null, run: () => void startList(icon, name).then((folder) => setView({ id: 'folders', folder: folder })) })),
             // Folders: the open note kept in one, a new one, every one.
-            ...(noteNow && ['capture', 'article', 'nugget', 'question', 'task'].includes(noteNow.type) ? [{ label: 'Keep in folder…', hint: 'The open note, in a folder you pick or make', cue: null, run: () => askFolder([{ type: noteNow.type as FolderKind, id: noteNow.id }]) }] : []),
+            ...(noteNow && ['capture', 'article', 'nugget', 'question'].includes(noteNow.type) ? [{ label: 'Keep in folder…', hint: 'The open note, in a folder you pick or make', cue: null, run: () => askFolder([{ type: noteNow.type as FolderKind, id: noteNow.id }]) }] : []),
+            // Projects: the open task moved to one, a new one, every one. Tasks live in projects, never in folders.
+            ...(noteNow?.type === 'task' ? [{ label: 'Move to project…', hint: 'The open task, into a project you pick or make', keys: '⇧⌘M', cue: null, run: () => askProject([noteNow.id]) }] : []),
+            { label: 'New project', hint: 'Under Tasks, named as it is made', cue: null, run: () => void newProjectHere(null) },
+            { label: 'All projects', hint: 'Every project, in Tasks', cue: null, run: () => setView({ id: 'projects' }) },
             { label: 'New folder', hint: 'In Folders, named as it is made', keys: '⌃⌘N', cue: null, run: () => newFolderHere(null) },
             { label: 'All folders', hint: 'Every folder, to find one by its name', cue: null, run: () => setView({ id: 'folders', folder: 'all' }) },
             ...(settings?.safeMode || desk?.hidden ? [] : [{ label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() }]),
@@ -2470,6 +2486,12 @@ export function Home(): React.JSX.Element {
                       </Branches>
                     </Unfold>
                   )}
+                </div>
+              )}
+              {/* Tasks' projects hang under it, a tree as Folders' is (side-projects.tsx); a carried task drops into one. */}
+              {section.id === 'today' && !narrow && !quiet && (
+                <div data-own-press="">
+                  <ProjectsTree here={view.id === 'project' ? view.folder : undefined} onOpen={(id) => setView({ id: 'project', folder: id })} />
                 </div>
               )}
               </SortableRow>

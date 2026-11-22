@@ -191,6 +191,9 @@ export type Task = {
   linkIcon?: string | null
   /** The linked page's own title, once asked (main/haligtree.ts task:link:fill); the site's name until then. */
   linkTitle?: string | null
+  /** The project it lives in (main/projects.ts), and the group inside it. */
+  projectId?: string | null
+  taskGroup?: string | null
 }
 export type Subtask = { text: string; done: boolean }
 /** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */

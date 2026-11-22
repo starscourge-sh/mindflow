@@ -321,14 +321,14 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
         // (Asked first, so a book with pages never shows it for a moment before its "Not in a folder" row.)
         unfiled && <Empty title="No folders yet" art={<FolderMark icon={null} color={null} empty className="h-11 w-14" />}
           action={<Button size="sm" data-folders-first="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button>}>
-          A folder keeps pages, notes, gems and tasks together, whatever their kind.
+          A folder keeps pages, notes and gems together, whatever their kind.
         </Empty>
       ) : !all.length ? (
         // No folders, but pages or gems kept: what a folder is and the button to make one, small, then where those are
         // now ("Not in a folder · 1 page"), so Folders never says nothing while Writing holds a page (22 Nov).
         <>
           <div data-folders-none="" className="list-ink flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 pb-2">
-            <p className="text-body text-muted-foreground">No folders yet. A folder keeps pages, notes, gems and tasks together, whatever their kind.</p>
+            <p className="text-body text-muted-foreground">No folders yet. A folder keeps pages, notes and gems together, whatever their kind.</p>
             <Button size="sm" variant="outline" data-folders-first="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button>
           </div>
           <div data-all-folders="" className="list-edge my-2 flex flex-col">{unfiledRow}</div>

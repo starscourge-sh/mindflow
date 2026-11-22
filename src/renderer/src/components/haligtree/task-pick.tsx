@@ -7,6 +7,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking, type Picking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { toNoteItem } from '@/lib/tasks'
+import { askProject, groupTasks, ungroupTasks } from '@/lib/projects'
 import { manyTaskItems } from './late-tasks'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
@@ -25,7 +26,7 @@ export const PICKED_ROW = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,t
  * be done, moved or closed together, each with one notice, one sound and one
  * undo for the lot.
  */
-export function useTaskPick(shown: Task[], cursor: number, { here, off = false }: { here: () => boolean; off?: boolean }): {
+export function useTaskPick(shown: Task[], cursor: number, { here, off = false, project }: { here: () => boolean; off?: boolean; /** A project's page: the picked ones can be grouped. */ project?: string }): {
   chosen: string[]
   toggle: (id: string) => void
   /** A row clicked: ⌘ and ⇧ pick as Finder does and say true; a plain click lets the picked ones go and says false, so it opens. */
@@ -126,6 +127,10 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
     'separator',
     // The day, priority and tags, as one task's menu has them, for all of them.
     ...manyTaskItems(live, { after: () => setChosen([]) }),
+    'separator',
+    { label: `Move ${num(live.length)} to project…`, keys: '⇧⌘M', run: () => askProject(live) },
+    !!project && { label: `Group ${num(live.length)}`, keys: '⌘G', run: () => void groupTasks(live).then(() => setChosen([])) },
+    !!project && shown.some((one) => live.includes(one.id) && one.taskGroup) && { label: 'Take out of their groups', keys: '⇧⌘G', run: () => void ungroupTasks(live) },
     'separator',
     toNoteItem(live, () => setChosen([])),
     binItem(binRefs(live), () => setChosen([])),

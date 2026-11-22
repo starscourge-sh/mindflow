@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepIn, type FolderKind } from '@/lib/folders'
+import { moveToProject } from '@/lib/projects'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react'
 import { AppWindow, Columns2 } from 'lucide-react'
@@ -154,6 +155,8 @@ const distance = (zone: Zone, x: number, y: number): number => {
 
 /** Cancel a list's own drag (dnd-kit), as leaving the window would. */
 const dropListDrag = (): void => void window.dispatchEvent(new Event('visibilitychange'))
+/** A task's row is what is carried: it goes into projects, never folders. */
+const carriesTask = (node: HTMLElement | undefined): boolean => !!node?.closest('[data-task-row]') || node?.dataset.type === 'task' || node?.dataset.dragKind === 'task'
 
 export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: number) => void; onRow: (carried: Carried, pane: string, at: number) => void }): React.JSX.Element | null {
   const [carried, setCarried] = useState<Carried | null>(null)
@@ -222,7 +225,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     // the middle of a row of tabs opened nothing there in the 20 Nov run (qa/split-tabs.mjs).
     const queueAt = (px: number, py: number): HTMLElement | null => {
       for (const one of document.elementsFromPoint(px, py)) {
-        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-keep-drop], [data-writing-drop], [data-tab-row]')
+        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-keep-drop], [data-project-drop], [data-writing-drop], [data-tab-row]')
         if (place) return place
       }
       return rowAt(px, py)
@@ -459,7 +462,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || (click('tick'), detent())
         queued = queue
         // "Not in a folder" (and the Folders heading) take it out of the one it is in.
-        if (queue?.dataset.keepDrop) setSaid(queue.dataset.keepDrop === 'none' ? 'Take out of its folder' : `Keep in “${queue.dataset.folderName ?? 'this folder'}”`)
+        if (queue?.dataset.projectDrop) setSaid(carriesTask(down?.source.node) ? `Move to “${queue.dataset.folderName ?? 'this project'}”` : 'Projects hold tasks')
+        else if (queue?.dataset.keepDrop) setSaid(carriesTask(down?.source.node) ? 'Folders keep notes: tasks go in projects' : queue.dataset.keepDrop === 'none' ? 'Take out of its folder' : `Keep in “${queue.dataset.folderName ?? 'this folder'}”`)
         else if (down?.source.node.dataset.type === 'capture') setSaid(toWritingSaid(queue, down.source.node))
         else setSaid(undefined)
         // Where the card rests while it is over this place, read once as it comes over it.
@@ -612,6 +616,18 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         dropListDrag()
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('haligtree:to-writing', { detail: { ids: [what.row.id], folder: queued?.dataset.folderDrop ?? null } }))
+      } else if (!side && queued?.dataset.projectDrop && what.row) {
+        // Onto a project under Tasks: a task moves into it, with every picked task if it is one (tasks-view.tsx).
+        dropListDrag()
+        event.preventDefault()
+        if (!carriesTask(down.source.node)) return refuse('Projects hold tasks: make it a task first')
+        const picked = [...document.querySelectorAll<HTMLElement>('[data-task-row] [data-row][data-picked]')].map((row) => row.dataset.id!).filter(Boolean)
+        void moveToProject(picked.includes(what.row.id) ? picked : [what.row.id], { id: queued.dataset.projectDrop, name: queued.dataset.folderName ?? 'the project' })
+      } else if (!side && queued?.dataset.keepDrop && (what.row || what.open) && carriesTask(down.source.node)) {
+        // Tasks live in projects, never in folders.
+        dropListDrag()
+        event.preventDefault()
+        refuse('Folders keep notes: drop a task on a project under Tasks')
       } else if (!side && queued?.dataset.keepDrop && (what.row || what.open)) {
         // Onto a folder of Folders: kept there, any kind; a list with picked rows answers for all of them (items-view.tsx).
         // A page or note carried from under another folder in the sidebar comes by what it opens (`data-drag-open`).

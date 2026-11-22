@@ -137,7 +137,7 @@ export const SHAPE = SIDEBAR_SHAPE
 export const G_ALIASES: Record<string, string> = { u: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', '*': 'alltasks', q: 'matrix', l: 'all', '.': 'lookups' }
 
 /** The task lists that are tabs of the one Tasks row: on any of them, its row is lit. */
-export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'alltasks', 'matrix']
+export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'alltasks', 'matrix', 'projects', 'project']
 
 /**
  * The row a page lights, the one rule: a page opened from a row lights that

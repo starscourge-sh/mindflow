@@ -64,6 +64,8 @@ export type BoxContext = {
   read?: { line: string; kind: CaptureType | null } | null
   /** Every folder, for ">name": kept in the one that fits, as the one picker matches it (lib/folders.ts). */
   folders?: Folder[]
+  /** Every project, read as folders are: a task's ">name" goes to the project that fits (lib/projects.ts). */
+  projects?: Folder[]
 }
 
 export type BoxPlan = {
@@ -490,19 +492,22 @@ function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now =
   // ">thesis": kept in the folder that fits, as the one picker would find it; the first one lit, the rest are words.
   // One that fits none is greyed and says so, so it never looks like it worked.
   let folder: BoxPlan['folder'] = null
-  if (ctx.folders) for (const block of blocks) {
+  // A task goes to a project, never a folder: its ">name" is matched among projects.
+  const places = task ? ctx.projects : ctx.folders
+  const word = task ? 'project' : 'folder'
+  if (places) for (const block of blocks) {
     if (!block.text.includes('>')) continue
     for (const match of block.text.matchAll(FOLDER_MARK)) {
       const index = (match.index ?? 0) + match[0].length - match[1].length
       const [from, to] = [block.at[index], block.at[index + match[1].length]]
       if (folder || isKept(['folder', 'folder-miss'], from, to)) continue
-      const best = matchFolders(ctx.folders, match[2].replace(/[-_]+/g, ' '), ctx.folders.filter((one) => !one.archived))[0]
+      const best = matchFolders(places, match[2].replace(/[-_]+/g, ' '), places.filter((one) => !one.archived))[0]
       if (!best) {
-        tokens.push(token('folder-miss', from, to, ctx.folders.length ? `No folder matches ${quoted(trimTitle(match[2]), 80)}` : 'No folders yet'))
+        tokens.push(token('folder-miss', from, to, places.length ? `No ${word} matches ${quoted(trimTitle(match[2]), 80)}` : `No ${word}s yet`))
         continue
       }
       folder = { id: best.one.id, name: best.one.name, text: match[1] }
-      tokens.push(token('folder', from, to, `Keep in ${best.path ? `${best.path} › ` : ''}${best.one.name}`))
+      tokens.push(token('folder', from, to, `${task ? 'Move to' : 'Keep in'} ${best.path ? `${best.path} › ` : ''}${best.one.name}`))
     }
   }
 
