@@ -1,5 +1,5 @@
 import { revealRow } from '@/lib/menu-keys'
-import { TaskAddress, TaskSite } from './haligtree/task-site'
+import { TaskLink, TaskSite } from './haligtree/task-site'
 import { BookMarked, Image as ImageIcon } from 'lucide-react'
 import { showMediaFile } from '@/lib/media-files'
 import { aimAt } from '@/lib/meeting'
@@ -1189,8 +1189,8 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   return (
     <div key={task.id} className="flex flex-col gap-3 p-4 text-body">
       <div>
-        <p className="flex items-center gap-2 text-base font-medium text-foreground"><TaskSite task={task} /><span className="min-w-0">{taskName(task.title).text || 'Untitled task'}</span><Tags tags={taskName(task.title).tags} go={false} /></p>
-        {task.link && <p className="mt-0.5 flex min-w-0 text-meta text-muted-foreground"><TaskAddress task={task} /></p>}
+        <p className="flex items-center gap-2 text-base font-medium text-foreground"><span className="min-w-0">{taskName(task.title).text || 'Untitled task'}</span><Tags tags={taskName(task.title).tags} go={false} /></p>
+        {task.link && <p className="mt-1 flex min-w-0"><TaskLink task={task} edit={false} /></p>}
         <p data-task-facts className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>
       </div>
       {task.subtasks.length > 0 && (

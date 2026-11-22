@@ -9,8 +9,8 @@ export type AtLink = { id: string; plain: { from: number; to: number }[] }
 export function FromNote({ task }: { task: Task }): React.JSX.Element | null {
   if (!task.captureId || task.fromId !== task.captureId || !task.fromTitle) return null
   return (
-    <button type="button" data-from-note={task.captureId} onClick={() => (chime('open'), window.api.openInHome('capture', task.captureId!))}
-      {...hoverNote('capture', task.captureId)}
+    <button type="button" data-from-note={task.captureId} onClick={() => (chime('open'), window.api.openInHome(task.fromType ?? 'capture', task.captureId!))}
+      {...(task.fromType ? {} : hoverNote('capture', task.captureId))}
       className="mf-hit relative mt-0.5 flex max-w-full items-center gap-1 text-control font-medium text-muted-foreground hover:text-foreground">
       <FileText aria-hidden className="size-3.5 shrink-0" />
       <span className="truncate underline decoration-foreground/20 underline-offset-2">{task.fromTitle}</span>

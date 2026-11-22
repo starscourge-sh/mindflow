@@ -183,12 +183,16 @@ export type Task = {
   /** The note it came from, for grouping by it: in the list, not on one task. */
   fromId?: string | null
   fromTitle?: string | null
+  /** 'task' when it was made from another task's subtask; otherwise it came from a note. */
+  fromType?: 'task' | null
   subtasks?: Subtask[]
   /** Named by a link: its address (kept out of the name), and the site's icon once its page was asked. */
   link?: string | null
   linkIcon?: string | null
+  /** The linked page's own title, once asked (main/haligtree.ts task:link:fill); the site's name until then. */
+  linkTitle?: string | null
 }
-type Subtask = { text: string; done: boolean }
+export type Subtask = { text: string; done: boolean }
 /** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */
 export type TaskWas = { reschedules: number; notifiedAt: string | null }
 /** What a task was before it was done, so it can be put back. */
@@ -282,7 +286,7 @@ export async function askTaskLinks(): Promise<void> {
 }
 
 /** What a task's save may change. */
-export type TaskPatch = Partial<{ /** The line it was made a step of: it lives there now, so the Bin never offers it back. */ stepOf: string | null; allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; deadlineTimed: number; blocker: string | null; blockedBy: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>
+export type TaskPatch = Partial<{ /** The line it was made a step of: it lives there now, so the Bin never offers it back. */ stepOf: string | null; allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; deadlineTimed: number; blocker: string | null; blockedBy: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number; /** A new link (a page pasted on its chip), or null to take it off; with its title and icon, as an Undo gives them back. */ link: string | null; linkTitle: string | null; linkIcon: string | null }>
 
 export const haligtree = {
   /** Other names a note goes by; `setAliases` gives back the list it had, for an undo. */
@@ -432,7 +436,7 @@ export const haligtree = {
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false, plain?: { from: number; to: number }[]) => call<Made>('task:add', text, origin, today, plain).then((made) => (void askTaskLinks(), made)),
   saveTask: (id: string, patch: TaskPatch) =>
-    call<TaskWas | true>('task:save', id, patch).then((was) => (patch.title !== undefined && void askTaskLinks(), was)),
+    call<TaskWas | true>('task:save', id, patch).then((was) => ((patch.title !== undefined || typeof patch.link === 'string') && void askTaskLinks(), was)),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),
   /** A routine passed over this time: on to its next date, nothing counted done. */

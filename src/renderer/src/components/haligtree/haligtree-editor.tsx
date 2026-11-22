@@ -735,6 +735,8 @@ const hasWords = (node: JSONContent | null | undefined): boolean => !!node && (t
 
 /** Each editor's drag handle, once found. */
 const gripOf = new WeakMap<Editor, HTMLElement>()
+/** A note that is one empty line (its placeholder on show): nothing there for the grip or the block menu to act on. */
+const bareDoc = (doc: ProseMirrorNode): boolean => doc.childCount === 1 && !!doc.firstChild?.isTextblock && doc.firstChild.content.size === 0
 
 /**
  * The editor.
@@ -951,6 +953,7 @@ function Surface({
         if (handle) gripOf.set(editor, handle)
       }
       handle?.classList.toggle("is-hidden", table)
+      handle?.classList.toggle("is-bare", bareDoc(editor.state.doc))
       // A heading's grip shows its level instead of the dots, Obsidian's "H2".
       if (node?.type.name === "heading") handle?.setAttribute("data-level", String(node.attrs.level))
       else handle?.removeAttribute("data-level")
@@ -1825,6 +1828,8 @@ function Surface({
   useEffect(() => {
     if (!editor) return
     const followBlock = ({ transaction }: { transaction: Transaction }): void => {
+      // The first word typed on a bare note brings the grip; the last one taken away sends it.
+      if (transaction.docChanged) gripOf.get(editor)?.classList.toggle("is-bare", bareDoc(transaction.doc))
       const kept = blockTarget.current
       if (!kept || !transaction.docChanged || blockDoc.current !== transaction.before) return
       const { pos, deleted } = transaction.mapping.mapResult(kept.pos, 1)
@@ -1908,6 +1913,8 @@ function Surface({
       // Locked: no block lines, but a link or picked words still get theirs.
       if (!editor.isEditable) return void openClicked(event)
       if ((event.target as HTMLElement).closest(".tiptap-excalidraw-canvas")) return
+      // A bare note's one empty line is no block to act on: its placeholder is never picked as if it were words.
+      if (bareDoc(editor.state.doc)) return void openClicked(event)
       // A whole block drawn by its own view (a recording, a picture, a file)
       // is found from what was clicked: near its edges the coordinates name
       // the text beside it or nothing, and the note's own menu took the click.

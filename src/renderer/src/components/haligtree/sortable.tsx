@@ -97,8 +97,8 @@ const carriedOf = (id: string, event: Event): Lift | null => {
   if (!node) return null
   const box = node.getBoundingClientRect()
   const [x, y] = event instanceof PointerEvent ? [event.clientX, event.clientY] : [box.left, box.top]
-  // A task's card is its words alone: its first picture is the tick's check, which would read as done.
-  const icon = node.querySelector('[data-task-row]') ? undefined : [...node.querySelectorAll('svg')].find((one) => !one.closest('[data-grip]'))
+  // A task's card is its words alone (a subtask's too): its first picture is the tick's check, which would read as done.
+  const icon = node.querySelector('[data-task-row], [data-subtask-row]') ? undefined : [...node.querySelectorAll('svg')].find((one) => !one.closest('[data-grip]'))
   // Its list's own part of the page: the nearest thing round it that holds another row.
   let within = node.parentElement
   while (within && within !== document.body && within.querySelectorAll('[data-sortable-id]').length < 2) within = within.parentElement
@@ -352,14 +352,14 @@ function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.
  * moved some other way (a menu's Move up, or shown and hidden between two
  * lists) slides to its new place on a spring rather than jumping there.
  */
-export function SortableRow({ id, glide, className, children }: { id: string; glide?: string; className?: string; children: ReactNode }): React.JSX.Element {
+export function SortableRow({ id, glide, grip = false, className, children }: { id: string; glide?: string; /** The quiet grip in the margin, for rows whose own words take a press (a subtask's). */ grip?: boolean; className?: string; children: ReactNode }): React.JSX.Element {
   const on = useContext(On)
   const axis = useContext(Axis)
   const sorting = useContext(Sorting)
   // Folding a group of rows above it (the sidebar's folders) moves it at once, in the same frame: only a change of order glides.
   const order = useContext(Order)
-  // Down a list, the row every list carries (carry.tsx); it draws no handle of its own here.
-  const row = !on ? <div className={className}>{children}</div> : axis === 'x' ? <Tab id={id} className={className}>{children}</Tab> : <CarryRow id={id} grip={false}>{children}</CarryRow>
+  // Down a list, the row every list carries (carry.tsx); its grip only where asked.
+  const row = !on ? <div className={className}>{children}</div> : axis === 'x' ? <Tab id={id} className={className}>{children}</Tab> : <CarryRow id={id} grip={grip}>{children}</CarryRow>
   if (!glide) return row
   return <motion.div layout={sorting || still() ? false : 'position'} layoutDependency={order} layoutId={glide} transition={spring.moderate} className={className}>{row}</motion.div>
 }

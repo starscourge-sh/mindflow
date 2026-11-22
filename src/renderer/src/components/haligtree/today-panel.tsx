@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { TaskAddress, TaskSite } from './task-site'
+import { TaskLink } from './task-site'
 import { Plus } from 'lucide-react'
 import { AnimatePresence, PresenceContext, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
@@ -362,7 +362,6 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
         // Read while the pointer rests on it: the click then opens it on its words in the same frame.
         onPointerEnter={() => readAhead('task', [task.id])} onClick={(event) => act.current.several.click(event, task.id) || act.current.onOpen(task.id)}>
         <p className="flex items-center gap-1.5">
-          <TaskSite task={task} />
           <span data-task-title className={`truncate ${ticking ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
           <Tags tags={taskName(task.title).tags} />
         </p>
@@ -371,7 +370,8 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
           {rank === undefined && <SessionDot id={task.id} time={time} className={DOT_IN_LINE} />}
           <TaskWhen task={task} />
           {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
-          <TaskAddress task={task} className="max-w-full" />
+          {/* Its linked page, as the chip the add bar showed (task-site.tsx). */}
+          <TaskLink task={task} />
           <TaskSpent task={task} time={time} />
         </p>
       </button>

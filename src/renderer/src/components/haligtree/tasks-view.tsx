@@ -12,24 +12,25 @@ import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, Link2, ListTree, PencilLine, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, PencilLine, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 import { hrefFor, looksLikeAddress } from '@/extensions/link-tidy'
 import { tagTint } from './tag-icon'
 
 import { HaligtreeEditor } from '../haligtree'
 import { chime, step } from '@/lib/sound'
-import { TaskAddress, TaskSite } from './task-site'
-import { linkName } from '../../../../main/task-links'
+import { LinkChip, TaskLink } from './task-site'
 import { typeSaid } from '@/lib/capture-links'
-import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
+import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Subtask, type Task, type TaskFull } from '@/lib/haligtree'
 import { useOpened } from '@/lib/nav'
 import { moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList, useShowLine } from '@/lib/show-in-list'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
 import { fromBefore, BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem, yourOrder } from '@/lib/tasks'
-import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
+import { dateIn, PRIORITY_NAMES, readTask, type ReadTask } from '../../../../main/task-words'
+import { arrayMove } from '@dnd-kit/sortable'
+import { short } from '@/lib/clock'
 import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPriority, useKept } from './task-input'
 import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
@@ -63,8 +64,8 @@ import { SiteBlockField } from './site-block-field'
 import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dated, dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
-import { motion } from 'motion/react'
-import { EASE, EASING, glideWay, shift } from '@/lib/motion'
+import { AnimatePresence, motion } from 'motion/react'
+import { EASE, EASING, glideWay, shift, still } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { ProgressBar } from './progress-bar'
 import { SessionFooter } from './session-footer'
@@ -632,7 +633,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     open_ && !!task.heldAt && { label: 'Bring it back', hint: 'Out of “On hold”, to its own place in the list', run: () => bringBack(task) },
     ...openItems('task', task.id),
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
-    !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'New note', 80)}`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
+    !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'New note', 80)}`, hint: task.fromType === 'task' ? 'The task it was a subtask of' : 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: task.fromType ?? 'capture', id: task.fromId } }))) },
     thought && { label: 'Add a thought…', keys: ';', run: thought },
     { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: 'task', id: task.id }]) }
   ]
@@ -1335,9 +1336,12 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
         {said && <div data-kind-chips="" className="list-words pt-4 pb-2">{said}</div>}
 
         <form
-          className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
+          // One surface with its details: ⇧↵ grows the same rounded field downward to hold them, never a second box.
+          className="list-box mt-8 flex flex-col rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
           // A pasted list is a task a line, its indented lines their steps; one Undo for all.
           onPasteCapture={(event) => {
+            // Into the details: the description's own editor takes it, as on the task's page.
+            if ((event.target as HTMLElement).closest?.('[data-task-details-box]')) return
             // A picture: into the details, opened for it.
             const picture = [...event.clipboardData.files].find((one) => one.type.startsWith('image/'))
             if (picture) {
@@ -1397,7 +1401,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             })
           }}
         >
-          <Plus className="list-plus size-4 text-muted-foreground" />
+          <div className="flex items-center gap-2">
+          <Plus className="list-plus size-4 shrink-0 text-muted-foreground" />
           <TaskInput
             inputRef={addRef}
             value={draft}
@@ -1409,12 +1414,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             }}
           />
           {extra.links.map((one) => (
-            <span key={one.href} data-task-link className="flex max-w-[12rem] shrink-0 items-center gap-1 rounded-full border bg-background py-0.5 pr-1 pl-2 text-meta text-foreground">
-              {one.icon ? <img src={one.icon} alt="" className="size-3.5 shrink-0 rounded-sm" /> : <Link2 aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
-              <span className="min-w-0 truncate">{one.title}</span>
-              <button type="button" aria-label={`Take ${one.title} off`} onClick={() => (chime('off'), setExtra((now) => ({ ...now, links: now.links.filter((other) => other.href !== one.href) })))}
-                className="grid size-4 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"><X className="size-3" /></button>
-            </span>
+            <LinkChip key={one.href} href={one.href} title={one.title} icon={one.icon}
+              onRemove={() => (chime('off'), setExtra((now) => ({ ...now, links: now.links.filter((other) => other.href !== one.href) })), addRef.current?.focus())} />
           ))}
           <Tip label="Add a description or a picture  ⇧↵">
             <button type="button" data-task-details aria-expanded={extra.open} onClick={() => (extra.open ? (chime('fold'), setExtra((now) => ({ ...now, open: false }))) : openDetails())}
@@ -1423,26 +1424,44 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
             </button>
           </Tip>
           <Kbd>↵</Kbd>
-        </form>
-        {extra.open && (
-          // ⌘↵ adds the task from here too; Esc folds the description away and goes back to the name.
-          <div data-task-details-box className="list-box mt-1 rounded-md border px-1 py-1"
-            onKeyDownCapture={(event) => {
-              if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation(), addRef.current?.closest('form')?.requestSubmit())
-              else if (event.key === 'Escape' && !document.querySelector('[role="menu"], [role="listbox"]')) (event.preventDefault(), event.stopPropagation(), chime('fold'), setExtra((now) => ({ ...now, open: false })), addRef.current?.focus())
-            }}>
-            <HaligtreeEditor
-              key={drafts}
-              toolbar={{ fixed: false }}
-              lineNumbers={false}
-              autofocus="end"
-              placeholder="Add a description: the details, links, steps and pictures. ⌘↵ adds the task"
-              defaultContent={(extra.notes as JSONContent | null) ?? ''}
-              onReady={(editor) => void (detail.current = editor)}
-              onChange={(notes) => setExtra((now) => ({ ...now, notes }))}
-            />
           </div>
-        )}
+          {/* Its details, in the same field under the name: the field's height glides open and shut, a quiet
+              placeholder until words come, no block handles or count in so small a place (they are on the task's page).
+              ⌘↵ adds the task from here too; Esc folds them away, keeping what was written, and goes back to the name. */}
+          <AnimatePresence initial={false}>
+            {extra.open && (
+              <motion.div key="details" data-task-details-box className="flex gap-2"
+                initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
+                exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                transition={{ duration: 0.2, ease: EASE }}
+                onKeyDownCapture={(event) => {
+                  if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), event.stopPropagation(), addRef.current?.closest('form')?.requestSubmit())
+                  else if (event.key === 'Escape' && !document.querySelector('[role="menu"], [role="listbox"]')) (event.preventDefault(), event.stopPropagation(), chime('fold'), setExtra((now) => ({ ...now, open: false })), addRef.current?.focus())
+                }}>
+                {/* The + mark's room, so the description starts under the task's name. */}
+                <span aria-hidden className="list-plus size-4 shrink-0" />
+                <div className="min-w-0 flex-1 pt-1 pb-1 [--mf-padding:0]">
+                  <HaligtreeEditor
+                    key={drafts}
+                    toolbar={{ fixed: false }}
+                    lineNumbers={false}
+                    handles={false}
+                    outline={false}
+                    // No find bar: its hidden, bordered dock sat inside the field as a second box.
+                    search={false}
+                    foot={() => null}
+                    autofocus="end"
+                    placeholder="Details, links, steps…"
+                    defaultContent={(extra.notes as JSONContent | null) ?? ''}
+                    onReady={(editor) => void (detail.current = editor)}
+                    onChange={(notes) => setExtra((now) => ({ ...now, notes }))}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </form>
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
         {mode === 'today' && hints && !example && !reading && dayDone > 0 && (
           <div data-day-progress data-said={daySaid} className="list-words mt-3 flex items-center gap-3">
@@ -1589,7 +1608,6 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <TaskSite task={task} />
                             <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}><AppNamed id={task.id} text={taskName(task.title).text} /></span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
@@ -1597,8 +1615,13 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                                 A task open beside the list leaves the list no margin either: there the numbers stood against the pane's edge (16 Nov). */}
                             {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline ${beside ? 'inline' : 'hidden'}`} />}
                           </span>
-                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || (task.link && task.title !== linkName(task.link))) && (
-                            <span data-task-meta className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          {/* Its small line folds open and shut (a link or a day taken off), never vanishing at once under the pointer. */}
+                          <AnimatePresence initial={false}>
+                          {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id) || task.link) && (
+                            <motion.span key="meta" data-task-meta className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground"
+                              // The column's 4px gap goes with it (marginTop), so its last frame is not a step.
+                              initial={{ height: 0, opacity: 0, marginTop: -4, overflow: 'hidden' }} animate={{ height: 'auto', opacity: 1, marginTop: 0, transitionEnd: { overflow: 'visible' } }}
+                              exit={{ height: 0, opacity: 0, marginTop: -4, overflow: 'hidden' }} transition={{ duration: 0.18, ease: EASE }}>
                               <TaskWhen task={task} />
                               {carried(task) > 0 && !task.recurrence && (
                                 <Tip label="Times it was carried over: left undone past its day, or moved later">
@@ -1621,12 +1644,13 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said }: 
                               {task.blocker && (freed(task)
                                 ? <span data-freed className="truncate" style={{ color: 'var(--tt-color-text-green)' }}>Free now: {taskName(task.blockedByTitle ?? task.blocker).text} is done</span>
                                 : <span className="truncate">Blocked: {task.blockedByTitle ? taskName(task.blockedByTitle).text : task.blocker}</span>)}
-                              {/* A bookmark task's address, kept under its name (task-site.tsx). */}
-                              <TaskAddress task={task} className="max-w-full" />
+                              {/* Its linked page, as the chip the add bar showed (task-site.tsx): never its raw address. */}
+                              <TaskLink task={task} />
                               {/* The time spent on it so far, last: it wraps to a line of its own before it pushes anything. */}
                               <TaskSpent task={task} time={time} />
-                            </span>
+                            </motion.span>
                           )}
+                          </AnimatePresence>
                         </button>
                         {/* Grouped by note, the subtasks show under their task, tickable where they are. */}
                         {/* Grouped by note, or getting ready for its due-by day, the subtasks show under their task, tickable where they are. */}
@@ -1814,12 +1838,16 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           placeholder=""
           onSave={(name) => void rename(name)}
         />
-        {/* Named by a link: the address under the name, its site's icon opening it. */}
-        {task.link && (
-          <p data-task-link-row className="page-narrow mx-auto -mt-1 mb-1 flex w-full min-w-0 items-center gap-1.5 px-12 text-meta text-muted-foreground">
-            <TaskSite task={task} /><TaskAddress task={task} />
-          </p>
-        )}
+        {/* Its linked page under the name, as the chip the add bar showed (task-site.tsx); taken off, its line folds away. */}
+        <AnimatePresence initial={false}>
+          {task.link && (
+            <motion.p key="link" data-task-link-row className="page-narrow mx-auto flex w-full min-w-0 items-center overflow-hidden px-12"
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }} animate={{ height: 'auto', opacity: 1, marginBottom: 8 }} exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              transition={{ duration: 0.18, ease: EASE }}>
+              <TaskLink task={task} />
+            </motion.p>
+          )}
+        </AnimatePresence>
         {/* A #tag typed with the task is kept here, as a tag, never left in its name. */}
         <div data-task-tags className="page-narrow mx-auto w-full px-12">
           <TagRow tags={named.tags} field={tagField} onAdd={(tag) => void saveName(title.current?.value ?? named.text, [...named.tags, tag])}
@@ -2351,7 +2379,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
   const [at, setAt] = useState<number | null>(null)
   // The field to put the caret in once the rows are drawn: a subtask's (its index) or the new row's.
   const caret = useRef<{ row: number | 'new'; at?: number } | null>(null)
-  const list = useRef<HTMLElement>(null)
+  const list = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const want = caret.current
     if (!want) return
@@ -2364,14 +2392,79 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
     setItems(next)
     void haligtree.saveTask(task.id, { subtasks: next })
   }
+  // Each row's name while carried: its words, and which of the same words it is. Kept through a tick or a move.
+  const ids = useMemo(() => {
+    const seen = new Map<string, number>()
+    return new Map(items.map((one) => {
+      const n = seen.get(one.text) ?? 0
+      seen.set(one.text, n + 1)
+      return [one, `${one.text}\u0001${n}`]
+    }))
+  }, [items])
+  const move = (index: number, to: number, follow = false): void => {
+    if (to < 0 || to >= items.length) return chime('nope')
+    const moved = [...items]
+    ;[moved[index], moved[to]] = [moved[to], moved[index]]
+    chime('shift')
+    // The caret follows the step to its new place.
+    if (follow) caret.current = { row: to }
+    save(moved)
+  }
+  const remove = (index: number): void => {
+    chime('away')
+    save(items.filter((_, other) => other !== index))
+    quietly(() => save(items))
+  }
+  // A subtask taken out and back in where it was, into the list as it is now.
+  const putBack = (index: number, one: Subtask): void =>
+    void haligtree.task(task.id).then((now) => {
+      if (!now) return
+      const next = [...now.subtasks.slice(0, index), one, ...now.subtasks.slice(index)]
+      setItems(next)
+      void haligtree.saveTask(task.id, { subtasks: next })
+    })
+  // "Make it a task": a task of its own, its dates read from its words as a task's name is, made from this one (its
+  // "From" mark, and listed under “For this” here). The step leaves the list; Undo takes the task back and the step in.
+  const graduate = (words: string, index: number | null): void => {
+    const text = words.trim()
+    if (!text) return chime('nope')
+    const one = index === null ? null : { ...items[index], text }
+    if (index !== null) save(items.filter((_, other) => other !== index))
+    else setDraft('')
+    const back = (): void => (one && index !== null ? putBack(index, one) : setDraft(text))
+    void makeTask({ text, origin: task.id }, 'Now a task', { onUndo: back }).then((made) => void (!made && back()))
+  }
+  const tick = (index: number): void => {
+    const item = items[index]
+    const next = items.map((one, other) => (other === index ? { ...one, done: !one.done } : one))
+    if (!item.done) chime('done')
+    save(next)
+    // The last one ticked: finishing the task is offered, never done for you.
+    if (!item.done && task.status === 'open' && next.every((one) => one.done))
+      toast('All done: finish the task too?', undefined, 'info', { label: 'Finish it', key: 'F', run: () => void completeTask(task) })
+  }
   const place = at === null ? items.length : Math.min(at, items.length)
   const newRow = (
-    <li key="new" className={STEP_ROW}>
+    <div key="new" role="listitem" className={STEP_ROW}>
       <span aria-hidden className={`${STEP_TICK} border-dashed`} />
-      <input
-        data-subtask-new
+      <TaskInput
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={setDraft}
+        label="A new subtask"
+        placeholder={items.length ? 'Add another' : 'Add a subtask'}
+        trail={(read) => <MakeItATask read={read} run={() => graduate(draft, null)} />}
+        attrs={{
+          'data-subtask-new': '',
+          // A pasted list is a subtask a line, ticked ones done; one line pastes as words.
+          onPaste: (event) => {
+            const lines = readLines(event.clipboardData.getData('text/plain'))
+            if (lines.length < 2) return
+            event.preventDefault()
+            chime('gather')
+            save([...items.slice(0, place), ...lines.map((line) => ({ text: line.text, done: line.done })), ...items.slice(place)])
+            quietly(() => save(items))
+          }
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Escape' && at !== null) return (event.stopPropagation(), setDraft(''), setAt(null))
           if (event.key === 'Backspace' && !draft && at !== null) return (event.preventDefault(), (caret.current = { row: place - 1 }), setAt(null))
@@ -2384,123 +2477,172 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
           if (at !== null) setAt(place + 1)
           caret.current = { row: 'new' }
         }}
-        // A pasted list is a subtask a line, ticked ones done; one line pastes as words.
-        onPaste={(event) => {
-          const lines = readLines(event.clipboardData.getData('text/plain'))
-          if (lines.length < 2) return
-          event.preventDefault()
-          chime('gather')
-          save([...items.slice(0, place), ...lines.map((line) => ({ text: line.text, done: line.done })), ...items.slice(place)])
-          quietly(() => save(items))
-        }}
-        aria-label="A new subtask"
-        placeholder={items.length ? 'Add another' : 'Add a subtask'}
-        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
       />
-    </li>
+    </div>
   )
   return (
     <section className="page-narrow mx-auto w-full px-12 pb-10">
+      {/* A task made from a subtask arrives here as the list closes over its place: grown in, never pushed in. */}
+      <AnimatePresence initial={false}>
       {task.linked.length > 0 && (
-        <>
+        <motion.div key="for-this" className="overflow-hidden" initial={{ height: still() ? 'auto' : 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: still() ? 'auto' : 0, opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}>
           <h3 className="mb-2 text-control font-semibold">For this</h3>
-          <ul className="mb-6 space-y-1">
+          <ul className="mb-6">
+            <AnimatePresence initial={false}>
             {task.linked.map((item) => (
-              <li key={item.id}>
+              <motion.li key={item.id} className="overflow-hidden" initial={{ height: still() ? 'auto' : 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: still() ? 'auto' : 0, opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}>
                 {/* Each one opens, as everything listed in a panel does. */}
-                <button type="button" data-for-this={item.id} disabled={!onOpen} onClick={() => onOpen?.(item.tier, item.id)} className="-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left enabled:hover:bg-accent">
-                  <FileText className="size-4 text-muted-foreground" />
-                  <span className="truncate">{item.title || 'New note'}</span>
+                <button type="button" data-for-this={item.id} disabled={!onOpen} onClick={() => onOpen?.(item.tier, item.id)} className="-mx-1.5 my-0.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left enabled:cursor-pointer enabled:hover:bg-accent">
+                  {item.tier === 'task' ? <Square className="size-4 text-muted-foreground" /> : <FileText className="size-4 text-muted-foreground" />}
+                  <span className="truncate">{(item.tier === 'task' ? taskName(item.title).text : item.title) || 'New note'}</span>
                   <span className="text-xs text-muted-foreground">{typeSaid(item.tier)}</span>
                 </button>
-              </li>
+              </motion.li>
             ))}
+            </AnimatePresence>
           </ul>
-        </>
+        </motion.div>
       )}
+      </AnimatePresence>
       <h3 className="mb-2 text-control font-semibold">
         Subtasks {items.length ? <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={`${num(items.filter((one) => one.done).length)}/${num(items.length)}`} /></span> : null}
       </h3>
-      <ul ref={list as React.RefObject<HTMLUListElement>} data-subtasks className="flex flex-col">
-        {items.map((item, index) => (
-          <Fragment key={`${index}:${item.text}`}>
-          {index === place && at !== null && newRow}
-          <li className={`group ${STEP_ROW}`}>
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={item.done}
-              aria-label={item.text}
-              onClick={() => {
-                if (!item.done) chime('done')
-                save(items.map((one, at) => (at === index ? { ...one, done: !one.done } : one)))
-              }}
-              className={`${STEP_TICK} cursor-pointer`}
-              style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
-            >
-              {item.done && <Check className="size-3 mf-on-accent" />}
-            </button>
-            {/* Its words written straight into, as a new line in Today's list is; ⌥↑ ⌥↓ move it. */}
-            <input data-subtask={index} defaultValue={item.text} aria-label={`Step: ${item.text}`} title={item.text}
-              onKeyDown={(event) => {
-                const field = event.currentTarget
-                // ⇧↵ splits it where the caret is: the words after it become the next subtask.
-                if (event.key === 'Enter' && event.shiftKey) {
-                  event.preventDefault()
-                  const cut = field.selectionStart ?? field.value.length
-                  const [head, tail] = [field.value.slice(0, cut).trim(), field.value.slice(cut).trim()]
-                  if (!head || !tail) return chime('nope')
-                  chime('tap')
-                  caret.current = { row: index + 1, at: 0 }
-                  return save([...items.slice(0, index), { ...item, text: head }, { text: tail, done: false }, ...items.slice(index + 1)])
-                }
-                // ↵ keeps it and opens a new row under it, ready for the next.
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  const words = field.value.trim()
-                  if (words && words !== item.text) save(items.map((one, at) => (at === index ? { ...one, text: words } : one)))
-                  caret.current = { row: 'new' }
-                  setDraft('')
-                  return setAt(index + 1)
-                }
-                if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
-                event.preventDefault()
-                const to = index + (event.key === 'ArrowUp' ? -1 : 1)
-                if (to < 0 || to >= items.length) return chime('nope')
-                const moved = [...items]
-                ;[moved[index], moved[to]] = [moved[to], moved[index]]
-                chime('shift')
-                save(moved)
-                // The list is drawn again once saved: the caret follows the step to its new place.
-                let tries = 0
-                const follow = (): void => {
-                  const field = document.querySelector<HTMLInputElement>(`[data-subtask="${to}"]`)
-                  if (field && field.value === item.text) return field.focus()
-                  if (++tries < 30) requestAnimationFrame(follow)
-                }
-                requestAnimationFrame(follow)
-              }}
-              onBlur={(event) => {
-                const words = event.currentTarget.value.trim()
-                if (!words) return void (event.currentTarget.value = item.text)
-                if (words !== item.text) save(items.map((one, at) => (at === index ? { ...one, text: words } : one)))
-              }}
-              className={`min-w-0 flex-1 bg-transparent text-ellipsis outline-none focus:text-clip ${item.done ? 'text-muted-foreground line-through' : ''}`} />
-            <Tip label="Remove">
-            <button type="button" aria-label={`Remove ${quoted(item.text, 80)}`} onClick={() => {
-              chime('away')
-              save(items.filter((_, at) => at !== index))
-              quietly(() => save(items))
-            }} className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground">
-              <X className="size-3.5" />
-            </button>
-            </Tip>
-          </li>
-          </Fragment>
-        ))}
+      <div ref={list} role="list" data-subtasks className="flex flex-col">
+        {/* Carried with the pointer as every list's rows are (sortable.tsx): the one card, room and drop line. */}
+        <SortableList items={items} keyOf={(one) => ids.get(one) ?? one.text} onMove={(id, target) => {
+          const keys = items.map((one) => ids.get(one))
+          const [from, to] = [keys.indexOf(id), keys.indexOf(target)]
+          if (from < 0 || to < 0) return
+          chime('shift')
+          save(arrayMove(items, from, to))
+        }}>
+          {(rows) => rows.map((item, index) => {
+            const id = ids.get(item) ?? item.text
+            return (
+              <Fragment key={id}>
+                {index === place && at !== null && newRow}
+                <SortableRow id={id} glide={`subtask:${task.id}:${id}`} grip>
+                  <Step item={item} index={index} count={rows.length}
+                    onTick={() => tick(index)}
+                    onMove={(to, follow) => move(index, to, follow)}
+                    onRemove={() => remove(index)}
+                    onGraduate={(words) => graduate(words, index)}
+                    onWords={(words) => void (words !== item.text && save(items.map((one, other) => (other === index ? { ...one, text: words } : one))))}
+                    onSplit={(head, tail) => {
+                      chime('tap')
+                      caret.current = { row: index + 1, at: 0 }
+                      save([...items.slice(0, index), { ...item, text: head }, { text: tail, done: false }, ...items.slice(index + 1)])
+                    }}
+                    onNext={() => ((caret.current = { row: 'new' }), setDraft(''), setAt(index + 1))}
+                    onEmptied={() => {
+                      // ⌫ in an emptied subtask takes it away, the caret to the end of the one above (or the next row).
+                      chime('away')
+                      const above = items[index - 1]
+                      caret.current = above ? { row: index - 1, at: above.text.length } : items.length > 1 ? { row: 0, at: 0 } : { row: 'new' }
+                      save(items.filter((_, other) => other !== index))
+                      quietly(() => save(items))
+                    }} />
+                </SortableRow>
+              </Fragment>
+            )
+          })}
+        </SortableList>
         {(at === null || place >= items.length) && newRow}
-      </ul>
+      </div>
     </section>
+  )
+}
+
+/** "Make it a task, due Fri 15:00": offered quietly beside a subtask whose words say when; one click, never on its own. */
+function MakeItATask({ read, run }: { read: ReadTask | null; run: () => void }): React.JSX.Element | null {
+  const said = dueSaid(read)
+  if (!said) return null
+  return (
+    <motion.button type="button" data-subtask-offer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}
+      // The words keep the caret: a click here is not a click away from them.
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={run}
+      className="shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">
+      Make it a task, {said}
+    </motion.button>
+  )
+}
+
+/** When words say a subtask is for: "due Fri 15:00", "due by Fri"; empty when they say none. */
+const dueSaid = (read: ReadTask | null): string =>
+  !read ? '' : read.due ? `due ${short(read.due, read.allDay)}` : read.deadline ? `due by ${short(read.deadline, !read.deadlineTimed)}` : ''
+
+/** One subtask: its tick, its words written straight into (their dates lit as a task's name lights them), its menu. */
+function Step({ item, index, count, onTick, onMove, onRemove, onGraduate, onWords, onSplit, onNext, onEmptied }: {
+  item: Subtask; index: number; count: number
+  onTick: () => void; onMove: (to: number, follow: boolean) => void; onRemove: () => void; onGraduate: (words: string) => void
+  onWords: (words: string) => void; onSplit: (head: string, tail: string) => void; onNext: () => void; onEmptied: () => void
+}): React.JSX.Element {
+  const [words, setWords] = useState(item.text)
+  useEffect(() => setWords(item.text), [item.text])
+  // Read as its menu opens: when its words say it is for.
+  const menu = (): RowItem[] => {
+    const due = dueSaid(words.trim() ? readTask(words) : null)
+    return [
+      { label: 'Make it a task', hint: `A task of its own${due ? `, ${due}` : ''}, made from this one`, run: () => onGraduate(words) },
+      'separator',
+      { label: 'Move up', keys: '⌥↑', run: () => onMove(index - 1, false), can: () => index > 0 },
+      { label: 'Move down', keys: '⌥↓', run: () => onMove(index + 1, false), can: () => index < count - 1 },
+      { label: 'Delete', danger: true, run: onRemove }
+    ]
+  }
+  return (
+    <RowMenu writes items={menu}>
+      <div role="listitem" data-subtask-row={index} className={`group ${STEP_ROW}`}>
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={item.done}
+          aria-label={item.text}
+          onClick={onTick}
+          className={`${STEP_TICK} cursor-pointer`}
+          style={{ background: item.done ? 'var(--tt-brand-color-400)' : undefined, borderColor: item.done ? 'var(--tt-brand-color-400)' : undefined }}
+        >
+          {item.done && <Check className="size-3 mf-on-accent" />}
+        </button>
+        {/* Its words written straight into, as a new line in Today's list is; ⌥↑ ⌥↓ move it. A press here writes, never carries. */}
+        <TaskInput value={words} onChange={setWords} label={`Step: ${item.text}`}
+          className={item.done ? 'text-muted-foreground line-through' : ''}
+          attrs={{ 'data-subtask': index, 'data-own-press': '', title: item.text }}
+          trail={(read) => <MakeItATask read={read} run={() => onGraduate(words)} />}
+          onKeyDown={(event) => {
+            const field = event.currentTarget
+            // ⇧↵ splits it where the caret is: the words after it become the next subtask.
+            if (event.key === 'Enter' && event.shiftKey) {
+              event.preventDefault()
+              const cut = field.selectionStart ?? field.value.length
+              const [head, tail] = [field.value.slice(0, cut).trim(), field.value.slice(cut).trim()]
+              if (!head || !tail) return chime('nope')
+              return onSplit(head, tail)
+            }
+            // ↵ keeps it and opens a new row under it, ready for the next.
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              if (words.trim()) onWords(words.trim())
+              return onNext()
+            }
+            if (event.key === 'Backspace' && !field.value) return (event.preventDefault(), onEmptied())
+            if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+            event.preventDefault()
+            onMove(index + (event.key === 'ArrowUp' ? -1 : 1), true)
+          }}
+          onBlur={() => {
+            const kept = words.trim()
+            if (!kept) return setWords(item.text)
+            onWords(kept)
+          }} />
+        <Tip label="Remove">
+          <button type="button" aria-label={`Remove ${quoted(item.text, 80)}`} onClick={onRemove} className="cursor-pointer rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground">
+            <X className="size-3.5" />
+          </button>
+        </Tip>
+      </div>
+    </RowMenu>
   )
 }
 
@@ -2511,6 +2653,6 @@ export function taskFacets(tasks: Task[]): Facet<Task>[] {
       test: (task, mark) => (mark === 'important' ? !!task.important : mark === 'deadline' ? !!task.deadline : mark === 'blocked' ? !!task.blocker && !freed(task) : task.estimate !== null) },
     { key: 'priority', label: 'Priority', options: [1, 2, 3, 4, 0].map((level) => ({ id: String(level), label: PRIORITY_NAMES[level] })), test: (task, level) => task.priority === Number(level) },
     { key: 'tag', label: 'Tag', options: [...new Set(tasks.flatMap((task) => splitTags(task.title).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (task, tag) => splitTags(task.title).tags.includes(tag) },
-    { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A note' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.fromId ? 'capture' : 'typed') === from }
+    { key: 'from', label: 'Came from', options: [{ id: 'capture', label: 'A note' }, { id: 'typed', label: 'Typed here' }], test: (task, from) => (task.fromId && task.fromType !== 'task' ? 'capture' : 'typed') === from }
   ]
 }
