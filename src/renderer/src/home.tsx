@@ -2975,7 +2975,7 @@ export function Home(): React.JSX.Element {
         <Tip label={keyed(inFolderRef.current ? 'A new note in this folder' : newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
           <button type="button" data-new={inFolderRef.current ? 'folder' : newPage ? 'page' : 'capture'} onClick={makeNew}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-            className={`flex h-6 items-center overflow-hidden rounded-full border ml-1.5 shrink-0 gap-1.5 pr-1 pl-2.5 text-[0.8125rem] font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
+            className={`flex h-6 items-center overflow-hidden rounded-full border ml-1.5 shrink-0 gap-1.5 ${!newPage && !inFolderRef.current ? 'pr-1' : 'pr-2.5'} pl-2.5 text-[0.8125rem] font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
             <AliveIcon icon={PenIcon} size={14} />
             New
             {!newPage && !inFolderRef.current && <Pressed keys="C" className="ml-1 h-4 min-w-4 rounded-[4px]" />}
