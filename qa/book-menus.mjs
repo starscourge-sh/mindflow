@@ -15,6 +15,7 @@
 //   H. a person tidying: a spine carried along the shelf is the book itself under the pointer, 1:1, along the ledge (no title
 //      pill, no grey room), and goes where it is let go; books.json keeps the order; ⌥→ moves a focused spine one place;
 //      Settings' rows match.
+//   I. everyday: a spine right-clicked opens its menu beside it (within 12px), the book menu open behind; Esc shuts only it.
 // QA_SHOTS keeps a picture of each changed one: the three book menus, the book named in place, the deck named in place,
 // the sheet, the menu kept open after a colour, the shelf mid-carry and after.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=dir node qa/book-menus.mjs
@@ -265,6 +266,26 @@ try {
   const focused = await h.evaluate(() => document.activeElement?.closest('[data-book]')?.getAttribute('data-book'))
   check('H. ⌥→ on a focused spine moves it one place along, still focused', moved && focused === lead, JSON.stringify({ moved, focused, lead }))
   const order = (await s.v('books:list')).books.map((one) => one.id)
+  // I. Everyday: a spine right-clicked in the open book menu opens its own menu beside that spine, the book menu still
+  // open behind it; Esc shuts the spine's menu alone.
+  const spineAt = await h.locator(`[data-book-shelf] [data-book="${order[1]}"]`)
+  await spineAt.hover(); await wait(500)
+  await spineAt.click({ button: 'right' }); await wait(500)
+  const beside = await h.evaluate((id) => {
+    const spine = document.querySelector(`[data-book-shelf] [data-book="${id}"]`)?.getBoundingClientRect()
+    const menu = [...document.querySelectorAll('[role="menu"]')].find((one) => one.getBoundingClientRect().width > 0 && one.textContent.includes('Show in Settings') && !one.querySelector('[data-book-shelf]'))?.getBoundingClientRect()
+    if (!spine || !menu) return { spine: !!spine, menu: !!menu }
+    // How far the spine's menu is from the spine at its nearest: 0 where they touch or overlap.
+    const gapX = Math.max(0, menu.left - spine.right, spine.left - menu.right)
+    const gapY = Math.max(0, menu.top - spine.bottom, spine.top - menu.bottom)
+    return { gap: Math.round(Math.hypot(gapX, gapY)), top: Math.round(menu.top - spine.top), shelf: !!document.querySelector('[data-book-shelf]')?.getBoundingClientRect().width }
+  }, order[1])
+  await shot('i1-spine-menu')
+  check('I. a spine right-clicked keeps the book menu open behind its own menu', beside.shelf === true, JSON.stringify(beside))
+  check('I. ...and its menu stands beside that spine (nearest edge within 12px)', typeof beside.gap === 'number' && beside.gap <= 12, JSON.stringify(beside))
+  await h.keyboard.press('Escape'); await wait(400)
+  const back = await h.evaluate(() => ({ shelf: !!document.querySelector('[data-book-shelf]')?.getBoundingClientRect().width, spineMenu: [...document.querySelectorAll('[role="menu"]')].some((one) => one.getBoundingClientRect().width > 0 && one.textContent.includes('Show in Settings') && !one.querySelector('[data-book-shelf]')) }))
+  check('I. Esc shuts the spine\'s menu alone: the book menu is still open', back.shelf && !back.spineMenu, JSON.stringify(back))
   await shut()
   await s.go('settings'); await wait(800)
   await foot.click({ button: 'right' }); await wait(400)

@@ -492,7 +492,7 @@ function ShelfBook({ book, said, up: pointedAt, spine, at, keyed, lit, onPick, o
   )
 }
 
-export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (book: Book) => void; onMenu: (event: React.MouseEvent, book: Book) => void }): React.JSX.Element {
+export function BookShelf({ books, menuFor = null, onPick, onMenu }: { books: Book[]; /** The book whose own menu is up: it stands pulled out until that menu shuts. */ menuFor?: string | null; onPick: (book: Book) => void; onMenu: (event: React.MouseEvent, book: Book) => void }): React.JSX.Element {
   // More books than the menu is wide (30, say): the shelf scrolls sideways under the wheel or the trackpad, the side
   // with more fading out, opened on the open book; the keys bring the book they reach into view, as focus does.
   const row = useRef<HTMLDivElement>(null)
@@ -510,7 +510,8 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   // The one you were in last, wherever it stands on the shelf (its order may be yours).
   const last = books.filter((one) => !one.current && one.openedAt).sort((a, b) => (b.openedAt ?? 0) - (a.openedAt ?? 0))[0]?.id
   const saidOf = (book: Book): string => (book.current ? 'Open now' : book.id === last ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
-  const shown = Math.max(0, books.findIndex((one) => (pointed ? one.id === pointed : one.current)))
+  const lead = menuFor ?? pointed
+  const shown = Math.max(0, books.findIndex((one) => (lead ? one.id === lead : one.current)))
   return (
     <>
       <div ref={row} role="group" aria-label="Your books" data-book-shelf data-unlit className="mf-shelf" style={style}

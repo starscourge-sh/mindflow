@@ -1145,10 +1145,22 @@ export function Home(): React.JSX.Element {
   const bookMenuAt = useRef<HTMLSpanElement>(null)
   const bookMenuFor = useRef<Book | null>(null)
   const footGave = useRef(false)
-  const openBookMenu = (event: React.MouseEvent, book: Book | undefined): void => {
+  // A spine right-clicked on the shelf: its menu opens beside that spine, a layer over the book menu, which stays open
+  // behind it (the user, 22 Nov: the book menu shut and the spine's menu floated in the middle of the sidebar, reading as
+  // an unrelated popup). The spine stands pulled out while its menu is up; Esc or a click away shuts that menu alone.
+  const [spineMenu, setSpineMenu] = useState<string | null>(null)
+  const spineHeld = useRef(false)
+  const openBookMenu = (event: React.MouseEvent, book: Book | undefined, spine?: Element): void => {
     event.preventDefault()
     if (!book) return
     bookMenuFor.current = book
+    if (spine && footMenu) {
+      const box = spine.getBoundingClientRect()
+      spineHeld.current = true
+      setSpineMenu(book.id)
+      bookMenuAt.current?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.right + 4, clientY: box.top, button: 2 }))
+      return
+    }
     footGave.current = footMenu
     if (footMenu) setFootCut(true)
     setFootMenu(false)
@@ -2755,7 +2767,17 @@ export function Home(): React.JSX.Element {
           {/* A book's own menu (its colour, its name, its place in Settings), opened where it was right-clicked: on
               its row in the menu below, which shuts as this opens, or on the book's name here. Held by a point of
               its own, so the menu below can go without taking it along. */}
-          <RowMenu items={() => {
+          <RowMenu onOpenChange={(open) => {
+            if (open || !spineHeld.current) return
+            // Shut: back to the book menu, on the spine it was opened from. Let go of a beat later, so the click away
+            // that shut it is not taken by the book menu as a click away from it too.
+            const id = spineMenu
+            setTimeout(() => {
+              spineHeld.current = false
+              setSpineMenu(null)
+              if (id) document.querySelector<HTMLElement>(`[data-book-shelf] [data-book="${CSS.escape(id)}"]`)?.focus({ preventScroll: true })
+            }, 0)
+          }} items={() => {
             // Read afresh from the shelf on each draw: a colour picked with the menu open moves its tick.
             const book = shelfNow?.books.find((one) => one.id === (bookMenuFor.current ?? openBook)?.id) ?? bookMenuFor.current ?? openBook
             const inSettings = (what: 'book' | 'book-rename' | 'book-delete') => () => setView({ id: 'settings', focus: `${what}:${book!.id}`, nonce: Date.now() })
@@ -2776,6 +2798,8 @@ export function Home(): React.JSX.Element {
               // While a new book is named in its row, the rows under the pointer never take the focus from the name (so
               // they are not pointed at), and Esc leaves the name, not the menu.
               onEscapeKeyDown={(event) => namingBook && event.preventDefault()}
+              // A spine's own menu up over it: a press or the focus in it, or a click away from both, leaves this one open.
+              onInteractOutside={(event) => spineHeld.current && event.preventDefault()}
               // A row runs only for a press that began on it. A menu's own way, a press held and let go over another row
               // choosing that row, made a book pressed long and moved away open "New book…" (the user, 22 Nov: "Nothing is
               // clear about how and why"): a press on a book now carries it along the shelf, and letting go anywhere else does nothing.
@@ -2791,7 +2815,7 @@ export function Home(): React.JSX.Element {
               {/* Each row's card beside the menu: what it does, before you choose it. A book's says its whole name, however long. */}
               <MenuPeek />
               {/* Your books first, on a shelf: the open one turned to its face, the one pointed at pulled out (books.tsx). */}
-              {!!shelfNow?.books.length && <BookShelf books={shelfNow.books} onMenu={openBookMenu}
+              {!!shelfNow?.books.length && <BookShelf books={shelfNow.books} menuFor={spineMenu} onMenu={(event, book) => openBookMenu(event, book, event.currentTarget)}
                 onPick={(book) => (book.current ? setView({ id: 'settings', focus: `book:${book.id}`, nonce: Date.now() }) : void switchBook(book.id))} />}
               {/* New book…: the row itself becomes the new book's name, typed in place as Finder names a folder (books.tsx NewBookRow). */}
               {!SANDBOX && (namingBook ? <NewBookRow onDone={() => setNamingBook(false)} /> : (
