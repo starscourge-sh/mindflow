@@ -22,7 +22,8 @@ import { pdfsToFind } from './find-files'
  *   the notes filed in folders archived; the Inbox left as it is;
  *   every open task on hold (`held_at`, which Tasks leaves out) in one archived project "From before".
  * Deleted for good (test material): everything made from PDFs (highlights, ribbons, reading progress, the gems made
- * from highlights, notes that only held a PDF, the PDFs no note of yours still holds and their files), and every stat.
+ * from highlights, the PDFs added with no note and their files), and every stat. A note holding a PDF is kept, and so is
+ * its PDF: the person keeps every capture.
  * A whole copy of the book (and of each PDF file deleted) is made first, and nothing happens if it fails.
  */
 
@@ -54,7 +55,6 @@ const STATS: { table: string; what: [string, string]; where?: string }[] = [
   { table: 'reading_queue', what: ['thing in the reading queue', 'things in the reading queue'] },
   { table: 'note_opens', what: ['note in “Opened lately”', 'notes in “Opened lately”'] },
   { table: 'usage_counts', what: ['usage count', 'usage counts'] },
-  { table: 'app_opens', what: ['time the app was opened', 'times the app was opened'] },
   { table: 'folder_use', what: ['folder pick remembered', 'folder picks remembered'] },
   { table: 'article_reads', what: ['article read, as counted', 'articles read, as counted'] },
   { table: 'media_opened', what: ['file opened, as counted', 'files opened, as counted'] },
@@ -66,45 +66,18 @@ const STATS: { table: string; what: [string, string]; where?: string }[] = [
 const has = (db: DatabaseSync, table: string): boolean => !!db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(table)
 const count = (db: DatabaseSync, sql: string, ...args: string[]): number => (db.prepare(sql).get(...args) as { n: number | null }).n ?? 0
 
-type Node = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Node[] }
 const PDF_SRC = /^(haligtree|mindflow):\/\/assets\//
-/** The PDFs a note holds, and whether it has words of its own beside them. */
-function pdfsIn(body: string | null): { pdfs: string[]; words: boolean } {
-  const pdfs: string[] = []
-  let words = false
-  const walk = (node: Node | null | undefined): void => {
-    if (!node || typeof node !== 'object') return
-    if (node.type === 'text' && node.text?.trim()) words = true
-    const src = String(node.attrs?.src ?? ''), name = String(node.attrs?.name ?? '')
-    if (node.type === 'attachment' && PDF_SRC.test(src) && (/\.pdf$/i.test(name) || /\.pdf$/i.test(src))) pdfs.push(src)
-    else if (node.type && node.type !== 'doc' && node.type !== 'paragraph' && node.type !== 'text' && node.type !== 'hardBreak') words = true
-    node.content?.forEach(walk)
-  }
-  try {
-    const doc = JSON.parse(body ?? 'null') as Node | string | null
-    if (typeof doc === 'string') words = !!doc.trim()
-    else walk(doc)
-  } catch {
-    words = true
-  }
-  return { pdfs, words }
-}
-
-/** What the PDFs come to: the notes that only held one (deleted), and the PDFs left in no note of yours (deleted, files too). */
-function pdfPlan(db: DatabaseSync): { notes: { table: 'captures' | 'nuggets'; id: string }[]; gone: string[]; stay: number } {
+/** What the PDFs come to: the ones added with no note, deleted with their files; the ones a note holds, kept with it. */
+function pdfPlan(db: DatabaseSync): { gone: string[]; stay: number } {
   const all = new Set(pdfsToFind(db).map((one) => one.id.slice(0, one.id.indexOf('|'))))
-  const rows = db.prepare(`select 'captures' as t, id, body from captures where status != 'discarded' and body like '%"attachment"%' and body like '%.pdf%'
-    union all select 'nuggets', id, body from nuggets where binned_at is null and body like '%"attachment"%' and body like '%.pdf%'`).all() as { t: 'captures' | 'nuggets'; id: string; body: string | null }[]
-  const notes: { table: 'captures' | 'nuggets'; id: string }[] = []
+  const added = new Set(has(db, 'media_added') ? (db.prepare('select src from media_added where binned_at is null').all() as { src: string }[]).map((one) => one.src) : [])
+  // In a note's words as well as added: kept, the note holds it.
   const held = new Set<string>()
-  for (const row of rows) {
-    const { pdfs, words } = pdfsIn(row.body)
-    if (!pdfs.length) continue
-    if (words) pdfs.forEach((src) => held.add(src))
-    else notes.push({ table: row.t, id: row.id })
-  }
-  const gone = [...all].filter((src) => !held.has(src))
-  return { notes, gone, stay: all.size - gone.length }
+  for (const row of db.prepare(`select body from captures where status != 'discarded' and body like '%"attachment"%' and body like '%.pdf%'
+    union all select body from nuggets where binned_at is null and body like '%"attachment"%' and body like '%.pdf%'`).all() as { body: string | null }[])
+    for (const src of [...all]) if (row.body?.includes(src)) held.add(src)
+  const gone = [...all].filter((src) => added.has(src) && !held.has(src))
+  return { gone, stay: all.size - gone.length }
 }
 
 /** The gems made from a PDF's highlights: deleted with them. */
@@ -134,8 +107,7 @@ export function freshPlan(): Plan {
   const gone = [
     line('highlights', has(db, 'pdf_highlights') ? count(db, 'select count(*) as n from pdf_highlights') : 0, 'highlight', 'highlights', 'deleted'),
     line('highlightGems', highlightGems, 'gem made from a PDF highlight', 'gems made from PDF highlights', 'deleted'),
-    line('pdfNotes', pdf.notes.length, 'note that only held a PDF', 'notes that only held a PDF', 'deleted'),
-    line('pdfs', pdf.gone.length, 'PDF in the Library', 'PDFs in the Library', 'deleted, with its file'),
+    line('pdfs', pdf.gone.length, 'PDF added to the Library with no note', 'PDFs added to the Library with no note', 'deleted, with its file'),
     line('ribbons', has(db, 'ribbons') ? count(db, 'select count(*) as n from ribbons') : 0, 'ribbon', 'ribbons', 'deleted'),
     line('reading', has(db, 'pdf_reading') ? count(db, 'select count(*) as n from pdf_reading') : 0, 'book’s reading progress', 'books’ reading progress', 'deleted'),
     line('schedules', count(db, 'select count(*) as n from nuggets where state is not null or due_at is not null'), 'card schedule', 'card schedules', 'started over'),
@@ -188,12 +160,10 @@ export async function startFresh(copy: (to: string) => Promise<void> = (to) => c
       db.prepare('update note_groups set parent_id = ? where id = ?').run(folder, one.id)
       away++
     }
-    // Deleted first, so nothing about to go is put away: the gems made from PDF highlights, and the notes that only held a PDF.
+    // Deleted first, so nothing about to go is put away: the gems made from PDF highlights.
     const dropped = has(db, 'pdf_highlights') ? (db.prepare(`select id from nuggets where id in (${HIGHLIGHT_GEMS})`).all() as { id: string }[]).map((one) => one.id) : []
-    for (const id of dropped) db.prepare('delete from nuggets where id = ?').run(id)
-    for (const one of plan.notes) db.prepare(`delete from ${one.table} where id = ?`).run(one.id)
-    for (const id of [...dropped, ...plan.notes.map((one) => one.id)]) db.prepare('delete from versions where item_id = ?').run(id)
-    gone += dropped.length + plan.notes.length
+    for (const id of dropped) (db.prepare('delete from nuggets where id = ?').run(id), db.prepare('delete from versions where item_id = ?').run(id))
+    gone += dropped.length
     // Every page, gem, card and deck: archived, its pin and reminder kept for when it comes back; loose ones into the folder.
     const things = db.prepare("select id, folder_id as folder, tier from nuggets where binned_at is null and superseded_by is null and archived_at is null and tier != 'goal'").all() as { id: string; folder: string | null; tier: string }[]
     const archive = (table: string): ReturnType<DatabaseSync['prepare']> =>

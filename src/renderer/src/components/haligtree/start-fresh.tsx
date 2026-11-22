@@ -29,8 +29,9 @@ export function StartFresh({ point }: { /** Asked for from ⌘K: unfolded. */ po
   useEffect(() => void (point && unfold()), [point]) // eslint-disable-line react-hooks/exhaustive-deps
   const run = async (): Promise<void> => {
     setRunning(true)
-    const done = await call<Result>('fresh:run').finally(() => setRunning(false))
-    if (!done.done) return refuse(`${done.why}. Nothing was changed.`)
+    // A failure inside the run (the book refusing a change) rolls every change back: said with its own words, never silent.
+    const done = await call<Result>('fresh:run').catch((error: unknown) => ({ done: false as const, why: `Start fresh stopped: ${String((error as Error)?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}` })).finally(() => setRunning(false))
+    if (!done.done) return refuse(`${done.why}. Your book was left as it was.`)
     chime('anew')
     setOpen(false)
     setPlan(null)
@@ -62,7 +63,7 @@ export function StartFresh({ point }: { /** Asked for from ⌘K: unfolded. */ po
               <section data-fresh-group="gone">
                 <p className="text-body text-foreground"><strong className="font-semibold">Deleted for good.</strong> Test material: what PDFs made, and every stat.</p>
                 {plan.gone.length ? list(plan.gone) : <p className="mt-2 text-body text-foreground">Nothing to delete.</p>}
-                {plan.stay > 0 && <p className="mt-2 text-body text-foreground">{plural(plan.stay, 'PDF')} {plan.stay === 1 ? 'stays' : 'stay'}: {plan.stay === 1 ? 'a note' : 'notes'} with your own words {plan.stay === 1 ? 'holds it' : 'hold them'}.</p>}
+                {plan.stay > 0 && <p className="mt-2 text-body text-foreground">{plural(plan.stay, 'PDF')} {plan.stay === 1 ? 'stays' : 'stay'}: {plan.stay === 1 ? 'a note of yours holds it' : 'notes of yours hold them'}, and every note stays. Their highlights and reading progress go.</p>}
               </section>
               <p data-fresh-backup className="text-body text-foreground"><strong className="font-semibold">A whole copy first,</strong> to <span className="break-all">{plan.backup}</span>. If it can’t be made, nothing changes.</p>
               <div className="flex items-center gap-2">

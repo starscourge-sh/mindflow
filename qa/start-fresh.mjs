@@ -10,7 +10,7 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
-const { check, done } = checks()
+const { check: told, done } = checks()
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
@@ -19,6 +19,11 @@ const file = join(process.env.QA_DATA, 'sandbox', 'haligtree.db')
 const sql = (query, ...args) => { const db = new DatabaseSync(file, { readOnly: true }); try { return db.prepare(query).get(...args) } finally { db.close() } }
 const n = (query, ...args) => Number(Object.values(sql(query, ...args))[0] ?? 0)
 const notice = () => h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent).join(' | '))
+h.setDefaultTimeout(8000)
+// A failed check says what was on screen: the notice and the page's last errors.
+const check = async (name, ok, detail = '') => told(name, ok, ok ? detail : `${detail} | notice: ${await notice().catch(() => '?')} | errors: ${c.errors.slice(-4).join(' / ') || 'none'}`)
+// Frames for the lead to read, with QA_SHOTS set: the plan, mid-hold, after.
+const shot = (name) => (process.env.QA_SHOTS ? h.screenshot({ path: join(process.env.QA_SHOTS, `start-fresh-${name}.png`) }) : Promise.resolve())
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   // Test material to delete: a highlight and a ribbon in a PDF, a grade in Review's history.
@@ -35,32 +40,40 @@ try {
   await c.go('settings'); await h.click('[data-section="Your book"]'); await wait(600)
   await h.click('[data-fresh-open]'); await wait(1200)
   const shown = await h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-fresh-line]')].map((one) => [one.getAttribute('data-fresh-line'), Number(one.getAttribute('data-n'))])))
-  check('the plan says the book’s own counts: folders, pages, gems, open tasks, highlights',
+  await check('the plan says the book’s own counts: folders, pages, gems, open tasks, highlights',
     shown.folders === before.folders && shown.gems === before.gems && shown.pages === before.pages && shown.tasks === before.tasks && shown.highlights === before.highlights, JSON.stringify({ shown, before }))
-  check('it says where the copy goes before anything happens', /before start fresh/.test(await h.locator('[data-fresh-backup]').textContent()))
+  await check('it says where the copy goes before anything happens', /before start fresh/.test(await h.locator('[data-fresh-backup]').textContent()))
   // A first-timer clicks the hold button instead of holding it: nothing happens.
-  const hold = await h.locator('[data-fresh-plan] button', { hasText: 'Hold to start fresh' }).boundingBox()
+  // The plan is long: its button brought into view first, as a person scrolls to it (raw pointer moves never scroll).
+  const button = h.locator('[data-fresh-plan] button', { hasText: 'Hold to start fresh' })
+  await button.scrollIntoViewIfNeeded(); await wait(400)
+  await shot('plan')
+  const hold = await button.boundingBox()
   await h.mouse.click(hold.x + hold.width / 2, hold.y + hold.height / 2); await wait(800)
-  check('a plain click does nothing', n("select count(*) from note_groups where list = 'folders' and name = 'From Obsidian'") === 0)
-  await h.mouse.move(hold.x + hold.width / 2, hold.y + hold.height / 2); await h.mouse.down(); await wait(1600); await h.mouse.up()
+  await check('a plain click does nothing', n("select count(*) from note_groups where list = 'folders' and name = 'From Obsidian'") === 0)
+  // Held as settings-books holds: 1,500 ms on the button's centre.
+  await h.mouse.move(hold.x + hold.width / 2, hold.y + hold.height / 2); await h.mouse.down(); await wait(600)
+  await shot('mid-hold')
+  await wait(900); await h.mouse.up()
   let ran = false
-  for (let i = 0; i < 60 && !ran; i++) (await wait(200), (ran = /Started fresh/.test(await notice())))
-  check('held, it runs and says what it did, with “Show me”', ran && /Show me/.test(await notice()), await notice())
+  for (let i = 0; i < 40 && !ran; i++) (await wait(200), (ran = /Started fresh/.test(await notice())))
+  await shot('after')
+  await check('held, it runs and says what it did, with “Show me”', ran && /Show me/.test(await notice()), await notice())
   const backups = join(process.env.QA_DATA, 'sandbox', 'backups')
   const copy = existsSync(backups) ? readdirSync(backups).find((one) => one.startsWith('before start fresh')) : null
-  check('a whole copy of the book was made first', !!copy && existsSync(join(backups, copy, 'haligtree.db')), copy)
+  await check('a whole copy of the book was made first', !!copy && existsSync(join(backups, copy, 'haligtree.db')), copy)
   const top = await v('folders')
-  check('Writing’s top is only “From Obsidian”', top.filter((one) => !one.parent).map((one) => one.name).join() === 'From Obsidian', top.filter((one) => !one.parent).map((one) => one.name).join())
-  check('no page or gem left loose in Writing', (await v('folders:items', 'unfiled')).length === 0)
-  check('every gem and page put away, none deleted', n("select count(*) from nuggets where binned_at is null and archived_at is null and tier in ('nugget', 'question', 'article')") === 0 && n("select count(*) from nuggets where tier in ('nugget', 'question', 'article')") >= before.gems + before.pages)
-  check('the Inbox kept as it was', n("select count(*) from captures where status = 'open' and folder_id is null and archived_at is null") === before.inbox)
-  check('Review has no decks and nothing due', (await v('decks:list')).length === 0 && (await v('review:queue')).length === 0)
-  check('Tasks shows none of the old open tasks', (await v('tasks')).filter((one) => one.status === 'open').length === 0)
-  check('highlights, ribbons, reading progress and review history at zero', n('select count(*) from pdf_highlights') + n('select count(*) from ribbons') + n('select count(*) from pdf_reading') + n('select count(*) from review_log') === 0)
+  await check('Writing’s top is only “From Obsidian”', top.filter((one) => !one.parent).map((one) => one.name).join() === 'From Obsidian', top.filter((one) => !one.parent).map((one) => one.name).join())
+  await check('no page or gem left loose in Writing', (await v('folders:items', 'unfiled')).length === 0)
+  await check('every gem and page put away, none deleted', n("select count(*) from nuggets where binned_at is null and archived_at is null and tier in ('nugget', 'question', 'article')") === 0 && n("select count(*) from nuggets where tier in ('nugget', 'question', 'article')") >= before.gems + before.pages)
+  await check('the Inbox kept as it was', n("select count(*) from captures where status = 'open' and folder_id is null and archived_at is null") === before.inbox)
+  await check('Review has no decks and nothing due', (await v('decks:list')).length === 0 && (await v('review:queue')).length === 0)
+  await check('Tasks shows none of the old open tasks', (await v('tasks')).filter((one) => one.status === 'open').length === 0)
+  await check('highlights, ribbons, reading progress and review history at zero', n('select count(*) from pdf_highlights') + n('select count(*) from ribbons') + n('select count(*) from pdf_reading') + n('select count(*) from review_log') === 0)
   const away = new Set((await v('fresh:away')).map((one) => one.id))
   const feed = JSON.stringify(await v('feed'))
   const home = JSON.stringify(await v('home'))
-  check('the Feed and Home show nothing put away', ![...away].some((id) => feed.includes(id) || home.includes(id)))
+  await check('the Feed and Home show nothing put away', ![...away].some((id) => feed.includes(id) || home.includes(id)))
   // The pass: a gem, brought back with B.
   await h.evaluate(() => document.querySelector('[data-setting-title="Bring back"]')?.scrollIntoView({ block: 'center' })); await wait(400)
   await h.click('[data-fresh-go]'); await wait(600)
@@ -69,9 +82,9 @@ try {
   for (let i = 0; i < gemAt; i++) (await h.keyboard.press('ArrowRight'), await wait(120))
   const gem = list[gemAt]
   await h.keyboard.press('b'); await wait(900)
-  check('B brings the gem back: in Writing again, and the Feed may draw it', n('select count(*) from nuggets where id = ? and archived_at is null and binned_at is null', gem.id) === 1 && (await v('folders:items', 'unfiled')).some((one) => one.id === gem.id), gem.title)
+  await check('B brings the gem back: in Writing again, and the Feed may draw it', n('select count(*) from nuggets where id = ? and archived_at is null and binned_at is null', gem.id) === 1 && (await v('folders:items', 'unfiled')).some((one) => one.id === gem.id), gem.title)
   await h.keyboard.press('Escape'); await wait(400)
-  check('Esc stops the pass', (await h.locator('[data-fresh-pass]').count()) === 0)
+  await check('Esc stops the pass', (await h.locator('[data-fresh-pass]').count()) === 0)
   // A folder, from its own right-click in the sidebar.
   const folder = (await v('folders')).find((one) => one.away)
   await c.go('articles'); await wait(900)
@@ -80,9 +93,9 @@ try {
   await h.locator(`[data-folder-name="${folder.name}"]`).first().click({ button: 'right' }); await wait(500)
   await h.locator('[role="menuitem"]', { hasText: 'Bring back' }).first().click({ timeout: 3000 }); await wait(900)
   const after = (await v('folders')).find((one) => one.id === folder.id)
-  check('the folder’s right-click “Bring back” puts it at the top of Writing, what it holds in sight', after && !after.parent && after.hidden === 0, JSON.stringify(after))
+  await check('the folder’s right-click “Bring back” puts it at the top of Writing, what it holds in sight', after && !after.parent && after.hidden === 0, JSON.stringify(after))
 } catch (error) {
-  check('the run finished', false, error.message.split('\n')[0])
+  await check('the run finished', false, error.message.split('\n')[0])
 } finally {
   await c.close?.()
 }
