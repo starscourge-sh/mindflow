@@ -226,8 +226,8 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       <div data-deck-shelf data-deck-first className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
         {fresh && <div data-deck-grid className={GRID}>{fresh}</div>}
+        {/* No year of empty squares under the ways in: "0 days, 0 cards, 0%" says nothing to someone who has not begun. */}
         <FirstWays example={own.find((deck) => deck.tag === EXAMPLE_TAG) ?? null} onMake={() => (chime('open'), onPaste(null, true))} onPicture={() => onPicture(null)} onStudy={onStudy} />
-        <StudyYear />
       </div>
     )
   if (look === 'list')
@@ -847,7 +847,7 @@ function Way({ id, title, line, onClick, children }: { id: string; title: string
         <span className="text-sm leading-snug text-muted-foreground">{line}</span>
       </span>
       {/* The example, in the app's card look: what this way makes. */}
-      <span aria-hidden data-first-sample className="grid gap-1.5 rounded-[4px] border border-foreground/10 bg-background px-3 py-2.5">{children}</span>
+      <span aria-hidden data-first-sample className="grid min-w-0 gap-1.5 rounded-[4px] border border-foreground/10 bg-background px-3 py-2.5">{children}</span>
     </div>
   )
 }
@@ -872,9 +872,9 @@ function FirstWays({ example, onMake, onPicture, onStudy }: { example: OwnDeck |
           <span className="text-sm text-(--mf-muted-strong)">Lima</span>
         </Way>
         <Way id="import" title="Import from Anki" line="A deck someone shared with you, or a spreadsheet of words and meanings." onClick={() => (chime('open'), void window.api.importFrom('files'))}>
-          <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Biology.apkg</span><span className="shrink-0 text-muted-foreground">Anki deck</span></span>
+          <span className="flex min-w-0 items-baseline justify-between gap-3 text-sm"><span className="min-w-0 truncate text-foreground">Biology.apkg</span><span className="shrink-0 text-muted-foreground">Anki deck</span></span>
           <span className="border-t border-foreground/10" />
-          <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Spanish words.csv</span><span className="shrink-0 text-muted-foreground">spreadsheet</span></span>
+          <span className="flex min-w-0 items-baseline justify-between gap-3 text-sm"><span className="min-w-0 truncate text-foreground">Spanish words.csv</span><span className="shrink-0 text-muted-foreground">spreadsheet</span></span>
         </Way>
         <Way id="picture" title="Make cards from a picture" line="A diagram, a map or a painting: cover parts of it, and each cover becomes a card." onClick={onPicture}>
           {/* A drawn diagram: a cell, its labels covered, the one asked glowing in the theme's colour. */}

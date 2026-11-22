@@ -44,6 +44,20 @@ try {
   const counts = `book: ${captures} captures; this week: ${week.caught} caught, ${week.kept} kept (${week.pages} pages), ${week.reviewed} reviewed, ${week.finished} finished`
   console.log(counts)
   check('the book is new: no captures, one page kept this week', captures === 0 && week.caught === 0 && week.kept === 1 && week.pages === 1 && week.reviewed === 0 && week.finished === 0, counts)
+  // Review before a first card: the three ways in sit whole in their cards at a narrow and a wide window, and no year
+  // of empty squares ("0 days, 0 cards, 0%") sits under them (the user, 22 Nov).
+  // A brand-new book plays its intro and welcome over everything: skipped, as a person in a hurry would.
+  for (const words of ['Skip intro', 'Skip the welcome', 'Start without the tour']) if (await h.getByText(words).count()) { await h.getByText(words).first().click(); await wait(1500) }
+  for (const width of [900, 1500]) {
+    await c.size(width, 900); await c.go('review'); await wait(1200)
+    const r = await h.evaluate(() => ({
+      first: !!document.querySelector('[data-deck-first]'),
+      out: [...document.querySelectorAll('[data-first-way]')].map((way) => [...way.querySelectorAll('*')].filter((el) => el.getBoundingClientRect().right > way.getBoundingClientRect().right + 0.5).length),
+      year: /reviews this year|of days studied/.test(document.querySelector('[data-deck-first]')?.textContent ?? '')
+    }))
+    await shot(`review-first-${width}`)
+    check(`Review before a first card, ${width} wide: each way's example sits inside its card, and no empty year`, r.first && r.out.length === 3 && r.out.every((n) => n === 0) && !r.year, JSON.stringify(r))
+  }
   await h.evaluate(() => localStorage.removeItem('weekly-digest:away'))
   await c.go('home')
   // The card is on Home once its week is read (at most 10 s). Home's "Now" shows one card at a time (now-slot.tsx): if
