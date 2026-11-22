@@ -54,7 +54,7 @@ import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
 import { PageContents } from './page-contents'
 import { SectionSearch, SectionTabs } from './section-tabs'
-import { ReaderCard } from './reader-card'
+import { ReaderCard, ShelfCover } from './reader-card'
 import { DeckFace } from './deck-shelf'
 import { CoverChoice, DimPreview, FolderStrips, InFinder, isBuiltInScenery } from './settings-looks'
 import { builtInScenery } from '@/lib/built-in-scenery'
@@ -1449,6 +1449,8 @@ function HomeGoalRows({ settings }: { settings: Settings }): React.JSX.Element {
 }
 
 /** A book's row, as System Settings lists users: its mark, its name over one quiet fact, and at the right only “Open” and its “…”. */
+/** The open book's cover above the list: the card scaled to a label 44px tall (labelOf takes 4px each side). */
+const THUMB = { wide: 42, high: 52, thick: 4, board: 1, overhang: 0 }
 const BOOK_ROW = 'flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 py-1.5 pr-3 pl-4'
 const BOOK_KEYS = 'book books rename delete open switch colour color accent tint hue space arc vault workspace'
 
@@ -1463,7 +1465,6 @@ const BOOK_KEYS = 'book books rename delete open switch colour color accent tint
  */
 function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or 'book-delete:<id>', from a book's own menu. */ asked?: string; nonce?: number }): React.JSX.Element | null {
   const shelf = useShelf()
-  const readerSeed = useLive(haligtree.settings, null as Settings | null)?.readerSeed
   const { query, all } = useContext(Query)
   const shown = all ? '' : query
   // A book named where it is listed, as Finder names a folder: a new one on its own row at the foot, or one renamed in its row.
@@ -1525,8 +1526,11 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
       {open && (
         <RowMenu items={bookMenu(open, { rename: () => (setAsking(null), setNaming(open.id)), remove: () => (chime('open'), setAsking(open.id)) })}>
           <div data-setting data-setting-title={open.name} data-setting-anchor={`book:${open.id}`} data-book-row={open.id} data-book-lead aria-current="true"
-            className="mb-4 flex items-center gap-5 px-1">
-            <span className="shrink-0"><ReaderCard seed={readerSeed} bare /></span>
+            className="mb-3 flex min-h-16 items-center gap-3 px-1">
+            {/* A small cover of its card, never a second full book: "Your card" above already stands it in 3D. */}
+            <span aria-hidden data-book-thumb className="relative h-11 w-[30px] shrink-0 overflow-hidden rounded-[3px] bg-[#fffbea] shadow-[0_0_0_0.5px_rgb(50_30_10/0.42),0_1px_3px_rgb(0_0_0/0.25)]">
+              <ShelfCover name={open.name} size={THUMB} />
+            </span>
             <span className="min-w-0 flex-1">
               {naming === open.id ? nameField(open) : <span title={open.name} className="block text-title font-semibold text-foreground"><Marked text={open.name} query={shown} /></span>}
               <span data-book-fact className={fact}>{factOf(open)}</span>
