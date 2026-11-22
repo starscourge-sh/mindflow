@@ -800,7 +800,7 @@ const panelX = (card: Electron.Rectangle, width: number): number => (boxPlacemen
  */
 function roomForPanel(win: BrowserWindow, place: Electron.Rectangle, room: Room): Room {
   if (panelShown() || isWelcoming() || win !== prompt) return room
-  const box = onScreen({ x: panelX(place, WITH_PANEL), y: anchor?.became === place.y ? anchor.y : place.y, width: WITH_PANEL, height: SIZES.expanded.height })
+  const box = boxOnScreen({ x: panelX(place, WITH_PANEL), y: anchor?.became === place.y ? anchor.y : place.y, width: WITH_PANEL, height: SIZES.expanded.height })
   return {
     left: Math.max(room.left, place.x - box.x + BOX_ROOM.left),
     // Above a box the screen's foot pushes up (the expander's, on a laptop), a hint above keeps its room too.
@@ -2940,7 +2940,7 @@ let anchor: { y: number; became: number } | null = null
 function anchored(win: BrowserWindow, x: number, width: number, height: number): Electron.Rectangle {
   const bounds = boundsOf(win)
   if (!anchor || anchor.became !== bounds.y) anchor = { y: bounds.y, became: bounds.y }
-  const next = onScreen({ x, y: anchor.y, width, height })
+  const next = onScreen({ x, y: anchor.y, width, height }, win === prompt ? BOX_ABOVE : 0)
   anchor.became = next.y
   return next
 }
@@ -3874,7 +3874,7 @@ function untidyStickies(): void {
  * of the work area if it is somehow bigger than the screen, which is the half
  * worth keeping.
  */
-function onScreen(bounds: Electron.Rectangle): Electron.Rectangle {
+function onScreen(bounds: Electron.Rectangle, above = 0): Electron.Rectangle {
   const { workArea } = screen.getDisplayMatching(bounds)
   return {
     ...bounds,
@@ -3882,10 +3882,23 @@ function onScreen(bounds: Electron.Rectangle): Electron.Rectangle {
       Math.max(workArea.x, Math.min(bounds.x, workArea.x + workArea.width - bounds.width))
     ),
     y: Math.round(
-      Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - bounds.height))
+      Math.max(workArea.y + above, Math.min(bounds.y, workArea.y + workArea.height - bounds.height))
     )
   }
 }
+
+/**
+ * How far below the top of the screen's work area (under the menu bar) quick capture's card always sits: its round
+ * controls stand in a row 40px above the card's top (main.css, .mf-top), and 8px more keeps them off the menu bar.
+ * Placed higher (thrown or carried to the top, a pill grown into the box there), the row was cut off by the screen's
+ * top, only its feet showing (the user, 22 Nov). Kept for the pill too, whose controls sit beside it: it then grows
+ * into the box where it is, with nothing moving.
+ */
+const BOX_ABOVE = 48
+/** The box's card kept on its screen, with its controls' row above it on the screen too. */
+const boxOnScreen = (bounds: Electron.Rectangle): Electron.Rectangle => onScreen(bounds, BOX_ABOVE)
+/** A screen's work area less the controls' row above the box's card: where the box may be thrown. */
+const boxArea = (area: Electron.Rectangle): Electron.Rectangle => ({ ...area, y: area.y + BOX_ABOVE, height: area.height - BOX_ABOVE })
 
 /**
  * The top middle of a screen, the way Spotlight sits: across from the eye,
@@ -3909,7 +3922,7 @@ function opensAt(place: 'top' | 'centre', area: Electron.Rectangle, width: numbe
  * where it settles carried near, and where a double-click on its grabber sends it.
  */
 const boxHome = (box: Electron.Rectangle): Electron.Rectangle =>
-  onScreen(opensAt(boxPlacement().place === 'centre' ? 'centre' : 'top', screen.getDisplayMatching(box).workArea, box.width, box.height))
+  boxOnScreen(opensAt(boxPlacement().place === 'centre' ? 'centre' : 'top', screen.getDisplayMatching(box).workArea, box.width, box.height))
 
 /** The work area of the screen the pointer is on. */
 const pointerArea = (): Electron.Rectangle => screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
@@ -3977,7 +3990,7 @@ function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
   if (pending?.win === win) (arriving?.(), settle())
   const from = win.getBounds()
   const display = screen.getDisplayMatching(from)
-  const to = throwSpot(from, display.workArea, dx, dy)
+  const to = throwSpot(from, win === prompt ? boxArea(display.workArea) : display.workArea, dx, dy)
   // A small window (the same page, App.tsx's ⌘ and two fingers) is thrown the same way, on the glide that steps it
   // aside; only quick capture remembers where it was thrown, for the next time it opens.
   if (win !== prompt) {
@@ -4072,7 +4085,7 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
   const { place, screen: which } = boxPlacement()
   const was = screen.getDisplayMatching(left).workArea
   const area = which === 'pointer' ? pointerArea() : was
-  const put = (at: Electron.Rectangle): { place: Electron.Rectangle; top: number } => ({ place: onScreen({ ...at, width, height }), top: at.y })
+  const put = (at: Electron.Rectangle): { place: Electron.Rectangle; top: number } => ({ place: boxOnScreen({ ...at, width, height }), top: at.y })
   // While the welcome runs, over the welcome's own picture of the box, under the step's words: never on top of them.
   const welcomeSpot = welcomeBoxSpot()
   if (welcomeSpot && home && !home.isDestroyed() && home.isVisible()) {
@@ -5868,7 +5881,7 @@ app.whenReady().then(() => {
     if (pending?.win === win) (arriving?.(), settle())
     const from = win.getBounds()
     const [x, y] = fingersWay(Number(dx) || 0, Number(dy) || 0)
-    const to = onScreen({ ...from, x: from.x + x, y: from.y + y })
+    const to = onScreen({ ...from, x: from.x + x, y: from.y + y }, win === prompt ? BOX_ABOVE : 0)
     win.setPosition(to.x, to.y)
   })
   // Let go slowly: it stays there, remembered for this screen as a throw is.
@@ -6066,9 +6079,24 @@ app.whenReady().then(() => {
       const { win, from, start, drag } = boxHold
       const at = win.getBounds()
       const lined = drag.to({ ...at, x: from.x + now.x - start.x, y: from.y + now.y - start.y })
-      if (at.x !== lined.x || at.y !== lined.y) win.setPosition(lined.x, lined.y)
+      // Carried up to a screen's top, it stops with its controls' row under the menu bar, as the Mac stops a window
+      // there; at an edge with another screen above, it goes on to that one (and is set down below its bar, letGo).
+      const card = { ...at, x: lined.x, y: lined.y }
+      const { bounds, workArea } = screen.getDisplayMatching(card)
+      const roof = screen.getAllDisplays().some((one) => one.bounds.y + one.bounds.height === bounds.y && one.bounds.x < card.x + card.width && one.bounds.x + one.bounds.width > card.x)
+      const y = roof ? lined.y : Math.max(lined.y, workArea.y + BOX_ABOVE)
+      if (at.x !== lined.x || at.y !== y) win.setPosition(lined.x, y)
     },
-    letGo: () => void ((boxHold = null), hideGuides())
+    letGo: () => {
+      const win = boxHold?.win
+      boxHold = null
+      hideGuides()
+      // Let go with its controls' row under a menu bar (carried across from the screen below): it glides down clear of it.
+      if (!win || win.isDestroyed()) return
+      const at = win.getBounds()
+      const y = screen.getDisplayMatching(at).workArea.y + BOX_ABOVE
+      if (at.y < y) glideTo(win, { x: at.x, y }, () => undefined)
+    }
   }
   const carrierOf = (event: Electron.IpcMainEvent): Carry | null => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -6096,7 +6124,7 @@ app.whenReady().then(() => {
     if (!win || win !== prompt || win.isFullScreen()) return
     const bounds = boundsOf(win)
     const { x, y } = opensAt('centre', screen.getDisplayMatching(bounds).workArea, bounds.width, bounds.height)
-    const next = onScreen({ ...bounds, x, y })
+    const next = boxOnScreen({ ...bounds, x, y })
     anchor = { y, became: next.y }
     panelFrom = null
     lastBounds = next
