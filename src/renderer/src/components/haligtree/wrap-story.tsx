@@ -57,8 +57,6 @@ type Wrapped = {
   focus: { minutes: number; sessions: number; tasks: { name: string; minutes: number }[] }
   plan: ReturnType<typeof plannedVsDid>
   gems: Item[]
-  /** Pages made in the span: never a card of their own, but named when there is too little for a story (Quiet). */
-  pages: Item[]
   run: { n: number; from: string; to: string }
   busy: string[]
   days: Record<string, number>
@@ -77,12 +75,11 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
   for (let monday = dayjs(from).startOf('week'); dayKey(monday) <= to; monday = monday.add(1, 'week')) mondays.push(dayKey(monday))
   const prior = dayjs(from).subtract(1, period)
   const [priorSince, priorUntil] = [prior.startOf(period).toISOString(), prior.endOf(period).toISOString()]
-  const [recap, sessions, tasks, gems, articles, days, pages, sent, read, priorRecap, priorSessions] = await Promise.all([
+  const [recap, sessions, tasks, gems, days, pages, sent, read, priorRecap, priorSessions] = await Promise.all([
     haligtree.recap(period, since),
     haligtree.sessionsSpan(since, until) as Promise<SpanSession[]>,
     haligtree.tasks() as Promise<Task[]>,
     haligtree.items('nugget'),
-    haligtree.items('article'),
     haligtree.dayCaptures(from, to),
     Promise.all(mondays.map((monday) => haligtree.period(`week:${monday}`))),
     sentAwaySince(since),
@@ -119,7 +116,6 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
     focus: { minutes: Math.round(total), sessions: sessions.length, tasks: most },
     plan: plannedVsDid(tasks, minutes, from, to),
     gems: gems.filter((gem) => !gem.private && dayKey(gem.createdAt) >= from && dayKey(gem.createdAt) <= to),
-    pages: articles.filter((page) => !page.private && dayKey(page.createdAt) >= from && dayKey(page.createdAt) <= to),
     run,
     busy: [...busy],
     days: days.counts,
@@ -131,13 +127,12 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
 }
 
 /**
- * Enough to tell a story: at least three things done in the span (caught, gems and pages kept, focus sessions, articles
- * finished, tasks planned), and at least one of them a card of its own. A new book's one page is not a story: the
- * user, 22 Nov, opened "Your week, wrapped" on a week with one page in it and got an empty cover and "None yet" tiles.
+ * Enough to tell a story: at least three of the things the cards are made of (things caught, gems kept, focus
+ * sessions, articles finished, tasks planned). Pages are not counted: no card tells them, so a new book's page or two
+ * is never a story. The user, 22 Nov, opened "Your week, wrapped" on a week with one page in it and got an empty cover
+ * and "None yet" tiles.
  */
-const enough = (d: Wrapped): boolean =>
-  d.recap.captures + d.gems.length + d.pages.length + d.focus.sessions + d.reads.finished + d.plan.rows.length >= 3 &&
-  (d.recap.captures > 0 || d.focus.minutes >= 1 || d.sites.length > 0 || d.reads.total > 0 || d.plan.rows.length > 0 || d.gems.length > 0 || d.well.length > 0)
+const enough = (d: Wrapped): boolean => d.recap.captures + d.gems.length + d.focus.sessions + d.reads.finished + d.plan.rows.length >= 3
 /** Whether a span ("week:2026-11-16", "month:2026-10") has enough to wrap: Home and the month's offer ask before offering it. */
 export const worthWrapping = (id: string): Promise<boolean> => wrapOf(spanOf(id)).then(enough, () => false)
 
@@ -253,8 +248,20 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   const [dir, setDir] = useState(1)
   const wide = useWide()
 
+  // Too little to tell: the span's pages, by name, read only then, for the one card that says what there is. A full
+  // story reads nothing more than it did.
+  const thin = !!data && !enough(data)
+  const [pageNames, setPageNames] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (!thin) return
+    let live = true
+    const inSpan = (at: string): boolean => dayKey(at) >= span.from && dayKey(at) <= span.to
+    void haligtree.items('article').then((all) => live && setPageNames(all.filter((page) => !page.private && inSpan(page.createdAt)).map((page) => page.title.trim() || 'Untitled')), () => live && setPageNames([]))
+    return () => void (live = false)
+  }, [thin]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const facts = useMemo<Facts | null>(() => {
-    if (!data || !pictures || !heroes) return null
+    if (!data || !pictures || !heroes || (thin && !pageNames)) return null
     const { recap, focus, plan, gems, run, well, name, busy, days, sites, reads, before } = data
     // The span's pictures, and its gems with none of their own on their paper drawing: one flowing row.
     const pictured = new Set(pictures.map((one) => one.id))
@@ -271,10 +278,10 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       // An hour is said only with enough caught to mean something, and one hour clearly ahead of the next.
       hours: recap.hours, hour: thinkingHour(recap.hours),
       well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites, reads, before,
-      thin: !enough(data), pages: data.pages.map((page) => page.title.trim() || 'Untitled'),
+      thin, pages: pageNames ?? [],
       ...worst
     }
-  }, [data, pictures, heroes]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, pictures, heroes, pageNames]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // On a Mac with Apple Intelligence, a few words over each page: the page's plain statement, written here from its
   // facts (wrapSays), said again by the model in the voice of the story's look (main/wrap-lines.ts); the page's own

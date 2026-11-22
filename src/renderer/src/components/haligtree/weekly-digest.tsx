@@ -34,7 +34,15 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
   const last = useLive(() => window.api.haligtree<Week>('digest:last'), null as Week | null)
   useReading(!settings || !week || !last)
   const wrapId = `week:${dayKey(dayjs().startOf('week'))}`
-  const worth = useLive(() => worthWrapping(wrapId), false, [wrapId, week?.caught, week?.kept, week?.reviewed, week?.finished], undefined, 'digest:wrap-worth')
+  // Asked once for this week's figures, never on every save: it reads what the whole story reads.
+  const [worth, setWorth] = useState(false)
+  const shows = !!week && week.caught + week.kept + week.reviewed + week.finished > 0
+  useEffect(() => {
+    if (!shows) return
+    let live = true
+    void worthWrapping(wrapId).then((yes) => live && setWorth(yes))
+    return () => void (live = false)
+  }, [wrapId, shows, week?.caught, week?.kept, week?.reviewed, week?.finished])
   // Closed this week: the offer to close it goes.
   const [, heard] = useState(0)
   useEffect(() => {
