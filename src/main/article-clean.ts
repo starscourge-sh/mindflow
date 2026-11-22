@@ -147,6 +147,123 @@ export function beforeReading(page: ReturnType<typeof parseHTML>['document']): v
   // own, who said them. Read as loose lines, the attribution ("—Albus Dumbledore…") stood as a paragraph of the
   // article; set as a quote with its attribution in it, the reader draws both as one (pdf.css).
   for (const box of [...page.querySelectorAll('div.quote, table.quote, div.pull-quote')]) quoted(page, box)
+  unseenOut(page)
+  for (const one of [...page.querySelectorAll('span, div, a, i, b, small')].reverse()) if (one.isConnected && !one.closest('pre') && CHROME.test(one.textContent ?? '')) one.remove()
+  codeLifted(page)
+  statsInLine(page)
+}
+
+/** A site's control drawn as words, never the article's: a close mark, a copy button's words, a "View script". */
+const CHROME = /^\s*(×|✕|✖|close|dismiss|copy|copied!?|copy code|copy to clipboard|view script)\s*$/i
+
+/** A box that floats over the page when opened: a dialog, a modal, a pop-up, a drawer. */
+const FLOATS = /(^|[\s_-])(modal|dialog|popup|pop-up|popover|overlay|lightbox|drawer|backdrop|fixed)([\s_-]|$)/i
+const floating = (one: Element): boolean =>
+  one.tagName === 'DIALOG' || /^(dialog|alertdialog)$/.test(one.getAttribute('role') ?? '') || one.getAttribute('aria-modal') === 'true' || FLOATS.test(`${one.getAttribute('class') ?? ''} ${one.getAttribute('id') ?? ''}`)
+
+/** Hidden as the page first shows: [hidden], aria-hidden, display:none or visibility:hidden, or a class that hides it on a wide window. */
+const unseen = (one: Element): boolean =>
+  one.hasAttribute('hidden') ||
+  (one.getAttribute('aria-hidden') === 'true' && !/fallback-image/.test(one.getAttribute('class') ?? '')) ||
+  /(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)/i.test(one.getAttribute('style') ?? '') ||
+  (one.tagName === 'DIALOG' && !one.hasAttribute('open')) ||
+  hiddenWide(one.getAttribute('class') ?? '')
+
+/**
+ * What the page hides as it opens goes before Readability reads it: a modal's close mark and its words ("Script
+ * Preview", read as the article's), a menu folded away, a screen reader's copy. Readability passes over some (an inline
+ * display:none) but not a class that hides it ("hidden"). A hidden tab panel holding code is kept, shown: a tool's
+ * install line in its "linux" tab is the article's as much as the "brew" one on show. Code in a closed dialog goes with it.
+ */
+function unseenOut(page: ReturnType<typeof parseHTML>['document']): void {
+  // A <template> is never drawn (a site's data for its scripts, Mintlify's whole docs index as words).
+  for (const one of [...page.querySelectorAll('template')]) one.remove()
+  for (const one of [...page.querySelectorAll('body *')]) {
+    if (!one.isConnected || !unseen(one)) continue
+    const dialog = floating(one) || !!one.parentElement?.closest('dialog, [role=dialog], [role=alertdialog], [aria-modal=true]')
+    if (!dialog && one.querySelector('pre')) {
+      for (const name of ['hidden', 'aria-hidden', 'style']) one.removeAttribute(name)
+      one.setAttribute('class', (one.getAttribute('class') ?? '').replace(/(^|\s)(hidden|d-none)(?=\s|$)/g, ' '))
+      continue
+    }
+    one.remove()
+  }
+}
+
+/**
+ * Each code block lifted out of the boxes a site draws round it (a frame, a copy button, a tab panel, the tabs over
+ * it): Readability judges each box by its class ("overflow-hidden", "scroll" count against it) and by its few words,
+ * and dropped a tool's install line with its frame. A box goes when all it holds besides its code is a few words (its
+ * tabs' names, a "Copy"); each code block in it stays, named by its tab when it was in one (data-tab, shown over it).
+ */
+function codeLifted(page: ReturnType<typeof parseHTML>['document']): void {
+  const named = (pre: Element): string => {
+    const panel = pre.closest('[role=tabpanel]')
+    if (!panel) return ''
+    const id = panel.getAttribute('id')
+    const by = panel.getAttribute('aria-labelledby')
+    const tab = (id ? page.querySelector(`[role=tab][aria-controls="${id}"]`) : null) ?? (by ? page.getElementById(by) : null)
+    return (tab?.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)
+  }
+  // Its words that are neither code nor a control (a tab's name, a button): none, or the box is the article's own.
+  const besides = (box: Element): number => {
+    const count = (one: Element): number => (one.textContent ?? '').replace(/\s+/g, '').length
+    let words = count(box)
+    for (const part of box.querySelectorAll('pre, button, [role=tab], [role=button]')) if (!part.parentElement?.closest('pre, button, [role=tab], [role=button]')) words -= count(part)
+    return words
+  }
+  const lifted = new Set<Element>()
+  for (const pre of [...page.querySelectorAll('pre')]) {
+    if (pre.parentElement?.closest('pre')) continue
+    const tab = named(pre)
+    if (tab && !pre.hasAttribute('data-tab')) pre.setAttribute('data-tab', tab)
+    let box: Element | null = null
+    for (let at = pre.parentElement; at && /^(DIV|SECTION|FIGURE|SPAN)$/.test(at.tagName); at = at.parentElement) {
+      if (besides(at) > 0 || at.querySelector('p, h1, h2, h3, h4, h5, h6, img, table, ul, ol, blockquote')) break
+      box = at
+    }
+    if (box) lifted.add(box)
+  }
+  // The outermost box only, each once: a tab panel's box is inside its tabs' box.
+  for (const box of lifted) if (![...lifted].some((other) => other !== box && other.contains(box)) && box.isConnected) {
+    const pres = [...box.querySelectorAll('pre')].filter((pre) => !pre.parentElement?.closest('pre'))
+    box.replaceWith(...pres)
+  }
+}
+
+/**
+ * A strip of figures (a value over its label, side by side: "4.7K / Stars", "v2.4.1 / Latest release") set as one
+ * line, "4.7K stars · v2.4.1 latest release": read as it was, each word stood as a paragraph of its own down the column.
+ */
+function statsInLine(page: ReturnType<typeof parseHTML>['document']): void {
+  const leaves = (cell: Element): string[] => {
+    const out: string[] = []
+    const walk = (node: Element): void => {
+      const kids = [...node.children].filter((one) => (one.textContent ?? '').trim())
+      if (!kids.length) return void out.push((node.textContent ?? '').replace(/\s+/g, ' ').trim())
+      // Words loose beside the cell's parts: not a value and a label.
+      if ([...node.childNodes].some((one) => one.nodeType === 3 && (one.textContent ?? '').trim())) return void out.push('', '', '')
+      kids.forEach(walk)
+    }
+    walk(cell)
+    return out
+  }
+  const short = (words: string): boolean => !!words && words.length <= 32 && words.split(' ').length <= 4
+  for (const strip of [...page.querySelectorAll('div, section, ul, dl')].reverse()) {
+    if (!strip.isConnected) continue
+    const cells = [...strip.children]
+    if (cells.length < 2 || cells.length > 8 || strip.querySelector('img, pre, table, h1, h2, h3, h4, h5, h6, svg')) continue
+    const pairs = cells.map(leaves)
+    if (!pairs.every((pair) => pair.length === 2 && pair.every(short))) continue
+    // The value first, its label after, whichever way the site set them; a label of plain words read in lower case.
+    const said = pairs.map(([one, two]) => {
+      const [value, label] = /\d/.test(two) && !/\d/.test(one) ? [two, one] : [one, two]
+      return `${value} ${/^[A-Z][a-z]+( [a-z]+)*$/.test(label) ? label.toLowerCase() : label}`
+    })
+    const line = page.createElement('p')
+    line.textContent = said.join(' · ')
+    strip.replaceWith(line)
+  }
 }
 
 /** A quote's lines (its innermost blocks with words), the last one its attribution when it starts with a dash or follows the words. */
@@ -300,7 +417,7 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
   for (const one of clean.querySelectorAll('*')) {
     for (const { name } of [...one.attributes]) {
       // A picture's credit (free-sites.ts creditCommons, marked before the cleaning) is the one mark kept.
-      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-(?!credit$|language$|infobox$)|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
+      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-(?!credit$|language$|infobox$|tab$)|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
     }
   }
   for (const one of clean.querySelectorAll('a[href]')) {
