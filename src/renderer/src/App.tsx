@@ -677,7 +677,7 @@ export default function App(): React.JSX.Element {
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(haligtree.settings, null as Settings | null)
   // Review's finish on the card studied in the box too (review-toolbar.tsx).
-  useEffect(() => { if (appSettings) wearFinish(appSettings.reviewFinish ?? 'satin') }, [appSettings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (appSettings) wearFinish(appSettings.reviewFinish ?? 'paper') }, [appSettings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
   const practiceActions = usePracticeActions()

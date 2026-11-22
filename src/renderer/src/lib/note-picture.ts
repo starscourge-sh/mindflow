@@ -1,3 +1,4 @@
+import { num } from '../../../main/dates'
 import type { Editor } from '@tiptap/core'
 import { step } from './sound'
 import { refuse, toast } from '@/components/haligtree/ui'
@@ -171,7 +172,7 @@ export async function sharePicture(page: HTMLElement | null, blocks: HTMLElement
     }
     if (!(await window.api.copyPicture(png))) return refuse('Could not put the image on the clipboard', 'error')
     step(2)
-    toast(blocks ? (blocks.length === 1 ? 'Copied the block as a picture' : `Copied ${blocks.length} blocks as a picture`) : 'Copied the note as a picture')
+    toast(blocks ? (blocks.length === 1 ? 'Copied the block as a picture' : `Copied ${num(blocks.length)} blocks as a picture`) : 'Copied the note as a picture')
   } catch (error) {
     refuse(`Could not make the image: ${(error as Error).message}`, 'error')
   }
