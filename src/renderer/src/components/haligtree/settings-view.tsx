@@ -1199,7 +1199,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         <Group section="Review" title="Remembering">
           <Setting title="Finish" note="What Review's decks, panels and cards are made of." more="Also on Review's own toolbar, beside Stacks and List." keywords="finish satin metal paper card stock look decks cards review surface material"
             below={<Choices label="Finish" min="6rem" options={(['satin', 'paper'] as const).map((look) => ({ id: look, label: look === 'satin' ? 'Satin' : 'Paper', show: <FinishSample look={look} /> }))}
-              on={(id) => id === (settings.reviewFinish ?? 'satin')} pick={(reviewFinish) => (wearFinish(reviewFinish as Settings['reviewFinish']), set({ reviewFinish: reviewFinish as Settings['reviewFinish'] }))} />} />
+              on={(id) => id === (settings.reviewFinish ?? 'paper')} pick={(reviewFinish) => (wearFinish(reviewFinish as Settings['reviewFinish']), set({ reviewFinish: reviewFinish as Settings['reviewFinish'] }))} />} />
           <Setting title="How much to remember" note="How much you want to still know when a card comes back." more="Higher means more reviews; 90% is where most land. Drag the number, or click it and type (a sum works too: +2)." keywords="desired retention"
             below={<ReviewCost newPerDay={settings.newPerDay} retention={settings.retention} compare />}>
             <ScrubField label="How much to remember" min={80} max={97} value={Math.round(settings.retention * 100)} onChange={(percent) => set({ retention: percent / 100 })} className={SCRUB} />%

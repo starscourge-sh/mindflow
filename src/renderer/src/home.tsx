@@ -1194,7 +1194,7 @@ export function Home(): React.JSX.Element {
     void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['library', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
   }, [settings?.sidebarByUseOnce]) // eslint-disable-line react-hooks/exhaustive-deps
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
-  useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'paper') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
   // With "Open folders on their page", Writing's and Gems' folders and the tags unfold as their page (or one of its
   // folders) opens. Leaving never folds them: only the arrow does, so a fold never shuts by itself as you click
   // elsewhere (the user: "weird that the writing tab collapses itself when you click on a different tab").
