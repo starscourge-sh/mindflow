@@ -2118,13 +2118,35 @@ html[data-menu-up] .tiptap-word-count {
 .tiptap.ProseMirror.haligtree-editor div[data-youtube-video] {
   margin: 1.25em 0;
 
-  iframe {
-    width: 100%;
-    max-width: 100%;
+  // Playing: one dark 16:9 stage, its picture dimmed in it until the player fades in on top.
+  .mf-video-stage {
+    position: relative;
     aspect-ratio: 16 / 9;
-    height: auto;
-    border: 0;
+    overflow: hidden;
     border-radius: 0.75rem;
+    background: oklch(0.16 0 0);
+
+    img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      margin: 0;
+      border-radius: 0;
+      opacity: 0.45;
+    }
+  }
+
+  iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    opacity: 0;
+    transition: opacity 240ms ease-out;
+    &[data-loaded] { opacity: 1; }
   }
 
   // Its picture and a play button until it is pressed: never a blank frame.

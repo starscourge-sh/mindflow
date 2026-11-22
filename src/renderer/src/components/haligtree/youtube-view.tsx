@@ -14,6 +14,8 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
   const id = videoId(src)
   const title = typeof node.attrs.title === "string" && node.attrs.title ? node.attrs.title : null
   const [playing, setPlaying] = useState(false)
+  // The player has drawn its first page: until then the picture under it shows.
+  const [loaded, setLoaded] = useState(false)
   const [noPicture, setNoPicture] = useState(!id)
   const [offline, setOffline] = useState(false)
   // YouTube would not serve the player here (main saw it sent away): the face again, saying so.
@@ -27,6 +29,7 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
     if (!navigator.onLine) return setOffline(true)
     setOffline(false)
     setRefused(false)
+    setLoaded(false)
     setPlaying(true)
   }
   useEffect(() => {
@@ -53,7 +56,13 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
   return (
     <NodeViewWrapper data-youtube-video="" data-from={from ?? undefined} data-state={playing ? "playing" : offline ? "offline" : refused ? "refused" : noPicture ? "no-picture" : "ready"}>
       {playing ? (
-        <iframe key={player} src={player} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
+        // Pressed: its picture stays, dimmed under a dark wash, until the player has loaded and fades in over it; the frame
+        // never goes blank (the user, 22 Nov: "when you press play, it first disappears").
+        <div className="mf-video-stage" contentEditable={false}>
+          {!noPicture && id && <img src={idThumbs(id)[0]} alt="" draggable={false} onError={(event) => (event.currentTarget.src = idThumbs(id)[1])} />}
+          <iframe key={player} src={player} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen
+            data-loaded={loaded || undefined} onLoad={() => setLoaded(true)} />
+        </div>
       ) : (
         <div className="mf-video-face" contentEditable={false}>
           {/* The sharp picture, else the 16:9 one every video has, else the face says what it is. */}
