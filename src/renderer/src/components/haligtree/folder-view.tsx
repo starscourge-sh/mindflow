@@ -109,7 +109,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
         )}
       </FolderPath>
       {/* Under its name, its words and link cards, as a Notion page's sit under its title. */}
-      {folder && (!!folder.front || writing) && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
+      {folder && (!!folder.front || writing) && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" onLeave={() => setWriting(false)} />}
       {/* Only when there is nothing yet: a folder that holds things says so in its list header ("2 pages") and its tabs;
           a sentence repeating it read as slapped on (the user, 21 Nov). */}
       {/* Empty: one line saying how something gets in. "Nothing in it yet" over an empty page said what the page shows. */}
@@ -189,7 +189,7 @@ function CoverPick({ folder, children, 'aria-label': named, ...rest }: { folder:
  * nothing at all until asked for from the head's actions (FolderPath). The words are a page's own editor (link cards,
  * pictures, every way a page is written), kept with the folder as it is left.
  */
-function FolderFront({ folder, part }: { folder: Folder; /** The cover goes over the folder's name, its words under it (Notion's page). */ part: 'cover' | 'words' }): React.JSX.Element {
+function FolderFront({ folder, part, onLeave }: { folder: Folder; /** The cover goes over the folder's name, its words under it (Notion's page). */ part: 'cover' | 'words'; /** Left empty: the words go away again, as they came (the user, 22 Nov: "how do I get out of this"). */ onLeave?: () => void }): React.JSX.Element {
   const doc = useMemo(() => { try { return folder.front ? (JSON.parse(folder.front) as JSONContent) : null } catch { return null } }, [folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const latest = useRef<JSONContent | null>(doc)
   // Read off the editor itself as it is left: a change it has not yet told (a dev build's slower editor) is kept too.
@@ -198,7 +198,10 @@ function FolderFront({ folder, part }: { folder: Folder; /** The cover goes over
     // The words' own part only: the cover's part never holds them (it would put back what it read at first).
     if (part !== 'words') return
     const next = editor.current ? editor.current.state.doc.toJSON() : latest.current
-    const words = next ? JSON.stringify(next) : null
+    // Nothing written: no words kept, and the field goes, back to the head's "Add words".
+    const empty = !editor.current || !(editor.current as unknown as { state: { doc: { textContent: string; childCount: number; firstChild: { type: { name: string } } | null } } }).state.doc.textContent.trim()
+    const words = next && !empty ? JSON.stringify(next) : null
+    if (!words) onLeave?.()
     if (words === (folder.front ?? null)) return
     const was = folder.front
     void folders.set(folder.id, { front: words }).then(() => quietly(() => void folders.set(folder.id, { front: was })))
@@ -219,11 +222,15 @@ function FolderFront({ folder, part }: { folder: Folder; /** The cover goes over
         </div>
       )}
       {part === 'words' && (
-        <div data-folder-words="" onBlur={save} style={{ '--mf-padding': '0.25rem 0' } as React.CSSProperties}>
+        <div data-folder-words="" onBlur={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && save()}
+          // Esc leaves the words (after Vim's own Esc to Normal): out of the field, and gone if empty.
+          onKeyDown={(event) => event.key === 'Escape' && !event.defaultPrevented && (event.currentTarget.querySelector<HTMLElement>('[contenteditable]')?.getAttribute('data-vim-mode') ?? 'normal') === 'normal' && (event.currentTarget.querySelector<HTMLElement>('[contenteditable]')?.blur())} style={{ '--mf-padding': '0.25rem 0' } as React.CSSProperties}>
           <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} lineNumbers={false} handles={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
             // Asked for by "Add words": the caret in it at once, as a new page's is (once ready, StrictMode's second editor too).
             onReady={(ready) => void ((editor.current = ready), !doc && ready.commands.focus('end'))}
-            onChange={(next) => void (latest.current = next)} />
+            onChange={(next) => void (latest.current = next)}
+            // A few words, not a page: no count or Vim mode under them (the "Insert" chip that sat under them).
+            foot={() => null} />
         </div>
       )}
     </div>

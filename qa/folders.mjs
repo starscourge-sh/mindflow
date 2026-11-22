@@ -196,7 +196,14 @@ try {
   const focused = await h.evaluate(() => !!document.activeElement?.closest('[data-folder-words]'))
   check('"Add words" puts the caret in the words', focused)
   if (!focused) await h.locator('[data-folder-words] .ProseMirror').click()
+  // Opened by mistake and left empty (the user, 22 Nov: "how do I get out of this"): Esc and it is gone, nothing kept.
+  await h.keyboard.press('Escape'); await h.keyboard.press('Escape'); await wait(500)
+  check('"Add words" left empty: Esc and the field goes, nothing kept, no Vim chip under it', (await h.locator('[data-folder-words]').count()) === 0 && !(await c.v('folders')).find((one) => one.id === thesis.id)?.front)
+  await h.locator('[data-folder-head], [data-folder-actions]').first().hover(); await wait(300)
+  await h.locator('[data-folder-words-add]').click(); await wait(500)
+  if (!(await h.evaluate(() => !!document.activeElement?.closest('[data-folder-words]')))) await h.locator('[data-folder-words] .ProseMirror').click()
   await h.keyboard.type('Chapters for the thesis, and where the reading lives.')
+  check('…its words written without a word count or a Vim mode chip under them', (await h.locator('[data-folder-words] [data-vim-status], [data-folder-words] .mf-word-count').count()) === 0)
   await shot('folder-front')
   // Left: the words go with the folder.
   await h.locator('[data-folders-all]').click() // "All folders…" is the heading's arrow (63dc63cb7)
