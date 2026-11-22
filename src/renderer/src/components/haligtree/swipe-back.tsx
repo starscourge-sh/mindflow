@@ -65,6 +65,10 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     let last = 0
     let spent = false // the rest of a sequence already answered (gone or cancelled) is swallowed
     let ignored = false // a sequence the page keeps (a scroller, the Map, vertical)
+    // The way a swipe goes, read from its first moves together: one move alone often leans up or down as the fingers
+    // land, and judged on that the whole swipe was taken as a scroll (the user, 22 Nov: "why does 2 finger navigation
+    // fail sometimes", on a long list).
+    let lean = { x: 0, y: 0, n: 0 }
     let hold = 0
     let rest = 0
     let dy = 0
@@ -190,13 +194,17 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
         if (pick !== open.pick) (detent(), setList({ ...open, pick, moved: true }))
         return
       }
-      if (fresh) (spent = false, (ignored = false), readNatural())
+      if (fresh) (spent = false, (ignored = false), (lean = { x: 0, y: 0, n: 0 }), readNatural())
       if (spent || ignored) return
       if (!g) {
         // Whether the page used the wheel is not asked: smooth scrolling (Lenis) takes every wheel with any up or down in it,
         // and a sideways swipe nearly always has a little. What turns sideways itself says so with data-swipe-own.
-        const why = event.ctrlKey || event.metaKey ? 'a key held' : !event.deltaX || Math.abs(event.deltaX) < Math.abs(event.deltaY) * 1.5 ? 'not sideways' : null
-        if (why) return void ((ignored = !fresh || Math.abs(event.deltaY) > 2), note({ skip: why, dx: event.deltaX, dy: event.deltaY }))
+        if (event.ctrlKey || event.metaKey) return void ((ignored = true), note({ skip: 'a key held', dx: event.deltaX, dy: event.deltaY }))
+        lean = { x: lean.x + Math.abs(event.deltaX), y: lean.y + Math.abs(event.deltaY), n: lean.n + 1 }
+        const sideways = lean.x >= 4 && lean.x > lean.y * 1.5
+        // Up or down beyond doubt, after a few moves: a scroll, left to the page for the rest of it.
+        if (!sideways && (lean.n >= 4 || lean.y > 40) && lean.y >= lean.x) return void ((ignored = true), note({ skip: 'not sideways', dx: event.deltaX, dy: event.deltaY }))
+        if (!sideways) return void note({ skip: 'still reading its way', dx: event.deltaX, dy: event.deltaY })
         if (phases && !touching) return void ((ignored = true), note({ skip: 'the glide after the fingers lifted', dx: event.deltaX }))
         g = startable(event)
         if (!g) return void ((ignored = true), note({ skip: 'a scroller, the Map or nowhere to go', dx: event.deltaX }))

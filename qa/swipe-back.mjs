@@ -50,6 +50,18 @@ check('the arrow follows the fingers in', (await arrow()) === 'pulling')
 await lift(); await pause(400)
 check('let go short of the line: nothing happens', (await title()) === start && !(await arrow()), await title())
 
+// Fingers landing on a trackpad lean: the first move goes as much down as across, then the swipe is sideways. Judged
+// on that first move alone, the whole swipe was taken as a scroll and went nowhere (the user, 22 Nov).
+await pause(300)
+await phase('began')
+await wheel(X, Y, 3 * R, 4 * DOWN); await pause(16)
+for (let n = 0; n < 14; n++) (await wheel(X, Y, 12 * R, n < 2 ? 2 * DOWN : 0), await pause(16))
+await pause(30)
+check('a swipe whose first move leans down still arms, once it goes sideways', (await arrow()) === 'armed', JSON.stringify((await h.evaluate(() => window.__swipeLog ?? [])).slice(-6)))
+await lift(); await pause(150); await h.keyboard.press('Escape'); await pause(200)
+const stillHere = await title()
+if (stillHere !== start) { await h.keyboard.press('Meta+BracketRight'); await pause(500) }
+
 await pause(300)
 await swipe(14); await pause(30)
 check('past the line it is armed', (await arrow()) === 'armed')
