@@ -18,6 +18,8 @@ const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const c = await sandbox({ width: 1280, height: 800, at: '10:00', weekday: 0 })
 const { h, v, errors } = c
+// No wait longer than 8 s: a missing row says so at once, with what was drawn.
+h.setDefaultTimeout(8000)
 const wait = (ms) => h.waitForTimeout(ms)
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
 // Every task row drawn in the list, by id, with the section heading it sits under.
@@ -33,6 +35,23 @@ const scrollTop = () => h.evaluate(() => {
   while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
   return box ? box.scrollTop : -1
 })
+// The list draws only the rows near the screen: a row far down is reached as a person does, with the wheel over the
+// list, a step at a time (at most 40), down then back up. What was drawn is printed when it never shows.
+const overList = async () => { const box = await h.locator('[data-vlist]').first().boundingBox(); await h.mouse.move(box.x + 200, Math.min(box.y + 200, 700)) }
+const reach = async (id) => {
+  const row = h.locator(`[data-task-row][data-id="${id}"] button[data-row]`).first()
+  const seen = async () => (await row.count()) && (await row.boundingBox())?.y > 60 && (await row.boundingBox()).y < 760
+  await overList()
+  for (const by of [400, -400]) for (let i = 0; i < 40 && !(await seen()); i++) (await h.mouse.wheel(0, by), await wait(80))
+  if (!(await seen())) {
+    const rows = await drawn()
+    const book = (await v('tasks')).find((one) => one.id === id)
+    console.log(`row ${id} never showed; drawn: ${rows.map((one) => `${one.heading}/${one.id.slice(0, 8)}`).join(' ')}; in the book: ${JSON.stringify(book && { status: book.status, dueAt: book.dueAt, heldAt: book.heldAt })}`)
+    if (shots) await h.screenshot({ path: `${shots}/tick-missing.png` })
+    return null
+  }
+  return row
+}
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
   // Set up through the app's own doors: a dozen overdue chores, and the one this person has open, for tomorrow.
@@ -48,14 +67,14 @@ try {
   await c.go('alltasks')
   await until(async () => (await drawn()).some((one) => one.id === made.late[0]))
   // Opened from its row, as a person does: it may scroll to it.
-  const openRow = h.locator(`[data-task-row][data-id="${made.open}"] button[data-row]`)
-  await openRow.scrollIntoViewIfNeeded()
+  check('the made tasks are in the book', (await v('tasks')).filter((one) => [...made.late, made.open].includes(one.id)).length === made.late.length + 1, JSON.stringify(made))
+  const openRow = await reach(made.open)
+  if (!openRow) throw new Error('the open task’s row never showed in the All list (drawn rows printed above)')
   await openRow.click()
   check('the task opens beside the list', await until(() => h.locator(`[data-task-row][data-id="${made.open}"][data-open]`).count()))
   await wait(600)
   // Back to the top with the wheel, to the overdue ones.
-  const box = await h.locator('[data-vlist]').boundingBox()
-  await h.mouse.move(box.x + 200, box.y + 200)
+  await overList()
   for (let i = 0; i < 40 && (await scrollTop()) > 0; i++) (await h.mouse.wheel(0, -600), await wait(60))
   await wait(500)
   const before = await drawn()
@@ -69,6 +88,7 @@ try {
   await h.locator(`[data-task-row][data-id="${target}"] [data-task-tick]`).click()
   const tops = []
   for (let i = 0; i < 20; i++) (tops.push(await scrollTop()), await wait(50))
+  if (shots) await h.screenshot({ path: `${shots}/tick-after-first.png` })
   const most = Math.max(...tops.map((one) => Math.abs(one - was)))
   check('ticking leaves the list where it is (within 2px for a second)', most <= 2, `was ${was}, read ${tops.join(' ')}`)
   check('the ticked task leaves the list', await until(async () => !(await drawn()).some((one) => one.id === target)))
@@ -76,7 +96,7 @@ try {
   await h.locator(`[data-task-row][data-id="${made.late[1]}"] [data-task-tick]`).click()
   await wait(1500)
   // Down to the open one: Tomorrow and Later are drawn there, side by side.
-  await h.locator(`[data-task-row][data-id="${made.open}"]`).first().scrollIntoViewIfNeeded()
+  if (!(await reach(made.open))) throw new Error('the open task’s row never showed after the ticks (drawn rows printed above)')
   await wait(400)
   const after = await drawn()
   check('the task stays open beside the list', (await h.locator('[data-task-row][data-open]').count()) === 1)
