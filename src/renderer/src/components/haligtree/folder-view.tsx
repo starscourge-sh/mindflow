@@ -79,14 +79,6 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   // The note open beside it says which kind is on show, when no tab was asked for: a gem opened here is among the gems.
   const noteKind = tabOfKind(shown.find((one) => one.id === note)?.type ?? '')
   const on = (tabs.find((one) => one.id === tab) ?? tabs.find((one) => one.id === noteKind) ?? tabs[0]).id
-  // The one fact, on its own line: what it holds, every kind counted, the total said only when it adds kinds up.
-  const kindsSaid = islands.map((one) => plural(one.n, one.label.toLowerCase().replace(/s$/, ''), one.label.toLowerCase())).join(', ')
-  const folderSaid = inside.length ? plural(inside.length, 'folder') : ''
-  const fact = unfiled
-    ? `${plural(shown.length, 'page or gem', 'pages and gems')} in no folder.`
-    : !shown.length && !inside.length ? `Nothing in ${name} yet.`
-    : islands.length > 1 ? `${name} holds ${num(shown.length)}: ${kindsSaid}${folderSaid ? `, and ${folderSaid}` : ''}.`
-    : `${name} holds ${[kindsSaid, folderSaid].filter(Boolean).join(' and ')}.`
   const kinds = tabs.length > 1 ? (
     <div data-list-tabs data-folder-kinds="" className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
       <TabChips name="folder-kinds" tabs={tabs.map((one) => ({ value: one.id, label: one.label, count: one.n }))} value={on} onChange={(next) => onTab(next)} />
@@ -120,10 +112,10 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       {folder && (!!folder.front || writing) && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
       {/* Only when there is nothing yet: a folder that holds things says so in its list header ("2 pages") and its tabs;
           a sentence repeating it read as slapped on (the user, 21 Nov). */}
-      {!shown.length && !inside.length && !unfiled && <p data-folder-fact="" className="mt-2 text-control text-muted-foreground">{fact}</p>}
+      {/* Empty: one line saying how something gets in. "Nothing in it yet" over an empty page said what the page shows. */}
       {/* The lines it offered, opened with "See them" (folder-gems.tsx). */}
       {folder && <FolderGems key={folder.id} folder={folder} open={gemsOpen} onClose={() => setGemsOpen(false)} />}
-      {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
+      {!unfiled && !shown.length && !inside.length && <p data-folder-fact="" className="mt-4 text-control text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
       {/* The calendars that keep their notes here: their next four weeks, each opening on the Calendar. */}
       {!!coming?.calendars.length && (
         <Island title={`Coming up on ${coming.calendars.map((one) => one.name).join(', ')} · ${num(coming.events.length)}`}>

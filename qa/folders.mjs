@@ -182,7 +182,7 @@ try {
   check('Back returns to the folder\'s list', (await rows().count()) === 2, `${await rows().count()}`)
   await c.v('folders:file', [{ type: 'article', id: page }], null)
   await c.v('folders:file', [{ type: 'article', id: pages[0] }], null)
-  check('the empty folder says so', await until(async () => /Nothing in Thesis yet/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
+  check('the empty folder says how things get in, in one line', await until(async () => /Drag anything onto Thesis/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
   // Its front: nothing until asked; the head pointed at, "Add a cover" and "Add words" as quiet icons among its actions
   // (never chips over or under the path); words typed are kept as it is left.
   check('its front is empty to start', (await h.locator('[data-folder-words]').count()) === 0 && (await h.locator('[data-folder-cover]').count()) === 0)
