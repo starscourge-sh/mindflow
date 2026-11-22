@@ -7,8 +7,6 @@
      menu behind it. */
   --mf-spine-plain-0: oklch(from var(--mf-theme-accent, var(--primary)) 0.3 0.015 h);
   --mf-spine-plain-1: oklch(from var(--mf-theme-accent, var(--primary)) 0.88 0.015 h);
-  /* The app's sans, as Mac's own controls are set: clear at a spine's size, where a serif turns to mush. */
-  --mf-shelf-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   /* As wide as the menu, never widening it: 30 books scroll inside it rather than stretch it across the window. */
   contain: inline-size;
   display: flex;
@@ -33,9 +31,15 @@
 .mf-shelf::-webkit-scrollbar { display: none; }
 /* A book's room on the shelf: its width is the book's own spring (books.tsx ShelfBook); the book stands in it. */
 .mf-shelf .mf-spine {
-  /* Its ink, from its colour's lightness: pale gilt on a deep spine, as a leather binding is blocked, and a deep ink of
-     its own hue on a pale one (5:1 or more on every one, books.tsx SPINE). */
-  --mf-spine-ink: oklch(from var(--mf-spine-bg) calc(0.22 + 0.71 * clamp(0, (0.64 - l) * 999, 1)) calc(0.03 + 0.04 * clamp(0, (0.64 - l) * 999, 1)) calc(h + (86 - h) * clamp(0, (0.64 - l) * 999, 1)));
+  /* Its foil, chosen by its cloth's lightness as a binder chooses the foil: bright gold on a deep spine, antique bronze on
+     a pale one, where bright gold would vanish. Three stops each (shadow, body, shine), every one 3:1 or more on its
+     spine through the shelf's dimming (qa/book-shelf.mjs). The switch is 1 on a deep spine, 0 on a pale one. */
+  --mf-foil-lo: oklch(from var(--mf-spine-bg) calc(0.3 + 0.5 * clamp(0, (0.64 - l) * 999, 1)) calc(0.055 + 0.045 * clamp(0, (0.64 - l) * 999, 1)) calc(70 + 10 * clamp(0, (0.64 - l) * 999, 1)));
+  --mf-foil-mid: oklch(from var(--mf-spine-bg) calc(0.36 + 0.51 * clamp(0, (0.64 - l) * 999, 1)) calc(0.075 + 0.045 * clamp(0, (0.64 - l) * 999, 1)) calc(75 + 11 * clamp(0, (0.64 - l) * 999, 1)));
+  --mf-foil-hi: oklch(from var(--mf-spine-bg) calc(0.39 + 0.56 * clamp(0, (0.64 - l) * 999, 1)) calc(0.085 - 0.02 * clamp(0, (0.64 - l) * 999, 1)) calc(82 + 13 * clamp(0, (0.64 - l) * 999, 1)));
+  /* Foil seen across a rounded spine: dull at its edges, a bright line where it faces the light, where the cloth shines
+     (a third in from the cover's side). Laid left to right on the rules; on the name, which stands turned, right to left. */
+  --mf-foil-stops: var(--mf-foil-lo), var(--mf-foil-mid) 36%, var(--mf-foil-hi) 60%, var(--mf-foil-mid) 74%, var(--mf-foil-lo);
   position: relative;
   flex: none;
   display: block;
@@ -49,56 +53,60 @@
 }
 .mf-shelf .mf-spine:active { scale: 0.97; }
 .mf-shelf .mf-spine * { cursor: pointer; }
-/* A shelf spine: cloth of its own colour, rounded (darker at either hinge, lit down its middle), with a grain. */
+/* A shelf spine: book cloth of its own colour (the user, 22 Nov: "too much grain", noise read as dirt). Three layers,
+   top first, every one a gradient or a tiny drawn tile, nothing worked out per book:
+   1. the head and tail caps, where the cloth turns over the top and foot: a thin dark band with a lit fold under it;
+   2. the light of a rounded spine, the light coming from the front: dark at both joints, brightest a third in from the
+      cover's side, as a round back catches a window;
+   3. the weave: a plain weave tile of 3px threads (6px repeat, two threads each way), the threads over and under lit
+      and shaded by under a tenth, so it reads as cloth near and as an even colour at arm's length. */
 .mf-shelf-spine {
   background-color: var(--mf-spine-bg);
-  background-image: linear-gradient(to right, rgb(0 0 0 / 0.36), rgb(0 0 0 / 0.06) 22%, rgb(255 255 255 / 0.14) 48%, rgb(255 255 255 / 0.04) 62%, rgb(0 0 0 / 0.1) 80%, rgb(0 0 0 / 0.38));
+  background-image:
+    linear-gradient(to bottom, rgb(0 0 0 / 0.34), rgb(0 0 0 / 0.12) 1.5px, rgb(255 255 255 / 0.08) 2.5px, transparent 4px, transparent calc(100% - 4px), rgb(255 255 255 / 0.05) calc(100% - 2.5px), rgb(0 0 0 / 0.14) calc(100% - 1.5px), rgb(0 0 0 / 0.38)),
+    linear-gradient(to right, rgb(0 0 0 / 0.34), rgb(0 0 0 / 0.1) 16%, rgb(255 255 255 / 0.03) 40%, rgb(255 255 255 / 0.13) 64%, rgb(255 255 255 / 0.05) 76%, rgb(0 0 0 / 0.1) 88%, rgb(0 0 0 / 0.34)),
+    url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h1v3H0zM3 3h1v3H3z' fill-opacity='.06'/%3E%3Cpath d='M1 0h1v3H1zM4 3h1v3H4z' fill='%23fff' fill-opacity='.09'/%3E%3Cpath d='M2 0h1v3H2zM5 3h1v3H5z' fill='%23fff' fill-opacity='.03'/%3E%3Cpath d='M3 0h3v1H3zM0 3h3v1H0z' fill='%23fff' fill-opacity='.07'/%3E%3Cpath d='M3 2h3v1H3zM0 5h3v1H0z' fill-opacity='.08'/%3E%3C/svg%3E");
+  background-size: auto, auto, 6px 6px;
 }
-/* The cloth's grain, drawn for a shelf book's size and never shrunk (the user, 22 Nov: "I'm not getting any sense of a
-   book graininess": the Settings book's grain, shrunk to half its tile, came out finer than a pixel and vanished).
-   One tile, made once from noise and laid on as a picture, never a filter worked out per book: its grains 1.4 to 2.2px
-   (a frequency of 0.7 across and 0.45 up, the threads running up the spine), the tile drawn at its own 64px. On the
-   spine, soft light, the grains lighter and darker about the cloth's own colour, so it is as deep as before and its
-   name reads as it did; on the cream cover, multiplied in, flecks of darker weave. qa/book-shelf.mjs reads the size. */
-.mf-shelf-spine-grain,
-.mf-shelf-cover-grain {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-size: 64px 64px;
-}
-.mf-shelf-spine-grain {
-  opacity: 0.45;
-  mix-blend-mode: soft-light;
-  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7 0.45' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2' intercept='-0.5'/%3E%3CfeFuncG type='linear' slope='2' intercept='-0.5'/%3E%3CfeFuncB type='linear' slope='2' intercept='-0.5'/%3E%3CfeFuncA type='linear' slope='0' intercept='1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-.mf-shelf-cover-grain {
-  opacity: 0.4;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7 0.45' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.4' intercept='0.15'/%3E%3CfeFuncG type='linear' slope='1.4' intercept='0.15'/%3E%3CfeFuncB type='linear' slope='1.4' intercept='0.15'/%3E%3CfeFuncA type='linear' slope='0' intercept='1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='64' height='64' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-/* The gilt rules at its head and foot, in the spine's own ink. */
+/* The rules at its head and foot: two fine lines of the same foil, shining where the spine does. */
 .mf-shelf-spine-rule {
   position: absolute;
   inset-inline: 4px;
   height: 3px;
-  border-block: 1px solid var(--mf-spine-ink);
-  opacity: 0.75;
+  border-block: 1px solid transparent;
+  border-image: linear-gradient(to right, var(--mf-foil-stops)) 1;
 }
-/* Its name up it from the foot. The menu inks a lit row's words in its own colour: a book keeps its own. */
-.mf-shelf .mf-spine .mf-shelf-spine-title {
+/* Its name up it from the foot, whole: one line, or two (or more) when long, its size measured once per name
+   (book-box.tsx spineType). The foil over its own impression, a hair higher, as a blocked name sits pressed into the
+   cloth: the cloth darker where the die went in. The menu inks a lit row's words in its own colour: a book keeps its own. */
+.mf-shelf .mf-spine .mf-shelf-spine-words {
   position: relative;
   writing-mode: vertical-rl;
   rotate: 180deg;
-  overflow: hidden;
-  font: 600 13px/1 var(--mf-shelf-sans);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--mf-spine-ink);
+  font-family: 'Fraunces Variable', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-wrap: balance;
+}
+.mf-shelf .mf-spine .mf-shelf-spine-deboss {
+  position: absolute;
+  inset: 0;
+  translate: 0 0.7px;
+  color: oklch(from var(--mf-spine-bg) calc(l - 0.2) c h / 0.85);
+  -webkit-text-fill-color: currentColor;
+}
+.mf-shelf .mf-spine .mf-shelf-spine-title {
+  position: relative;
+  display: block;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(to left, var(--mf-foil-stops));
+  background-clip: text;
+  -webkit-background-clip: text;
 }
 .mf-shelf .mf-spine .mf-card-cover * { color: inherit; }
-/* Every book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx), on the cream cloth. */
+/* Every book's cover: its reader card, drawn at the card's size and scaled to it (reader-card.tsx), on the cream paper. */
 .mf-card-cover { overflow: hidden; }
 /* Its picture at the card's own size, and its words wrapping as on the card: a menu row draws every svg in it at 14px
    unless told, and keeps its words on one line (dropdown-menu.tsx). */
