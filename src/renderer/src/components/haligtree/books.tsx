@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSideEnds } from '@/lib/side-ends'
-import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
+import { animate, motion, useMotionValue, useSpring, useTransform, useVelocity, type MotionValue } from 'motion/react'
 import { still } from '@/lib/motion'
 import { onlyRealLeaves, realMove } from '@/lib/real-move'
 import { BookBox, inked } from './book-box'
@@ -8,7 +8,8 @@ import { OtherCover, ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { SortableList, SortableRow } from './sortable'
+import { SortableList, SortableRow, useCarried as useHeldInRow } from './sortable'
+import { pointerAt } from './carry'
 import { HUES, askBook, moveBook, askCards, bookCardNow, bookCardOf, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookCard, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
@@ -330,14 +331,95 @@ function spinesOf(books: Book[]): string[] {
   })
 }
 
-function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book: Book; said: string; up: boolean; spine: string; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void }): React.JSX.Element {
+/** Picked up, a book rises this far off the ledge, as one slid along a shelf is lifted just clear of it. */
+const LIFT = 4
+/** Its lean as it is slid, by how fast: degrees for each pixel a second, and never past this. */
+const LEAN_BY_SPEED = 0.004
+const MOST_LEAN = 4
+
+/**
+ * A book picked up and carried along the shelf (the user, 22 Nov, of a grey box and a title pill: "wtf"): the book
+ * itself goes with the pointer, turned back to its spine, lifted a little off the ledge with a shadow under it and
+ * leaning with how fast it is slid, as a real book is slid along a shelf; the others part to show where it will land.
+ * Its middle rides under the pointer: taken by its cover, the pointer's place on it is pulled in to the spine's middle
+ * as it turns back. Let go, it glides to its place (Esc: back to where it was) on one spring.
+ */
+function useSlid(carried: boolean, width: MotionValue<number>, at: number): { x: MotionValue<number>; y: MotionValue<number>; rotate: MotionValue<number>; shade: MotionValue<number>; held: MotionValue<number>; ref: React.RefObject<HTMLDivElement | null> } {
+  const ref = useRef<HTMLDivElement>(null)
+  const calm = still()
+  // While held: where the pointer is, where its room on the shelf starts, and how far off its middle it was taken.
+  const held = useMotionValue(0)
+  const pointer = useMotionValue(0)
+  const home = useMotionValue(0)
+  const grip = useRef({ off: 0, wide: SPINE_ROOM })
+  // Let go: how far it still is from its place, gliding to none.
+  const back = useMotionValue(0)
+  const settling = useRef(false)
+  const x = useTransform(() => {
+    const wide = width.get()
+    if (!held.get()) return back.get()
+    const { off, wide: was } = grip.current
+    const pulled = was > SPINE_ROOM + 1 ? off * Math.min(1, Math.max(0, (wide - SPINE_ROOM) / (was - SPINE_ROOM))) : off
+    return pointer.get() - pulled - home.get() - wide / 2
+  })
+  const speed = useVelocity(x)
+  const leaning = useTransform(() => (held.get() && !calm ? Math.max(-MOST_LEAN, Math.min(MOST_LEAN, speed.get() * LEAN_BY_SPEED)) : 0))
+  const lean = useSpring(leaning, { stiffness: 400, damping: 30 })
+  const rise = useMotionValue(0)
+  const risen = useSpring(rise, { stiffness: 500, damping: 34 })
+  const y = calm ? rise : risen
+  const shade = useTransform(y, (by) => Math.min(1, Math.max(0, -by / LIFT)))
+  const roomOf = (): HTMLElement | null => ref.current?.parentElement ?? null
+  useLayoutEffect(() => {
+    const room = roomOf()
+    if (!room) return undefined
+    if (carried) {
+      const left = room.getBoundingClientRect().left
+      const wide = width.get()
+      const now = back.get()
+      back.stop()
+      pointer.set(pointerAt().x)
+      home.set(left)
+      grip.current = { off: pointerAt().x - left - wide / 2 - now, wide }
+      held.set(1)
+      rise.set(-LIFT)
+      settling.current = false
+      const follow = (event: PointerEvent): void => (home.set(room.getBoundingClientRect().left), pointer.set(event.clientX))
+      const scrolled = (): void => home.set(room.getBoundingClientRect().left)
+      window.addEventListener('pointermove', follow, true)
+      window.addEventListener('scroll', scrolled, true)
+      return () => (window.removeEventListener('pointermove', follow, true), window.removeEventListener('scroll', scrolled, true))
+    }
+    if (!held.get() && !settling.current) return undefined
+    // Let go (or put back): from where it was on screen to its room now, wherever that is, on one spring.
+    const left = room.getBoundingClientRect().left
+    const from = (held.get() ? x.get() : back.get()) + home.get() - left
+    held.set(0)
+    home.set(left)
+    rise.set(0)
+    back.set(from)
+    if (calm) return void back.set(0)
+    settling.current = true
+    const glide = animate(back, 0, { type: 'spring', stiffness: 420, damping: 36, onComplete: () => void (settling.current = false) })
+    return () => glide.stop()
+  }, [carried, at]) // eslint-disable-line react-hooks/exhaustive-deps
+  return { x, y, rotate: lean, shade, held, ref }
+}
+
+function ShelfBook({ book, said, up: pointedAt, spine, at, keyed, lit, onPick, onMenu, onShift }: { book: Book; said: string; up: boolean; spine: string; at: number; keyed: () => boolean; lit: MotionValue<number>; onPick: () => void; onMenu: (event: React.MouseEvent) => void; /** ⌥← and ⌥→: one place along. */ onShift: (by: -1 | 1) => void }): React.JSX.Element {
+  // Picked up, it turns back to its spine for as long as it is carried.
+  const carried = useHeldInRow()
+  const up = pointedAt && !carried
   // 0 a spine, 1 pulled out and turned: the book's turn, its room on the shelf and what stands in front, all from it.
   // A plain value moved by animate() (as the reader card's spin is), so a book caught mid-turn goes on from where it is.
   const out = useMotionValue(up ? 1 : 0)
   const flat = still()
   const turn = useTransform(out, (at) => 90 - LEAN - (90 - LEAN - (flat ? 0 : TURNED)) * at)
   const width = useTransform(out, (at) => SPINE_ROOM + (TURNED_ROOM - SPINE_ROOM) * at)
-  const zIndex = useTransform(out, (at) => (at > 0.01 ? 1 : 0))
+  const slid = useSlid(carried, width, at)
+  // The one carried stands in front of every other, and gliding to its place after.
+  const zIndex = useTransform(() => (slid.held.get() || Math.abs(slid.x.get()) > 0.5 ? 2 : out.get() > 0.01 ? 1 : 0))
+  const shadeY = useTransform(slid.y, (by) => -by)
   // Held back while it stands a spine, lifted as it turns out: the spring may overshoot, the veil never goes past either end.
   const back = useTransform(out, (at) => 1 - Math.min(1, Math.max(0, at)))
   const veil = {
@@ -386,9 +468,17 @@ function ShelfBook({ book, said, up, spine, keyed, lit, onPick, onMenu }: { book
   }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
   const pitch = useMotionValue(0)
   return (
-    <DropdownMenuItem asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
-      onContextMenu={onMenu} onSelect={onPick} onPointerLeave={onlyRealLeaves}>
-      <motion.div className="mf-spine" style={{ width, height: SHELF_BOOK.high, zIndex, '--mf-spine-bg': spine } as React.ComponentProps<typeof motion.div>['style']}>
+    <DropdownMenuItem asChild data-book={book.id} data-shelf-book={book.id} data-carried={carried || undefined} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
+      onContextMenu={onMenu} onSelect={onPick} onPointerLeave={onlyRealLeaves}
+      onKeyDown={(event) => {
+        if (!event.altKey || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return
+        event.preventDefault()
+        event.stopPropagation()
+        onShift(event.key === 'ArrowLeft' ? -1 : 1)
+      }}>
+      <motion.div ref={slid.ref} className="mf-spine" style={{ width, height: SHELF_BOOK.high, zIndex, x: slid.x, y: slid.y, rotate: slid.rotate, '--mf-spine-bg': spine } as React.ComponentProps<typeof motion.div>['style']}>
+        {/* Its shadow on the ledge while it is lifted off it, staying on the ledge as the book rises. */}
+        <motion.span aria-hidden className="mf-spine-lift" style={{ opacity: slid.shade, y: shadeY }} />
         {/* Every book wears its own reader card (reader-card.tsx), the one Settings shows, scaled: the open one read as
             Settings reads it, any other from its own file. */}
         <BookBox size={SHELF_BOOK} pitch={pitch} turn={turn} lit={lit} scale={scale} perspective={EYE} name={book.name} edges={false} shelf veil={veil}
@@ -435,13 +525,21 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
         >
         {/* Your books in your own order: a book pressed and carried along the shelf goes where it is let go (the shared
             drag, sortable.tsx), saved on the shelf for every list of them (Settings › Books too). */}
-        <SortableList axis="x" items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
+        <SortableList axis="x" self items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
           {(order) => {
             const spines = spinesOf(order)
+            const ids = order.map((one) => one.id)
+            // ⌥← and ⌥→ on a book: one place along, gliding there (SortableRow's glide), the focus still on it.
+            const shift = (id: string, by: -1 | 1): void => {
+              const target = ids[ids.indexOf(id) + by]
+              if (SANDBOX || !target) return chime('nope')
+              chime('tap')
+              moveBook(ids, id, target)
+            }
             return order.map((book, at) => (
-              <SortableRow key={book.id} id={book.id} className="flex-none">
-                <ShelfBook book={book} said={saidOf(book)} up={book.id === books[shown]?.id} spine={spines[at]} keyed={() => keyed.current} lit={lit}
-                  onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} />
+              <SortableRow key={book.id} id={book.id} glide={`shelf-book-${book.id}`} className="flex-none">
+                <ShelfBook book={book} said={saidOf(book)} up={book.id === books[shown]?.id} spine={spines[at]} at={at} keyed={() => keyed.current} lit={lit}
+                  onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} onShift={(by) => shift(book.id, by)} />
               </SortableRow>
             ))
           }}

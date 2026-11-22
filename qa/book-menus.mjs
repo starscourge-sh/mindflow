@@ -12,7 +12,9 @@
 //   F. everyday: a colour picked in the book's menu keeps the menu open, its tick moved, and the accent glides there over
 //      several frames, never in one step.
 //   G. first-timer: a book pressed long and moved off it, let go over "New book…": nothing opens, no sheet, no name field.
-//   H. a person tidying: a spine carried along the shelf goes where it is let go; books.json keeps the order; Settings' rows match.
+//   H. a person tidying: a spine carried along the shelf is the book itself under the pointer, 1:1, along the ledge (no title
+//      pill, no grey room), and goes where it is let go; books.json keeps the order; ⌥→ moves a focused spine one place;
+//      Settings' rows match.
 // QA_SHOTS keeps a picture of each changed one: the three book menus, the book named in place, the deck named in place,
 // the sheet, the menu kept open after a colour, the shelf mid-carry and after.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=dir node qa/book-menus.mjs
@@ -215,11 +217,39 @@ try {
   await foot.click(); await wait(500)
   const ids = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => one.getAttribute('data-book')))
   const [a, b] = [await h.locator(`[data-book-shelf] [data-book="${ids[0]}"]`).boundingBox(), await h.locator(`[data-book-shelf] [data-book="${ids[ids.length - 1]}"]`).boundingBox()]
-  await h.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+  await h.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await wait(400)
   await h.mouse.down()
   await h.mouse.move(a.x + a.width / 2 + 12, a.y + a.height / 2, { steps: 4 })
-  await h.mouse.move(b.x + b.width - 4, b.y + b.height / 2, { steps: 16 })
-  await shot('h1-spine-carried')
+  // Picked up, it turns back to its spine and its middle comes under the pointer: then it goes with the pointer.
+  await wait(600)
+  const ledge = await h.evaluate(() => document.querySelector('[data-book-shelf]').getBoundingClientRect().bottom)
+  // What is in the hand, read as the pointer stands: the book itself, nothing else.
+  const inHand = (px, py) => h.evaluate(([px, py]) => {
+    const carried = document.querySelector('[data-book-shelf] [data-carried]')
+    const box = carried?.getBoundingClientRect()
+    const under = document.elementFromPoint(px, py)?.closest('[data-shelf-book]')?.getAttribute('data-shelf-book') ?? null
+    // A grey room the size of a pulled-out book, or the shared drag's title pill: none may be on screen.
+    const rooms = [...document.querySelectorAll('[data-own-room]')].filter((one) => one.getBoundingClientRect().width > 0).length
+    const pills = [...document.querySelectorAll('[data-lifted], .mf-drag-picture *')].filter((one) => one.getBoundingClientRect().width > 0).length
+    return { id: carried?.getAttribute('data-shelf-book') ?? null, mid: box ? box.left + box.width / 2 : null, bottom: box?.bottom ?? null, under, rooms, pills }
+  }, [px, py])
+  const fromX = a.x + a.width / 2 + 12
+  const toX = b.x + b.width - 4
+  const y = a.y + a.height / 2
+  const seen = []
+  for (let i = 1; i <= 24; i++) {
+    const px = fromX + ((toX - fromX) * i) / 24
+    await h.mouse.move(px, y)
+    await wait(50)
+    seen.push({ px: Math.round(px), ...(await inHand(px, y)) })
+    if (i === 12) await shot('h1-spine-carried')
+  }
+  const restBottom = seen[0].bottom
+  const off = seen.filter((one) => one.mid === null || Math.abs(one.mid - one.px) > 2)
+  check('H. carried, the book itself is in the hand: the spine under the pointer is the one picked up, every frame', seen.every((one) => one.id === ids[0] && one.under === ids[0]), JSON.stringify(seen.filter((one) => one.id !== ids[0] || one.under !== ids[0]).slice(0, 3)))
+  check('H. ...no title pill follows the pointer and no empty grey room holds its place', seen.every((one) => !one.pills && !one.rooms), JSON.stringify(seen.filter((one) => one.pills || one.rooms).slice(0, 3)))
+  check('H. ...its middle stays on the pointer, 1:1, every 50 ms (within 2px)', !off.length, JSON.stringify(off.slice(0, 4)))
+  check('H. ...and it slides along the shelf, never up or down (within 6px of its lifted place, on the ledge)', seen.every((one) => one.bottom !== null && Math.abs(one.bottom - restBottom) <= 6 && one.bottom <= ledge + 1), JSON.stringify({ ledge, bottoms: seen.map((one) => Math.round(one.bottom ?? -1)) }))
   await h.mouse.up(); await wait(800)
   const now = (await s.v('books:list')).books.map((one) => one.id)
   check('H. the book carried to the end of the shelf stands there now', now[now.length - 1] === ids[0] && now.join() !== was.join(), JSON.stringify({ was, now }))
@@ -227,12 +257,20 @@ try {
   check('H. books.json keeps that order', JSON.stringify(file.order) === JSON.stringify(now), JSON.stringify(file.order))
   check('H. the carry opened no book and no sheet', !(await has('[data-ask]')) && !(await electron.evaluate(() => globalThis.__relaunched))?.some?.((one) => one.includes(ids[0])))
   await shot('h2-shelf-after')
+  // A power user on keys: ⌥→ on a focused spine moves it one place along, the focus still on it.
+  const lead = now[0]
+  await h.locator(`[data-book-shelf] [data-book="${lead}"]`).focus(); await wait(300)
+  await h.keyboard.press('Alt+ArrowRight')
+  const moved = await waitFor(async () => (await s.v('books:list')).books.map((one) => one.id).indexOf(lead) === 1, 3000)
+  const focused = await h.evaluate(() => document.activeElement?.closest('[data-book]')?.getAttribute('data-book'))
+  check('H. ⌥→ on a focused spine moves it one place along, still focused', moved && focused === lead, JSON.stringify({ moved, focused, lead }))
+  const order = (await s.v('books:list')).books.map((one) => one.id)
   await shut()
   await s.go('settings'); await wait(800)
   await foot.click({ button: 'right' }); await wait(400)
   await h.getByRole('menuitem', { name: 'Show in Settings' }).click(); await wait(1200)
   const rows = await h.evaluate(() => [...document.querySelectorAll('[data-book-row]')].map((one) => one.getAttribute('data-book-row')).filter((one) => one !== 'new'))
-  check('H. Settings › Books lists them in the same order', JSON.stringify(rows) === JSON.stringify(now), JSON.stringify(rows))
+  check('H. Settings › Books lists them in the same order', JSON.stringify(rows) === JSON.stringify(order), JSON.stringify(rows))
 } finally {
   await close()
 }
