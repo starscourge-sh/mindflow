@@ -20,6 +20,8 @@ const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const c = await sandbox({ width: 1180, height: 800 })
 const h = c.h
+// Every wait capped, so a miss fails fast with its reason.
+h.setDefaultTimeout(8000)
 const wait = (ms) => h.waitForTimeout(ms)
 const said = () => h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent?.trim()).filter(Boolean).join(' | '))
 const menu = async (target, line) => {
@@ -233,8 +235,8 @@ try {
   const fRow = h.locator(`[data-side-folder="${thesis.id}"]`)
   await fRow.hover()
   await wait(250)
-  check('pointed at, a folder row shows its fold, "…" and "+"', (await h.locator(`[data-folder-fold="${thesis.id}"]`).isVisible()) && (await h.locator(`[data-folder-more="${thesis.id}"]`).isVisible()) && (await h.locator(`[data-folder-add="${thesis.id}"]`).isVisible()))
-  await h.locator(`[data-folder-fold="${thesis.id}"]`).click()
+  check('pointed at, a folder row shows its fold, "…" and "+"', (await h.locator(`aside [data-folder-fold="${thesis.id}"]`).isVisible()) && (await h.locator(`aside [data-folder-more="${thesis.id}"]`).isVisible()) && (await h.locator(`aside [data-folder-add="${thesis.id}"]`).isVisible()))
+  await h.locator(`aside [data-folder-fold="${thesis.id}"]`).click()
   await wait(700)
   // Under Folders: Writing's own fold may list the same page too (side-writing.tsx), one row each.
   const inTree = h.locator(`aside [data-side-folders-section] [data-side-thing="${page}"]`)
@@ -248,7 +250,7 @@ try {
   const before2 = Object.values(await c.v('folders:of', 'nuggets')).filter((one) => one === thesis.id).length
   await fRow.hover()
   await wait(200)
-  await h.locator(`[data-folder-add="${thesis.id}"]`).click()
+  await h.locator(`aside [data-folder-add="${thesis.id}"]`).click()
   check('"+" makes a page inside it and opens it', await until(async () => Object.values(await c.v('folders:of', 'nuggets')).filter((one) => one === thesis.id).length === before2 + 1))
   await wait(600)
   // Its menu, grouped as Notion's, with when it was last changed at its foot.
@@ -259,7 +261,7 @@ try {
   await h.keyboard.press('Escape')
   await wait(200)
   await fRow.hover()
-  await h.locator(`[data-folder-fold="${thesis.id}"]`).click()
+  await h.locator(`aside [data-folder-fold="${thesis.id}"]`).click()
   await wait(400)
 
   // F2 on a folder's row renames it in place; Enter keeps the name, ⌘Z takes it back.
@@ -331,12 +333,12 @@ try {
   const folderOfPage = async () => (await c.v('folders:of', 'nuggets'))[page] ?? null
   await c.v('folders:file', [{ type: 'article', id: page }], thesis.id)
   await fRow.hover()
-  await h.locator(`[data-folder-fold="${thesis.id}"]`).click()
+  await h.locator(`aside [data-folder-fold="${thesis.id}"]`).click()
   await wait(700)
   await drag(h.locator(`aside [data-side-folders-section] [data-side-thing="${page}"]`), h.locator(`[data-side-folder="${reading.id}"]`))
   check('a page carried in the tree onto another folder goes into it', await until(async () => (await folderOfPage()) === reading.id), JSON.stringify(await folderOfPage()))
   await h.locator(`[data-side-folder="${reading.id}"]`).hover()
-  await h.locator(`[data-folder-fold="${reading.id}"]`).click()
+  await h.locator(`aside [data-folder-fold="${reading.id}"]`).click()
   await wait(700)
   await drag(h.locator(`aside [data-side-folders-section] [data-side-thing="${page}"]`), unfiledRow)
   check('carried onto Writing\'s row, it leaves every folder', await until(async () => (await folderOfPage()) === null), JSON.stringify(await folderOfPage()))

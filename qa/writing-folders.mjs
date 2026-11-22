@@ -19,6 +19,8 @@ const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const c = await sandbox({ width: 1300, height: 860 })
 const { h, v, go } = c
+// Every wait capped, so a miss fails fast with its reason.
+h.setDefaultTimeout(8000)
 const wait = (ms) => h.waitForTimeout(ms)
 const shot = async (name) => shots && c.both(`${shots}/${name}`)
 // Asked again until it holds, for at most 5 s (a save and its notice land a moment after the drop).
@@ -116,10 +118,18 @@ try {
   check('…its two pages still in it', (await folderOf(pick[0])) === essays.id && (await folderOf(pick[1])) === essays.id)
 
   // 7. The wrong thing: Coursework carried onto Essays, its own child, in the sidebar. Nothing moves, nothing is lost.
-  await h.locator(`[data-side-folder="${coursework.id}"]`).hover()
-  const fold = h.locator(`[data-folder-fold="${coursework.id}"][aria-expanded="false"]`)
-  if (await fold.count()) { await fold.click(); await wait(500) }
-  await carry(h.locator(`[data-side-folder="${coursework.id}"]`), h.locator(`[data-side-folder="${essays.id}"]`), { rest: 900 })
+  // Essays sits inside Coursework now: unfolded by Coursework's chevron in the sidebar, as a person opens it.
+  const courseRow = h.locator(`aside [data-side-folder="${coursework.id}"]`)
+  const essaysRow = h.locator(`aside [data-side-folder="${essays.id}"]`)
+  await courseRow.scrollIntoViewIfNeeded()
+  await courseRow.hover()
+  const fold = h.locator(`aside [data-folder-fold="${coursework.id}"]`)
+  check('Coursework, holding Essays, has a fold chevron in the sidebar', (await fold.count()) === 1)
+  if ((await fold.count()) === 1 && (await fold.getAttribute('aria-expanded')) !== 'true') { await fold.click(); await wait(500) }
+  const sidebarTree = () => h.evaluate(() => [...document.querySelectorAll('aside [data-side-folder]')].map((one) => one.getAttribute('aria-label')).join(' | '))
+  const shown = await until(async () => (await essaysRow.count()) === 1)
+  check('unfolded, Coursework shows Essays under it', shown, `fold ${await fold.getAttribute('aria-expanded').catch(() => 'none')}; sidebar: ${await sidebarTree()}`)
+  if (shown) await carry(courseRow, essaysRow, { rest: 900 })
   const after = await v('folders')
   check('a folder never goes into its own child: the tree is as it was', !after.find((one) => one.id === coursework.id)?.parent && after.find((one) => one.id === essays.id)?.parent === coursework.id)
   await shot('7-refused')
