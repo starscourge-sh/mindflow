@@ -92,6 +92,8 @@ export function registerWrite(): void {
     const words = String(text ?? '').trim()
     if (words.length < 12) return { error: 'Too few words to name' }
     const said = await titled(words)
+    // A name not offered is silent on the page: its reason kept in the log, so "where is the rename suggestion" has an answer.
+    if ('error' in said) console.warn(`No name offered for a note (${words.slice(0, 60).replace(/\s+/g, ' ')}…): ${said.error}`)
     return 'error' in said ? said : { text: said.title }
   })
   // Quick capture's line, where the wording's own rules read no kind: something to do, someone's words, or a note.
