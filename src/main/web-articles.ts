@@ -18,8 +18,9 @@ export type Article = { id: string; href: string; title: string; byline: string;
 /**
  * The cleaning an article was kept by, first in its HTML: one kept by an earlier reader is read again when next opened.
  * 4: a wiki's tagline gone at the source, a space held in a span of its own kept ("Followed by"), an infobox marked.
+ * 6: what the page hides left out (a closed modal, its "×"), code in tab panels kept and named, a strip of figures one line.
  */
-const CLEANING = '<!-- reader 5 -->'
+const CLEANING = '<!-- reader 6 -->'
 /** A wiki's tagline as an earlier reader kept it, its first paragraph: taken off a kept copy shown as it was (offline). */
 const TAGLINE = /<p>\s*From (Wikipedia|Wiktionary), the free (encyclopedia|dictionary)\.?\s*<\/p>/i
 

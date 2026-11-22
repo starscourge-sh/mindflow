@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>cliamp - Terminal Trove</title><meta property="og:site_name" content="Terminal Trove"><meta property="og:title" content="cliamp"></head>
+<body>
+<nav><a href="/">Terminal Trove</a><a href="/tools/">Tools</a><a href="/categories/">Categories</a></nav>
+<main>
+<article class="tool">
+  <h1>cliamp</h1>
+  <div class="tags"><a class="tag" href="/language/go/">go</a><a class="tag" href="/license/mit/">mit</a></div>
+  <p class="text-lg">A terminal music player inspired by winamp.</p>
+  <div class="stats grid grid-cols-4">
+    <div class="stat"><div class="stat-value">4.7K</div><div class="stat-label">Stars</div></div>
+    <div class="stat"><div class="stat-value">v2.4.1</div><div class="stat-label">Latest release</div></div>
+    <div class="stat"><div class="stat-value">2 days ago</div><div class="stat-label">Last activity</div></div>
+    <div class="stat"><div class="stat-value">Very Active</div><div class="stat-label">Status</div></div>
+  </div>
+  <div class="install" x-data="{ tab: 'brew' }">
+    <div class="tab-list" role="tablist">
+      <button role="tab" id="t-brew" aria-controls="p-brew" aria-selected="true">brew</button>
+      <button role="tab" id="t-linux" aria-controls="p-linux" aria-selected="false">linux</button>
+      <button role="tab" id="t-eget" aria-controls="p-eget" aria-selected="false">eget</button>
+      <button role="tab" id="t-script" aria-controls="p-script" aria-selected="false">install script</button>
+    </div>
+    <div role="tabpanel" id="p-brew" aria-labelledby="t-brew"><div class="relative overflow-hidden rounded-md"><pre><code class="language-bash">brew install bjarneo/cliamp/cliamp</code></pre><span class="copy-btn" title="Copy">Copy</span></div></div>
+    <div role="tabpanel" id="p-linux" aria-labelledby="t-linux" hidden><div class="relative overflow-hidden rounded-md"><pre><code class="language-bash">curl -sL https://github.com/bjarneo/cliamp/releases/latest/download/cliamp_linux_amd64.tar.gz | tar xz</code></pre></div></div>
+    <div role="tabpanel" id="p-eget" aria-labelledby="t-eget" style="display: none"><div class="relative overflow-hidden rounded-md"><pre><code class="language-bash">eget bjarneo/cliamp</code></pre></div></div>
+    <div role="tabpanel" id="p-script" aria-labelledby="t-script" class="hidden"><div class="relative overflow-hidden rounded-md"><pre><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/bjarneo/cliamp/main/install.sh | sh</code></pre><span class="view-script">View script</span></div></div>
+  </div>
+  <div class="hidden fixed inset-0 z-50 bg-black/50" id="script-preview" x-cloak>
+    <div class="rounded-lg bg-white p-6">
+      <span class="text-xl cursor-pointer" aria-label="Close">×</span>
+      <h3>Script Preview</h3>
+      <p>Review this script before executing in your terminal.</p>
+      <pre><code>#!/bin/sh
+set -e
+echo "installing cliamp"</code></pre>
+    </div>
+  </div>
+  <figure><img src="/media/cliamp.gif" alt="cliamp playing a song in the terminal" width="800" height="500"></figure>
+  <section class="about">
+    <h2>About cliamp</h2>
+    <p>cliamp is a terminal music player that takes its look from the classic winamp skin, with a spectrum analyser, a playlist and an equaliser drawn entirely in text characters, so it runs happily over a remote shell or inside a tiling window manager without a single pixel of graphics.</p>
+    <p>It plays local files in the common formats, streams internet radio, and can read a folder as a playlist, remembering where you left off in each one. Every control has a key, and the keys can be changed in a small configuration file that lives beside your other dotfiles.</p>
+    <p>The player is written in Go and ships as one static binary for macOS, Linux and Windows, so installing it is a matter of a single command from the tabs above, and updating it is the same command again whenever a new release is announced.</p>
+  </section>
+  <div class="categories"><h3>Categories</h3><a class="chip" href="/categories/music/">music</a><a class="chip" href="/categories/tui/">tui</a></div>
+</article>
+</main>
+</body></html>
