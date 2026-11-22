@@ -74,7 +74,7 @@ try {
   check('the shelf\'s open book wears the Settings book\'s cloth, the same colour', !!shelfCloth && shelfCloth === own.cloth, JSON.stringify({ shelfCloth, ...own }))
   check('its row in Settings › Books names the day its card names', /^Kept since /.test(own.since ?? '') && (own.fact ?? '').includes(own.since) && !/Made /.test(own.fact ?? ''), JSON.stringify(own))
   await s.go('home'); await wait(400)
-  await h.locator('[aria-label="Haligtree menu"]').click(); await wait(600)
+  await h.locator('[aria-label="Haligtree menu"]:not([data-book-more])').click(); await wait(600)
   // Every spine one height; the turned book on the same line, as the user's references stand theirs (21 Nov: "still
   // don't get why active book is lifted"): its foot on the ledge with theirs, its head no higher. And every book at rest
   // turned a little, a sliver of its cover showing at its spine's right ("rather than look dead straight into the side").

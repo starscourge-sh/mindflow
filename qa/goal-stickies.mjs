@@ -22,7 +22,7 @@ const { electron, h, v } = c
 try {
   await v('settings:set', { stickiesGlass: false })
   const winOf = async (part, glass = false) => {
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 32; i++) {
       const found = electron.windows().find((one) => !one.isClosed() && one.url().includes('view=sticky') && one.url().includes(part) && one.url().includes('glass=1') === glass)
       if (found) return (await found.waitForLoadState('domcontentloaded'), found)
       await wait(250)
@@ -67,15 +67,23 @@ try {
   check('⌘K offers “Stick all goals”', offered)
   await h.keyboard.press('Escape'); await wait(300); await h.keyboard.press('Escape'); await wait(300)
   await c.go('goals'); await wait(800)
-  await h.locator('text=Get to Mars before the dust storm').first().click({ button: 'right' }).catch(() => {})
+  await h.locator('text=Get to Mars before the dust storm').first().click({ button: 'right', timeout: 8000 }).catch(() => {})
   await wait(500)
   // An action about every goal never sits in one goal's menu (the user, 30 Oct item 28): the page's bar and ⌘K have it.
   const rowMenu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
   check("a goal's right-click menu opens with that goal's own lines, and no “Stick all goals”", rowMenu.length > 3 && !rowMenu.some((one) => one.includes('Stick all goals')), rowMenu.join(' | '))
   await h.keyboard.press('Escape'); await wait(300)
+  // On the page's bar while it fits; on a narrower line it folds behind the bar's ⋯ (ui.tsx FitActions), where a person
+  // then finds it. Pressed wherever it stands now.
   const button = h.locator('[data-all-goals-sticky]')
-  check('the Goals page offers “Stick all goals”', (await button.count()) === 1)
-  await button.click(); await wait(1500)
+  const onBar = await button.isVisible().catch(() => false)
+  if (onBar) await button.click({ timeout: 8000 })
+  else {
+    await h.locator('[data-fit-more]').first().click({ timeout: 8000 }); await wait(300)
+    await h.getByRole('menuitem', { name: 'Stick all goals' }).click({ timeout: 8000 })
+  }
+  check('the Goals page offers “Stick all goals”, on its bar or behind its ⋯', true, onBar ? 'on the bar' : 'behind ⋯')
+  await wait(1500)
 
   // --- the goals together
   const all = await winOf('type=goals&id=all')
@@ -111,7 +119,7 @@ try {
 
   // --- resting on a lane brings that goal forward
   const dune = goals.find((g) => g.title.startsWith('Finish Dune'))
-  await all.locator(`[data-goals-lane="${dune.id}"]`).hover(); await wait(600)
+  await all.locator(`[data-goals-lane="${dune.id}"]`).hover({ timeout: 8000 }); await wait(600)
   seen = await read()
   check('resting on a lane brings that goal forward and sets the rest aside: their words in Faded Ink, their roads dimmed, nothing see-through', seen.focus === dune.id && seen.lanes.every((l) => l.opacity === 1 && (l.id === dune.id ? !l.aside && l.road === 1 : l.aside && l.road < 0.3)), JSON.stringify(seen.lanes.map((l) => [l.id.slice(0, 4), l.opacity, l.aside, l.road])))
   check('focused, what comes next is that goal’s alone', seen.items.length >= 1 && seen.items.every((i) => i.goal === dune.id), JSON.stringify(seen.items))
@@ -129,7 +137,7 @@ try {
   await c.send('goal', mars.id); await wait(1200)
   const swatch = h.locator('[data-goal-swatch="pink"]')
   check("a goal's page offers its colour", (await swatch.count()) === 1)
-  await swatch.click(); await wait(1400)
+  await swatch.click({ timeout: 8000 }); await wait(1400)
   seen = await read()
   const marsCard = await winOf(`type=goal&id=${mars.id}`)
   const flag = await marsCard.evaluate(() => getComputedStyle(document.querySelector('[data-goal-flag]')).color)
@@ -171,15 +179,29 @@ try {
       return { glass: document.documentElement.dataset.glass ?? null, wash: getComputedStyle(document.documentElement).getPropertyValue('--mf-glass-wash').trim(), painted, alpha: alpha ? Number(alpha[1] ?? alpha[2]) : 1 }
     })
     check(`as glass (${theme}), a goal's card is whole paper: nothing behind it reads through`, !!paper && paper.alpha === 1 && paper.wash === '100%', JSON.stringify(paper))
+    // A frame of it over a page full of words, as it floats over Goals: the parked window cannot be laid over another
+    // window off screen, so the words are laid in its own window, under the card, for the picture only, then taken away.
+    if (glassMars) {
+      await glassMars.evaluate(() => {
+        const under = document.createElement('div')
+        under.id = 'qa-words-under'
+        under.style.cssText = 'position:fixed;inset:0;z-index:-1;padding:8px;font:13px/1.35 system-ui;color:#888;overflow:hidden;pointer-events:none'
+        under.textContent = 'How it went  Made it  Missed  Give it up  Put on ice  On screen  Keep this goal on screen  Always  Now and then  Off  '.repeat(40)
+        document.body.prepend(under)
+      })
+      await wait(300)
+      await glassMars.screenshot({ path: join(SHOTS, `goal-card-glass-over-words-${theme}.png`) })
+      await glassMars.evaluate(() => document.getElementById('qa-words-under')?.remove())
+    }
   }
   await v('settings:set', { stickiesGlass: false }); await wait(3000)
 
   // --- taken down with its X twice, then put back
   const paper = await winOf('type=goals&id=all')
   await paper.waitForSelector('[data-goals-takedown]', { timeout: 8000 })
-  await paper.locator('[data-goals-sticky]').hover()
-  await paper.locator('[data-goals-takedown]').click(); await wait(300)
-  await paper.locator('[data-goals-takedown]').click(); await wait(1500)
+  await paper.locator('[data-goals-sticky]').hover({ timeout: 8000 })
+  await paper.locator('[data-goals-takedown]').click({ timeout: 8000 }); await wait(300)
+  await paper.locator('[data-goals-takedown]').click({ timeout: 8000 }); await wait(1500)
   check('its X, pressed twice, takes the goals sticky down', !electron.windows().some((one) => one.url().includes('type=goals&')))
   await h.evaluate(() => window.api.putStickyBack()); await wait(1500)
   check('and it can be put back', !!(await winOf('type=goals&id=all')))
