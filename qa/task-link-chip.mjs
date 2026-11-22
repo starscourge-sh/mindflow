@@ -86,16 +86,12 @@ try {
   // 5b Taken off from the row's own ×: the chip folds away over frames (its width gliding), never gone in one.
   await row.locator('[data-task-link]').hover()
   await wait(250)
-  const unlinksBefore = await h.evaluate(() => window.__qaUnlinks ?? 0)
   await row.locator('[data-link-remove]').click()
   // What the click did, said in the output: whether it reached unlinkTask, the link in the book, the notices up, where the page is.
-  const said5b = await h.evaluate(() => ({ unlinks: window.__qaUnlinks ?? 0, last: window.__qaUnlinkLast ?? null, toasts: [...document.querySelectorAll('[data-toast]')].map((el) => el.textContent?.trim()), url: location.search, list: !!document.querySelector('[data-task-row]'), focus: document.activeElement?.outerHTML.slice(0, 120) }))
-  console.log('  5b after the row ×:', JSON.stringify({ ...said5b, before: unlinksBefore, link: (await sql('select link from tasks where id = ?', made.id))[0]?.link ?? null }))
   const widths = []
-  for (let n = 0; n < 8; n++) { widths.push(Math.round((await row.locator('[data-task-link-wrap]').boundingBox().catch(() => null))?.width ?? 0)); await wait(30) }
+  for (let n = 0; n < 8; n++) { widths.push(Math.round((await row.locator('[data-task-link-wrap]').boundingBox({ timeout: 100 }).catch(() => null))?.width ?? 0)); await wait(30) }
   check('5b removed from the row, the chip glides away rather than vanishing', widths[0] > 0 ? widths.some((one, n) => n > 0 && one > 0 && one < widths[0] - 2) : false, JSON.stringify(widths))
   // The row's removal says so with Undo too; it is taken back by its button, or ⌘Z if the notice has gone.
-  console.log('  5c notices before Undo:', JSON.stringify(await h.evaluate(() => ({ shown: [...document.querySelectorAll('[data-toast]')].map((el) => el.textContent?.trim()), trace: window.__qaToasts ?? [], now: Math.round(performance.now()) }))))
   const undo = h.getByRole('button', { name: /^Undo/ }).first()
   if (await undo.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) await undo.click()
   else await h.keyboard.press('Meta+z')

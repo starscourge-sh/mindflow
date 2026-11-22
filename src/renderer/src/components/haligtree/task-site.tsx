@@ -63,9 +63,6 @@ export function unlinkTask(task: Pick<Task, 'id' | 'link' | 'linkTitle' | 'linkI
   // Said at once, from wherever it was taken off (a row, the task's page, the side panel): the notice and its Undo
   // (⌘Z too) never wait on the save, and an Undo pressed before the save lands still puts it back after it.
   // Counted for a probe (qa/task-link-chip.mjs): whether a × reached here, and with which task.
-  const qa = window as { __qaUnlinks?: number; __qaUnlinkLast?: unknown }
-  qa.__qaUnlinks = (qa.__qaUnlinks ?? 0) + 1
-  qa.__qaUnlinkLast = { id: task.id, ...was }
   const saved = haligtree.saveTask(task.id, { link: null })
   chime('off')
   toast('Link removed', () => void saved.finally(() => void haligtree.saveTask(task.id, was)))

@@ -1152,13 +1152,6 @@ export type Made = { type: string; id: string; title?: string; /** Where in it t
  */
 const undone = (): void => void window.dispatchEvent(new CustomEvent('haligtree:undone'))
 
-/** What the notices did, kept on the window for a probe to print (qa/task-link-chip.mjs): heard, and why each went. */
-const toastTrace = (what: string, ..._after: unknown[]): void => {
-  const qa = window as { __qaToasts?: string[] }
-  ;(qa.__qaToasts ??= []).push(`${Math.round(performance.now())} ${what}`)
-  if (qa.__qaToasts.length > 40) qa.__qaToasts.shift()
-}
-
 export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction, made?: Made, /** How long it stays, unpressed, when not the usual. */ ms?: number): void => {
   beam(tone)
   window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, made, ms } }))
@@ -1610,7 +1603,7 @@ export function Toaster(): React.JSX.Element | null {
   /** The notice's time is up: it goes, and with its Undo every older step held (⌘Z never takes one back out of turn). */
   const expire = (): void => {
     const gone = shownNow.current
-    void toastTrace('gone: expired', setShown(null))
+    void setShown(null)
     if (gone?.undo) setHeld((was) => was.filter((one) => one.key > gone.key))
     // News that waited for this one (`news`): its turn now.
     const next = waiting.current.shift()
@@ -1714,7 +1707,6 @@ export function Toaster(): React.JSX.Element | null {
     const stop = (): void => { clearTimeout(at.timer); at.timer = undefined; at.left = 0 }
     const onToast = (event: Event): void => {
       const detail = (event as CustomEvent).detail
-      toastTrace(`heard: ${detail.text}${document.documentElement.hasAttribute('data-box-away') ? ' (box away)' : ''}${detail.news && shownNow.current?.undo ? ' (waits)' : ''}`)
       // Quick capture put away (or on its way out): news of what it did is not
       // left waiting for the next time it opens. Its Undo is still held for ⌘Z.
       if (document.documentElement.hasAttribute('data-box-away') && detail.tone !== 'error' && detail.tone !== 'warning') {
@@ -1749,7 +1741,7 @@ export function Toaster(): React.JSX.Element | null {
       const text = (event as CustomEvent<{ text?: string } | null>).detail?.text
       if (text && shownNow.current?.text !== text) return
       stop()
-      void toastTrace('gone: untoast', setShown(null))
+      void setShown(null)
     }
     window.addEventListener('haligtree:toast', onToast)
     window.addEventListener('haligtree:untoast', onGone)
@@ -1783,7 +1775,7 @@ export function Toaster(): React.JSX.Element | null {
   // (lib/tool-keys.ts), asked before the app's own, so a toast's C is never also a new capture.
   useToolKeys(shown?.action ? (event) => {
     if (!shown.action || event.metaKey || event.ctrlKey || event.altKey || typing() || event.key.toLowerCase() !== shown.action.key.toLowerCase()) return false
-    void toastTrace('gone: action key', setShown(null))
+    void setShown(null)
     shown.action.run()
     return true
   } : null)
@@ -1801,7 +1793,7 @@ export function Toaster(): React.JSX.Element | null {
       back.undo()
       undone()
       if (back === top) setHeld((was) => was.filter((one) => one !== top))
-      else void toastTrace('gone: cmd-Z undo', setShown(null))
+      else void setShown(null)
       keepHeld()
     }
     const onKey = (event: KeyboardEvent): void => {
@@ -1929,7 +1921,7 @@ export function Toaster(): React.JSX.Element | null {
           type="button"
           className="group/act shrink-0 font-medium whitespace-nowrap text-foreground"
           onClick={() => {
-            void toastTrace('gone: action button', setShown(null))
+            void setShown(null)
             shown.action?.run()
           }}
         >
@@ -1946,7 +1938,7 @@ export function Toaster(): React.JSX.Element | null {
             quietFor(UNDO_HUSH)
             shown.undo?.()
             undone()
-            void toastTrace('gone: Undo button', setShown(null))
+            void setShown(null)
             keepHeld()
           }}
         >
