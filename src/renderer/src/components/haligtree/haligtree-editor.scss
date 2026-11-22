@@ -3667,7 +3667,8 @@ $media-brand: var(--tt-brand-color-500, currentColor);
 
 // Hidden rather than unmounted: the handle is placed by a positioner that
 // would jump on every remount, and it is on screen constantly.
-.tiptap-drag-handle.is-hidden {
+.tiptap-drag-handle.is-hidden,
+.tiptap-drag-handle.is-bare {
   visibility: hidden;
 }
 
