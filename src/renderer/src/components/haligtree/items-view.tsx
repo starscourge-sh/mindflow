@@ -677,6 +677,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // list's order, the same orders as its "Sort".
   const listMenu: RowItem[] = [
     writing && !questionsOnly && { label: 'New page', run: newPage },
+    // A folder made here too, in the folder this list is (Writing's own place), named as it is made: Finder's right-click.
+    writing && !questionsOnly && { label: 'New folder', keys: '⌃⌘N', run: () => newFolderHere(folder?.id ?? null) },
     sorts.length > 1 && { label: 'Sort', items: everySort(sorts).map((one) => ({ label: one.label, trail: view.sort === one.id ? <Check className="size-3.5" /> : undefined, run: () => (chime('tap'), setView({ ...view, sort: one.id })) })) },
   ]
   const manyMenu: RowItem[] | null = chosen.length > 1 ? [

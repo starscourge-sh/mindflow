@@ -1,4 +1,5 @@
 import {
+  ArrowDownAZ, CalendarArrowDown, CalendarArrowUp, ClockArrowDown, ClockArrowUp,
   AlarmClock, AppWindow, PictureInPicture2, ArrowUpRight, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, BookmarkMinus, BookmarkPlus, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, GripVertical, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
@@ -16,6 +17,12 @@ import {
  * first rule that fits wins, so the narrow ones come before the broad.
  */
 const RULES: [RegExp, LucideIcon][] = [
+  // A sort's own ways, each its own drawing: "Newest" took "New…"'s plus and the rest fell to the dot (the user, 22 Nov).
+  [/^newest( first)?$/i, CalendarArrowDown],
+  [/^oldest( first)?$/i, CalendarArrowUp],
+  [/^recently (changed|edited|opened)$/i, ClockArrowDown],
+  [/^longest unchanged$|^least recently/i, ClockArrowUp],
+  [/^a to z$|^alphabetical|^by name$/i, ArrowDownAZ],
   // Projects, where tasks live (side-projects.tsx, projects-view.tsx): a project wears the group's stack, as its row does.
   [/^all projects/i, Layers],
   [/^new project/i, FolderPlus],
