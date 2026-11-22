@@ -27,7 +27,7 @@ export function ProjectsView({ onOpen }: { onOpen: (type: string, id: string) =>
   return (
     <Page title="projects" lead={<TasksTabs mode="projects" onOpen={onOpen} />} count={live.length} unit={['project', 'projects']}
       actions={live.length > 0 && <Button variant="ghost" size="sm" data-projects-new="" onClick={() => void newProjectHere(null)}><FolderPlus className="size-3.5" />New project</Button>}>
-      <div data-projects-page="" className="list-edge mt-8 mb-6 flex flex-col">
+      <div data-projects-page="" className="list-edge mt-4 mb-6 flex flex-col">
         {/* Nothing yet: the app's own empty page and the one thing to do. */}
         {!live.length && (
           <Empty title="No projects yet" art={<GroupIcon icon={null} color={null} className="size-11" />}
@@ -99,7 +99,7 @@ function ProjectHead({ id, onOpen }: { id: string; onOpen: (type: string, id: st
   return (
     <div data-project-head={id} className="flex flex-col gap-1">
       {/* Where it sits, each step a way back up; "Projects" first, every project. */}
-      <nav aria-label="Where this project is" className="flex min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
+      <nav aria-label="Where this project is" className="-ml-1 flex min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
         <button type="button" onClick={() => (chime('page'), onOpen('view', 'projects'))} className="cursor-pointer rounded px-1 hover:bg-accent hover:text-foreground">Projects</button>
         {path.map((up) => (
           <span key={up.id} className="flex items-center gap-1">
@@ -111,7 +111,7 @@ function ProjectHead({ id, onOpen }: { id: string; onOpen: (type: string, id: st
       {/* The project itself, apart from its list and larger: its icon (a press changes it), its name (a press renames it). */}
       <Popover open={picking} onOpenChange={setPicking}>
         <RowMenu items={menu}>
-          <div className="group/head flex min-w-0 items-center gap-2">
+          <div className="group/head -ml-1.5 flex min-w-0 items-center gap-2">
             <PopoverAnchor asChild>
               <button type="button" aria-label="Change its icon" onClick={() => (chime('open'), setPicking(true))} className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-accent">
                 <GroupIcon icon={project.icon} color={project.color} className="size-5" />
@@ -119,10 +119,11 @@ function ProjectHead({ id, onOpen }: { id: string; onOpen: (type: string, id: st
             </PopoverAnchor>
             {naming ? (
               <NameInPlace initial={project.name} data-project-title-name="" label="Project name" placeholder="Name the project" onDone={name}
-                className="min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-title font-semibold text-foreground outline-none ring-1 ring-ring/40" />
+                className="min-w-0 flex-1 bg-transparent p-0 text-title font-semibold text-foreground outline-none" />
             ) : (
               <h1 data-project-title="" className="min-w-0 truncate text-title font-semibold text-foreground">
-                <button type="button" onClick={() => setNaming(true)} className="max-w-full cursor-pointer truncate rounded-md px-1 text-left hover:bg-accent/60">{project.name}</button>
+                {/* Plain title text at rest, as a page's title is: a press puts the field in its place. */}
+                <button type="button" onClick={() => setNaming(true)} className="max-w-full cursor-pointer truncate text-left">{project.name}</button>
               </h1>
             )}
             {project.archived ? <span className="shrink-0 rounded-md bg-accent px-1.5 py-0.5 text-control font-medium text-foreground">Archived</span> : null}
@@ -153,12 +154,15 @@ function SubProjects({ id, onOpen }: { id: string; onOpen: (id: string) => void 
  * A group's heading in a project's list: a press folds it (kept on the group), F2 or its menu renames it in place, and
  * its menu lets its tasks out of it (⇧⌘G).
  */
-export function GroupHeading({ id, name, count, folded, naming, members, onNaming }: { id: string; name: string; count: number; folded: boolean; naming: boolean; members: string[]; onNaming: (on: boolean) => void }): React.JSX.Element {
+export function GroupHeading({ id, name, count, folded, naming, fresh = false, members, onNaming }: { id: string; name: string; count: number; folded: boolean; naming: boolean
+  /** Just made by ⌘G or a drop: its first name is no step of its own, so ⌘Z takes back the group itself. */
+  fresh?: boolean; members: string[]; onNaming: (on: boolean) => void }): React.JSX.Element {
   const rename = (words: string | null): void => {
     onNaming(false)
     const next = words?.trim()
     if (!next || next === name) return
     chime('tap')
+    if (fresh) return void projects.set(id, { name: next })
     sayNow(projects.set(id, { name: next }), `Renamed the group ${next}`, () => void projects.set(id, { name }))
   }
   return (

@@ -63,7 +63,8 @@ try {
   const rows = h.locator('[data-task-row] [data-row]')
   const ids = await rows.evaluateAll((all) => all.slice(0, 3).map((one) => one.getAttribute('data-id')))
   for (let i = 0; i < 3; i++) await rows.nth(i).click({ modifiers: ['Meta'] })
-  await carry(h.locator('[data-task-row]').nth(2), h.locator(`aside [data-project-row="${thesis.id}"]`))
+  // Pressed on its words (the row's own button), as a person grabs a task, never on the tick's margin.
+  await carry(rows.nth(2), h.locator(`aside [data-project-row="${thesis.id}"]`))
   check('three picked tasks carried onto a project move into it', await until(async () => (await inProject(thesis.id)).length === 3), JSON.stringify(await inProject(thesis.id)))
   check('said once, with the count', /Moved 3 tasks to Thesis/.test(await said()), await said())
   await h.keyboard.press('Meta+z')

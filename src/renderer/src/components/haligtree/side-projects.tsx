@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronRight, MoreHorizontal, Plus } from 'lucide-react'
 import { Branches } from './branches'
 import { NameInPlace } from './name-in-place'
-import { GroupIcon, IconChoice } from './kept-groups'
+import { GroupIcon, GroupTile, IconChoice } from './kept-groups'
+import { plural } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Weighted } from './glide'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
@@ -34,12 +35,15 @@ export function ProjectsTree({ here, onOpen, page = false, archived = false, und
   /** The archived ones only (the "Projects" tab's fold of them). */
   archived?: boolean }): React.JSX.Element | null {
   const all = useProjects()
-  const [naming, setNaming] = useState<string | null>(null)
+  const [naming, setNamingRaw] = useState<string | null>(null)
+  // Named as it is made: its first name is part of making it, one ⌘Z for both (as Finder's new folder).
+  const [fresh, setFresh] = useState(false)
+  const setNaming = (id: string | null, made = false): void => (setNamingRaw(id), setFresh(made))
   const [picking, setPicking] = useState<string | null>(null)
   useEffect(() => {
     if (archived) return
     // A new project, named where it appears: on the page when a page shows projects, else in the sidebar.
-    const name = (event: Event): void => void ((page || !document.querySelector('[data-projects-page], [data-sub-projects]')) && setNaming((event as CustomEvent<{ id: string }>).detail.id))
+    const name = (event: Event): void => void ((page || !document.querySelector('[data-projects-page], [data-sub-projects]')) && setNaming((event as CustomEvent<{ id: string }>).detail.id, true))
     window.addEventListener('haligtree:project-name', name)
     return () => window.removeEventListener('haligtree:project-name', name)
   }, [page, archived])
@@ -91,10 +95,10 @@ export function ProjectsTree({ here, onOpen, page = false, archived = false, und
       return (
         <SortableRow key={one.id} id={one.id} glide={`project-${one.id}`}>
           <div className="flex flex-col gap-px">
-            <ProjectRow project={one} all={shown} page={page} here={here === one.id} n={openIn(shown, one.id)} naming={naming === one.id} picking={picking === one.id}
+            <ProjectRow project={one} all={shown} page={page} here={here === one.id} n={openIn(shown, one.id)} naming={naming === one.id} fresh={fresh} picking={picking === one.id}
               onPicking={(on) => setPicking(on ? one.id : null)} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)}
               open={open} onFold={kids.length ? () => fold(one) : undefined} onSpring={kids.length && one.folded ? () => void projects.set(one.id, { folded: false }) : undefined} />
-            {hung.length > 0 && <div data-no-twig="" data-own-press=""><Branches className="ml-5 flex flex-col gap-px">{rows(hung)}</Branches></div>}
+            {hung.length > 0 && <div data-no-twig="" data-own-press=""><Branches className={cn(page ? 'ml-6' : 'ml-5', 'flex flex-col gap-px')}>{rows(hung)}</Branches></div>}
           </div>
         </SortableRow>
       )
@@ -102,7 +106,8 @@ export function ProjectsTree({ here, onOpen, page = false, archived = false, und
   )
   if (!tops.length) return null
   return page
-    ? <div data-projects-tree="" data-archived={archived ? '' : undefined} className="-mx-2 flex flex-col">{rows(tops)}</div>
+    // On the Projects tab the rows sit on the list's own edges (ROW_SHAPE); inside a project's head, on its words' edge.
+    ? <div data-projects-tree="" data-archived={archived ? '' : undefined} className={cn('flex flex-col', under && '-mx-2')}>{rows(tops)}</div>
     : <div data-projects-tree=""><Branches rows=":scope > *" className="ml-5 flex flex-col gap-px">{rows(tops)}</Branches></div>
 }
 
@@ -138,7 +143,7 @@ export function projectMenu(project: Project, all: Project[], { onOpen, onRename
 }
 
 /** One project's row: the sidebar's size, or the list's (`page`). Renamed in place, its icon chosen beside it. */
-export function ProjectRow({ project, all, here, n, naming, picking, open, page = false, onPicking, onNamed, onRename, onOpen, onFold, onSpring }: { project: Project; all: Project[]; here: boolean; n: number; naming: boolean; picking: boolean; open: boolean; page?: boolean
+export function ProjectRow({ project, all, here, n, naming, fresh = false, picking, open, page = false, onPicking, onNamed, onRename, onOpen, onFold, onSpring }: { project: Project; all: Project[]; here: boolean; n: number; naming: boolean; /** Just made: named without a step of its own to undo. */ fresh?: boolean; picking: boolean; open: boolean; page?: boolean
   onPicking: (on: boolean) => void; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold?: () => void
   /** Folded, with projects inside: a carried task rested on it opens it. */
   onSpring?: () => void }): React.JSX.Element {
@@ -150,6 +155,7 @@ export function ProjectRow({ project, all, here, n, naming, picking, open, page 
     if (!next || next === project.name) return
     const was = project.name
     chime('tap')
+    if (fresh) return void projects.set(project.id, { name: next })
     sayNow(projects.set(project.id, { name: next }), `Renamed ${was} to ${next}`, () => void projects.set(project.id, { name: was }))
   }
   const pick = (icon: string | null): void => {
@@ -162,7 +168,7 @@ export function ProjectRow({ project, all, here, n, naming, picking, open, page 
   const icon = <GroupIcon icon={project.icon} color={project.color} className="size-3.5" />
   const body = naming ? (
     <div className={page ? cn(ROW_SHAPE, ROW_PAD) : 'flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2'}>
-      <span className="flex size-4 shrink-0 items-center justify-center">{icon}</span>
+      {page ? <GroupTile group={project} empty={!n} /> : <span className="flex size-4 shrink-0 items-center justify-center">{icon}</span>}
       <NameInPlace initial={project.name} data-project-name={project.id} label="Project name" placeholder="Name the project" onDone={name}
         className={cn('min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40', page && 'text-control font-medium')} />
     </div>
@@ -177,13 +183,18 @@ export function ProjectRow({ project, all, here, n, naming, picking, open, page 
           className={page
             ? cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]')
             : `flex w-full min-w-0 cursor-pointer items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
-          <span className={cn('flex w-4 shrink-0 items-center justify-center', page ? 'size-4' : 'h-[1lh]', onFold && 'transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100')}>{icon}</span>
+          {page
+            // Writing's folder row on a page (kept-groups.tsx `GroupTile`): the drawn tile with its icon, giving way to the fold.
+            ? <GroupTile group={project} empty={!n} className={cn(onFold && 'transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100')} />
+            : <span className={cn('flex h-[1lh] w-4 shrink-0 items-center justify-center', onFold && 'transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100')}>{icon}</span>}
           {page ? <span className="min-w-0 flex-1 truncate text-left text-control font-medium text-foreground">{project.name}</span> : <Weighted on={here} className="flex-1 truncate text-left">{project.name}</Weighted>}
           {/* Open tasks, its projects' too; none shown for 0 (a "0" reads as something to see to). */}
-          {n > 0 && <span data-project-count={n} className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
+          {n > 0 && (page
+            ? <span data-project-count={n} className="shrink-0 text-meta text-muted-foreground tabular-nums transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100">{plural(n, 'open task')}</span>
+            : <span data-project-count={n} className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>)}
         </button>
         {onFold && <button type="button" data-project-fold={project.id} aria-label={open ? `Fold ${project.name} away` : `Show the projects in ${project.name}`} aria-expanded={open} onClick={onFold}
-          className={`absolute ${page ? 'top-1/2 left-1.5 -translate-y-1/2' : 'top-[0.1875rem] left-1.5'} flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
+          className={`absolute ${page ? 'top-1/2 left-[calc(var(--list-ink)-var(--list-edge))] size-9 -translate-y-1/2' : 'top-[0.1875rem] left-1.5 size-5'} flex cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <ChevronRight className={`size-3.5 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
         </button>}
         <span className={`absolute ${page ? 'top-1/2 right-2 -translate-y-1/2' : 'top-[0.1875rem] right-1.5'} flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>

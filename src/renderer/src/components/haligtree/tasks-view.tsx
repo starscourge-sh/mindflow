@@ -760,9 +760,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   const taskGroups = useTaskGroups()
   const projectName = useProjects().find((one) => one.id === project)?.name ?? 'this project'
   const [namingGroup, setNamingGroup] = useState<string | null>(null)
+  // A group named as it is made: that first name is part of making it, so one ⌘Z takes the group back.
+  const [freshGroup, setFreshGroup] = useState<string | null>(null)
   useEffect(() => {
     if (!project) return
-    const name = (event: Event): void => setNamingGroup((event as CustomEvent<{ id: string }>).detail.id)
+    const name = (event: Event): void => { const { id } = (event as CustomEvent<{ id: string }>).detail; setNamingGroup(id); setFreshGroup(id) }
     window.addEventListener('haligtree:task-group-name', name)
     return () => window.removeEventListener('haligtree:task-group-name', name)
   }, [project])
@@ -1600,8 +1602,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                   </h2>
                 ) : row.key.startsWith('tgroup:') ? (
                   // A group in a project: its heading folds it, renames in place (F2, its menu), and lets its tasks go.
-                  <GroupHeading id={row.key.slice(7)} name={row.heading} count={row.count} folded={!!taskGroups.find((one) => one.id === row.key.slice(7))?.folded} naming={namingGroup === row.key.slice(7)}
-                    onNaming={(on) => setNamingGroup(on ? row.key.slice(7) : null)} members={tasks.filter((task) => task.taskGroup === row.key.slice(7)).map((task) => task.id)} />
+                  <GroupHeading id={row.key.slice(7)} name={row.heading} count={row.count} folded={!!taskGroups.find((one) => one.id === row.key.slice(7))?.folded} naming={namingGroup === row.key.slice(7)} fresh={freshGroup === row.key.slice(7)}
+                    onNaming={(on) => (setNamingGroup(on ? row.key.slice(7) : null), setFreshGroup(null))} members={tasks.filter((task) => task.taskGroup === row.key.slice(7)).map((task) => task.id)} />
                 ) : row.key.startsWith('fold:') ? (
                   // A tag's heading folds its tasks away and back, as the box's islands do.
                   <h2 className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">
