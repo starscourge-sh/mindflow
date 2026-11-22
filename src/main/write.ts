@@ -141,12 +141,25 @@ export function registerWrite(): void {
       const question = String(card.question ?? '').trim(), answer = String(card.answer ?? '').trim()
       return question && answer ? { question, answer } : { error: 'Apple Intelligence did not write a question and answer' }
     }
-    const said = await write(help.instructions, prompt, help.stand(words, mine.length))
+    const count = (text: string): number => text.split(/\s+/).filter(Boolean).length
+    const clean = (text: string): string => text.replace(/^["“'‘]+|["”'’]+$/g, '').trim()
+    // Not done what was asked: the words back as they were, or "Shorter" no shorter.
+    const missed = (text: string): boolean => text === words || (op === 'shorter' && count(text) > count(words) * 0.85)
+    let said = await write(help.instructions, prompt, help.stand(words, mine.length))
     if ('error' in said) return said
-    const answer = said.text.replace(/^["“'‘]+|["”'’]+$/g, '').trim()
+    let answer = clean(said.text)
+    // The small model on this Mac sometimes hands the words straight back (the user, 22 Nov: "Shorter" came back the
+    // same): asked once more, plainly, with the length to reach, before it says so.
+    if (answer && op !== 'quote' && op !== 'fix' && missed(answer)) {
+      const firmer = op === 'shorter' ? `${help.instructions} Use at most ${Math.max(4, Math.round(count(words) / 2))} words. Never give the words back unchanged.`
+        : `${help.instructions} Change the wording: never give the words back unchanged.`
+      said = await write(firmer, prompt, help.stand(words, mine.length))
+      if (!('error' in said) && clean(said.text)) answer = clean(said.text)
+    }
     if (!answer) return { error: 'Apple Intelligence gave no answer' }
     if (op === 'quote') return { text: lineIn(words, answer) }
-    if (answer === words) return { error: op === 'fix' ? 'Nothing to fix: Apple Intelligence found it right as it is' : 'It came back the same as your words' }
+    if (answer === words) return { error: op === 'fix' ? 'Nothing to fix: Apple Intelligence found it right as it is' : 'Apple Intelligence gave your words back unchanged, twice' }
+    if (op === 'shorter' && count(answer) >= count(words)) return { error: 'Apple Intelligence could not make it shorter' }
     return { text: answer }
   })
 }
