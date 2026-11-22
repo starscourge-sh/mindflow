@@ -19,6 +19,7 @@ import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
 import { MenuRows, Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
+import { sameAnswer } from '../../../../main/study'
 import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
 import { ListSearch, matches } from './note-list'
 import { Switch } from '@/components/ui/switch'
@@ -1168,6 +1169,13 @@ function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
   const { grades, two, name: gradeName } = useGrades()
   const started = useRef(Date.now())
   const reveal = (): void => (chime('reveal'), setShown(true))
+  // "Type the answer": a field that opens under the question, in the app's own field (the Week page's: a label and
+  // a ruled line, the user, 22 Nov), ⌘↵ showing the answer with your words above it. Word for word, it says so; else
+  // you grade it yourself, nothing picked for you (Review's own rule).
+  const [typingOn, setTyping] = useState(false)
+  const [said, setSaid] = useState('')
+  const field = useRef<HTMLTextAreaElement>(null)
+  const exactly = !!said.trim() && sameAnswer(said, quiz.answer, false)
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (graded || !shown) return
     chime((['again', 'hard', 'good', 'easy'] as const)[value - 1])
@@ -1198,6 +1206,11 @@ function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
           <p data-feed-quiz-prompt className="text-body font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground">{quiz.prompt}</p>
           {shown ? (
             <>
+              {said.trim() && (
+                <p data-feed-quiz-said-typed className="text-control text-muted-foreground">
+                  <span className="font-medium text-foreground">{exactly ? 'Word for word. ' : 'You wrote: '}</span>{exactly ? 'You had it.' : said.trim()}
+                </p>
+              )}
               <p data-feed-quiz-answer className="line-clamp-[8] rounded-lg border bg-accent/25 px-4 py-3 text-body leading-relaxed whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground">{quiz.answer}</p>
               <div className={cn('grid max-w-[28rem] gap-2', two ? 'grid-cols-2' : 'grid-cols-4')}>
                 {grades.map(({ grade: value, label, hint, tone }) => (
@@ -1219,10 +1232,32 @@ function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
               </p>
             </>
           ) : (
-            <span className="flex items-center gap-3">
-              <button type="button" data-feed-quiz-show onClick={reveal} className="h-8 w-[9rem] rounded-md border text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.06]">Show answer</button>
-              <OpenLink onOpen={onOpen}>Open the card</OpenLink>
-            </span>
+            <>
+              {/* Opens downward, its height gliding from nothing: never popped in. */}
+              <div className="grid transition-[grid-template-rows] duration-200 ease-(--mf-ease)" style={{ gridTemplateRows: typingOn ? '1fr' : '0fr' }}>
+                <div className="min-h-0 overflow-hidden">
+                  <label data-feed-quiz-type className="flex cursor-text flex-col gap-1 rounded-lg border bg-accent/25 px-4 py-3 focus-within:bg-accent/40">
+                    <span className="text-control font-medium text-foreground">Your answer</span>
+                    <textarea ref={field} value={said} rows={2} tabIndex={typingOn ? 0 : -1} aria-label="Your answer"
+                      onChange={(event) => setSaid(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), reveal())
+                        else if (event.key === 'Escape') (event.stopPropagation(), setTyping(false), event.currentTarget.blur())
+                      }}
+                      placeholder="Type it, then ⌘↵ to check it against the card"
+                      className="mf-ruled mt-0.5 resize-none border-0 bg-transparent p-0 text-body text-foreground outline-none placeholder:italic placeholder:text-muted-foreground" />
+                  </label>
+                </div>
+              </div>
+              <span className="flex items-center gap-3">
+                <button type="button" data-feed-quiz-show onClick={reveal} className="h-8 w-[9rem] rounded-md border text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.06]">Show answer</button>
+                {!typingOn && (
+                  <button type="button" data-feed-quiz-typing onClick={() => (chime('open'), setTyping(true), requestAnimationFrame(() => field.current?.focus({ preventScroll: true })))}
+                    className="h-8 rounded-md px-2 text-control text-(--mf-muted-strong) transition-colors hover:bg-foreground/[0.06] hover:text-foreground">Type the answer</button>
+                )}
+                <OpenLink onOpen={onOpen}>Open the card</OpenLink>
+              </span>
+            </>
           )}
         </div>
       </div>
