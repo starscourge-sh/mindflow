@@ -32,20 +32,21 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   const postcard = usePostcard(!!hint?.memory)
   // Two bells once, when a hint arrives: not on every animation the card
   // runs afterwards, which rang them again as the page moved around it.
-  useEffect(() => void (hint && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Picked while the box is away (below), a card rings as the box shows instead (onShown).
+  useEffect(() => void (hint && !document.hidden && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // The daily tidy, a quiet goal and an exam falling behind are not here: quick capture only catches, and they are a line at the top of the Inbox (inbox-lines.tsx).
   // A question you are holding, come back: "Still open: …".
   const [back, setBack] = useState<Awaited<ReturnType<typeof haligtree.questionBack>>>(null)
   // A clue kept on the card above and undone: the card back with its words.
   const [backWords, setBackWords] = useState('')
   useEffect(() => void (!back && setBackWords('')), [back])
-  useEffect(() => void (back && chime('memory')), [back?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (back && !document.hidden && chime('memory')), [back?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A decision on its look-again day, an experiment past its run-until: you set the day, so it skips the dice.
   const [due, setDue] = useState<Returning | null>(null)
   // A finding written on the card above and undone: the card back with its words.
   const [dueWords, setDueWords] = useState('')
   useEffect(() => void (!due && setDueWords('')), [due])
-  useEffect(() => void (due && chime('memory')), [due?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (due && !document.hidden && chime('memory')), [due?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const shownAt = useRef(0)
   // What the card says, set a beat after it arrives so the words roll in
   // from nothing rather than appearing already there.
@@ -96,45 +97,56 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     void save({ title: words, body }).then(() => quietly(() => void save(was).then(() => setHint((now) => (now?.id === was.id ? was : now)))))
   }
 
-  // Most opens show nothing: the rate is a setting, a tenth by default.
-  useEffect(
-    () =>
-      window.api.onShown(async () => {
-        setAsking(false)
-        // Last open's card goes at once, with no way out drawn: left in until the pick below came back, it was still
-        // leaving while the new one came in, two cards stacked in the opening frames ("Came back" over "Still in
-        // your Inbox", qa/hint-room.mjs). Only one hint ever shows.
-        clearAll()
-        const coming = await returningHint()
-        setDue(coming)
-        if (coming) return setHint(null)
-        const { rate } = await haligtree.hintRate()
-        if (Math.random() < rate) {
-          // Now and then, a question still held instead: low weight, at most
-          // once a day, gated and switched off in Settings by the main process.
-          const question = Math.random() < 1 / 4 ? await haligtree.questionBack() : null
-          if (question) return (setHint(null), setBack(question))
-          // A third of the time, a memory, when there is one to give.
-          const next: Hint | null = (Math.random() < 1 / 3 ? await haligtree.memory() : null) ?? (await window.api.hints.next())
-          shownAt.current = Date.now()
-          setHint(next)
-        } else setHint(null)
-      }),
-    []
-  )
-  // Every card put away at once (none drawn on its way out): the box gone, or brought up again.
+  // Most opens show nothing: the rate is a setting, a tenth by default. The next open's card (or none) is picked and
+  // drawn while the box is away, so it is there from the box's first frame or not at all: picked as the box showed,
+  // last open's card was taken away in the first frames and the new one came in after, a card flashing away (the
+  // user, 22 Nov). Brought up again without having been away (kept open behind another window), it keeps its card.
+  // A note's own window (no room round its card) is shown without being put away first: it picks as it shows, as before.
+  const now = useRef({ hint, back, due })
+  now.current = { hint, back, due }
+  useEffect(() => {
+    const boxed = !!window.api.room.left
+    // Picked for the box while it is away; shown again meanwhile, the pick is dropped and its card kept as it is.
+    const still = (): boolean => !boxed || document.hidden
+    const pick = async (): Promise<void> => {
+      const coming = await returningHint()
+      if (!still()) return
+      setDue(coming)
+      if (coming) return setHint(null)
+      const { rate } = await haligtree.hintRate()
+      if (Math.random() >= rate) return setHint(null)
+      // Now and then, a question still held instead: low weight, at most
+      // once a day, gated and switched off in Settings by the main process.
+      const question = Math.random() < 1 / 4 ? await haligtree.questionBack() : null
+      if (!still()) return
+      if (question) return (setHint(null), setBack(question))
+      // A third of the time, a memory, when there is one to give.
+      const next: Hint | null = (Math.random() < 1 / 3 ? await haligtree.memory() : null) ?? (await window.api.hints.next())
+      if (still()) (setHint(next), (shownAt.current = Date.now()))
+    }
+    // Every card put away at once (none drawn on its way out) as the box goes, and the next open's picked.
+    const away = (): void => void (document.hidden && (clearAll(), boxed && pick()))
+    // The box's page is made while it is away: its first open's card is picked then.
+    void (boxed && document.hidden && pick())
+    document.addEventListener('visibilitychange', away)
+    const offShown = window.api.onShown(() => {
+      if (!boxed) return void (clearAll(), pick())
+      setAsking(false)
+      shownAt.current = Date.now()
+      const { hint: shown, back: held, due: owed } = now.current
+      if (shown) chime(shown.memory ? 'memory' : 'hint')
+      else if (held || owed) chime('memory')
+    })
+    return () => (document.removeEventListener('visibilitychange', away), offShown())
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [round, setRound] = useState(0)
   const clearAll = (): void => {
     setHint(null)
     setBack(null)
     setDue(null)
+    setAsking(false)
     setRound((n) => n + 1)
   }
-  useEffect(() => {
-    const away = (): void => void (document.visibilityState === 'hidden' && clearAll())
-    document.addEventListener('visibilitychange', away)
-    return () => document.removeEventListener('visibilitychange', away)
-  }, [])
   // Dwell: how long it was on screen before the window went. Every hint
   // produces one, where a vote is rare, so it is the signal that says most.
   useEffect(() => {
@@ -213,13 +225,15 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
 ]
   // A memory may be something already dealt with, so it is opened, fixed or
   // shown less, never kept or moved to the Bin from here.
+  // Drawn while the box is away, a card is there as it shows, never fading in after (no entrance then).
+  const enter = document.hidden ? false : { opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }
   const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2 && icon !== EyeOff) : actions
   return (
     <AnimatePresence key={round}>
       {back && !hint && (
         <motion.div
           key={`back-${back.id}`}
-          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
+          initial={enter}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
@@ -234,7 +248,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
       {due && !hint && (
         <motion.div
           key={`due-${due.id}`}
-          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
+          initial={enter}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
@@ -254,7 +268,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           key={hint.id}
           data-hint-card
           data-hint-surface={postcard ? undefined : ''}
-          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
+          initial={enter}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
@@ -318,7 +332,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
             ) : (
               <div
                 data-hint-words
-                className={`cursor-pointer whitespace-pre-line font-heading text-[15px] leading-snug text-foreground ${whole ? 'max-h-40 overflow-y-auto' : 'line-clamp-3'}`}
+                className={`cursor-pointer whitespace-pre-line font-sans text-sm leading-snug text-foreground ${whole ? 'max-h-40 overflow-y-auto' : 'line-clamp-3'}`}
                 onClick={() => (said.length > 160 ? setWhole(!whole) : fix())}
               >
                 {/* The words roll in when it arrives, a hint being dealt; a long one, which must wrap, comes whole at

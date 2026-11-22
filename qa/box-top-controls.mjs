@@ -1,7 +1,10 @@
 // An everyday user puts quick capture near the top of the screen (thrown up with ⌃⌥↑, carried up by its grabber,
 // left there by an older build) and grows it into the box: every round control above the card ("2 favorites ›", the
 // pencil, the gear, the side panel) is wholly inside the window and the screen's work area, never cut off by the menu
-// bar (the user, 22 Nov: only their feet showed at the top right), and the card does not jump as it grows.
+// bar (the user, 22 Nov: only their feet showed at the top right), and the card does not jump as it grows. The row's
+// top is the window's own top: no clear room above it to go under the menu bar first.
+// Then the hint above the box ("Still in your Inbox"): opened again and again, it is there from the box's first frame
+// or not at all, never drawn for a frame and then taken away (the user, 22 Nov: "I saw that card flash away").
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=<dir> node qa/box-top-controls.mjs
 import { join } from 'node:path'
 import { checks } from './harness.mjs'
@@ -20,7 +23,8 @@ const box = () => electron.evaluate(({ BrowserWindow, screen }) => {
   const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && /\/index\.html(\?|$)/.test(w.webContents.getURL()) && !w.webContents.getURL().includes('view='))
   globalThis.qaBox = win
   const card = win.getBounds()
-  return { card, frame: win.getContentBounds(), zoom: win.webContents.getZoomFactor() || 1, area: screen.getDisplayMatching(card).workArea }
+  // The window's own frame, as the app placed it (parked off screen in a test run, it keeps that place as its own).
+  return { card, frame: BrowserWindow.prototype.getBounds.call(win), zoom: win.webContents.getZoomFactor() || 1, area: screen.getDisplayMatching(card).workArea }
 })
 /** Every round control drawn above or beside the card, in screen points, and whether each is wholly in the window and the work area. */
 const controls = async () => {
@@ -37,7 +41,8 @@ const controls = async () => {
     const inArea = top >= at.area.y && bottom <= at.area.y + at.area.height && left >= at.area.x && right <= at.area.x + at.area.width
     return !(inWindow && inArea)
   })
-  return { count: rects.length, out: out.length, cardTop: at.card.y - at.area.y, first: rects[0] && Math.round(at.frame.y + rects[0].top * at.zoom - at.area.y) }
+  const rowTop = Math.min(...rects.map((r) => r.top * at.zoom))
+  return { count: rects.length, out: out.length, cardTop: at.card.y - at.area.y, rowFromWindowTop: Math.round(rowTop), rowFromAreaTop: Math.round(at.frame.y + rowTop - at.area.y) }
 }
 /** The card's top read every 50 ms for a while: the most it moved in one step. */
 const steps = async (ms) => {
@@ -58,7 +63,7 @@ try {
   await wait(900)
   let seen = await controls()
   await shot('thrown')
-  check('the box thrown to the top: all its round controls are inside the window and on the screen', seen.count >= 3 && seen.out === 0, JSON.stringify(seen))
+  check('the box thrown to the top: all its round controls are inside the window and on the screen, the row at the window\'s top', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2, JSON.stringify(seen))
 
   // Carried up by its grabber, far past the top: it stops with its controls on the screen, and stays there let go.
   const g = await page.evaluate(() => { const r = document.querySelector('[data-grabber]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
@@ -71,14 +76,14 @@ try {
   await wait(700)
   seen = await controls()
   await shot('carried')
-  check('carried up past the top by its grabber: it stops with every control on the screen', seen.count >= 3 && seen.out === 0, JSON.stringify(seen))
+  check('carried up past the top by its grabber: it stops with every control on the screen', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2, JSON.stringify(seen))
 
   // Left near the top by an older build (the place it opens at is the last one): it opens already clear of the menu bar.
   await electron.evaluate(({ screen }) => { const b = globalThis.qaBox.getBounds(); globalThis.qaBox.setPosition(b.x, screen.getDisplayMatching(b).workArea.y + 4) })
   await close()
   await open()
   seen = await controls()
-  check('left 4 points under the menu bar and opened again: it opens with every control on the screen', seen.count >= 3 && seen.out === 0 && seen.cardTop >= 40, JSON.stringify(seen))
+  check('left 4 points under the menu bar and opened again: it opens with every control on the screen', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2 && seen.cardTop >= 40, JSON.stringify(seen))
   await close()
 
   // "One line to start": the pill thrown to the top, then a second line grows it into the box where it is.
@@ -96,10 +101,48 @@ try {
   seen = await controls()
   await shot('pill-grown')
   check('the pill at the top grown into the box: its card stays where it was put, never a jump', grow.ys.every((y) => y === before), JSON.stringify({ before, ys: grow.ys }))
-  check('…and every round control above the grown box is inside the window and on the screen', seen.count >= 3 && seen.out === 0, JSON.stringify(seen))
+  check('…and every round control above the grown box is inside the window and on the screen, the row at the window\'s top', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2, JSON.stringify(seen))
   await page.keyboard.press('Meta+a')
   await page.keyboard.press('Backspace')
   await close()
+
+  // The hint card above the box, every open: in the first frame drawn after the box shows exactly when it is there at
+  // 400 ms (a card that leaves fades, a card that comes is there from the start).
+  await v('settings:set', { boxOneLine: false, hintRate: 1 })
+  await electron.evaluate(() => {
+    globalThis.qaShows = []
+    const show = globalThis.qaBox.show.bind(globalThis.qaBox)
+    globalThis.qaBox.show = () => (globalThis.qaShows.push(Date.now()), show())
+  })
+  await page.evaluate(() => {
+    window.qaHint = []
+    const tick = () => {
+      const card = document.querySelector('[data-hint-room] [data-hint-surface], [data-hint-room] [data-hint-card]')
+      const r = card?.getBoundingClientRect()
+      const shown = !!r && r.width > 0 && Number(getComputedStyle(card).opacity) > 0.5 && !document.documentElement.hasAttribute('data-card-gone')
+      window.qaHint.push({ t: Date.now(), shown, seen: document.visibilityState })
+      requestAnimationFrame(tick)
+    }
+    tick()
+  })
+  let flashes = 0
+  let withCard = 0
+  const rounds = []
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => (window.qaHint = window.qaHint.slice(-1)))
+    await open()
+    const [s] = (await electron.evaluate(() => globalThis.qaShows.splice(0))).slice(-1)
+    const log = await page.evaluate(() => window.qaHint)
+    const first = log.find((one) => one.t >= s && one.seen === 'visible')
+    const later = log.filter((one) => one.t <= s + 400).at(-1)
+    if (first && later && first.shown !== later.shown) flashes++
+    if (later?.shown) withCard++
+    rounds.push(`${first?.shown ? 'card' : 'none'}→${later?.shown ? 'card' : 'none'}`)
+    if (i === 0) await shot('hint-open')
+    await close()
+  }
+  check('opened six times with hints on: the hint card is in the first frame exactly when it is there at 400 ms, never a flash', flashes === 0 && withCard > 0, rounds.join(' '))
+  await v('settings:set', { hintRate: 0 })
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

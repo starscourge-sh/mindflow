@@ -654,8 +654,10 @@ function showPrompt(win: BrowserWindow): void {
 type Room = { left: number; top: number; right: number; bottom: number }
 const rooms = new WeakMap<BrowserWindow, Room>()
 /** The room the box keeps round its card on every side: its controls above it (Spotlight's way), a menu's foot and its shadow. */
-// Taller above: the controls sit there, and each one's tip opens above it, clear of the card.
-const BOX_ROOM: Room = { left: 48, top: 88, right: 48, bottom: 48 }
+// Above, exactly the round controls' row and its 8px gap over the card (main.css, .mf-top): the top of that row is the
+// window's top, so whatever keeps the window on the screen keeps the controls on it. With 88 kept, the 48 clear above
+// the row went under the menu bar first, and the row after it (the user, 22 Nov: only the controls' feet showed).
+const BOX_ROOM: Room = { left: 48, top: 40, right: 48, bottom: 48 }
 const evenRoom = (px: number): Room => ({ left: px, top: px, right: px, bottom: px })
 function overhang(win: BrowserWindow, room: Room): void {
   const real = { getBounds: win.getBounds.bind(win), setBounds: win.setBounds.bind(win) }
@@ -3888,13 +3890,11 @@ function onScreen(bounds: Electron.Rectangle, above = 0): Electron.Rectangle {
 }
 
 /**
- * How far below the top of the screen's work area (under the menu bar) quick capture's card always sits: its round
- * controls stand in a row 40px above the card's top (main.css, .mf-top), and 8px more keeps them off the menu bar.
- * Placed higher (thrown or carried to the top, a pill grown into the box there), the row was cut off by the screen's
- * top, only its feet showing (the user, 22 Nov). Kept for the pill too, whose controls sit beside it: it then grows
- * into the box where it is, with nothing moving.
+ * Quick capture's window is kept on its screen from the top of its controls' row (BOX_ROOM.top above the card), not
+ * from the card's top: thrown, carried or opened at the top, the row stands just under the menu bar, never behind it.
+ * The pill keeps it too, whose controls sit beside it: it then grows into the box where it is, with nothing moving.
  */
-const BOX_ABOVE = 48
+const BOX_ABOVE = BOX_ROOM.top
 /** The box's card kept on its screen, with its controls' row above it on the screen too. */
 const boxOnScreen = (bounds: Electron.Rectangle): Electron.Rectangle => onScreen(bounds, BOX_ABOVE)
 /** A screen's work area less the controls' row above the box's card: where the box may be thrown. */
