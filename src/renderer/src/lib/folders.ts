@@ -31,7 +31,7 @@ export const FOLDER_DEPTH = 6
 export const folders = {
   list: () => call<Folder[]>('folders'),
   items: (id: string) => call<FolderItem[]>('folders:items', id),
-  unfiled: () => call<number>('folders:unfiled'),
+  unfiled: () => call<{ pages: number; gems: number }>('folders:unfiled'),
   make: (name: string, parent: string | null = null) => call<string>('folders:make', name, parent),
   file: (things: Thing[], folder: string | null) => call<Was[]>('folders:file', things, folder),
   unfile: (was: Was[]) => call<void>('folders:unfile', was),

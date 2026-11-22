@@ -127,9 +127,10 @@ export function folderItems(id: string): { type: Kind; id: string; title: string
   return ([...kept, ...notes, ...tasks] as { type: Kind; id: string; title: string; at: string; archived: number }[]).sort((a, b) => (a.at < b.at ? 1 : -1))
 }
 
-/** Pages and gems in no folder, out of the Bin and in sight: the sidebar's "Not in a folder". */
-export function unfiledCount(): number {
-  return (database().prepare("select count(*) as n from nuggets where folder_id is null and tier in ('article', 'nugget') and binned_at is null and archived_at is null and superseded_by is null").get() as { n: number }).n
+/** Pages and gems in no folder, out of the Bin and in sight, each counted: Folders' "Not in a folder" row ("1 page", "3 pages, 2 gems"). */
+export function unfiledCount(): { pages: number; gems: number } {
+  const row = database().prepare("select coalesce(sum(tier = 'article'), 0) as pages, coalesce(sum(tier = 'nugget'), 0) as gems from nuggets where folder_id is null and tier in ('article', 'nugget') and binned_at is null and archived_at is null and superseded_by is null").get() as { pages: number; gems: number }
+  return { pages: row.pages, gems: row.gems }
 }
 
 /** A new folder, in `parent` or at the top, at the end of what holds it. Made by a person, it starts starred. */

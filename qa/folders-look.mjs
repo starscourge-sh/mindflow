@@ -43,7 +43,7 @@ try {
   check('what each holds is said in words, by kind', counted.length > 0 && counted.every((one) => /^\d[\d,]* (pages?|notes?|gems?|tasks?)(, \d[\d,]* (pages?|notes?|gems?|tasks?))*$/.test(one.held)), JSON.stringify(counted.map((one) => one.held)))
   const text = await h.evaluate(() => document.querySelector('[data-all-folders]')?.closest('section')?.textContent ?? '')
   check('no line explains the page', !text.includes('Where things live') && !text.includes('A folder holds any kind'), text.slice(0, 120))
-  check('"Not in a folder" is the last row, with a folder picture and its count in words', seen.at(-1)?.id === 'unfiled' && seen.at(-1).picture && (!seen.at(-1).held || /pages? (and|or) gems?$/.test(seen.at(-1).held)), JSON.stringify(seen.at(-1)))
+  check('"Not in a folder" is the last row, with a folder picture and its count in words', seen.at(-1)?.id === 'unfiled' && seen.at(-1).picture && (!seen.at(-1).held || /^\d[\d,]* (pages?|gems?)(, \d[\d,]* gems?)?$/.test(seen.at(-1).held)), JSON.stringify(seen.at(-1)))
   await shot('folders-page')
 
   // Found by part of a name, as a person looks for one.

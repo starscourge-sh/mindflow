@@ -244,7 +244,19 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [showArchived, setShowArchived] = useState(false)
   // What has no folder, counted, as the folders' own last row (the sidebar shows only folders, as Tags shows only tags).
-  const unfiled = useLive(folders.unfiled, null as number | null, [], undefined, 'folders:unfiled')
+  const unfiled = useLive(folders.unfiled, null as { pages: number; gems: number } | null, [], undefined, 'folders:unfiled')
+  const unfiledN = unfiled ? unfiled.pages + unfiled.gems : 0
+  // What it holds in words, as a folder's row says it: "1 page", "3 pages, 2 gems".
+  const unfiledSaid = unfiled ? [unfiled.pages && plural(unfiled.pages, 'page', 'pages'), unfiled.gems && plural(unfiled.gems, 'gem', 'gems')].filter(Boolean).join(', ') : ''
+  // What has no folder, last, in the folders' own shape: a folder drawn hollow, with no icon on it.
+  const unfiledRow = (
+    <button type="button" data-all-unfiled="" onClick={() => (chime('page'), onPlace('unfiled'))}
+      className={cn(ROW_SHAPE, ROW_PAD, 'mt-1 cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
+      <GroupTile group={{ icon: null, color: null }} empty />
+      <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">Not in a folder</span>
+      {!!unfiledSaid && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums">{unfiledSaid}</span>}
+    </button>
+  )
   const live = all.filter((one) => showArchived || !one.archived)
   const archivedN = all.filter((one) => one.archived).length
   const words = typed.trim().toLowerCase()
@@ -293,12 +305,23 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
           )}
         </FolderPath>
       </div>
-      {!all.length ? (
-        // No folders yet: the app's own empty page, a folder drawn hollow over it, and the one thing to do.
-        <Empty title="No folders yet" art={<FolderMark icon={null} color={null} empty className="h-11 w-14" />}
+      {!all.length && !unfiledN ? (
+        // Nothing at all yet: the app's own empty page, a folder drawn hollow over it, and the one thing to do.
+        // (Asked first, so a book with pages never shows it for a moment before its "Not in a folder" row.)
+        unfiled && <Empty title="No folders yet" art={<FolderMark icon={null} color={null} empty className="h-11 w-14" />}
           action={<Button size="sm" data-folders-first="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button>}>
-          A folder keeps pages, notes, gems and tasks together, whatever their kind. ⌃⌘N makes one anywhere.
+          A folder keeps pages, notes, gems and tasks together, whatever their kind.
         </Empty>
+      ) : !all.length ? (
+        // No folders, but pages or gems kept: what a folder is and the button to make one, small, then where those are
+        // now ("Not in a folder · 1 page"), so Folders never says nothing while Writing holds a page (22 Nov).
+        <>
+          <div data-folders-none="" className="list-ink flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 pb-2">
+            <p className="text-body text-muted-foreground">No folders yet. A folder keeps pages, notes, gems and tasks together, whatever their kind.</p>
+            <Button size="sm" variant="outline" data-folders-first="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button>
+          </div>
+          <div data-all-folders="" className="list-edge my-2 flex flex-col">{unfiledRow}</div>
+        </>
       ) : words ? (
         <div data-all-folders="" className="list-edge my-2 flex flex-col">
           {found.length ? found.map((one) => line(one, pathOf(all, one.parent).map((up) => up.name).join(' / '))) : <p className="list-ink py-2 text-body text-muted-foreground">No folder is named like “{typed.trim()}”.</p>}
@@ -306,13 +329,7 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
       ) : (
         <div data-all-folders="" className="list-edge my-2 flex flex-col">
           {tree(null)}
-          {/* What has no folder, last, in the folders' own shape: a folder drawn hollow, with no icon on it. */}
-          <button type="button" data-all-unfiled="" onClick={() => (chime('page'), onPlace('unfiled'))}
-            className={cn(ROW_SHAPE, ROW_PAD, 'mt-1 cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
-            <GroupTile group={{ icon: null, color: null }} empty />
-            <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">Not in a folder</span>
-            {!!unfiled && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(unfiled, 'page or gem', 'pages and gems')}</span>}
-          </button>
+          {unfiledRow}
         </div>
       )}
       {archivedN > 0 && (

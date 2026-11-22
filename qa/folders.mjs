@@ -31,13 +31,13 @@ const shot = async (name) => shots && c.both(`${shots}/${name}`)
 // Asked again until it holds (a save and its notice land a moment after the key), for at most 5 s.
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
 // What has no folder, as the All folders page's own last row counts it (the sidebar lists only folders, as Tags lists only tags).
-const unfiled = async () => Number(await h.evaluate(() => window.api.haligtree('folders:unfiled')))
+const unfiled = async () => h.evaluate(async () => { const got = await window.api.haligtree('folders:unfiled'); return got.pages + got.gems })
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
   // The sidebar's Folders section: under the places, folders only; the heading's arrow opens every folder.
   check('the sidebar has its Folders section', await h.locator('[data-side-folders-section]').isVisible())
   const before = await unfiled()
-  check('"Not in a folder" counts the pages and gems in none', before > 0 && before === (await c.v('folders:unfiled')), `${before}`)
+  check('"Not in a folder" counts the pages and gems in none', before > 0 && before === (await c.v('folders:unfiled').then((got) => got.pages + got.gems)), `${before}`)
   check('the sidebar lists folders only, as Tags lists tags: no "Not in a folder" or "All folders…" row', await h.evaluate(() => ![...document.querySelectorAll('[data-side-folders-section] [data-side-row]')].some((one) => /Not in a folder|All folders/.test(one.textContent ?? ''))))
   check('every sidebar name is one line, cut with an ellipsis', await h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-row]')].every((one) => one.getBoundingClientRect().height <= 40)))
 
