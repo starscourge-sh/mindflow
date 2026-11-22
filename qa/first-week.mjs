@@ -3,11 +3,18 @@
 // opening the week's Wrapped anyway from ⌘K gives one honest card ("Not much to wrap yet this week", the page by
 // name) with nothing to share; Folders shows "Not in a folder · 1 page" under a small "New folder", never "nothing".
 // Frames of each, light and dark, go to QA_SHOTS.
-//   QA_DATA=<empty folder> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=/tmp/x node qa/first-week.mjs
-import { mkdirSync } from 'node:fs'
+// It always runs on a brand-new book of its own: a folder it makes beside QA_DATA (inside the same .noindex folder),
+// never the book QA_DATA holds, and without --sandbox, then deletes it. Given a seeded copy, the first run read two
+// weeks of the sandbox's captures and told the full story.
+//   QA_DATA=<any folder in your .noindex> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=/tmp/x node qa/first-week.mjs
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { checks } from './harness.mjs'
 import { sandbox, CALM_HOUR } from './sandbox-lib.mjs'
-process.env.QA_ARGS ??= ''
+process.env.QA_ARGS = ''
+const fresh = mkdtempSync(join(process.env.QA_DATA ? dirname(process.env.QA_DATA) : tmpdir(), 'first-week-'))
+process.env.QA_DATA = fresh
 const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const { check, done } = checks()
@@ -21,6 +28,12 @@ try {
   await v('settings:set', { sounds: false, hintRate: 0, rotCount: 0, quietStart: '00:00', quietEnd: '00:00', weeklyDigest: true })
   // One page made in Writing, as "New page" makes it, left untitled.
   await v('article:new')
+  // What the book holds now, said in every check below: a new book is one page and nothing else.
+  const week = await v('digest:week')
+  const captures = (await h.evaluate(() => window.api.captures.list())).length
+  const counts = `book: ${captures} captures; this week: ${week.caught} caught, ${week.kept} kept (${week.pages} pages), ${week.reviewed} reviewed, ${week.finished} finished`
+  console.log(counts)
+  check('the book is new: no captures, one page kept this week', captures === 0 && week.caught === 0 && week.kept === 1 && week.pages === 1 && week.reviewed === 0 && week.finished === 0, counts)
   await h.evaluate(() => localStorage.removeItem('weekly-digest:away'))
   await c.go('home')
   await wait(2500)
@@ -31,7 +44,7 @@ try {
   check('Home shows the week card on a Sunday', (await card.count()) === 1, seen)
   check('…saying the week in one line: "1 page kept this week."', /1 page kept this week\./.test(seen), seen.replace(/\s+/g, ' '))
   check('…with no row of figures and no 0 anywhere', (await card.locator('[data-digest]').count()) === 0 && !/\b0\b/.test(seen), seen.replace(/\s+/g, ' '))
-  check('…and no "Your week, wrapped" for a week with nothing to tell', (await card.locator('[data-digest-wrap]').count()) === 0)
+  check('…and no "Your week, wrapped" for a week with nothing to tell', (await card.locator('[data-digest-wrap]').count()) === 0, counts)
   await shot('home-week')
 
   // 2. Opened anyway, from ⌘K: one honest card, the page named, nothing to share.
@@ -44,7 +57,7 @@ try {
   await wait(1500)
   const kind = await h.getAttribute('[data-wrap-card]', 'data-wrap-card')
   const said = (await h.locator('[data-wrap-card]').innerText()).replace(/\s+/g, ' ')
-  check('the week\'s Wrapped is one card, "Not much to wrap yet this week"', kind === 'quiet' && /Not much to wrap yet this week/.test(said), `${kind}: ${said}`)
+  check('the week\'s Wrapped is one card, "Not much to wrap yet this week"', kind === 'quiet' && /Not much to wrap yet this week/.test(said), `${kind}: ${said} (${counts})`)
   check('…naming what there is: 1 page kept, "Untitled"', /1 page kept: .Untitled./.test(said), said)
   check('…no "None yet", no 0 as a hero, no empty cover', !/None yet|\b0 minutes\b/.test(said) && (await h.locator('[data-wrap-report], [data-wrap-cover]').count()) === 0, said)
   check('…nothing offered to share', (await h.locator('[data-wrap-copy], [data-wrap-save]').count()) === 0)
@@ -76,5 +89,6 @@ try {
   check('ran', false, error.stack)
 } finally {
   await c.close()
+  rmSync(fresh, { recursive: true, force: true })
 }
 done()
