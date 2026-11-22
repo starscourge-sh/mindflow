@@ -582,6 +582,12 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
   /** Open on it again, its line holding these words: what the Undo of "Not kept" asks for. */
   onAgain: (words: string) => void
 }): React.JSX.Element | null {
+  // ⌘K opened over the page puts an opened event or task's card away, as a click away does: one floating thing at a time.
+  useEffect(() => {
+    const away = (): void => void (!leaving && onClose())
+    window.addEventListener('haligtree:palette', away)
+    return () => window.removeEventListener('haligtree:palette', away)
+  }, [leaving, onClose])
   const held = useRef<(() => Promise<void>) | null>(null)
   // Its name as its line shows it (a task's without its #tags), and the words in the line, kept here so Esc knows them.
   const name = event ? event.title : task ? taskName(task.title).text : ''

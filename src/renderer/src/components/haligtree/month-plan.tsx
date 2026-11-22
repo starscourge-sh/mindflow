@@ -167,7 +167,12 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   const counting = settings?.monthCaptures === true
   const caught = useCaptureMarks(from, to, counting)
   const on = useMemo(() => byDay(tasks, back), [tasks, back])
-  const inMonth = Array.from({ length: month.daysInMonth() }, (_, at) => month.add(at, 'day')).reduce((sum, day) => sum + linesOf(on.get(dayKey(day))).length, 0)
+  // Everything drawn on the month's days: tasks, the Calendar's events (chips and bars across days) and milestones. Tasks
+  // alone said "Nothing planned in December" over a month of holidays and a reading plan (the user, 22 Nov).
+  const monthFrom = dayKey(month.startOf('month')), monthTo = dayKey(month.endOf('month'))
+  const inMonth = Array.from({ length: month.daysInMonth() }, (_, at) => dayKey(month.add(at, 'day')))
+    .reduce((sum, key) => sum + linesOf(on.get(key)).length + (dayExtra?.(key).length ?? 0) + marksOn(marks, key).length, 0)
+    + bars.filter((bar) => bar.from <= monthTo && bar.to >= monthFrom).length
   const still = useStill()
 
   /** To another month, from this side. */

@@ -1379,9 +1379,20 @@ try {
       check('  its right-click menu offers "Open" and says it is read only', lines.some((one) => /^Open/.test(one)) && lines.some((one) => /read only/.test(one)), lines.join(' | '))
       await h.keyboard.press('Escape')
       await wait(400)
+      // Opened, then ⌘K, as a person looking something up does (the user, 22 Nov): the card goes, never over the search.
+      await h.mouse.click(...at)
+      await wait(600)
+      await h.keyboard.press('Meta+k')
+      await wait(700)
+      check('  ⌘K over an opened event puts its card away: nothing floats over the search', !(await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); return !!pop && pop.getBoundingClientRect().width > 0 })))
+      await h.keyboard.press('Escape')
+      await wait(500)
     } else check('one of your Mac\'s events is on the week', false)
     // 4. A repeating event: a change asks which times, from the line and from a row; Esc in the ask leaves the popover up.
     await toMode('m')
+    // The month's "Nothing planned" line says so only when nothing is drawn on its days: not over events or bars (22 Nov).
+    const emptySaid = await h.evaluate(() => ({ said: !!document.querySelector('[data-month-empty]'), drawn: document.querySelectorAll('[data-cal-level] [data-cal-event], [data-cal-level] [data-cal-event-chip], [data-cal-level] [data-plan-task], [data-month-bars] > *').length }))
+    check('  the month says "Nothing planned" only when nothing is on its days', emptySaid.said === (emptySaid.drawn === 0), JSON.stringify(emptySaid))
     const free = await h.evaluate((keys) => keys.find((key) => { const el = document.querySelector(`[data-cal-level] [data-day="${key}"]`); return el && !el.querySelector('[data-plan-task], [data-cal-event-chip], [data-plan-more], [data-plan-more-events], [data-mark-flag]') }) ?? keys[0], [2, 3, 4, 5, 6, 7, 8, 9].map(dayKeyOf))
     await dbl(...corner(await cell(free)))
     await h.keyboard.type('Weekly standup every week 9am', { delay: 8 })

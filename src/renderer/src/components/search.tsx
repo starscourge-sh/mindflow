@@ -201,7 +201,9 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const [sheet] = useState(() => sheetMotion(byKeys()))
   useEffect(() => void (!present && box.current?.blur()), [present])
   // Opening search sends out one ping.
-  useEffect(() => void (!inPane && chime('search')), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // ...and puts away a page's own card left open under it (an event opened on the Calendar sat over ⌘K, the user,
+  // 22 Nov): one floating thing at a time.
+  useEffect(() => void (!inPane && (chime('search'), window.dispatchEvent(new Event('haligtree:palette')))), []) // eslint-disable-line react-hooks/exhaustive-deps
   // In a pane, whatever is picked replaces the picker there: nothing to close first.
   const leave = (): void => void (!inPane && onClose())
   const [found, setFound] = useState<Capture[]>([])
