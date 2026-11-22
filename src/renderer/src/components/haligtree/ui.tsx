@@ -1029,14 +1029,28 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
   const latest = useRef({ count, onOpen, onEscape, onExtend, at, across, upDown })
   latest.current = { count, onOpen, onEscape, onExtend, at, across, upDown }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
-  useEffect(() => void (opened >= 0 && setAt(opened)), [opened])
+  // Taken in the same draw the open row's place changes, never a draw later: in between, the cursor stood on the row
+  // after it, and the list was scrolled there.
+  const [wasOpened, setWasOpened] = useState(opened)
+  if (opened !== wasOpened) {
+    setWasOpened(opened)
+    if (opened >= 0) setAt(opened)
+  }
   // Split, each pane's list has its own cursor, and only the front one's moves.
   const pane = usePane()
   const here = useHere()
   // The row the cursor is on stays in view. Rows mark themselves with
   // data-cursor, since a ref on an animated row is only read once.
+  // Only when the cursor goes to another row: the same row at a new place (one above it ticked off or let go) is
+  // where it was, and the list stays where you left it (22 Nov: ticking a task scrolled Tasks to the open one below).
+  const shownRow = useRef<{ row: Element | null; id: string | null }>({ row: null, id: null })
   useEffect(() => {
-    if (at >= 0) showRow(document.querySelector(pane ? `[data-pane="${pane}"] [data-cursor]` : '[data-cursor]'))
+    if (at < 0) return
+    const row = document.querySelector(pane ? `[data-pane="${pane}"] [data-cursor]` : '[data-cursor]')
+    const id = row?.getAttribute('data-id') ?? null
+    const same = !!row && (row === shownRow.current.row || (!!id && id === shownRow.current.id))
+    if (row) shownRow.current = { row, id }
+    if (!same) showRow(row)
   }, [at]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -2818,11 +2832,16 @@ export function VirtualList<T>({ items, keyOf, holds, held, cursor, estimate = 4
   // for a step, centred for a jump. Asked again once the scroller is found, so
   // a list opened onto a row far down (a link, ⌘K) lands on it too. A frame
   // later, so where the list starts in its scroller is known by then.
+  // Placed once per row: the same row at a new index (one above it ticked off or let go) is left where it stands.
+  const placedRow = useRef<{ key: string | null; again: number }>({ key: null, again: -1 })
   useEffect(() => {
     if (!scroller || cursor === undefined || cursor < 0 || cursor >= items.length) return
+    const key = keyOf(items[cursor])
+    if (placedRow.current.key === key && placedRow.current.again === again) return
     const frame = requestAnimationFrame(() => {
       const row = rows.measurementsCache[cursor]
       if (!row || !scroller.isConnected || !box.current) return
+      placedRow.current = { key, again }
       // A page being put back where it was (Back, another tab: panes.tsx) is already where you left it.
       if (scroller.closest('[data-placing]')) return
       // A row that is a list of its own (a group's): that list places the keyboard's row inside it.
