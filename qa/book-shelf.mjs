@@ -1,10 +1,10 @@
-// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the Settings book, in grained cloth,
-// standing spine out in its own colour with its name up it in a readable gilt or ink, turned a little so a sliver of its
+// The book switcher at the sidebar's foot is a shelf (books.tsx BookShelf): each book the Settings book, a woven cloth
+// spine in its own colour with its name up it whole in foil, its cover printed paper with its card crisp, turned a little so a sliver of its
 // cover shows, every book one height on one foot line, the open one turned to its cover, the one pointed at (or reached by the keys) pulled out and
 // turned instead and named under the shelf, the shelf one width throughout; a press on another book opens it. Real
 // pointer and keys; on a copy of a data folder with several books (the user's, QA_DATA).
 // QA_SHOTS films the menu opening and the pointer crossing the shelf, every 50ms, and keeps a picture of the menu with
-// the pointer on each of the first books, in the light look and the dark.
+// the pointer on each of the first books, in the light look and the dark, and the Settings book in each for comparison.
 //   QA_DATA=<a copy of book-master> QA_ENTRY=$PWD/out-q2/main/index.js HALIGTREE_QA_AWAY=1 node qa/book-shelf.mjs
 import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -70,47 +70,59 @@ try {
   check('the turned book stands on the ledge with the spines, not lifted: one foot line within 1px, its head at most 2px above theirs', spinesTall.every((one) => Math.abs(one.bottom - turnedTall.bottom) <= 1) && turnedTall.top >= spineTop - 2, JSON.stringify({ turned: turnedTall, spine: spinesTall[0] }))
   const slivered = (one) => one.sliver >= 2 && one.sliver <= 10 && Math.abs(one.side) <= 2 && one.card
   check('every book at rest shows a sliver of its cover (2 to 10px) at its spine\'s right, its card on it', spinesTall.every(slivered), JSON.stringify(spinesTall.filter((one) => !slivered(one)).concat(spinesTall.slice(0, 3))))
-  // Each spine's name against its own colour, read as the screen shows them (a 1px canvas turns any colour to sRGB),
-  // through the veil a book not pulled out stands behind (22 Nov: "slightly dim non-active books"): both under its
-  // black at the veil's strength, as the screen blends them.
+  // Each spine's name (22 Nov: "gets cut off with an ellipsis which breaks the illusion of a real book. maybe we should
+  // use the shiny gold for rim text?"): whole, between its rules, in the Settings spine's serif, in foil (a gradient
+  // clipped to the letters), and every stop of that foil against its own colour, read as the screen shows them (a 1px
+  // canvas turns any colour to sRGB), through the veil a book not pulled out stands behind: 3:1 or more, as large
+  // decorative type, bright gold on a deep spine and bronze on a pale one.
   const inks = await h.evaluate(() => {
     const paint = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
     const rgb = (colour) => { paint.clearRect(0, 0, 1, 1); paint.fillStyle = colour; paint.fillRect(0, 0, 1, 1); return [...paint.getImageData(0, 0, 1, 1).data].slice(0, 3) }
     const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
     return [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => {
+      const name = one.getAttribute('aria-label')
       const title = one.querySelector('[data-spine-title]')
       const face = one.querySelector('[data-reader-spine-face]')
       const look = getComputedStyle(title)
-      // The spine's cloth colour, under its shading and grain.
       const shade = face.querySelector('[data-reader-veil]')
       const veil = shade ? Number(getComputedStyle(shade).opacity) : 0
-      const [ink, ground] = [rgb(look.color), rgb(getComputedStyle(face).backgroundColor)].map((c) => c.map((v) => v * (1 - veil)))
-      const [a, b] = [lum(ink), lum(ground)]
-      const grain = face.querySelector('[data-spine-grain]')
-      return { name: title.textContent, veil, ground: ground.join(','), ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100, cut: title.scrollHeight > title.clientHeight + 1 || title.scrollWidth > title.clientWidth + 1 ? 'ellipsis' : 'whole', font: look.fontFamily.split(',')[0], grain: !!grain && /url\(/.test(getComputedStyle(grain).backgroundImage) && Number(getComputedStyle(grain).opacity) > 0 }
+      const sample = document.createElement('span')
+      face.append(sample)
+      const foil = ['lo', 'mid', 'hi'].map((stop) => { sample.style.color = `var(--mf-foil-${stop})`; return rgb(getComputedStyle(sample).color) })
+      sample.remove()
+      const dim = (c) => c.map((v) => v * (1 - veil))
+      const ground = dim(rgb(getComputedStyle(face).backgroundColor))
+      const ratio = Math.min(...foil.map((stop) => { const [a, b] = [lum(dim(stop)), lum(ground)]; return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }))
+      const [head, foot] = [...face.querySelectorAll('.mf-shelf-spine-rule')].map((rule) => rule.getBoundingClientRect())
+      const box = title.getBoundingClientRect()
+      const edge = face.getBoundingClientRect()
+      return {
+        name: title.textContent, whole: !!name?.startsWith(`${title.textContent}, `), veil, ground: ground.map(Math.round).join(','), ratio: Math.round(ratio * 100) / 100,
+        cut: title.scrollHeight > title.clientHeight + 1 || title.scrollWidth > title.clientWidth + 1 || /ellipsis/.test(look.textOverflow),
+        inside: box.left >= edge.left - 0.5 && box.right <= edge.right + 0.5 && box.top >= head.bottom - 0.5 && box.bottom <= foot.top + 0.5,
+        foil: /gradient/.test(look.backgroundImage) && /text/.test(look.backgroundClip || look.webkitBackgroundClip) && /rgba\(0, 0, 0, 0\)|transparent/.test(look.webkitTextFillColor),
+        font: look.fontFamily.split(',')[0], size: look.fontSize, box: [Math.round(box.width), Math.round(box.height)]
+      }
     })
   })
-  check('every spine\'s name reads against its colour at 4.5:1 or more, dimmed as it stands', inks.every((one) => one.ratio >= 4.5), JSON.stringify(inks.filter((one) => one.ratio < 4.5).concat(inks.slice(0, 3))))
-  check('every spine is cloth with a grain, as the Settings book\'s', inks.every((one) => one.grain), JSON.stringify(inks.filter((one) => !one.grain).map((one) => one.name)))
-  // A grain you can see at the shelf's size (22 Nov: "I'm not getting any sense of a book graininess"): on every book's
-  // spine and cover, its cells (the tile as drawn over its pattern's frequency, and as the book is scaled on the shelf)
-  // 1 css px or more, never shrunk below a pixel where it vanishes.
-  const grains = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => {
+  check('every spine\'s name is set whole, never an ellipsis: its letters all inside its box, and that box inside the spine between its rules', inks.every((one) => one.whole && !one.cut && one.inside), JSON.stringify(inks.filter((one) => !(one.whole && !one.cut && one.inside)).concat(inks.slice(0, 2))))
+  check('every spine\'s name is in foil, in the Settings spine\'s serif', inks.every((one) => one.foil && /Fraunces/.test(one.font)), JSON.stringify(inks.filter((one) => !(one.foil && /Fraunces/.test(one.font))).slice(0, 3)))
+  check('every stop of every spine\'s foil reads at 3:1 or more on its cloth, dimmed as it stands', inks.every((one) => one.ratio >= 3), JSON.stringify(inks.filter((one) => one.ratio < 3).concat(inks.slice(0, 3))))
+  // The longest name on the shelf (64 letters) set small on two lines or more, never cut.
+  const longest = inks.reduce((best, one) => (one.name.length > best.name.length ? one : best), inks[0])
+  check('the longest name is whole too, set smaller across the spine', longest.name.length > 40 && !longest.cut && longest.inside, JSON.stringify(longest))
+  // The cloth (22 Nov: "too much grain", read as dirt): a woven tile, no noise, its threads 2 css px or more at the shelf's size.
+  const weaves = await h.evaluate(() => [...document.querySelectorAll('[data-book-shelf] [data-book]')].map((one) => {
     const face = one.querySelector('[data-reader-spine-face]')
+    const look = getComputedStyle(face)
+    const tile = decodeURIComponent(look.backgroundImage.split('url(').at(-1) ?? '')
     const shrink = face.getBoundingClientRect().height / face.offsetHeight
-    return [face.querySelector('[data-spine-grain]'), one.querySelector('.mf-card-cover [data-reader-grain]')].map((grain) => {
-      if (!grain) return 0
-      const look = getComputedStyle(grain)
-      const svg = decodeURIComponent(look.backgroundImage)
-      const tile = Number(/width='(\d+)'/.exec(svg)?.[1])
-      const shown = parseFloat(look.backgroundSize)
-      const freq = Math.max(...(/baseFrequency='([^']+)'/.exec(svg)?.[1] ?? '99').split(' ').map(Number))
-      return Number(look.opacity) > 0 ? Math.round((shown / tile / freq) * shrink * 100) / 100 : 0
-    })
+    // Two threads each way in a tile, as shelf.css draws it.
+    const thread = (parseFloat(look.backgroundSize.split(',').at(-1)) / 2) * shrink
+    return { thread: Math.round(thread * 100) / 100, noise: /feTurbulence/.test(tile) || !!face.querySelector('[data-spine-grain]'), woven: /<path/.test(tile) }
   }))
-  check('every book\'s spine and cover wears a grain whose cells are 1 css px or more at the shelf\'s size', grains.every((two) => two.every((px) => px >= 1)), JSON.stringify(grains.slice(0, 4)))
+  check('every spine is woven cloth, no noise, its threads 2 css px or more as the shelf shows it', weaves.every((one) => one.woven && !one.noise && one.thread >= 2), JSON.stringify(weaves.slice(0, 3)))
   check('no two neighbouring spines the same colour', inks.every((one, at) => !at || one.ground !== inks[at - 1].ground), JSON.stringify(inks.map((one) => one.ground)))
-  check('the names are set in a sans, never wrapping', inks.every((one) => !/Fraunces|Georgia/.test(one.font)), inks[0]?.font)
   // The caption under the shelf: its whole box inside the menu, and neither line cut at its foot (21 Nov: clipped).
   const captionRoom = await h.evaluate(() => { const one = document.querySelector('[data-book-caption]'); const menu = one.closest('[role="menu"]').getBoundingClientRect(); const box = one.getBoundingClientRect(); return { inside: box.top >= menu.top && box.bottom <= menu.bottom && box.left >= menu.left && box.right <= menu.right, lines: [...one.children].map((line) => line.scrollHeight - line.clientHeight), box: [Math.round(box.top), Math.round(box.bottom)], menu: [Math.round(menu.top), Math.round(menu.bottom)] } })
   check('the caption sits wholly inside the menu, neither of its lines cut', captionRoom.inside && captionRoom.lines.every((over) => over <= 0), JSON.stringify(captionRoom))
@@ -144,11 +156,25 @@ try {
   check('the pointer is still on the book it pointed at', still === other.id, still)
   check('one floating thing: the menu, no card or tip beside it', (await floating()) === 1, String(await floating()))
   // The book pulled out is the Settings book, wearing its own reader card (21 Nov: "the book in the settings needs to be
-  // your reference"): its name, title and drawn shape on the cream cloth, with the cloth's grain over it.
-  const cardOf = (id) => h.evaluate((id) => { const book = document.querySelector(`[data-book-shelf] [data-book="${id}"]`); const one = book?.querySelector('[data-shelf-card]'); return one && { name: one.querySelector('[data-reader-name]')?.textContent, title: one.querySelector('[data-reader-title]')?.textContent, since: one.querySelector('[data-reader-since]')?.textContent, stamps: one.querySelectorAll('[data-reader-stamp]').length, shape: Math.round(one.querySelector('[data-reader-shape] > svg:not(.size-0)')?.getBoundingClientRect().width ?? 0), grain: !!book.querySelector('[data-reader-grain]') } }, id)
+  // your reference"): its name, title and drawn shape on the cream paper.
+  const cardOf = (id) => h.evaluate((id) => { const book = document.querySelector(`[data-book-shelf] [data-book="${id}"]`); const one = book?.querySelector('[data-shelf-card]'); return one && { name: one.querySelector('[data-reader-name]')?.textContent, title: one.querySelector('[data-reader-title]')?.textContent, since: one.querySelector('[data-reader-since]')?.textContent, stamps: one.querySelectorAll('[data-reader-stamp]').length, shape: Math.round(one.querySelector('[data-reader-shape] > svg:not(.size-0)')?.getBoundingClientRect().width ?? 0) } }, id)
   const name = books.books.find((one) => one.id === other.id)?.name
   const otherCard = await cardOf(other.id)
-  check('the book pulled out wears its own reader card: its name, title and drawn shape, on grained cloth', otherCard?.name === name && !!otherCard.title && otherCard.shape >= 45 && otherCard.grain, JSON.stringify(otherCard))
+  check('the book pulled out wears its own reader card: its name, title and drawn shape', otherCard?.name === name && !!otherCard.title && otherCard.shape >= 45, JSON.stringify(otherCard))
+  // Printed paper, crisp (22 Nov: grain over the card, "I can barely even read the text now"): the card's title is what
+  // lies under its middle, and nothing drawn over the card is a texture or blends into it.
+  const crisp = await h.evaluate((id) => {
+    const book = document.querySelector(`[data-book-shelf] [data-book="${id}"]`)
+    const card = book.querySelector('[data-shelf-card]')
+    const title = card.querySelector('[data-reader-title]').getBoundingClientRect()
+    const hit = document.elementFromPoint(title.left + title.width / 2, title.top + title.height / 2)
+    const over = [...book.querySelectorAll('.mf-card-cover *')].filter((one) => !card.contains(one) && card.compareDocumentPosition(one) & Node.DOCUMENT_POSITION_FOLLOWING).filter((one) => {
+      const look = getComputedStyle(one)
+      return /url\(/.test(look.backgroundImage) || (look.mixBlendMode !== 'normal' && Number(look.opacity) > 0.01 && !one.hasAttribute('data-reader-shine'))
+    })
+    return { hit: hit?.closest('[data-reader-title]') ? 'title' : hit?.tagName ?? 'none', grain: book.querySelectorAll('[data-reader-grain]').length, over: over.map((one) => String(one.className)) }
+  }, other.id)
+  check('its card is crisp: its title under the pointer is the card\'s own words, no grain or texture laid over it', crisp.hit === 'title' && crisp.grain === 0 && crisp.over.length === 0, JSON.stringify(crisp))
   // No spine words over the turned cover (21 Nov: the spine's name, squeezed thin, ghosted down the cover's left edge):
   // the cover's left strip is the cover, and the spine's name is gone once it is turned.
   const ghost = await h.evaluate((id) => {
@@ -193,6 +219,13 @@ try {
       }
       await h.mouse.move(5, 5); await h.keyboard.press('Escape'); await wait(300)
     }
+    // The Settings book beside them, the reference the shelf's books are matched to, in each look.
+    for (const name of ['light', 'dark']) {
+      await s.look(name); await s.go('settings'); await h.click('[data-section="Your book"]'); await wait(900)
+      const cover = await h.locator('[data-reader-card]').boundingBox()
+      if (cover) await h.screenshot({ path: `${shots}/settings-book-${name}.png`, clip: { x: Math.max(0, cover.x - 70), y: Math.max(0, cover.y - 30), width: cover.width + 140, height: cover.height + 80 } })
+    }
+    await s.go('home')
     await s.look('light')
     await h.locator('[aria-label="Haligtree menu"]').click(); await wait(500)
     await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 3 }); await wait(500)

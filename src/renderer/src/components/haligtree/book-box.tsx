@@ -30,6 +30,58 @@ const EDGE_LINES = (way: 'down' | 'across'): string =>
   `repeating-linear-gradient(${way === 'down' ? 90 : 180}deg, rgb(110 85 35 / 0.28) 0 0.6px, transparent 0.6px 1.9px, rgb(110 85 35 / 0.14) 1.9px 2.4px, transparent 2.4px 3.4px)`
 /** The cover's cloth: fine grey noise, laid on with multiply so the cream reads as a bound cover, not a screen. */
 export const CLOTH = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.9 0"/></filter><rect width="160" height="160" filter="url(#n)"/></svg>')}")`
+/** The serif a spine's name is blocked in, on the Settings book and on the shelf's: foil reads as lettering in it. */
+const SPINE_SERIF = "'Fraunces Variable', Georgia, serif"
+/** The tracking of a spine's name, in ems, as foil blocking spaces small capitals. */
+const SPINE_TRACK = 0.06
+/** Lines of a spine's name, set close as a spine sets two lines. */
+const SPINE_LEAD = 1.05
+if (typeof document !== 'undefined') void document.fonts?.load(`700 12px ${SPINE_SERIF}`).catch(() => undefined)
+const spineFits = new Map<string, { size: number; lines: number }>()
+let ruler: CanvasRenderingContext2D | null | undefined
+/**
+ * A spine's name set whole, never cut (the user, 22 Nov: "gets cut off with an ellipsis which breaks the illusion of a
+ * real book"): the largest size up to `most` at which it runs on one line along `length`, down to 9px; else on two
+ * lines across the spine (`across` wide), down to 6.5px, as a real spine sets a long title; else three or more, smaller
+ * still. Measured once per name on a canvas (no layout, nothing per render), with a little room spare for the page's own
+ * shaping, and kept only once the serif is in, so a name measured in the fallback is measured again.
+ */
+export function spineType(name: string, length: number, across: number, most: number): { size: number; lines: number } {
+  const key = `${name}\n${length}\n${across}\n${most}`
+  const known = spineFits.get(key)
+  if (known) return known
+  ruler ??= typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+  if (!ruler) return { size: most, lines: 1 }
+  const pen = ruler
+  const words = name.trim().split(/\s+/)
+  const room = length * 0.94
+  const fits = (size: number, lines: number): boolean => {
+    pen.font = `700 ${size}px ${SPINE_SERIF}`
+    pen.letterSpacing = `${size * SPINE_TRACK}px`
+    const space = pen.measureText(' ').width
+    let count = 1
+    let line = 0
+    for (const word of words) {
+      const wide = pen.measureText(word).width
+      if (wide > room) return false
+      line = line ? line + space + wide : wide
+      if (line > room) (count++, (line = wide))
+    }
+    return count <= lines
+  }
+  let found = { size: 3, lines: 6 }
+  search: for (let lines = 1; lines <= 6; lines++) {
+    const floor = lines === 1 ? 9 : lines === 2 ? 6.5 : 3
+    for (let size = Math.min(most, Math.floor((across / (lines * SPINE_LEAD)) * 4) / 4); size >= floor; size -= 0.25) {
+      if (fits(size, lines)) {
+        found = { size, lines }
+        break search
+      }
+    }
+  }
+  if (document.fonts?.check(`700 12px ${SPINE_SERIF}`) !== false) spineFits.set(key, found)
+  return found
+}
 /** The cover's corners: square at the spine, a little round at the fore-edge. */
 export const BOOK_CORNERS = '2px 5px 5px 2px'
 /** The hinge: the cloth pressed into a groove a little in from the spine, shadowed on its spine side, catching the light on the other. */
@@ -107,10 +159,10 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
   /** A ribbon to keep your place, hanging out at the foot. */
   ribbon?: boolean
   /**
-   * On the shelf (books.tsx BookShelf): the same cloth hardback, its spine cloth in the book's own colour
-   * (`--mf-spine-bg`) with a grain fine enough for a spine's width, gilt rules at its head and foot, and its name up it
-   * from the foot in the app's sans, in gilt on a deep spine and ink on a pale one (`--mf-spine-ink`, shelf.css). Off:
-   * the spine in the card's deepest ink, its name in the serif in gold foil.
+   * On the shelf (books.tsx BookShelf): the same hardback, quarter bound: a woven cloth spine in the book's own colour
+   * (`--mf-spine-bg`), rounded, with head and tail caps and foil rules, its name up it from the foot whole in the serif
+   * in foil, bright gold on a deep spine and antique bronze on a pale one (shelf.css); the cover printed paper, its card
+   * crisp. Off: the spine in the card's deepest ink, its name in the serif in gold foil.
    */
   shelf?: boolean
   /** On the shelf, a book not pulled out: its spine and its cover dimmed, each by its own amount. */
@@ -129,6 +181,10 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
   // The spine's words only while the spine stands toward you: gone before the cover comes round, so none ever shows at
   // the cover's edge of a book turned out (21 Nov: the spine's name, squeezed thin, read as a ghost down the cover).
   const words = useTransform(turn, (at) => Math.min(1, Math.max(0, (Math.sin((at * Math.PI) / 180) - 0.55) / 0.3)))
+  // The name's room along the spine, between the rules, and the size and lines it is set in there, whole.
+  const along = high - 2 * (rule + (shelf ? 8 : 9))
+  const type = spineType(name, along, thick - (shelf ? 5 : 8), shelf ? 12 : 11)
+  const set = { maxHeight: along, fontSize: type.size, lineHeight: SPINE_LEAD, whiteSpace: type.lines > 1 ? 'normal' : 'nowrap' } as const
   return (
     <motion.div className={`${className || 'relative'} [transform-style:preserve-3d]`} style={{ width: wide, height: high, rotateX: pitch, rotateY: turn, scale, transformPerspective: perspective, ...style }}>
       {edges && (
@@ -174,11 +230,13 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
       {shelf ? (
         <div aria-hidden data-reader-spine-face className="mf-shelf-spine absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[2px] [backface-visibility:hidden]"
           style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)` }}>
-          <span aria-hidden data-spine-grain className="mf-shelf-spine-grain" />
           <span className="mf-shelf-spine-rule" style={{ top: rule }} />
           <span className="mf-shelf-spine-rule" style={{ bottom: rule }} />
-          {/* A name longer than the spine ends in an ellipsis between the rules, never over them. */}
-          <motion.span data-spine-title className="mf-shelf-spine-title" style={{ maxHeight: high - 2 * (rule + 8), opacity: words }}>{name}</motion.span>
+          {/* Its name whole between the rules, in foil pressed into the cloth: the foil over its own impression. */}
+          <motion.span data-spine-words className="mf-shelf-spine-words" style={{ ...set, opacity: words }}>
+            <span aria-hidden className="mf-shelf-spine-deboss">{name}</span>
+            <span data-spine-title className="mf-shelf-spine-title">{name}</span>
+          </motion.span>
           <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.5} face="spine" veil={veil?.spine} />
         </div>
       ) : (
@@ -186,9 +244,9 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
           style={{ left: (wide - thick) / 2, width: thick, transform: `rotateY(-90deg) translateZ(${wide / 2}px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.42), rgb(0 0 0 / 0.08) 22%, rgb(255 255 255 / 0.16) 48%, rgb(255 255 255 / 0.05) 62%, rgb(0 0 0 / 0.12) 80%, rgb(0 0 0 / 0.45)), ${CLOTH}, var(--mf-card-c)` }}>
           <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ top: rule }} />
           <span className="absolute inset-x-[5px] h-[3px] border-y border-[#d9bd78]/80" style={{ bottom: rule }} />
-          {/* A name longer than the spine ends in an ellipsis between the rules, never over them. */}
-          <motion.span className="overflow-hidden bg-[linear-gradient(to_bottom,#f3dfa2,#c9a55a_45%,#f0d894_60%,#b8924a)] bg-clip-text text-[0.6875rem] font-bold tracking-[0.06em] text-ellipsis whitespace-nowrap text-transparent"
-            style={{ writingMode: 'vertical-rl', fontFamily: "'Fraunces Variable', Georgia, serif", maxHeight: high - 2 * (rule + 9), opacity: words }}>{name}</motion.span>
+          {/* Its name whole between the rules, smaller or on two lines when long, never cut. */}
+          <motion.span data-spine-title className="bg-[linear-gradient(to_bottom,#f3dfa2,#c9a55a_45%,#f0d894_60%,#b8924a)] bg-clip-text text-center font-bold tracking-[0.06em] text-balance text-transparent"
+            style={{ writingMode: 'vertical-rl', fontFamily: SPINE_SERIF, ...set, opacity: words }}>{name}</motion.span>
           <Lit normal={[-1, 0, 0]} pose={pose} gloss={0.8} face="spine" />
         </div>
       )}
@@ -204,11 +262,10 @@ export function BookBox({ size: { wide, high, thick, board, overhang }, pitch, t
         style={{ transform: `translateZ(${thick / 2}px)`, borderRadius: BOOK_CORNERS, color: 'var(--mf-card-c)', ...cover?.style }}>
         {children}
         <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[inherit]" style={{ width: hinge, background: HINGE }} />
-        {/* The cloth's grain. On the shelf, its own grain drawn for a shelf book's size (shelf.css): this one, made for
-            the full-size book, is too fine and too faint to see on a cover 96 wide. */}
-        {shelf
-          ? <span aria-hidden data-reader-grain className="mf-shelf-cover-grain pointer-events-none absolute inset-0 rounded-[inherit]" />
-          : <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />}
+        {/* The cloth's grain, on the full-size book. Not on the shelf's: there the cover is the printed paper, crisp under
+            its card's art and words as a label is (the user, 22 Nov: grain laid over it, "I can barely even read the text
+            now"); the cloth is the spine's (shelf.css). */}
+        {!shelf && <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />}
         {/* And the room's light on the cover as it turns: darker turned away, and a gloss that runs across it. */}
         <Lit normal={[0, 0, 1]} pose={pose} gloss={0.55} face="front" veil={veil?.cover} />
       </div>
