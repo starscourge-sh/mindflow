@@ -1361,7 +1361,9 @@ const FACES = 8
 export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const side = useLive(readSide, NO_SIDE, [], ['capture', 'item'], 'feed-side')
   const all = useLive(sources.list, NO_SOURCES, [], ['capture', 'item'])
-  if (unloaded(side)) return null
+  // Still reading: its room held, empty, from the first frame. Drawn only once read, the posts first took the whole
+  // width and then snapped narrow as it came in (the user, 22 Nov).
+  if (unloaded(side)) return <aside data-feed-side aria-hidden className="page-dock-side" />
   const people = all.filter((one) => one.field === 'attribution')
   const faces = [...people].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, FACES)
   // One set of letters for every face in the column, so two names never wear the same "S1".
