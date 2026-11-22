@@ -446,11 +446,12 @@ export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string | n
 }
 
 /** A new page in Writing, kept in this folder, opened: the folder's "+" (Notion's "Add a page inside"). */
-async function addPageIn(folder: Folder, open: (type: string, id: string) => void): Promise<void> {
+async function addPageIn(folder: Folder, open: (type: string, id: string, folder?: string) => void): Promise<void> {
   const id = await haligtree.newArticle()
   const was = await folders.file([{ type: 'article', id }], folder.id)
   chime('promote')
-  open('article', id)
+  // Opened in the folder's own page, where it is listed (Writing's top lists only the pages in no folder).
+  open('article', id, folder.id)
   quietly(() => void folders.unfile(was))
 }
 
