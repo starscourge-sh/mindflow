@@ -60,14 +60,15 @@ try {
   const bar = await h.evaluate(() =>
     [...document.querySelectorAll('.web-reader .pdf-reader-bar button')].map((one) => {
       const box = one.getBoundingClientRect()
-      const marks = [...one.querySelectorAll('svg')].map((svg) => svg.getBoundingClientRect())
+      // A rolling figure ("100%", lib/roll.tsx) is measured whole: its letters stand in boxes of their own that roll.
+      const marks = [...one.querySelectorAll('svg, [data-roll]')].map((part) => part.getBoundingClientRect())
       const walk = document.createTreeWalker(one, NodeFilter.SHOW_TEXT)
       for (let node = walk.nextNode(); node; node = walk.nextNode()) {
-        if (!node.textContent.trim()) continue
+        // The highlights count laid over the icon's corner is not the button's room.
+        if (!node.textContent.trim() || node.parentElement.closest('[data-roll], [data-marks-count]')) continue
         const range = document.createRange()
         range.selectNodeContents(node)
-        // A figure laid over the icon's corner is not the button's room.
-        if (getComputedStyle(node.parentElement).position !== 'absolute') marks.push(range.getBoundingClientRect())
+        marks.push(range.getBoundingClientRect())
       }
       const shown = marks.filter((r) => r.width > 0)
       const left = Math.min(...shown.map((r) => r.left))
