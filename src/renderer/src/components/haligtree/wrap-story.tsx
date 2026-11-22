@@ -522,9 +522,9 @@ function Ranked({ rows, accent }: { rows: { name: string; n: number }[]; accent:
 
 /** Bars, one a row, each with its name and what it stands for in words: the first in the loud colour. */
 // `of`: each row's own whole (a read's minutes of its reading time), so a bar is its share of that, never of the longest row.
-function Rows({ rows: all, p, wide }: { rows: { name: ReactNode; key: string; said: string; n: number; of?: number }[]; p: Palette; wide: boolean }): React.JSX.Element {
+function Rows({ rows: all, p, wide, small = 3 }: { rows: { name: ReactNode; key: string; said: string; n: number; of?: number }[]; p: Palette; wide: boolean; /** How many on a small card: fewer under a tall heading. */ small?: number }): React.JSX.Element {
   // Three on a small card, so the list never reaches the card's foot.
-  const rows = all.slice(0, wide ? 5 : 3)
+  const rows = all.slice(0, wide ? 5 : small)
   const most = Math.max(1, ...rows.map((row) => row.n))
   return (
     <div data-wrap-rows className="grid h-full grid-cols-1 [align-content:safe_center] gap-4">
@@ -753,7 +753,7 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
           return alone(number, <>{unit}, over {plural(f.sessions, 'session')}{one ? <>. {howLong(one.minutes)} of it on {quoted(one.name, 60)}{two ? <>, {howLong(two.minutes)} on {quoted(two.name, 60)}</> : null}</> : null}.</>)
         // Each task's bar is its share of all the focus, so the bars and the big number agree.
         return split(<><In at={0.12}>{number}</In><In at={0.45}>{caption(<>{unit}, over {plural(f.sessions, 'session')}. Where most of it went:</>)}</In></>,
-          <Rows p={p} wide={wide} rows={f.focusTasks.map((task) => ({ key: task.name, name: task.name, said: howLong(task.minutes), n: task.minutes, of: Math.max(1, f.minutes) }))} />)
+          <Rows p={p} wide={wide} small={2} rows={f.focusTasks.map((task) => ({ key: task.name, name: task.name, said: howLong(task.minutes), n: task.minutes, of: Math.max(1, f.minutes) }))} />)
       }
       case 'sites': {
         const [first, ...rest] = f.sites
