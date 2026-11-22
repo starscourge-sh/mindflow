@@ -95,7 +95,7 @@ export function FolderPicker({ onFolders, onProjects }: { /** "Show me" on the m
   if (!asked || !things) return null
   const close = (): void => (setAsked(null), before.current?.isConnected ? before.current.focus({ preventScroll: true }) : (document.activeElement as HTMLElement | null)?.blur())
   // Tasks alone, or a project moved: projects, never folders. Each project read as a folder is (name, icon, path).
-  const forProjects = !!asked.movingProject || things.every((one) => one.type === 'task')
+  const forProjects = !!asked.movingProject || (!asked.moving && things.length > 0 && things.every((one) => one.type === 'task'))
   const all = forProjects ? asFolders(allProjects) : allFolders
   const moving = (asked.moving ?? asked.movingProject) as Folder | undefined
   const word = forProjects ? 'project' : 'folder'
