@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/react'
 import { HaligtreeEditor } from './haligtree-editor'
@@ -109,7 +110,16 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
         )}
       </FolderPath>
       {/* Under its name, its words and link cards, as a Notion page's sit under its title. */}
-      {folder && (!!folder.front || writing) && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" onLeave={() => setWriting(false)} />}
+      {/* Its words glide open under the name and away again, never popped in (smooth-not-jump). Already there as the
+          folder opens, they are simply there. */}
+      <AnimatePresence initial={false}>
+        {folder && (!!folder.front || writing) && (
+          <motion.div key={`${folder.id}:words`} initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
+            <FolderFront folder={folder} part="words" onLeave={() => setWriting(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Only when there is nothing yet: a folder that holds things says so in its list header ("2 pages") and its tabs;
           a sentence repeating it read as slapped on (the user, 21 Nov). */}
       {/* Empty: one line saying how something gets in. "Nothing in it yet" over an empty page said what the page shows. */}
@@ -194,14 +204,16 @@ function FolderFront({ folder, part, onLeave }: { folder: Folder; /** The cover 
   const latest = useRef<JSONContent | null>(doc)
   // Read off the editor itself as it is left: a change it has not yet told (a dev build's slower editor) is kept too.
   const editor = useRef<{ state: { doc: { toJSON: () => JSONContent } } } | null>(null)
-  const save = (): void => {
+  const save = (left = false): void => {
     // The words' own part only: the cover's part never holds them (it would put back what it read at first).
     if (part !== 'words') return
     const next = editor.current ? editor.current.state.doc.toJSON() : latest.current
     // Nothing written: no words kept, and the field goes, back to the head's "Add words".
     const empty = !editor.current || !(editor.current as unknown as { state: { doc: { textContent: string; childCount: number; firstChild: { type: { name: string } } | null } } }).state.doc.textContent.trim()
     const words = next && !empty ? JSON.stringify(next) : null
-    if (!words) onLeave?.()
+    // Only a person leaving it (Esc, a click away) closes it: an unmount's save (StrictMode's first editor in the
+    // dev build) closed it the moment "Add words" opened it (the user, 22 Nov: "not doing anything").
+    if (!words && left) onLeave?.()
     if (words === (folder.front ?? null)) return
     const was = folder.front
     void folders.set(folder.id, { front: words }).then(() => quietly(() => void folders.set(folder.id, { front: was })))
@@ -222,7 +234,7 @@ function FolderFront({ folder, part, onLeave }: { folder: Folder; /** The cover 
         </div>
       )}
       {part === 'words' && (
-        <div data-folder-words="" onBlur={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && save()}
+        <div data-folder-words="" onBlur={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && save(true)}
           // Esc leaves the words (after Vim's own Esc to Normal): out of the field, and gone if empty.
           onKeyDown={(event) => event.key === 'Escape' && !event.defaultPrevented && (event.currentTarget.querySelector<HTMLElement>('[contenteditable]')?.getAttribute('data-vim-mode') ?? 'normal') === 'normal' && (event.currentTarget.querySelector<HTMLElement>('[contenteditable]')?.blur())} style={{ '--mf-padding': '0.25rem 0' } as React.CSSProperties}>
           <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} lineNumbers={false} handles={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"

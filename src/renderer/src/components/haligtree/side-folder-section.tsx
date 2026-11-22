@@ -102,12 +102,14 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
   const row = (one: Folder, depth: number): React.JSX.Element[] => {
     // Unfolded, a folder shows what it holds: its folders, then its pages and notes (Notion's way). Folded, only the
     // way down to the folder you are in.
-    const open = unfolded.has(one.id)
+    // Holding nothing and no folder: nothing to fold open, no "Nothing in it yet" under it.
+    const holds = deepCount(live, one.id) > 0 || inside(one.id).length > 0
+    const open = holds && unfolded.has(one.id)
     const kids = open ? inside(one.id) : inside(one.id).filter((kid) => path.includes(kid.id))
     return [
       // One light: a note of its own open under it (noteRow) is the lit one, the folder kept beside it is not lit too.
       <FolderRow key={one.id} folder={one} all={live} here={here === one.id && !(noteRow && noteIn === one.id)} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)}
-        open={open} onFold={() => foldOne(one.id)} onAdd={() => void addPageIn(one, onOpenItem)} />,
+        open={open} onFold={holds ? () => foldOne(one.id) : undefined} onAdd={() => void addPageIn(one, onOpenItem)} />,
       // Its own presses (lib/own-press.ts): a page carried from under it is that page, never the folder above it.
       ...(kids.length || open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
         <Branches className="ml-5 flex flex-col gap-px">
@@ -237,7 +239,7 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
   ]
 }
 
-function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd, page = false }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold: () => void; onAdd: () => void; /** On a folder's page, at the list's row size, as its list's first rows (FolderRows). */ page?: boolean }): React.JSX.Element {
+function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd, page = false }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold?: () => void; onAdd: () => void; /** On a folder's page, at the list's row size, as its list's first rows (FolderRows). */ page?: boolean }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
   const name = (words: string | null): void => {
     onNamed()
@@ -294,10 +296,10 @@ function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOp
             </>
           )}
         </button>
-        <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
+        {onFold && <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
           className={`absolute ${page ? 'top-1/2 left-2 size-9 -translate-y-1/2' : 'top-[0.1875rem] left-1.5 size-5'} flex cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <ChevronRight className={`size-3.5 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
-        </button>
+        </button>}
         <span className={`absolute ${page ? 'top-1/2 right-2 -translate-y-1/2' : 'top-[0.1875rem] right-1.5'} flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <Tip label="More">
             <button type="button" data-folder-more={folder.id} aria-label={`${folder.name} menu`} onClick={openFromGrip}
@@ -341,11 +343,14 @@ export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string; on
     return next
   })
   const rows = (under: string, top: boolean): React.JSX.Element[] => live.filter((one) => one.parent === under).flatMap((one) => {
-    const open = unfolded.has(one.id)
     const n = deepCount(live, one.id)
+    // Nothing in it and no folder under it: nothing to fold open (the user, 22 Nov: "then don't be collapsible"), its
+    // icon stays put and no "Nothing in it yet" hangs under it.
+    const holds = n > 0 || live.some((sub) => sub.parent === one.id)
+    const open = holds && unfolded.has(one.id)
     return [
       <FolderRow key={one.id} page={top} folder={one} all={live} here={false} n={n || null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)}
-        onOpen={() => onPlace(one.id)} open={open} onFold={() => fold(one.id)} onAdd={() => void addPageIn(one, onOpenItem)} />,
+        onOpen={() => onPlace(one.id)} open={open} onFold={holds ? () => fold(one.id) : undefined} onAdd={() => void addPageIn(one, onOpenItem)} />,
       ...(open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
         <Branches className="ml-5 flex flex-col gap-px">
           {rows(one.id, false)}
