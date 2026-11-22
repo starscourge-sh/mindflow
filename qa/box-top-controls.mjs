@@ -63,7 +63,14 @@ try {
   await wait(900)
   let seen = await controls()
   await shot('thrown')
-  check('the box thrown to the top: all its round controls are inside the window and on the screen, the row at the window\'s top', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2, JSON.stringify(seen))
+  // Still up after the move, the window keeps the room it opened with above the row (where the box with its panel,
+  // ⌃⇧F, would grow up from the screen's foot where it opened): nothing is drawn there, and it is made again for the
+  // new place as the box next opens (main's roomForHint, while the box is away, so the card never jumps a frame).
+  check('the box thrown to the top: all its round controls are inside the window and on the screen', seen.count >= 3 && seen.out === 0, JSON.stringify(seen))
+  await close()
+  await open()
+  seen = await controls()
+  check('…opened again there: the row is the window\'s top, every control on the screen', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2, JSON.stringify(seen))
 
   // Carried up by its grabber, far past the top: it stops with its controls on the screen, and stays there let go.
   const g = await page.evaluate(() => { const r = document.querySelector('[data-grabber]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
@@ -76,7 +83,11 @@ try {
   await wait(700)
   seen = await controls()
   await shot('carried')
-  check('carried up past the top by its grabber: it stops with every control on the screen', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2, JSON.stringify(seen))
+  check('carried up past the top by its grabber: it stops with every control on the screen', seen.count >= 3 && seen.out === 0, JSON.stringify(seen))
+  await close()
+  await open()
+  seen = await controls()
+  check('…opened again there: the row is the window\'s top, every control on the screen', seen.count >= 3 && seen.out === 0 && seen.rowFromWindowTop <= 2, JSON.stringify(seen))
 
   // Left near the top by an older build (the place it opens at is the last one): it opens already clear of the menu bar.
   await electron.evaluate(({ screen }) => { const b = globalThis.qaBox.getBounds(); globalThis.qaBox.setPosition(b.x, screen.getDisplayMatching(b).workArea.y + 4) })
@@ -109,6 +120,27 @@ try {
   // The hint card above the box, every open: in the first frame drawn after the box shows exactly when it is there at
   // 400 ms (a card that leaves fades, a card that comes is there from the start).
   await v('settings:set', { boxOneLine: false, hintRate: 1 })
+  // A card on every open: main's picker asked until it hands over an Inbox capture ("Still in your Inbox"), then that
+  // one every time (as qa/hint-room.mjs pins one), and the page's dice at 0.4 (no held question, no memory instead).
+  const pinned = await electron.evaluate(({ ipcMain }) => {
+    const handlers = ipcMain._invokeHandlers
+    const own = (globalThis.qaHintsNext ??= handlers.get('hints:next'))
+    let one = null
+    let any = null
+    for (let i = 0; i < 400 && !one; i++) {
+      const row = own({})
+      any ??= row
+      if (row && row.id === row.captureId) one = row
+    }
+    one ??= any
+    handlers.set('hints:next', () => one)
+    return one && { id: one.id, inbox: one.id === one.captureId }
+  })
+  check('a hint to show was found (an Inbox capture, else any)', !!pinned, JSON.stringify(pinned))
+  await page.evaluate(() => { Math.random = () => 0.4 })
+  // Away once with the dice set, so the next open's card is picked by them.
+  await open()
+  await close()
   await electron.evaluate(() => {
     globalThis.qaShows = []
     const show = globalThis.qaBox.show.bind(globalThis.qaBox)
@@ -143,6 +175,7 @@ try {
   }
   check('opened six times with hints on: the hint card is in the first frame exactly when it is there at 400 ms, never a flash', flashes === 0 && withCard > 0, rounds.join(' '))
   await v('settings:set', { hintRate: 0 })
+  await electron.evaluate(({ ipcMain }) => void (globalThis.qaHintsNext && ipcMain._invokeHandlers.set('hints:next', globalThis.qaHintsNext)))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
