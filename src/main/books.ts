@@ -47,9 +47,11 @@ export const nameOf = (id: BookId): string => {
 export const HUES = ['blue', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'gray'] as const
 const hueOf = (color: unknown): string | null => (HUES as readonly unknown[]).includes(color) ? (color as string) : null
 /**
- * Every book, each with its colour or null, in the one order every list of them keeps: the open one first, then the
- * others by when each was last opened, so the first of the others is the book you were just in. One never opened
- * since that was kept comes after those, My book before the rest, as they were made.
+ * Every book, each with its colour or null, in the one order every list of them keeps (the shelf, Settings › Books,
+ * ⌘K). Once you have dragged them into an order of your own, yours, a book made since at its end (the user, 22 Nov:
+ * "I'd love to be able to reorder the books"). Until then the open one first, then the others by when each was last
+ * opened, so the first of the others is the book you were just in. One never opened since that was kept comes after
+ * those, My book before the rest, as they were made.
  */
 export const books = (): { id: BookId; name: string; createdAt: string | null; current: boolean; color: string | null; openedAt: number | null }[] => {
   const shelf = readShelf()
@@ -58,7 +60,14 @@ export const books = (): { id: BookId; name: string; createdAt: string | null; c
     { id: 'default', name: nameOf('default'), createdAt: null, current: here() === 'default', color: hueOf(shelf.defaultColor) },
     ...shelf.books.map((one) => ({ id: one.id, name: one.name, createdAt: one.createdAt, current: here() === one.id, color: hueOf(one.color) }))
   ].map((one, made) => ({ ...one, openedAt: at(one.id) || null, made }))
-    .sort((a, b) => Number(b.current) - Number(a.current) || (b.openedAt ?? 0) - (a.openedAt ?? 0) || a.made - b.made)
+    .sort((a, b) => {
+      if (shelf.order?.length) {
+        const [x, y] = [shelf.order.indexOf(a.id), shelf.order.indexOf(b.id)]
+        if (x !== y) return x < 0 ? 1 : y < 0 ? -1 : x - y
+        return a.made - b.made
+      }
+      return Number(b.current) - Number(a.current) || (b.openedAt ?? 0) - (a.openedAt ?? 0) || a.made - b.made
+    })
     .map(({ made: _made, ...one }) => one)
 }
 const folderOf = (id: BookId): string | null => (id === 'default' ? realRoot() : isBookId(id) && readShelf().books.some((one) => one.id === id) ? bookRoot(id) : null)
@@ -368,6 +377,16 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     if (id === 'default') writeShelf({ ...shelf, defaultName: named })
     else if (shelf.books.some((one) => one.id === id)) writeShelf({ ...shelf, books: shelf.books.map((one) => (one.id === id ? { ...one, name: named } : one)) })
     else return false
+    tell()
+    return true
+  })
+
+  // Your books in the order you dragged them into: every id given that is a book, then any book not named, as they stood.
+  handle('order', (ids: unknown) => {
+    if (SANDBOX || !Array.isArray(ids)) return false
+    const known = books().map((one) => one.id)
+    const order = [...new Set(ids.map(String).filter((id) => known.includes(id)))]
+    writeShelf({ ...readShelf(), order: [...order, ...known.filter((id) => !order.includes(id))] })
     tell()
     return true
   })

@@ -8,7 +8,8 @@ import { OtherCover, ShelfCover } from './reader-card'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { HUES, askBook, askCards, bookCardNow, bookCardOf, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookCard, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
+import { SortableList, SortableRow } from './sortable'
+import { HUES, askBook, moveBook, askCards, bookCardNow, bookCardOf, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookCard, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
@@ -17,7 +18,8 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { ago } from '../../../../main/dates'
 import './shelf.css'
-import { ask, refuse, toast, whyFailed } from './ui'
+import { refuse, toast, whyFailed } from './ui'
+import { NameInMenu } from './name-in-place'
 import type { RowItem } from './row-menu'
 import { APP_NAME } from '../../../../main/name'
 import { cut, quoted } from '../../../../main/clip'
@@ -30,11 +32,28 @@ const TITLE: Record<Asked['mode'], string> = {
   import: 'Import into which book…'
 }
 
-/** Name a new book, then go into it. From the sidebar's menu, ⌘K and the menu bar. */
-export async function askNewBook(): Promise<void> {
+/**
+ * Name a new book, then go into it: from ⌘K and the menu bar, the sidebar's book menu opens with its "New book…" row
+ * turned into the name (NewBookRow, home.tsx), as choosing that row does. Never a box with a title over a field.
+ */
+export function askNewBook(): void {
   if (SANDBOX) return refuse('Leave the sandbox first, then make a new book')
-  const name = (await ask('Name the new book', 'e.g. Fresh start, or Notion test', { action: 'Make the book' }))?.trim()
-  if (name) await newBook(name)
+  window.dispatchEvent(new CustomEvent('haligtree:book-naming'))
+}
+
+/**
+ * The "New book…" row in the sidebar's book menu, turned into the new book's name where it was chosen (NameInMenu): a
+ * blank book in the theme's own colour beside it. Enter or a click away makes the book and opens it, Esc leaves it
+ * unmade. The menu holds open while it is typed (home.tsx).
+ */
+export function NewBookRow({ onDone }: { onDone: () => void }): React.JSX.Element {
+  return (
+    <NameInMenu data-new-book mark={<BookMark hue={null} />} placeholder="Name the new book" label="New book name" onDone={onDone}
+      onMake={(words) => {
+        chime('settled')
+        void newBook(words).catch((cause: unknown) => refuse(`Could not make ${quoted(words, 80)}: ${whyFailed(cause)}`, 'error'))
+      }} />
+  )
 }
 
 /**
@@ -69,35 +88,26 @@ export const colourSwatches = (book: Book): { color: string; label: string; on: 
 export const colourChoices = (book: Book): { label: string; note?: string; mark: React.JSX.Element; run: () => void }[] =>
   NINE.map(({ hue, label }) => ({ label, note: hue === book.color ? 'worn now' : undefined, mark: <BookMark hue={hue} />, run: () => colourBook(book, hue) }))
 
-/**
- * A book's own right-click menu, wherever it is listed: its colour (the nine, as a calendar's), its name, and
- * where everything else about it is. `inSettings`: Settings on “Your book”, with its name ready to type when
- * asked. The sandbox is someone else's book, and no book's colour or name can be changed from inside it.
- */
-export const bookMenu = (book: Book, inSettings: (rename: boolean) => void): RowItem[] => [
-  ...(SANDBOX ? [] : [
-    { heading: `Colour of ${cut(book.name, 28)}` },
-    { swatches: colourSwatches(book) },
-    'separator' as const,
-    { label: 'Rename…', run: () => inSettings(true) }
-  ]),
-  { label: 'Show in Settings', run: () => inSettings(false) }
-]
+/** The words over a book's nine, the one wording wherever they show: its right-click menu and the sidebar's book menu. */
+export const colourHeading = (book: Book): string => `Colour of ${cut(book.name, 28)}`
 
 /**
- * A book's "…" menu in Settings › Books, and its right-click there: its name, its colour (the nine, picked as from the
- * sidebar's menu and ⌘K: said, with Undo, the book's mark in its row and, for the open book, the sidebar and accent
- * easing into it), and deleting it, asked in its own row. The sandbox is someone else's book: nothing of a book can be changed from inside it. Your first book and
- * the open one are never deleted from here (switch to another book first).
+ * A book's own menu: the one list, wherever a book is right-clicked (the book's name at the sidebar's foot, a spine
+ * on the shelf in its menu, its row in Settings › Books and that row's "…"). Its colour (the nine, in the menu
+ * itself: a submenu holding one row of swatches was a second step for nothing, the user, 21 Nov), Rename…, Show in
+ * Settings (left out where it already is Settings), and Delete…, asked in the book's own row in Settings. Your
+ * first book and the open one are never deleted (switch to another book first). The sandbox is someone else's
+ * book: nothing of a book can be changed from inside it, so only the way to Settings is left there.
  */
-export const bookRowMenu = (book: Book, { rename, remove }: { rename: () => void; remove: () => void }): RowItem[] => SANDBOX ? [] : [
-  // The colours in the menu itself, as the sidebar's book menu has them: a submenu holding one row of swatches was a
-  // second step for nothing (the user, 21 Nov: "why did color have to be a submenu").
-  { heading: book.current ? 'Colour: tints the sidebar and accent' : 'Colour: tints the sidebar once open' },
-  { swatches: colourSwatches(book) },
-  'separator',
-  { label: 'Rename…', run: rename },
-  { label: 'Delete…', danger: true, can: () => !book.current && book.id !== 'default', run: remove }
+export const bookMenu = (book: Book, { rename, remove, show }: { rename: () => void; remove: () => void; show?: () => void }): RowItem[] => [
+  ...(SANDBOX ? [] : [
+    { heading: colourHeading(book) },
+    { swatches: colourSwatches(book) },
+    'separator' as const,
+    { label: 'Rename…', run: rename }
+  ]),
+  ...(show ? [{ label: 'Show in Settings', run: show }] : []),
+  ...(SANDBOX ? [] : [{ label: 'Delete…', danger: true, can: () => !book.current && book.id !== 'default', run: remove }])
 ]
 
 /** What the main window wears as a book opens: your look as it came along, once. */
@@ -128,6 +138,8 @@ function useCarried(): void {
 export function BookAsker(): React.JSX.Element | null {
   const [asked, setAsked] = useState<Asked | null>(null)
   const [typed, setTyped] = useState('')
+  // "Into a new book…" chosen with nothing typed: the box's field takes the new book's name.
+  const [naming, setNaming] = useState(false)
   // Kept current: a book renamed or deleted in another window while the box is up is renamed or gone here too.
   const now = useShelf()
   // A session running as you switch: End it, or Keep it running.
@@ -151,6 +163,7 @@ export function BookAsker(): React.JSX.Element | null {
       if (detail?.mode !== 'copy' && detail?.mode !== 'import') return
       chime('open')
       setTyped('')
+      setNaming(false)
       setAsked(detail)
     }
     // From the menu bar, which has no page of its own to ask on.
@@ -194,11 +207,12 @@ export function BookAsker(): React.JSX.Element | null {
     chime('copy')
     toast(made === 1 ? `Copied one into ${name}, with its pictures and files. It shows there next time you open it` : `Copied ${made} into ${name}, with their pictures and files. They show there next time you open it`)
   }
-  // A new book, by the words typed or by a name asked for: made, then copied or imported into. Never made and left empty.
+  // A new book, by the words typed in the box's own field: made, then copied or imported into. Never made and left
+  // empty. Nothing typed yet, the field says it now takes the new book's name, never a second box asking for it.
   const fresh = async (): Promise<void> => {
+    const name = typed.trim()
+    if (!name) return (chime('tap'), setNaming(true))
     close()
-    const name = typed.trim() || (await ask('Name the new book', 'e.g. Fresh start, or Notion test', { action: asked.mode === 'import' ? 'Make it and import' : 'Make it and copy' }))?.trim()
-    if (!name) return
     const id = await window.api.haligtree<string>('books:create', name).catch(() => null)
     if (!id) return refuse(`Could not make ${quoted(name, 80)}`, 'error')
     // Made, but what was to go into it did not: said, never dropped.
@@ -213,7 +227,7 @@ export function BookAsker(): React.JSX.Element | null {
           event.stopPropagation()
           if (event.key === 'Escape') close()
         }}>
-          <CommandInput autoFocus value={typed} onValueChange={setTyped} placeholder={TITLE[asked.mode]} />
+          <CommandInput autoFocus value={typed} onValueChange={setTyped} placeholder={naming ? 'Name the new book, then ↵' : TITLE[asked.mode]} />
           <CommandList className="max-h-[min(22rem,50vh)]">
             <CommandEmpty>No book by that name yet.</CommandEmpty>
             {listed.map((one) => (
@@ -403,9 +417,10 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
   const lit = useMotionValue(1)
   // Each opening asks every other book's reader card afresh, so each is there before the book is pulled out.
   useState(() => askCards(books.filter((one) => !one.current).map((one) => one.id)))
-  const saidOf = (book: Book, at: number): string => (book.current ? 'Open now' : at === 1 && book.openedAt ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
+  // The one you were in last, wherever it stands on the shelf (its order may be yours).
+  const last = books.filter((one) => !one.current && one.openedAt).sort((a, b) => (b.openedAt ?? 0) - (a.openedAt ?? 0))[0]?.id
+  const saidOf = (book: Book): string => (book.current ? 'Open now' : book.id === last ? 'In it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet')
   const shown = Math.max(0, books.findIndex((one) => (pointed ? one.id === pointed : one.current)))
-  const spines = spinesOf(books)
   return (
     <>
       <div ref={row} role="group" aria-label="Your books" data-book-shelf data-unlit className="mf-shelf" style={style}
@@ -413,18 +428,30 @@ export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (b
         onKeyDownCapture={() => void (keyed.current = true)}
         // Only a pointer that really moved takes over from the keys: the page also sends one, unmoved, as the books part under it.
         onPointerMove={(event) => void (realMove(event) && (keyed.current = false))}
-        onFocus={(event) => setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
-        onBlur={(event) => !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}>
-        {books.map((book, at) => (
-          <ShelfBook key={book.id} book={book} said={saidOf(book, at)} up={at === shown} spine={spines[at]} keyed={() => keyed.current} lit={lit}
-            onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} />
-        ))}
+        // While a book is carried, the one turned out stays as it was: the shelf never reshapes under the hand.
+        onFocus={(event) => document.documentElement.dataset.dragging === undefined && setPointed(event.target.closest('[data-book]')?.getAttribute('data-book') ?? null)}
+        onBlur={(event) => document.documentElement.dataset.dragging === undefined && !(event.relatedTarget instanceof Element && event.relatedTarget.closest('[data-book-shelf] [data-book]')) && setPointed(null)}
+        // A book carried and let go opens nothing: the shared drag swallows the click that ends a carry (dnd-kit).
+        >
+        {/* Your books in your own order: a book pressed and carried along the shelf goes where it is let go (the shared
+            drag, sortable.tsx), saved on the shelf for every list of them (Settings › Books too). */}
+        <SortableList axis="x" items={books} keyOf={(book) => book.id} onMove={SANDBOX ? undefined : (id, target) => moveBook(books.map((one) => one.id), id, target)}>
+          {(order) => {
+            const spines = spinesOf(order)
+            return order.map((book, at) => (
+              <SortableRow key={book.id} id={book.id} className="flex-none">
+                <ShelfBook book={book} said={saidOf(book)} up={book.id === books[shown]?.id} spine={spines[at]} keyed={() => keyed.current} lit={lit}
+                  onPick={() => onPick(book)} onMenu={(event) => onMenu(event, book)} />
+              </SortableRow>
+            ))
+          }}
+        </SortableList>
       </div>
       {/* The turned book named under the shelf, as a video shelf names the tape it has out. */}
       {books[shown] && (
         <div aria-hidden data-book-caption className="mf-shelf-caption">
           <span className="mf-spine-said-name">{books[shown].name}</span>
-          <span className="mf-spine-said">{saidOf(books[shown], shown)}</span>
+          <span className="mf-spine-said">{saidOf(books[shown])}</span>
         </div>
       )}
     </>

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { num, plural } from '../../../../main/dates'
-import { Decoded, FIRST_PICTURES, ask, askSure, quietly, refuse, toast } from './ui'
+import { Decoded, FIRST_PICTURES, askSure, quietly, refuse, toast } from './ui'
 import { ReadsIn } from '@/lib/reads-in'
 import { EXAMPLE_TAG } from '../../../../main/name'
 import { Button } from '@/components/ui/button'
@@ -101,6 +101,8 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
   // A deck being named where it will stand, as Finder names a new folder: a new one (inside another, or not), or one renamed.
   const [naming, setNaming] = useState<{ inside?: string } | { tag: string } | null>(null)
   useNewDeckAsked(() => setNaming({}))
+  // A study set being named where it will stand, among the study sets: the deck it is made from.
+  const [setFrom, setSetFrom] = useState<string | null>(null)
   // Review's page waits for the decks: the toolbar's New deck and Stacks or List come with it, never a beat after.
   useReading(unloaded(shelves) || !own)
   if (unloaded(shelves) || !own) return <div />
@@ -167,7 +169,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       { label: 'Deck settings…', icon: glyph(SlidersHorizontal), run: () => settings(deck.tag, deckName(deck), at()) },
       'separator',
       // Take it elsewhere.
-      deck.cards > 0 && { label: 'Save as a study set…', hint: 'A named set to study for, like an exam', icon: glyph(BookmarkPlus), run: () => void saveSet(deck.tag) },
+      deck.cards > 0 && { label: 'Save as a study set…', hint: 'A named set to study for, like an exam', icon: glyph(BookmarkPlus), run: () => (chime('open'), setSetFrom(deck.tag)) },
       deck.cards > 0 && { label: 'Export for Anki…', hint: 'An .apkg file to share or open in Anki', icon: glyph(Share), run: () => void shareDeck(deck.tag, deckName(deck)) },
       { label: 'Delete deck…', hint: 'Its cards stay, in All cards', danger: true, icon: glyph(Trash2), run: () => void deleteDeck(deck.tag) }
     ]
@@ -233,7 +235,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       <div data-deck-shelf data-deck-look="list" className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
         <StudyYear compact />
-        <StudySets sets={sets} onStudy={onStudy} />
+        <StudySets sets={sets} onStudy={onStudy} from={setFrom} onNamed={() => setSetFrom(null)} />
         {dueHint}
         <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} menu={listMenu} fresh={naming && !('tag' in naming) ? naming : null} renaming={renaming} onNamed={named} />
         {/* Under the decks, never over them: Decks opens on the decks, as Anki's does (1 Nov), what the books hold after. */}
@@ -272,7 +274,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
     <div data-deck-shelf data-deck-look="pockets" className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
       {top}
       <StudyYear compact />
-      <StudySets sets={sets} onStudy={onStudy} />
+      <StudySets sets={sets} onStudy={onStudy} from={setFrom} onNamed={() => setSetFrom(null)} />
       {dueHint}
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
       <div data-deck-grid className={GRID}>
@@ -465,10 +467,8 @@ function Links({ deck, onDone }: { deck: string; onDone: () => void }): React.JS
 export const ownOrder = (decks: OwnDeck[], place: Record<string, number>): OwnDeck[] =>
   [...decks].sort((a, b) => (place[a.tag] ?? Infinity) - (place[b.tag] ?? Infinity) || b.due - a.due || b.cards - a.cards || a.tag.localeCompare(b.tag))
 
-/** Save a deck as a study set, named for the occasion, with Undo. */
-async function saveSet(tag: string): Promise<void> {
-  const name = await ask(`A study set from ${deckTitle(tag)}`, 'Name it for the occasion: Biology exam, Friday', { action: 'Save the set' })
-  if (!name?.trim()) return
+/** Save a deck as a study set, under the name given it for the occasion, with Undo. */
+async function saveSet(tag: string, name: string): Promise<void> {
   await call('sets:save', name, tag)
   chime('noted')
   toast(`${quoted(name.trim(), 80)} is a study set: it drills every card in ${deckTitle(tag)}, due or not`, () => void call('sets:remove', name.trim()).then(() => chime('undo')))
@@ -487,10 +487,11 @@ async function shareDeck(tag: string, name: string): Promise<void> {
 /**
  * Study sets: a deck saved under the name of an occasion ("Biology exam,
  * Friday"), Anki's filtered deck in plain words. One click drills every card
- * in it, due or not; right-click to take the set away.
+ * in it, due or not; right-click to take the set away. A new one ("Save as a study set…" on a deck) is named where it
+ * will stand, at the end of them, as Finder names a new folder: Enter or a click away saves it, Esc leaves it unmade.
  */
-function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; onStudy: (tag: string) => void }): React.JSX.Element | null {
-  if (!sets.length) return null
+function StudySets({ sets, onStudy, from, onNamed }: { sets: { name: string; tag: string }[]; onStudy: (tag: string) => void; /** The deck a new set is being named from. */ from: string | null; onNamed: () => void }): React.JSX.Element | null {
+  if (!sets.length && !from) return null
   return (
     <div data-study-sets className="flex flex-wrap items-center gap-2 text-control">
       <span className="text-muted-foreground">Study sets, every card in each, due or not</span>
@@ -500,6 +501,17 @@ function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; o
             className="h-8 max-w-64 cursor-pointer truncate rounded-[6px] mf-metal mf-metal-hover px-3 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">{set.name}</button>
         </RowMenu>
       ))}
+      {from && (
+        <span data-study-set-naming data-takes-keys className="flex">
+          <NameInPlace placeholder={`A set from ${deckTitle(from)}, for: Biology exam, Friday`} label="New study set name"
+            className="h-8 w-72 rounded-[6px] mf-metal px-3 text-control text-foreground outline-none ring-1 ring-ring/45 placeholder:text-muted-foreground max-sm:h-9"
+            onDone={(words) => {
+              onNamed()
+              if (words) void saveSet(from, words)
+              else chime('off')
+            }} />
+        </span>
+      )}
     </div>
   )
 }

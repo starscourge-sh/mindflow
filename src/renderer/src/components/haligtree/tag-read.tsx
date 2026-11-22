@@ -16,7 +16,7 @@ import { rowBody } from '@/lib/row-body'
 import { taggedBlocks } from '@/lib/tagged-blocks'
 import { cut, quoted } from '../../../../main/clip'
 import { chime } from '@/lib/sound'
-import { Decoded, Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey, whyFailed } from './ui'
+import { Decoded, Empty, pin, refuse, renameHere, sayNow, toast, typing, useListKeys, useReadKey, whyFailed } from './ui'
 import { Button } from '@/components/ui/button'
 import { RowMenu, Swatch, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -68,13 +68,13 @@ const readView = (): View => {
 }
 
 /**
- * Rename a tag everywhere, asked for its new name: every note, gem and task
+ * Rename a tag everywhere, its new name typed where its name is shown (renameHere): every note, gem and task
  * has its words changed, and onto a tag already there it is a merge. One Undo
  * puts back exactly what changed, a merge included. `onNow` hears the name it
  * is now known by, and the old one again on Undo.
  */
 export async function renameTag(tag: string, onNow?: (tag: string) => void, typed?: string): Promise<void> {
-  const to = typed ?? await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'new name', { field: 'tag', initial: tag, action: 'Rename the tag' })
+  const to = typed ?? await renameHere(tag, `New name for #${tag}: a tag that exists already takes these in`)
   if (!to || to.replace(/^#/, '').toLowerCase() === tag) return
   const merging = (await haligtree.tags()).some((one) => one.tag === to.replace(/^#/, '').toLowerCase())
   const done = await haligtree.renameTag(tag, to)
@@ -760,7 +760,7 @@ function TagMenu({ tag, color, onTag, onShuffle, homeHidden }: {
         <DropdownMenuLabel data-tag-colour-menu>Colour of #{cut(tag, 28)}</DropdownMenuLabel>
         <div role="group" aria-label="Its colour" className="flex items-center gap-1 px-1.5 py-1">
           {COLOURS.map((one) => (
-            <DropdownMenuItem key={one} aria-label={one[0].toUpperCase() + one.slice(1)} aria-checked={color === one} role="menuitemradio" data-tag-swatch={one} onSelect={() => colourTo(one)}
+            <DropdownMenuItem key={one} aria-label={one[0].toUpperCase() + one.slice(1)} aria-checked={color === one} role="menuitemradio" data-tag-swatch={one} onSelect={(event) => (event.preventDefault(), colourTo(one))}
               className="flex size-6 min-h-0 items-center justify-center rounded-md p-0 focus:bg-accent">
               <Swatch color={`var(--tt-color-text-${one})`} on={color === one} />
             </DropdownMenuItem>

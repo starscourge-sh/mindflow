@@ -3092,20 +3092,6 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
 :root[data-theme-glide]::view-transition-new(root) {
   animation: mf-plain-in 120ms var(--mf-ease) both;
 }
-/* A book's colour changed in place (lib/books.ts, turnTo): the same plain crossing, on the app's short clock.
-   The two pictures differ only where the colour is worn (the sidebar's tint, the accent), so that is all that
-   is seen to change: no blur, and nothing crossing the page. */
-:root[data-hue-turn]::view-transition-old(root) {
-  animation: mf-plain-out 200ms var(--mf-ease) both;
-}
-:root[data-hue-turn]::view-transition-new(root) {
-  animation: mf-plain-in 200ms var(--mf-ease) both;
-}
-/* The window keeps its size and place through it: nothing to glide, so the crossing ends with the fade (the
-   browser's own 250ms glide of the group would otherwise hold it open a little longer, moving nothing). */
-:root[data-hue-turn]::view-transition-group(root) {
-  animation: none;
-}
 
 /* Something clicked growing into what it opens, and back (lib/hero.ts): a
    view transition. The group (the real pictures of the thing and the page)
@@ -3151,6 +3137,13 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
    to one of the theme's own hues, so it suits every theme, and the main
    window's sidebar takes a tint of it. No colour, and the theme is as drawn.
    html:root beats a theme's :root.<name>. */
+/* A book's colour changed in place (lib/books.ts, turnTo) glides there: the hue is a colour the browser can ease
+   between, so the sidebar's tint and the accent everywhere pass through the colours between the two over 300ms,
+   one change of colour and nothing else (the user, 22 Nov: "switching accent colours is not a smooth experience").
+   "none" is the theme's own accent, worn for the glide to or from no colour. */
+@property --book-hue { syntax: '<color>'; inherits: true; initial-value: transparent; }
+html:root[data-book-glide] { transition: --book-hue 300ms var(--mf-ease); }
+html:root[data-book-hue='none'] { --book-hue: var(--mf-theme-accent, var(--primary)); }
 html:root[data-book-hue='blue'] { --book-hue: var(--tt-color-text-blue); }
 html:root[data-book-hue='purple'] { --book-hue: var(--tt-color-text-purple); }
 html:root[data-book-hue='pink'] { --book-hue: var(--tt-color-text-pink); }
@@ -4360,3 +4353,8 @@ html[data-small] [data-reading-pane] .note-pane[data-all-shown] [data-thought-do
 .tiptap.ProseMirror .mf-joined-from::before, .tiptap.ProseMirror .mf-joined-from::after { content: ''; flex: 1 1 0; min-width: 2rem; height: 1px; background: var(--border); }
 .tiptap.ProseMirror .mf-joined-from-words { flex: 0 1 auto; max-width: 85%; font-size: var(--text-control); line-height: 1.4; text-align: center; text-wrap: balance; }
 .tiptap.ProseMirror .mf-joined-from.ProseMirror-selectednode .mf-joined-from-words { color: var(--foreground); }
+
+/* A menu while one of its rows is a name being typed (name-in-place.tsx NameInMenu, NAMING_MENU): its other rows take no
+   pointer at all, so passing over them never lights one or moves the focus (and the caret) out of the name. A click
+   on one lands on the menu itself, which keeps the name as a click away does. */
+.mf-naming-menu [role^="menuitem"] { pointer-events: none; }

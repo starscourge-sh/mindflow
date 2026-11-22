@@ -72,26 +72,30 @@ const wear = (hue: Hue | null): void => {
 let turns = 0
 /**
  * A book's colour changed where you are, picked here or in another window: what wears it (the sidebar's tint,
- * and the accent wherever it shows: links, the caret, what is selected, ticks and marks) eases into the new
- * colour in place, as a theme turns over: one picture of the window fading into the next in 200ms, colour only,
- * nothing crossing the page (main.css, data-hue-turn). A wash across the whole window for a tint on the sidebar
- * read as a flash, so it is kept for arriving in another book. Reached by a key, with Motion off or Reduce
- * motion, or in a window out of sight, the colour is simply there.
+ * and the accent wherever it shows: links, the caret, what is selected, ticks and marks) glides from the old colour
+ * to the new in 300ms, through the colours between (main.css, data-book-glide), the menu it was picked in still open
+ * and live. A wash across the whole window for a tint on the sidebar read as a flash, so it is kept for arriving in
+ * another book. Reached by a key, with Motion off or Reduce motion, or in a window out of sight, the colour is simply there.
  */
 export function turnTo(hue: Hue | null): void {
   if (hue === wearing()) return
   const root = document.documentElement
-  const eased = !still() && !byKeys() && !document.hidden && typeof document.startViewTransition === 'function'
+  const eased = !still() && !byKeys() && !document.hidden
   // For a probe: each turn, and whether it eased.
   ;((window as unknown as { haligtreeTurns?: string[] }).haligtreeTurns ??= []).push(`${hue ?? 'none'}:${eased ? 'eased' : 'at once'}`)
   if (!eased) return wear(hue)
   const mine = (turning = { hue })
   const turn = ++turns
-  root.setAttribute('data-hue-turn', '')
-  // The picture of the window as it was is taken first; the colour goes on for the one it fades into.
-  const crossing = document.startViewTransition(() => void (turning === mine && wear(hue)))
-  crossing.ready.catch(() => undefined)
-  void crossing.finished.catch(() => undefined).finally(() => turn === turns && root.removeAttribute('data-hue-turn'))
+  // From no colour, from the theme's own accent; the colour it starts from read once, so the glide starts there.
+  if (!root.dataset.bookHue) root.dataset.bookHue = 'none'
+  root.setAttribute('data-book-glide', '')
+  getComputedStyle(root).getPropertyValue('--book-hue')
+  root.dataset.bookHue = hue ?? 'none'
+  setTimeout(() => {
+    if (turn !== turns) return
+    root.removeAttribute('data-book-glide')
+    if (turning === mine) wear(hue)
+  }, 320)
 }
 
 /**
@@ -114,6 +118,19 @@ function washIn(hue: Hue | null): void {
   const mine = (turning = { hue })
   setTimeout(() => turning === mine && wear(hue), 150)
   void sweep.finished.then(() => band.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', fill: 'forwards' }).finished).catch(() => undefined).finally(() => band.remove())
+}
+
+/**
+ * A book carried to another's place (the shelf, Settings › Books): your books in that order from now on, kept on the
+ * shelf so every list of them, in every window, keeps it. `ids` the order as it is drawn now.
+ */
+export function moveBook(ids: string[], id: string, target: string): void {
+  const from = ids.indexOf(id)
+  const to = ids.indexOf(target)
+  if (from < 0 || to < 0 || from === to) return
+  const next = ids.filter((one) => one !== id)
+  next.splice(to, 0, id)
+  void window.api.haligtree<boolean>('books:order', next)
 }
 
 /** A book's colour, kept on the shelf: every window hears of it. */

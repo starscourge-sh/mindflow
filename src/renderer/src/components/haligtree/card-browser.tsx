@@ -4,7 +4,7 @@ import { TabControls, useToolbarCompact } from './review-toolbar'
 import { swallowRelease } from './carry'
 import { TABLE_LEAD, TABLE_NAME, TABLE_QUIET, TABLE_ROW, TABLE_WHEN, TableHead } from './table-look'
 import { PICKED_ROW } from './task-pick'
-import { TriangleAlert } from 'lucide-react'
+import { Layers, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, useLive, type Due } from '@/lib/haligtree'
@@ -25,7 +25,8 @@ import { NewCard } from './new-card'
 import { SplitForm } from './study'
 import { AnotherWay } from './another-way'
 import { FlipThrough, Poster, Windowed, groupTint } from './card-shelves'
-import { deckTitle, makeDeck, useMadeDecks } from './decks'
+import { deckTitle, madeDeck, useMadeDecks } from './decks'
+import { NameInMenu } from './name-in-place'
 import { Empty, Tip, toast, typing } from './ui'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -441,9 +442,13 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     several.clear()
     toast(`${moving.length === 1 ? 'Moved' : `${num(moving.length)} cards moved`} to the deck ${deckTitle(word)}`, () => void call('cards:retag:undo', [...before].map(([id, body]) => ({ id, body }))).then(() => chime('undo')))
   })()
+  // The menu shut from inside it, as Esc shuts it: once a new deck is named there.
+  const shutMenu = (): void => void (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   // "Move to deck…": a new deck first, named in place, then the decks there are.
   const moveItem = (moving: BrowsedCard[]): RowItem => ({ label: moving.length > 1 ? `Move ${num(moving.length)} to deck…` : 'Move to deck…', items: [
-    { label: 'New deck…', run: () => void makeDeck().then((word) => word && move(moving, word)) },
+    // Named in place, in the menu beside its line (NameInMenu): Enter makes the deck and moves them into it.
+    { label: 'New deck…', panel: <NameInMenu data-move-new-deck mark={<Layers aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />} placeholder="Name the new deck" label="New deck name"
+      onDone={() => shutMenu()} onMake={(words) => void madeDeck(words).then((word) => word && move(moving, word))} /> },
     'separator',
     ...[...new Set([...tags, ...made])].filter((one) => !moving.every((card) => card.tags.length === 1 && card.tags[0] === one)).slice(0, 12).map((one) => ({ label: deckTitle(one, tags), run: () => move(moving, one) }))
   ] })

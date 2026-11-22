@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { NAMING_MENU, NameInMenu } from './name-in-place'
 import { chime } from '@/lib/sound'
 import { call, haligtree, useLive } from '@/lib/haligtree'
 import { plural } from '../../../../main/dates'
-import { ask, toast } from './ui'
+import { toast } from './ui'
 import type { BrowsedCard } from './card-browser'
 import { ChevronDown, Layers } from 'lucide-react'
 import { EXAMPLE_TAG } from '../../../../main/name'
@@ -54,7 +55,7 @@ export const inDeck = (tags: string[], deck: string): boolean => tags.some((one)
 /**
  * A deck named `words` made (under `inside`), said with Undo. Resolves to its
  * tag, or null when the words make no deck. Review's grid names it in place
- * first; elsewhere (a card's "Move to deck", the deck picker) `makeDeck` asks.
+ * first, and so do the deck picker's own row and a card's "Move to deck" menu (NameInMenu).
  */
 export async function madeDeck(words: string | null, inside?: string): Promise<string | null> {
   const tag = words && deckTagOf(inside ? `${inside}/${words}` : words)
@@ -63,11 +64,6 @@ export async function madeDeck(words: string | null, inside?: string): Promise<s
   chime('noted')
   toast(`The deck ${deckTitle(tag)} is made`, () => void haligtree.setTag(tag, { deck: false }).then(() => chime('undo')))
   return tag
-}
-
-/** Away from the decks (a card's menu, the deck picker): the name asked in a small sheet from where you are. */
-export async function makeDeck(inside?: string): Promise<string | null> {
-  return madeDeck(await ask(inside ? `A deck inside ${deckTitle(inside)}` : 'Name the new deck', inside ? 'Cells' : 'Biology, or Biology/Cells for one inside it', { action: 'Make the deck' }), inside)
 }
 
 /**
@@ -127,13 +123,15 @@ export const cardsSaid = (n: number): string => `${plural(n, 'card')}`
 /**
  * Which deck a new card goes in, as a real control: a quiet button naming
  * the deck ("No deck" when none) that opens your decks as a tree, the one in
- * use ticked, and "New deck…" at the end to make one and pick it.
+ * use ticked, and "New deck…" at the end, which turns into the new deck's name in place (NameInMenu): Enter makes it
+ * and picks it, Esc leaves it unmade.
  */
 export function DeckPick({ value, onChange }: { value: string; onChange: (tag: string) => void }): React.JSX.Element {
   const decks = useOwnDecks() ?? []
   const tag = deckTagOf(value)
+  const [naming, setNaming] = useState(false)
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu modal={false} onOpenChange={(open) => !open && setNaming(false)}>
       <DropdownMenuTrigger asChild>
         <button type="button" data-deck-pick={tag || 'none'}
           className="flex h-8 max-w-56 cursor-pointer items-center gap-1.5 rounded-md border border-foreground/10 px-2.5 text-control outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">
@@ -142,7 +140,7 @@ export function DeckPick({ value, onChange }: { value: string; onChange: (tag: s
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-80 w-64">
+      <DropdownMenuContent align="start" className={`max-h-80 w-64 ${naming ? NAMING_MENU : ''}`} onEscapeKeyDown={(event) => naming && event.preventDefault()}>
         <DropdownMenuRadioGroup value={tag} onValueChange={(to) => (chime('tap'), onChange(to))}>
           <DropdownMenuRadioItem value="" data-deck-pick-to="none" className="cursor-pointer">No deck</DropdownMenuRadioItem>
           {decks.filter((deck) => deck.tag !== EXAMPLE_TAG).map((deck) => (
@@ -153,7 +151,12 @@ export function DeckPick({ value, onChange }: { value: string; onChange: (tag: s
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem data-deck-pick-new className="cursor-pointer" onSelect={() => void makeDeck().then((made) => made && onChange(made))}>New deck…</DropdownMenuItem>
+        {naming ? (
+          <NameInMenu data-deck-pick-naming mark={<Layers aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />} placeholder="Name the new deck" label="New deck name"
+            onDone={() => setNaming(false)} onMake={(words) => void madeDeck(words).then((made) => made && onChange(made))} />
+        ) : (
+          <DropdownMenuItem data-deck-pick-new className="cursor-pointer" onSelect={(event) => (event.preventDefault(), chime('open'), setNaming(true))}>New deck…</DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

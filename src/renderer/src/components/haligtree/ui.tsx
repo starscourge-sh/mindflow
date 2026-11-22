@@ -35,6 +35,7 @@ import { wordFor } from '@/lib/words'
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
 import { BookAsker } from './books'
+import { NameInPlace } from './name-in-place'
 import { VaultPicker } from './vault-picker'
 import { ImportFolders } from './import-folders'
 import { GoalAsker } from './goals-view'
@@ -1364,31 +1365,46 @@ function AskSheet({ at, review, label, onLeave, children, ...rest }: { at: Eleme
         onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).querySelector<HTMLElement>('input, [data-sure-yes]')?.focus() }}
         // Only a press outside, Esc or Cancel lets it go: the menu that opened it still moves the focus about as it closes.
         onFocusOutside={(event) => event.preventDefault()}
-        className="z-[80] w-[min(22rem,calc(100vw-1.5rem))] gap-2.5 rounded-xl p-3 text-control">
+        className="z-[80] w-[min(22rem,calc(100vw-1.5rem))] gap-3 rounded-xl p-3.5 text-control">
         {children}
       </PopoverContent>
     </Popover>
   )
 }
 
-/** A sheet's heading: its question in bold at the app's size, and the quiet line that led to it. */
+/**
+ * A sheet's heading: its question at the words' own size in semibold (a heavier, larger line stacked over a bare field
+ * read as a web form's label, the user, 22 Nov: "looks like a first draft"), and the quiet line that led to it.
+ */
 function AskHead({ title, hint }: { title: string; hint?: ReactNode }): React.JSX.Element {
   return (
     <div className="grid gap-0.5">
-      <h2 data-ask-title className="text-heading font-semibold text-balance text-foreground">{title}</h2>
+      <h2 data-ask-title className="text-body font-semibold text-balance text-foreground">{title}</h2>
       {hint && <p data-ask-hint className="text-control text-pretty text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">{hint}</p>}
     </div>
   )
 }
 
-/** A sheet's foot: other ways out on the left, Cancel and the one button on the right, each with its key. */
+/**
+ * A button's key, drawn quietly after its word: no cap of its own (a grey cap glued to the word read as part of the
+ * label, "Cancel Esc"), the button's own ink at half strength, kept apart by a little room. Read aloud as the key.
+ */
+function AskKey({ children, label }: { children: ReactNode; label: string }): React.JSX.Element {
+  return <kbd data-ask-key aria-label={label} className="ml-1 font-sans text-key font-normal opacity-55">{children}</kbd>
+}
+
+/**
+ * A sheet's foot: other ways out on the left, Cancel and the one button on the right, each its word then its key.
+ * The button in the accent, its ink picked for 4.5:1 or more on it (assets/main.css --primary-foreground), at full
+ * strength under the pointer too: a fill gone pale on hover took the words' contrast with it.
+ */
 function AskFoot({ go, no = 'Cancel', ready = true, danger = false, onGo, onCancel, children }: { go: string; /** The way out's own word ("Keep"), Cancel unless said. */ no?: string; ready?: boolean; /** Deleting: the button in the red tint every destructive action wears, never the accent. */ danger?: boolean; onGo: () => void; onCancel: () => void; children?: ReactNode }): React.JSX.Element {
   return (
-    <div data-ask-keys className="flex flex-wrap items-center gap-1.5 pt-0.5">
+    <div data-ask-keys className="flex flex-wrap items-center gap-1 pt-0.5">
       {children}
       <span className="flex-1" />
-      <Button type="button" variant="ghost" size="sm" data-ask-cancel className="cursor-pointer" onClick={onCancel}>{no} <ShadKbd>Esc</ShadKbd></Button>
-      <Button type="button" size="sm" variant={danger ? 'destructive' : 'default'} data-ask-go data-sure-yes="" disabled={!ready} className="cursor-pointer" onClick={onGo}>{go} <ShadKbd>↵</ShadKbd></Button>
+      <Button type="button" variant="ghost" size="sm" data-ask-cancel className="cursor-pointer text-(--mf-muted-strong) hover:text-foreground" onClick={onCancel}>{no}<AskKey label="Escape">Esc</AskKey></Button>
+      <Button type="button" size="sm" variant={danger ? 'destructive' : 'default'} data-ask-go data-sure-yes="" disabled={!ready} className={`cursor-pointer ${danger ? '' : 'hover:bg-primary hover:brightness-110'}`} onClick={onGo}>{go}<AskKey label="Return">↵</AskKey></Button>
     </div>
   )
 }
@@ -1443,6 +1459,61 @@ function Asker(): React.JSX.Element | null {
         {asked.instead && <Button type="button" variant="ghost" size="sm" data-ask-instead className="cursor-pointer text-muted-foreground" onClick={() => { const run = asked.instead!.run; done(null); run() }}>{asked.instead.label}</Button>}
       </AskFoot>
     </AskSheet>
+  )
+}
+
+/**
+ * A thing's name changed where its name is shown, as Finder renames a file: a field stands over the name in the row
+ * (or the link) that was right-clicked, in its own type, the words picked so typing replaces them. Enter or a click
+ * away keeps, Esc leaves it as it was. Never a box with a title over a field (the user, 22 Nov: "I still hate these
+ * forms"). `at`: the thing whose name it is, when the caller knows it (a link in the writing); else what was last
+ * pressed. Resolves to the new name, or null when it is unchanged or left.
+ */
+export const renameHere = (title: string, label: string, at?: Element | null): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:rename-here', { detail: { title, label, at: at ?? pressed?.el ?? null, answer } })))
+
+/** The innermost thing in `host` that shows just these words (the row's name, not the whole row), a tag's with its "#" too. */
+const wordsIn = (host: Element, title: string): Element | null => {
+  const is = (el: Element): boolean => { const said = el.textContent?.trim() ?? ''; return said === title.trim() || said === `#${title.trim()}` }
+  let found: Element | null = null
+  // In the page's order a thing inside comes after what holds it: the last to match is the innermost.
+  for (const el of host.querySelectorAll('*')) if (is(el) && el.getBoundingClientRect().width > 0) found = el
+  return found ?? (is(host) ? host : null)
+}
+
+type Renaming = { title: string; label: string; answer: (name: string | null) => void; place: React.CSSProperties; font: string }
+
+function RenameHere(): React.JSX.Element | null {
+  const [now, setNow] = useState<Renaming | null>(null)
+  useEffect(() => {
+    const on = (event: Event): void => {
+      const { title, label, at, answer } = (event as CustomEvent<{ title: string; label: string; at: Element | null; answer: (name: string | null) => void }>).detail
+      const host = at?.isConnected ? (at.closest('[data-row-menu], [data-side-row], [role="row"], [role="button"], button, li, a') ?? at) : null
+      const words = host && host.getBoundingClientRect().height <= 280 ? wordsIn(host, title) : null
+      const box = words?.getBoundingClientRect()
+      const room = host?.getBoundingClientRect()
+      // Over the name where it is; with no name on show to stand over (asked by keys), under the window's top, as ⌘K sits.
+      const place: React.CSSProperties = box && room
+        ? { left: box.left - 4, top: box.top + box.height / 2 - 14, width: Math.min(window.innerWidth - box.left - 8, Math.max(180, room.right - box.left)) }
+        : { left: window.innerWidth / 2 - 170, top: Math.round(window.innerHeight * 0.18), width: 340 }
+      chime('open')
+      setNow({ title, label, answer, place, font: words ? getComputedStyle(words).font : '' })
+    }
+    window.addEventListener('haligtree:rename-here', on)
+    return () => window.removeEventListener('haligtree:rename-here', on)
+  }, [])
+  if (!now) return null
+  return (
+    <span data-rename-here data-takes-keys className="fixed z-[80] flex h-7 items-center" style={now.place}>
+      <NameInPlace initial={now.title} placeholder={now.title} label={now.label} style={now.font ? { font: now.font } : undefined}
+        className="h-7 w-full rounded-md bg-popover px-1 text-body text-foreground shadow-(--mf-shadow-control) outline-none ring-1 ring-ring/45 placeholder:text-muted-foreground"
+        onDone={(words) => {
+          const name = words && words !== now.title ? words : null
+          if (name) chime('tap')
+          now.answer(name)
+          setNow(null)
+        }} />
+    </span>
   )
 }
 
@@ -1849,6 +1920,7 @@ export function Toaster(): React.JSX.Element | null {
   return (
     <>
     <Asker />
+    <RenameHere />
     <SureAsker />
     <KindAsker />
     <QuestionAsker />

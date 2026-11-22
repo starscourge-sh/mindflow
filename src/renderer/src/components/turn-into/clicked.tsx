@@ -5,7 +5,7 @@ import { DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenu
 import { MenuGlyph } from "@/components/ui/menu-icon"
 import { removeLink } from "@/components/haligtree/link-editor"
 import { copyLink } from "@/components/haligtree/row-menu"
-import { ask } from "@/components/haligtree/ui"
+import { ask, renameHere } from "@/components/haligtree/ui"
 import { openPdf } from "@/components/pdf/pdf-reader"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { haligtree } from "@/lib/haligtree"
@@ -255,7 +255,8 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       !!id && type !== "capture" && own && {
         label: "Rename…", edits: true,
         data: "rename",
-        run: () => void ask("A new name", label, { initial: label, action: "Rename" }).then((name) => {
+        // Renamed on the link itself, in the writing.
+        run: () => void renameHere(label, "New name", editor.view.nodeDOM(pos) as Element | null).then((name) => {
           const next = name?.trim()
           if (!next || next === label) return
           void haligtree.saveItem(key, { title: next }).then(() => chime("noted"))

@@ -4,7 +4,7 @@ import { captureMenu, useCaptures } from '../capture-list'
 import { gemMenu } from './items-view'
 import { taskMenu, type TaskNow } from './tasks-view'
 import { copyLinkItem, type RowItem } from './row-menu'
-import { ask, pin, quietly } from './ui'
+import { pin, quietly, renameHere } from './ui'
 import { openItems } from '@/lib/split'
 import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { exit } from '@/lib/capture-links'
@@ -60,7 +60,8 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
     waiting && kind !== 'todo' && { label: 'Make it a task', run: () => void makeTask({ capture: id }) },
     !capture && {
       label: 'Rename…',
-      run: () => void ask('A new name', title, { initial: title, action: 'Rename' }).then((name) => {
+      // Renamed where its name is, in the row right-clicked.
+      run: () => void renameHere(title, 'New name').then((name) => {
         const next = name?.trim()
         if (!next || next === title) return
         void haligtree.saveItem(id, { title: next }).then(() => (chime('noted'), quietly(() => void haligtree.saveItem(id, { title }))))
