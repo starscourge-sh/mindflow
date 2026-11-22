@@ -15,7 +15,7 @@ import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
 import { SortableList, SortableRow, type NestCheck } from './sortable'
 import { age, num, plural } from '../../../../main/dates'
-import { haligtree, useLive } from '@/lib/haligtree'
+import { call, haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { FOLDER_DEPTH, askFolder, askFolderFor, folders, writeFrom, keepIn, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { calendarInk, calendarsNow, events, type Calendar } from '@/lib/events'
@@ -242,6 +242,8 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
   return [
     // As Notion's: its name and place, then opening it, then the foot. Every folder shows under Writing in the sidebar.
     copyLinkItem(`folder:${folder.id}`, folder.name),
+    // Put away by Start fresh: back at the top of Writing, everything in it with it (start-fresh.ts `bringBack`).
+    !!folder.away && { label: 'Bring back', hint: 'To the top of Writing, with all it holds', run: () => void call('fresh:back', 'folder', folder.id).then(() => (chime('unshelve'), toast(`Brought back to Writing: ${folder.name}`, () => void call('fresh:unback', 'folder', folder.id).then(() => chime('shelve'))))) },
     { label: 'Rename…', run: onRename },
     // Into another folder, found in the one folder picker (folder-picker.tsx), as things are kept in one.
     { label: 'Move to…', run: () => askFolderFor(folder) },

@@ -965,6 +965,12 @@ export function Home(): React.JSX.Element {
     window.addEventListener('haligtree:settings-at', onAt)
     return () => window.removeEventListener('haligtree:settings-at', onAt)
   })
+  // Writing, from Start fresh's notice ("Show me"), which has no `setView` of its own.
+  useEffect(() => {
+    const onGo = (): void => (chime('page'), setView({ id: 'articles' }))
+    window.addEventListener('haligtree:show-writing', onGo)
+    return () => window.removeEventListener('haligtree:show-writing', onGo)
+  })
   // What's new, asked for by the card, ⌘K or the Haligtree menu: its built-in pages.
   useEffect(() => {
     const onNews = (): void => (chime('page'), setView({ id: 'whatsnew' }))
@@ -2230,6 +2236,8 @@ export function Home(): React.JSX.Element {
             { label: 'Make everything bigger', hint: 'Text and controls, in every window', keys: '⌘+', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: 1 })) },
             { label: 'Make everything smaller', hint: 'Text and controls, in every window', keys: '⌘−', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: -1 })) },
             { label: 'Your reader card', hint: 'Your book on a card, in Settings', cue: null, run: () => setView({ id: 'settings', focus: 'reader-card', nonce: Date.now() }) },
+            { label: 'Start fresh…', hint: 'Put everything away, then bring back only what you choose', cue: null, run: () => setView({ id: 'settings', focus: 'start-fresh', nonce: Date.now() }) },
+            { label: 'Bring back…', hint: 'What Start fresh put away, one at a time', cue: null, run: () => setView({ id: 'settings', focus: 'bring-back', nonce: Date.now() }) },
             // The wrench on a sidebar heading shows only on pointing: found here too.
             { label: 'Customize the sidebar…', hint: 'Choose and order the pages it shows', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },
             { label: recent && !recent.opened ? 'Hide Recent' : 'Show Recent', hint: recent && !recent.opened ? 'The list of what you made lately goes away' : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },

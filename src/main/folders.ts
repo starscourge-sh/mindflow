@@ -7,6 +7,7 @@ import { atomically, changed, database, setting } from './captures'
 import { backupDir } from './backup'
 import { copyBook } from './books'
 import { dayKey } from './dates'
+import { AWAY, freshTable } from './start-fresh'
 
 /**
  * Folders: one tree for the whole book, where a thing lives, of any kind (a page, a gem, a note from the Inbox, a
@@ -28,6 +29,8 @@ export type Thing = { type: Kind; id: string }
 export type Was = Thing & { folder: string | null; status?: string }
 export type Folder = {
   id: string; name: string; icon: string | null; color: string | null; parent: string | null; starred: number; archived: number
+  /** Put away by Start fresh, inside “From Obsidian”, until brought back. */
+  away: number
   /** What it holds itself, by kind, out of the Bin and in sight; and how many of its things are archived. */
   pages: number; gems: number; notes: number; tasks: number; hidden: number
   /** How much and how lately things were kept in it: each keep counts 1, less as it ages (a week old: a half). */
@@ -71,12 +74,14 @@ export function folderColumns(): void {
   // Each time something is kept in a folder by a person (a keep, not an import or an Undo): the picker's frecency.
   db.exec('create table if not exists folder_use (folder_id text not null, at text not null)')
   db.exec('create index if not exists folder_use_by_folder on folder_use(folder_id)')
+  freshTable(db)
 }
 
 /** Every folder, in the tree's own order, each with what it holds counted by kind. */
 export function listFolders(): Folder[] {
   const db = database()
   const rows = db.prepare(`select g.id, g.name, g.icon, g.color, g.parent_id as parent, g.starred, g.archived_at is not null as archived, g.cover, g.front,
+      exists (select 1 from ${AWAY} a where a.kind = 'folder' and a.id = g.id and a.back_at is null) as away,
       coalesce(o.position, 1e12) as at, g.created_at as made from note_groups g left join note_order o on o.list = '${LIST}' and o.id = 'g:' || g.id
       where g.list = '${LIST}' order by at, made`).all() as (Omit<Folder, 'pages' | 'gems' | 'notes' | 'tasks' | 'hidden'> & { at: number; made: string })[]
   const counts = new Map<string, { pages: number; gems: number; notes: number; tasks: number; hidden: number }>()

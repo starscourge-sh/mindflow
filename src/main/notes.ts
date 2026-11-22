@@ -21,6 +21,7 @@ import { NOTE_KEY } from './name'
 import { fileLink } from './pdf-highlights'
 import { linkedAmong, mentionsIn } from './links-in'
 import { closeSmall, isSmall, liftSmall, putDownSmall, showSmall } from './small-window'
+import { broughtBack } from './start-fresh'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -340,6 +341,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       }
       const was = parse((db.prepare(`select archived_was from ${at} where id = ?`).get(id) as { archived_was: string | null } | undefined)?.archived_was) as { pinned_at?: string | null; remind_at?: string | null } | null
       back.run(was?.pinned_at ?? null, was?.remind_at ?? null, id)
+      // Put away by Start fresh: brought back as it was (a loose page out of “From Obsidian”).
+      broughtBack(at, id)
     }
     changed()
     // A goal archived (or back) takes its desktop card with it at once, not on the next half-minute round.

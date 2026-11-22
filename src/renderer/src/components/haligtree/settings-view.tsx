@@ -56,6 +56,7 @@ import { PageContents } from './page-contents'
 import { SectionSearch, SectionTabs } from './section-tabs'
 import { ReaderCard, ShelfCover } from './reader-card'
 import { DeckFace } from './deck-shelf'
+import { BringBack, StartFresh } from './start-fresh'
 import { CoverChoice, DimPreview, FolderStrips, InFinder, isBuiltInScenery } from './settings-looks'
 import { builtInScenery } from '@/lib/built-in-scenery'
 import { sourceOf } from '../../../../main/moment-source'
@@ -561,7 +562,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   // Asked for the reader card or a book, or for what Home shows of your goals: its section, with no search hiding
   // it, and for the goals the row brought into view.
   useEffect(() => {
-    const row = asked === 'reader-card' || asked?.startsWith('book') ? ['Your book', ''] : asked === 'goals-home' ? ['What comes back to you', 'Goals on Home'] : null
+    const row = asked === 'reader-card' || asked?.startsWith('book') ? ['Your book', ''] : asked === 'goals-home' ? ['What comes back to you', 'Goals on Home'] : asked === 'start-fresh' ? ['Your book', 'Start fresh'] : asked === 'bring-back' ? ['Your book', 'Bring back'] : null
     if (!row) return
     setQuery('')
     setSection(row[0])
@@ -1342,6 +1343,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
         <Group section="Your book" title="Books" bare>
           <BookRows asked={asked} nonce={nonce} />
+        </Group>
+        <Group section="Your book" title="Start fresh">
+          <BringBack point={asked === 'bring-back' ? nonce : undefined} />
+          <StartFresh point={asked === 'start-fresh' ? nonce : undefined} />
         </Group>
         <Group section="Help" title="Getting started">
           <WelcomeRow />

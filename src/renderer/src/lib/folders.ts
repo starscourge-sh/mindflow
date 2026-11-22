@@ -15,6 +15,8 @@ export type Thing = { type: FolderKind; id: string }
 export type Was = Thing & { folder: string | null; status?: string }
 export type Folder = {
   id: string; name: string; icon: string | null; color: string | null; parent: string | null; starred: number; archived: number
+  /** Put away by Start fresh, inside “From Obsidian”, until brought back (start-fresh.ts). */
+  away?: number
   pages: number; gems: number; notes: number; tasks: number; hidden: number
   /** Frecency: keeps counted, less as they age (folders.ts `listFolders`). */
   used: number

@@ -61,6 +61,7 @@ import { SIDEBAR_SHAPE } from './sidebar-shape'
 import { linkOf, resolveWaiting, watchName } from './renames'
 import { APP_NAME, NOTE_KEY } from './name'
 import { cleanTitle } from './clean-title'
+import { broughtBack } from './start-fresh'
 
 // A note as words lives in card-words.ts (the reading thread reads it too); named here for the files that always found it here.
 export { cardWords, plain }
@@ -4320,6 +4321,8 @@ export function registerHaligtree(): void {
     const was = db.prepare('select held_at as at from tasks where id = ? and held_at is not null').get(String(id)) as { at: string } | undefined
     if (!was) return null
     db.prepare('update tasks set held_at = null where id = ?').run(String(id))
+    // Put away by Start fresh: back in the project it had.
+    broughtBack('tasks', String(id))
     return write(was.at)
   })
   handle('task:hold', (id: string, at: string) => write(db.prepare("update tasks set held_at = ? where id = ? and status = 'open'").run(String(at), String(id)).changes))
