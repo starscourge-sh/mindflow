@@ -112,7 +112,7 @@ const takes = (place: HTMLElement, carried: Carried, node: HTMLElement | undefin
   if (place.dataset.queueDrop !== undefined) return !task
   // Writing's own row takes a capture (it becomes a page there, lib/capture-links.tsx `toWriting`), and anything kept in
   // a folder (it leaves it, for Writing's top level).
-  if (place.dataset.writingDrop !== undefined) return node?.dataset.type === 'capture' || place.dataset.keepDrop !== undefined
+  if (place.dataset.writingDrop !== undefined) return node?.dataset.type === 'capture' || (place.dataset.keepDrop !== undefined && !carried.tab)
   return true
 }
 
