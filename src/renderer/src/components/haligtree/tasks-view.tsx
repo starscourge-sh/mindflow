@@ -1161,8 +1161,10 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
       quietly(() => void haligtree.saveTask(task.id, { subtasks })))
   }
 
-  // --- dragging on Today ----------------------------------------------------
-  const sortable = mode === 'today' && !example && view.group === 'when' && !several.chosen.length
+  // --- dragging ------------------------------------------------------------------
+  // Today's rows, and any tab in your own order: "Sort: Your order" over a list that would not drag read as a promise
+  // broken (the user, 23 Nov). A list sorted by date or priority keeps its sort; a row there only becomes a step.
+  const sortable = !example && !several.chosen.length && ((mode === 'today' && view.group === 'when') || view.sort === 'manual')
   /** Your own order saved as these ids stand, drawn so at once (`placing`). */
   const place = (order: string[], also?: { id: string; patch: Partial<Task>; save: Promise<unknown> }): Promise<unknown> => {
     const at = new Map<string, Partial<Task>>(order.map((one, n) => [one, { sortOrder: n }]))
@@ -1180,6 +1182,22 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   const dropInPart = (id: string, target: string): void => {
     const task = shown.find((one) => one.id === id)
     if (!task) return
+    // Out of "On hold": brought back, at the head of the part it was let go in, as "Bring it back" does with its Undo.
+    if (partOf.get(id) === ON_HOLD) {
+      const rest = shown.map((one) => one.id).filter((one) => one !== id)
+      const first = rest.findIndex((one) => partOf.get(one) === target)
+      bringBack(task)
+      if (first >= 0) void place([...rest.slice(0, first), id, ...rest.slice(first)]).catch(() => undefined)
+      return
+    }
+    // Into "On hold": put away as a fresh start puts it, with Undo and ⌘Z.
+    if (target === ON_HOLD) {
+      const at = new Date().toISOString()
+      return void call('task:hold', id, at).then(() => {
+        chime('away')
+        toast(`On hold: ${quoted(splitTags(task.title).text, 48)}`, () => void call('task:back', id).then(() => chime('unshelve')))
+      })
+    }
     const rest = shown.map((one) => one.id).filter((one) => one !== id)
     const before = rest.indexOf(target)
     const order = before >= 0 ? [...rest.slice(0, before), id, ...rest.slice(before)] : []
@@ -1212,7 +1230,9 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
    * by dragging, and the refusal says what does put a task there.
    */
   const takenBy = (id: string, part: string): { words: string } | { refused: string } =>
-    part === 'Today' && partOf.get(id) === 'Overdue' ? { words: 'Move to Today' }
+    partOf.get(id) === ON_HOLD ? { words: 'Bring it back' }
+    : part === ON_HOLD ? { words: 'Put on hold' }
+    : part === 'Today' && partOf.get(id) === 'Overdue' ? { words: 'Move to Today' }
     : part === 'Overdue' ? { refused: 'Its date puts a task in “Overdue”: change the date to move it' }
     : part === 'Waiting on someone' ? { refused: 'Who it waits on puts a task there: change that to move it' }
     : { refused: `What a task is puts it in “${part}”, not where it is dropped` }
@@ -1594,7 +1614,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
               if (!('id' in row))
                 return row.key === 'held' ? (
                   // A fresh start's tasks, folded and quiet at the foot of their own tab: one click (or opening one) brings them out.
-                  <h2 className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">
+                  <h2 data-row-part={ON_HOLD} className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">
                     {/* The words on the same edge as every heading; the fold's chevron after the count. */}
                     <button type="button" data-on-hold aria-expanded={heldShown} onClick={() => (chime(heldShown ? 'off' : 'tap'), heldShown || unfold(held), setHeldOpen(!heldShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
