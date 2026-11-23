@@ -245,8 +245,9 @@ export function CardFace({ seed, name, facts, small = false }: { seed: number; n
       {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
           pointer) they measure short, so the words were cut through their middles. */}
       <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase">{title}</p>
-      {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet
-          on a cover narrowed by its spine. */}
+      {/* What the book is, on its own line under its title: beside four stamps it ran off the label ("COMMONPLAC", the user, 24 Nov). */}
+      <p aria-hidden data-reader-book className="mt-0.5 font-mono text-[0.5rem] font-medium tracking-[0.14em] uppercase opacity-70">Commonplace book</p>
+      {/* The foot: the stamps, and the day's tag under them. */}
       <div className="mt-auto flex flex-col items-stretch gap-2.5 border-t border-current/15 pt-2.5">
         <div className="flex items-end justify-between gap-2">
           {/* Room for a row of stamps, kept even before the first, so the card never changes. */}
@@ -260,7 +261,6 @@ export function CardFace({ seed, name, facts, small = false }: { seed: number; n
               </Tip>
             ))}
           </div>
-          <p aria-hidden data-reader-book className="shrink-0 text-right font-mono text-[0.5rem] leading-[1.3] font-medium tracking-[0.14em] uppercase">Commonplace<br />Book</p>
         </div>
         <div className="flex">
           {/* One quiet line, as a member card's "Member since": no box, no hatching. */}
