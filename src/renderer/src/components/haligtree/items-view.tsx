@@ -52,7 +52,7 @@ import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
 import { openLine } from './study'
-import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
+import { AskKey, Empty, focusField, Grows, Island, POP_ISLANDS, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling, namedByApp } from './ui'
 import { Term } from './term'
 import { AGES, COLUMNS_OR_LIST, Chips, Display, columnsOrList, everySort, FilterChips, arrange, inAge, period, useView, type Choice, type Density, type Facet, type View } from './display'
 import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
@@ -92,7 +92,7 @@ import { QuestionDetail, questionEntry, questionMenu, startQuestion } from './qu
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
 import { dayjs, num, plural } from '../../../../main/dates'
-import { moment } from '@/lib/clock'
+import { moment, when } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, isFolder, useGroups, type NoteGroup } from '@/lib/groups'
 import { useReveal } from './islands'
@@ -1651,22 +1651,35 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
           <span className="text-control">{at ? `Reminds ${whenInLine(at, false)}` : 'Remind me…'}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 gap-0 p-1 text-sm">
+      {/* The list's Sort / View popover's anatomy (display.tsx), as the marked day's popover has it: the field on top,
+          then a small heading over the choices in an island, the way to take it off quietly on the left of the foot. */}
+      <PopoverContent align="start" className={`w-72 gap-0 p-2 text-control ${POP_ISLANDS}`}>
         <input
           autoFocus
           value={words}
           onChange={(event) => setWords(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && typed && set(typed)}
           placeholder="Try: 4 pm, 2 days, in 5 weeks…"
-          className="w-full border-b bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground"
+          aria-label="When to remind you"
+          className="mb-3 h-9 w-full rounded-lg border bg-transparent px-3 text-body text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-foreground/25"
         />
-        {(typed ? [[words, typed] as [string, Date]] : presets).map(([label, date]) => (
-          <button key={label} type="button" onClick={() => set(date)} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent">
-            <span>{label}</span>
-            <span className="text-xs text-muted-foreground">{moment(date)}</span>
-          </button>
-        ))}
-        {at && <button type="button" onClick={() => set(null)} className="w-full rounded-md px-2 py-1.5 text-left text-muted-foreground hover:bg-accent">Clear the reminder</button>}
+        {/* What it is set to now beside the heading, as the Calendar's Reminder island says it (calendar-events.tsx RemindPicker). */}
+        <Island compact title={typed ? 'Reads as' : 'Remind me'} actions={at && !typed ? <span className="text-control font-medium text-foreground">{when(at, false)}</span> : undefined}>
+          {/* Typing turns four choices into the one it reads: the island's height glides, as the marked day's found notes do. */}
+          <Grows inner="flex flex-col p-1">
+            {(typed ? [[words, typed] as [string, Date]] : presets).map(([label, date]) => (
+              <button key={label} type="button" onClick={() => set(date)} className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-foreground hover:bg-accent">
+                <span className="min-w-0 truncate">{label}</span>
+                <span className="shrink-0 text-(--mf-muted-strong) tabular-nums">{moment(date)}{typed && <AskKey label="Return">↵</AskKey>}</span>
+              </button>
+            ))}
+          </Grows>
+        </Island>
+        {at && (
+          <div className="mt-3 flex items-center">
+            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => set(null)}>Clear the reminder</Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )
