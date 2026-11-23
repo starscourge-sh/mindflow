@@ -68,6 +68,7 @@ try {
   check('carried inside the list: no “Open on the left / right” place comes up', !split.length, split.slice(0, 2).map((one) => `frame ${one.i}: ${one.places.join(', ')}`).join(' | '))
   const shrunk = frames.filter((one) => one.scale !== 1)
   check('carried inside the list: the window’s main frame is never scaled', !shrunk.length, shrunk.slice(0, 2).map((one) => `frame ${one.i}: scale ${one.scale}`).join(' | '))
+  if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/inbox-drag-mid.png` })
   await h.mouse.up(); await wait(1200)
   const now = await order()
   const at = now.indexOf(carried.id)
