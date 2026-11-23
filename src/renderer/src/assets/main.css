@@ -4369,3 +4369,7 @@ html[data-small] [data-reading-pane] .note-pane[data-all-shown] [data-thought-do
    pointer at all, so passing over them never lights one or moves the focus (and the caret) out of the name. A click
    on one lands on the menu itself, which keeps the name as a click away does. */
 .mf-naming-menu [role^="menuitem"] { pointer-events: none; }
+
+/* One floating thing at a time: a name's card (note-preview.tsx) is up, so no tooltip beside it ("Change who said it"
+   stood over Marcus Aurelius's card, 23 Nov). */
+:root:has([data-note-preview]) [data-slot='tooltip-content'] { visibility: hidden; }

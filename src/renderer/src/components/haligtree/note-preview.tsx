@@ -45,6 +45,9 @@ const sideList = (el: Element): Element | null => {
       // note's pane. Taken for a list, a tag's card on the page came up beside it, over the list (the user, 15 Nov).
       const note = at.closest('.note-pane')
       if (note && wide >= note.getBoundingClientRect().width * 0.8) return null
+      // A scroller that holds the note's own words is the page, however narrow its properties panel leaves it: taken
+      // for a list in a split, a name's card in the note came up beside it, over the other pane (the user, 23 Nov).
+      if (at.querySelector('.ProseMirror.haligtree-editor')) return null
       const pane = at.closest('[data-pane]')
       return pane && wide >= pane.getBoundingClientRect().width * 0.8 ? null : at
     }

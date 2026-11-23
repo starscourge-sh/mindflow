@@ -58,6 +58,20 @@ try {
   check('in a split, the name\'s card comes up at the name', atName(half), JSON.stringify({ name: half.name, card: half.card }))
   check('...in its own half, never over the page beside it', !!half.card && !!half.own && half.card.x >= half.own.left && half.card.x < half.own.right, JSON.stringify({ card: half.card?.x, own: half.own }))
   if (shots) await h.screenshot({ path: `${shots}/hover-card-split.png` })
+  // A quote's signature on a gem open in the right half, its properties panel beside it narrowing the note's column
+  // (the user, 23 Nov: Leonardo's card came up over Settings in the left half).
+  await h.mouse.move(5, 5); await wait(400)
+  const quote = (await v('items', 'nugget')).find((one) => one.kind === 'quote' && one.attribution)
+  if (quote) {
+    await c.send('nugget', quote.id); await wait(1800)
+    const signed = h.locator('[data-signed-edit] [data-note^="person:"]').last()
+    if (await signed.count()) {
+      const gem = await rested(signed)
+      if (shots) await h.screenshot({ path: `${shots}/hover-card-split-signature.png` })
+      check('...and no tooltip stands beside its card', !(await h.locator('[data-slot="tooltip-content"]').evaluateAll((all) => all.some((one) => one.getBoundingClientRect().width && getComputedStyle(one).visibility !== 'hidden'))))
+      check('a quote\'s signature in a split: its card at the name, in its own half', atName(gem) && !!gem.own && gem.card.x >= gem.own.left && gem.card.x < gem.own.right, JSON.stringify({ name: gem.name, card: gem.card, own: gem.own }))
+    } else console.log('NOTE  no signature drawn on that gem')
+  } else console.log('NOTE  no quote gem with who said it in this book')
   await h.mouse.move(5, 5); await wait(500)
   check('no page errors', c.errors.length === 0, c.errors.join(' | '))
 } catch (error) {
