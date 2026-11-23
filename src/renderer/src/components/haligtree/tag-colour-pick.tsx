@@ -3,7 +3,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { haligtree } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { TagIcon } from './tag-icon'
-import { quietly } from './ui'
+import { Swatch } from './row-menu'
+import { Island, POP_ISLANDS, Tip, quietly } from './ui'
 
 const TAG_COLOURS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 
@@ -31,14 +32,21 @@ export function TagColourPick({ tag, color, className }: { tag: string; color?: 
           <TagIcon tag={tag} color={color} className={className} />
         </span>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-2" onClick={(event) => event.stopPropagation()}>
-        <div role="radiogroup" aria-label={`#${tag}'s colour`} className="flex items-center gap-1.5">
-          {TAG_COLOURS.map((one) => (
-            <button key={one} type="button" role="radio" aria-checked={color === one} aria-label={one} data-tag-swatch={one} onClick={() => pick(one)}
-              className={`size-5 rounded-full transition-[scale] duration-150 ease-out active:scale-95 motion-reduce:transition-none ${color === one ? 'ring-2 ring-foreground/60 ring-offset-1 ring-offset-background' : ''}`}
-              style={{ background: `var(--tt-color-text-${one})` }} />
-          ))}
-        </div>
+      {/* The islanded popover's anatomy (the marked-day popover's Colour row, milestones.tsx): a small heading over an
+          island holding the nine as one line of squares, the one worn ticked. */}
+      <PopoverContent align="start" className={`w-auto gap-0 p-3 ${POP_ISLANDS}`} onClick={(event) => event.stopPropagation()}>
+        <Island compact title="Colour">
+          <div role="radiogroup" aria-label={`#${tag}'s colour`} className="flex flex-nowrap items-center gap-0.5 px-1.5 py-1">
+            {TAG_COLOURS.map((one) => (
+              <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
+                <button type="button" role="radio" aria-checked={color === one} aria-label={one} data-tag-swatch={one} onClick={() => pick(one)}
+                  className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md transition-colors duration-150 hover:bg-accent motion-reduce:transition-none">
+                  <Swatch color={`var(--tt-color-text-${one})`} on={color === one} />
+                </button>
+              </Tip>
+            ))}
+          </div>
+        </Island>
       </PopoverContent>
     </Popover>
   )

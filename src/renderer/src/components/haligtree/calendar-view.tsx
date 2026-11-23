@@ -21,7 +21,7 @@ import { CALM, land as landOn, type Landing } from '@/lib/snap'
 import { call, unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, plural, type Dayjs } from '../../../../main/dates'
-import { MoreBelow, Rolling, Tip, stage, typing } from './ui'
+import { Island, MoreBelow, POP_ISLANDS, Rolling, Tip, stage, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu, type RowItem } from './row-menu'
@@ -807,8 +807,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 <ChevronDown aria-hidden className={`size-4 shrink-0 text-foreground/70 transition-transform duration-150 motion-reduce:transition-none ${jump ? 'rotate-180' : ''}`} />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-3" data-cal-jump-month>
-              <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setOpened(null), setAnchor(day), setJump(false))} />
+            {/* The islanded popover's frame (the marked-day popover, milestones.tsx): a small heading over the small month in an island of its own. */}
+            <PopoverContent align="start" className={`w-[19rem] gap-0 p-3 ${POP_ISLANDS}`} data-cal-jump-month>
+              <Island compact title="Jump to">
+                <div className="p-2">
+                  <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setOpened(null), setAnchor(day), setJump(false))} />
+                </div>
+              </Island>
             </PopoverContent>
           </Popover>
           {/* What is late, counted calmly beside the title; its menu holds "Reschedule all…" and the late ones. */}

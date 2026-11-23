@@ -11,7 +11,7 @@ import { NameInPlace } from './name-in-place'
 import { RowMenu, openFromGrip } from './row-menu'
 import { ProjectsTree, projectMenu } from './side-projects'
 import { TasksTabs, TasksView } from './tasks-view'
-import { Empty, Page, Rolling, Tip, sayNow, typing } from './ui'
+import { Empty, Page, Rolling, Tip, quietly, sayNow, typing } from './ui'
 import { num } from '../../../../main/dates'
 
 /**
@@ -135,7 +135,7 @@ function ProjectHead({ id, onOpen }: { id: string; onOpen: (type: string, id: st
           </div>
         </RowMenu>
         <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
-          <IconChoice group={project} onPick={pick} />
+          <IconChoice group={project} onPick={pick} onColor={(color) => { const was = project.color ?? null; void projects.set(id, { color }).then(() => quietly(() => void projects.set(id, { color: was }))) }} />
         </PopoverContent>
       </Popover>
       {/* The projects inside it, as rows the sidebar draws, before its own tasks. */}

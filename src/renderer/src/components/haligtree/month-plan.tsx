@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Timer as CalendarClock, Bookmark as Telescope } from '@/components/ui/icons'
-import { Tip, stage } from '@/components/haligtree/ui'
+import { Island, POP_ISLANDS, Tip, stage } from '@/components/haligtree/ui'
 import { slotTicker } from '@/lib/proximity'
 import { CarriedCard } from './carry'
 import { Overlay, SETTLE } from './sortable'
@@ -932,9 +932,14 @@ function More({ day, lines, hidden, gone, onDay, onLine }: { day: Dayjs; lines: 
           +{hidden} more
         </button>
       </PopoverAnchor>
-      <PopoverContent data-plan-popover side="right" align="start" className="w-64 gap-1" {...hover} onOpenAutoFocus={(event) => event.preventDefault()}>
-        <button type="button" onClick={() => (chime('open'), setOpen(false), onDay(dayKey(day)))} className="rounded-sm px-1 py-0.5 text-left text-body font-semibold text-foreground hover:bg-accent">{day.format('dddd D MMMM')}</button>
-        {lines.map((line) => <LineChip key={lineKey(line)} line={line} late={gone} drag={false} onOpen={(one) => (setOpen(false), onLine(one))} />)}
+      {/* The islanded popover's frame (the marked-day popover, milestones.tsx): the day as its heading, which opens the
+          day's page, over an island holding everything the day has. */}
+      <PopoverContent data-plan-popover side="right" align="start" className={`w-64 gap-0 p-3 ${POP_ISLANDS}`} {...hover} onOpenAutoFocus={(event) => event.preventDefault()}>
+        <Island compact title={<button type="button" onClick={() => (chime('open'), setOpen(false), onDay(dayKey(day)))} className="-mx-1 cursor-pointer rounded-sm px-1 text-left hover:bg-accent">{day.format('dddd D MMMM')}</button>}>
+          <div className="flex flex-col gap-0.5 p-1">
+            {lines.map((line) => <LineChip key={lineKey(line)} line={line} late={gone} drag={false} onOpen={(one) => (setOpen(false), onLine(one))} />)}
+          </div>
+        </Island>
       </PopoverContent>
     </Popover>
   )

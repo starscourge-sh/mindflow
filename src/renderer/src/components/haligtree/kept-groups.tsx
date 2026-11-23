@@ -27,8 +27,8 @@ import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/li
 import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
 import { CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, offWindow, Slid, type Aim, type Parts, type Places } from './carry'
-import { Hinted, copy } from './row-menu'
-import { AppNamed, Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
+import { Hinted, Swatch, copy } from './row-menu'
+import { AppNamed, Count, Island, PANEL_FIELD, POP_ISLANDS, PanelRow, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
 /** A group's title bar: as tall as a thumbnail, no taller (the old panels' slim head). */
@@ -938,7 +938,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
-                <IconChoice group={group} onPick={(icon) => (change(group, { icon }), chime('tap'), setPicking(false))} />
+                <IconChoice group={group} onPick={(icon) => (change(group, { icon }), chime('tap'), setPicking(false))} onColor={(color) => change(group, { color })} />
               </PopoverContent>
             </Popover>
             {/* What is left to sort, on its own pill by the name, a click from the pass through them. */}
@@ -1099,7 +1099,7 @@ export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, o
             key={color}
             aria-label={color}
             data-color-dot={color}
-            className="size-6 min-h-0 justify-center rounded-full shrink-0 p-0"
+            className="size-6 min-h-0 cursor-pointer justify-center rounded-md shrink-0 p-0"
             // A colour is a glance: the menu stays open to see it land.
             onSelect={(event) => {
               event.preventDefault()
@@ -1108,10 +1108,7 @@ export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, o
               change(group, { color: next })
             }}
           >
-            <span
-              className={cn('size-3 rounded-full shrink-0 transition-transform duration-150', group.color === color && 'scale-125 shadow-[0_0_0_2px_var(--popover),0_0_0_3.5px_currentColor]')}
-              style={{ background: `var(--tt-color-text-${color})`, color: `var(--tt-color-text-${color})` }}
-            />
+            <Swatch color={`var(--tt-color-text-${color})`} on={group.color === color} />
           </ContextMenuItem>
         ))}
       </div>
@@ -1133,30 +1130,36 @@ export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, o
   )
 }
 
-/** The kinds' own drawings first, then any emoji. */
-export function IconChoice({ group, onPick }: { group: Pick<GroupView, 'icon' | 'color'>; onPick: (icon: string | null) => void }): React.JSX.Element {
+/**
+ * A folder's, group's or project's look, built as the marked-day popover is (milestones.tsx): a "Look" island with its
+ * Icon row (the kinds' own drawings), a picture of your own and, where it takes one, its Colour row of squares; then
+ * any emoji in an island of its own. A colour picked keeps it open, to see it land; an icon picked closes it.
+ */
+export function IconChoice({ group, onPick, onColor }: { group: Pick<GroupView, 'icon' | 'color'>; onPick: (icon: string | null) => void; onColor?: (color: string | null) => void }): React.JSX.Element {
+  const tile = 'grid size-7 shrink-0 cursor-pointer place-items-center rounded-md transition-colors duration-150 hover:bg-accent data-[active]:bg-accent data-[active]:ring-1 data-[active]:ring-foreground/15 motion-reduce:transition-none'
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center gap-0.5 border-b px-2 py-1.5">
-        <Tip label="The stack">
-          <button type="button" onClick={() => onPick(null)} data-active={!group.icon ? '' : undefined}
-            className="flex size-7 items-center justify-center rounded-md hover:bg-accent data-[active]:bg-accent">
-            <GroupIcon icon={null} color={group.color} />
-          </button>
-        </Tip>
-        {CAPTURE_TYPES.map((kind) => (
-          <Tip key={kind.id} label={kind.label}>
-            <button type="button" onClick={() => onPick(`kind:${kind.id}`)} data-active={group.icon === `kind:${kind.id}` ? '' : undefined}
-              className="flex size-7 items-center justify-center rounded-md hover:bg-accent data-[active]:bg-accent">
-              <GroupIcon icon={`kind:${kind.id}`} color={group.color} />
-            </button>
-          </Tip>
-        ))}
-        <span className="flex-1" />
+    <div data-icon-choice="" className={`flex w-[22.5rem] max-w-[90vw] flex-col gap-3 p-3 text-control ${POP_ISLANDS}`}>
+      <Island compact title="Look">
+        <PanelRow label="Icon">
+          <div role="group" aria-label="Its icon" className="flex flex-nowrap items-center gap-0.5">
+            <Tip label="The stack">
+              <button type="button" onClick={() => onPick(null)} data-active={!group.icon ? '' : undefined} className={tile}>
+                <GroupIcon icon={null} color={group.color} />
+              </button>
+            </Tip>
+            {CAPTURE_TYPES.map((kind) => (
+              <Tip key={kind.id} label={kind.label}>
+                <button type="button" onClick={() => onPick(`kind:${kind.id}`)} data-active={group.icon === `kind:${kind.id}` ? '' : undefined} className={tile}>
+                  <GroupIcon icon={`kind:${kind.id}`} color={group.color} />
+                </button>
+              </Tip>
+            ))}
+          </div>
+        </PanelRow>
         {/* A picture of your own, as Notion lets you: a GIF keeps moving. */}
-        <Tip label="Upload a picture: PNG, JPG, GIF or SVG">
-          <label data-folder-upload className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground">
-            <ImagePlus aria-hidden className="size-4" />Upload
+        <PanelRow label="Picture">
+          <label data-folder-upload className={cn(PANEL_FIELD, 'cursor-pointer justify-start py-1 text-foreground hover:bg-accent/50')}>
+            <ImagePlus aria-hidden className="size-4 shrink-0 text-(--mf-muted-strong)" />Upload a PNG, JPG, GIF or SVG
             <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/avif" className="sr-only"
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0]
@@ -1164,9 +1167,26 @@ export function IconChoice({ group, onPick }: { group: Pick<GroupView, 'icon' | 
                 if (file) void saveImage(file).then(onPick, () => chime('nope'))
               }} />
           </label>
-        </Tip>
-      </div>
-      <IconPicker icon={group.icon ?? ''} className="rounded-none! border-0! bg-transparent! shadow-none!" onPick={({ icon }) => icon && onPick(icon)} />
+        </PanelRow>
+        {onColor && (
+          <PanelRow label="Colour">
+            <div role="group" aria-label="Its colour" className="flex flex-nowrap items-center gap-0.5">
+              {GROUP_COLORS.map((one) => (
+                <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
+                  <button type="button" aria-label={one} aria-pressed={group.color === one} data-color-dot={one}
+                    onClick={() => (chime('tap'), onColor(group.color === one ? null : one))}
+                    className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md transition-colors duration-150 hover:bg-accent motion-reduce:transition-none">
+                    <Swatch color={`var(--tt-color-text-${one})`} on={group.color === one} />
+                  </button>
+                </Tip>
+              ))}
+            </div>
+          </PanelRow>
+        )}
+      </Island>
+      <Island compact title="Emoji">
+        <IconPicker icon={group.icon ?? ''} className="w-full! rounded-none! border-0! bg-transparent! shadow-none!" onPick={({ icon }) => icon && onPick(icon)} />
+      </Island>
     </div>
   )
 }
