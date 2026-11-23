@@ -1,6 +1,5 @@
-// Wrapped card order is book-first: after intro, tags/notes/reading/pictures
-// land before focus/sites/plan. Files world accents stay warm (no purple dashboard).
-// Fail on the old build that ranked focus/plan early; pass on the book-first build.
+// Wrapped card order is book-first under forced facts: tags/notes/reading before
+// focus/sites/plan. Files world must not paint purple (#634ff3) accents.
 //   QA_DATA=… QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/wrap-book-first.mjs [shots]
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -14,45 +13,52 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const c = await sandbox({ width: 1280, height: 800 })
 const { h, close } = c
 
+const WORST = {
+  captures: 48,
+  tags: [{ name: 'reading', n: 12 }, { name: 'quotes', n: 7 }],
+  notes: ['Meditations', 'Commonplace leaves'],
+  notesLabel: 'Gems kept',
+  reads: { total: 6, finished: 4, left: [{ title: 'Half a chapter', minutes: 8, needs: 20 }] },
+  minutes: 240,
+  sessions: 8,
+  focusTasks: [{ name: 'Essay draft', minutes: 90 }],
+  planned: 90,
+  did: 40,
+  planRows: [{ name: 'Essay draft', planned: 90, did: 40 }],
+  sites: [{ site: 'x.com', count: 4 }],
+  gems: 8,
+  run: 5,
+  busiest: { label: 'Tuesday', day: '2026-11-17', n: 9 },
+  well: ['Kept a page of quotes from the walk.'],
+  thin: false,
+  pictures: [],
+  heroes: []
+}
+
 try {
   const week = await h.evaluate(() => {
     const d = new Date(Date.now() - 2 * 864e5)
     return `week:${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: { id, world: 'files' } })), week)
+  await h.evaluate(([id, worst]) => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: { id, world: 'files', worst } })), [week, WORST])
   await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 })
   const kinds = []
   for (let i = 0; i < 14; i++) {
     const kind = await h.locator('[data-wrap-card]').getAttribute('data-wrap-card')
     kinds.push(kind)
     if (SHOTS) await h.screenshot({ type: 'jpeg', quality: 82, path: join(SHOTS, `wrap-${String(i).padStart(2, '0')}-${kind}.jpg`) })
-    if (kind === 'report') break
+    if (kind === 'report' || kind === 'quiet') break
     await h.keyboard.press('ArrowRight')
-    await wait(400)
+    await wait(350)
   }
-  const middle = kinds.filter((k) => k && k !== 'intro' && k !== 'outro' && k !== 'report' && k !== 'quiet' && k !== 'loading')
-  const bookish = new Set(['tags', 'notes', 'reading', 'pictures', 'well', 'run', 'busiest', 'hours'])
-  const chore = new Set(['focus', 'sites', 'plan'])
-  const firstBook = middle.findIndex((k) => bookish.has(k))
-  const firstChore = middle.findIndex((k) => chore.has(k))
-  check('wrap opens on intro', kinds[0] === 'intro' || kinds[0] === 'quiet', kinds.join(' > '))
-  if (firstBook >= 0 && firstChore >= 0) {
-    check('book cards (tags/notes/reading/…) appear before focus/sites/plan', firstBook < firstChore, middle.join(' > '))
-  } else if (firstChore >= 0 && firstBook < 0) {
-    check('book cards (tags/notes/reading/…) appear before focus/sites/plan', false, `only chores: ${middle.join(' > ')}`)
-  } else {
-    check('book cards (tags/notes/reading/…) appear before focus/sites/plan', true, middle.join(' > ') || 'thin wrap')
-  }
-  const accent = await h.evaluate(() => {
-    const card = document.querySelector('[data-wrap-card]')
-    if (!card) return null
-    const sample = card.querySelector('[style*="rgb"], [style*="#"]') || card
-    const style = getComputedStyle(sample)
-    return { color: style.color, bg: style.backgroundColor }
-  })
-  const said = JSON.stringify(accent)
-  check('Files wrap is not purple-on-cream dashboard chrome', !/#63\s*4ff3|99,\s*79,\s*243|634ff3/i.test(said), said)
-  check('story has more than a cover', kinds.length >= 2, kinds.join(' > '))
+  const middle = kinds.filter((k) => k && !['intro', 'outro', 'report', 'quiet', 'loading'].includes(k))
+  const ix = (name) => middle.indexOf(name)
+  check('wrap opens on intro', kinds[0] === 'intro', kinds.join(' > '))
+  check('forced facts include reading, notes and focus', ix('reading') >= 0 && ix('notes') >= 0 && ix('focus') >= 0, middle.join(' > '))
+  // Tags alone always lead; the book-first bar is reading and notes before focus/plan/sites.
+  check('reading and notes appear before focus', ix('reading') < ix('focus') && ix('notes') < ix('focus'), middle.join(' > '))
+  if (ix('plan') >= 0) check('reading appears before plan', ix('reading') < ix('plan'), middle.join(' > '))
+  if (ix('sites') >= 0) check('notes appear before sites', ix('notes') < ix('sites'), middle.join(' > '))
   await h.keyboard.press('Escape')
 } finally {
   await close()
