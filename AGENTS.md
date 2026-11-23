@@ -19,7 +19,7 @@ is "did I learn it and can I find it again?", not "is it in the system?".
 - It must feel native to macOS and alive (a sound per action, animated icons, hint sentences that type in) without
   being noisy.
 
-More: `PRODUCT.md` (in the main checkout), `DESIGN.md` (the look), `GLOSSARY.md` (the app's own words), `README.md`,
+More: `PRODUCT.md`, `DESIGN.md` (the look), `GLOSSARY.md` (the app's own words), `README.md`,
 `docs/` (the editor component, how saving works, ADRs).
 
 ## Run it
