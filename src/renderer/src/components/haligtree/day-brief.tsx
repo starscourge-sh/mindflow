@@ -17,7 +17,8 @@ import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
 import { NextMark } from './milestones'
 import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
-import { PriorityMark, byPriority, markRoom } from './task-input'
+import { PriorityMark, markRoom } from './task-input'
+import { ThreeMark, dayOrder, dayThree } from './day-list'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
 import { DOT_IN_MARGIN, SessionDot, TaskSpentWords, useTaskTime, type TaskTime } from './task-time'
@@ -153,9 +154,11 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   const doneToday = tasks.filter((task) => doneOnToday(task))
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id)) byId.set(id, one.task)
-  // The frog, picked last night to do first, leads; the rest by importance and time.
+  // The frog, picked last night to do first, leads; the rest in Today's own order (late first, then your order), so a
+  // task stands in the same place here as on Today's page, and today's three are the same three (the user, 23 Nov).
   const frog = frogOn(settings, today)
-  const todos = frogFirst([...byId.values()].sort((a, b) => byPriority(a, b) || (a.dueAt ?? a.deadline ?? '').localeCompare(b.dueAt ?? b.deadline ?? '') || a.number - b.number), frog)
+  const todos = frogFirst([...byId.values()].sort(dayOrder), frog)
+  const three = dayThree(tasks)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
   // With events on the calendar today, the tasks with a time go in one line with them, by the hour.
   const inLine = lined ? todos.filter((task) => task.dueAt && !task.allDay && dayKey(task.dueAt) === today) : []
@@ -358,7 +361,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {shown.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} time={taskTime} room={markRoom(shown)} />
+                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} time={taskTime} rank={three.includes(task.id) ? three.indexOf(task.id) + 1 : undefined} room={markRoom(shown)} />
               ))}
               {todos.length - inLine.length > shown.length && (
                 <li>
@@ -392,7 +395,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
 }
 
 /** A task as a line of the list: a round tick, its title, and when it is for. */
-function TaskRow({ task, today, first, done, pen, onTick, now, time, room = false }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow; time: TaskTime; room?: boolean }): React.JSX.Element {
+function TaskRow({ task, today, first, done, pen, onTick, now, time, room = false, rank }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow; time: TaskTime; room?: boolean; /** Its place among today's three, if one of them. */ rank?: number }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
@@ -405,6 +408,8 @@ function TaskRow({ task, today, first, done, pen, onTick, now, time, room = fals
     <li className="relative flex items-start gap-3 py-3">
       {/* A focus session running on it: the dot in the margin, as Today's rows have it. */}
       <SessionDot id={task.id} time={time} className={`${DOT_IN_MARGIN} top-3 h-6`} />
+      {/* The circle's own column, as on Today's page: one of today's three wears its number under it. */}
+      <span className="flex shrink-0 flex-col items-center gap-1">
       <Tip label={done ? 'Not done after all' : 'Done'}>
         <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
           className="relative mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-[''] border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -418,12 +423,14 @@ function TaskRow({ task, today, first, done, pen, onTick, now, time, room = fals
           {done && <Tick seed={task.id} draw={pen} className="size-3 text-white" />}
         </button>
       </Tip>
+      {rank ? <ThreeMark n={rank} className="leading-4" /> : null}
+      </span>
       {/* The mark in a column of its own, kept only when a task here has one: the title and the line under it start in one place. */}
       {room && <span className="-mx-1 mt-[5px] flex shrink-0"><PriorityMark level={task.priority} room /></span>}
       <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', task.id))} className="group/row min-w-0 flex-1 text-left">
         <span className="flex min-w-0 items-center gap-2">
         <TaskSite task={task} />
-        <span data-task-title className={`block min-w-0 truncate text-[0.9375rem] font-semibold underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
+        <span data-task-title className={`block min-w-0 truncate text-[0.9375rem] underline-offset-4 transition-colors ${done ? 'mf-hand-struck text-muted-foreground line-through decoration-foreground/40' : 'text-foreground group-hover/row:underline group-hover/row:decoration-foreground/30'}`}>
           {done ? <Struck seed={task.id} draw={pen}>{name.text}</Struck> : name.text}
         </span>
         <Tags tags={name.tags} />

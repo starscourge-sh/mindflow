@@ -1,6 +1,6 @@
 import { type Task } from '@/lib/haligtree'
-import { yourOrder, dueToday, placed } from '@/lib/tasks'
-import { dayKey, startOfDay } from '../../../../main/dates'
+import { yourOrder, placed } from '@/lib/tasks'
+import { startOfDay } from '../../../../main/dates'
 import { Tip } from './ui'
 
 /**
@@ -18,16 +18,14 @@ export function writeOutDay(): void {
 /** Today takes the ask once it is drawn: true when one was waiting. */
 export const takeWriteDay = (): boolean => (pending ? ((pending = false), true) : false)
 
-/** Whether a task is on today's list: open and for today (never one on hold since a fresh start), or ticked today. */
-const inNow = (task: Task): boolean => {
-  const day = placed(task)
-  if (task.status === 'open') return !task.waitingOn && !task.heldAt && (dueToday(task) || (day !== null && day >= startOfDay() && day < startOfDay(1)))
-  return task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (day ?? 0) < startOfDay(1)
-}
-
 /** Today's three: the first three of today's tasks in your order, numbered 1 2 3 in quick capture's Today as in Today's list. */
 export const dayThree = (tasks: Task[]): string[] =>
-  tasks.filter(inNow).sort(yourOrder).slice(0, 3).map((task) => task.id)
+  // The same three as Today's page (tasks-view.tsx \`three\`): open, not waiting or on hold, for today or late.
+  tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.heldAt && (placed(task) ?? Infinity) < startOfDay(1)).sort(dayOrder).slice(0, 3).map((task) => task.id)
+
+/** Today's order, as Today's page lists it: what is late first, then the rest, each in your own order. */
+export const dayOrder = (a: Task, b: Task): number => Number(!late(a)) - Number(!late(b)) || yourOrder(a, b)
+const late = (task: Task): boolean => { const day = placed(task); return day !== null && day < startOfDay() }
 
 /** A task's number among the day's three, quiet in the margin; green once it is done. */
 export function ThreeMark({ n, done = false, className = '' }: { n: number; done?: boolean; className?: string }): React.JSX.Element {

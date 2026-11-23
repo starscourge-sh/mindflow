@@ -20,7 +20,7 @@ import { useKept } from '@/lib/nav'
 import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
 import { EarlierPages, SERIF, weekSpan } from './issue'
-import { FoldItem, MenuRows, Island, Page, Rolling, Tip, Typed, typing, Pressed } from './ui'
+import { FoldItem, MenuRows, Island, Page, Rolling, Tip, Typed, typing } from './ui'
 import { dayjs, noon, num, plural } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
@@ -114,13 +114,10 @@ export function PeriodSteps({ scale, onScale, atNow, go }: { scale: Scale; onSca
         <Button variant="ghost" size="icon-sm" data-period-step="after" aria-label={`The ${name} after`} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
       </Tip>
       {/* Always here, greyed on the present one: nothing in the bar comes or goes as you step. */}
-      {/* Its key right beside its words, as "New" has its C: it starts in one spot on all four pages and is the
-          bar's last control, so its own width can follow its words. Room kept for "This month" left "Today" a lone T
-          across a gap. */}
-      <Button variant="ghost" size="sm" data-period-now disabled={atNow} onClick={() => go(0)} className="pr-1.5">
-        {NOW_SAID[scale]}
-        <Pressed keys="T" className="ml-0.5 h-[18px] min-w-[18px] rounded-[5px]" />
-      </Button>
+      {/* Its key said on pointing, as the arrows' are: a lone "T" in a box beside "Today" read as a stray mark (the user, 23 Nov). */}
+      <Tip label={`${NOW_SAID[scale]}  T`}>
+        <Button variant="ghost" size="sm" data-period-now disabled={atNow} onClick={() => go(0)}>{NOW_SAID[scale]}</Button>
+      </Tip>
     </span>
   )
 }

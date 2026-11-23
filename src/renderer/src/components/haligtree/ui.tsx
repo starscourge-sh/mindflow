@@ -301,7 +301,7 @@ export function FitActions({ children, menu, keep, room }: { children: ReactNode
     // Never narrower than the ⋯ itself: a crowded line gives up its count before its menu.
     <div ref={line} className="flex min-w-7 flex-1 items-center overflow-hidden">
       {/* Folded, the line gives up its count's last letters before any of the ⋯: cut by the line's edge, it was one dot. */}
-      <div className={cn('ml-auto flex items-center gap-1', folded ? 'min-w-0' : 'shrink-0')}>
+      <div className={cn('ml-auto flex items-center gap-2', folded ? 'min-w-0' : 'shrink-0')}>
       {keep && (folded ? <span className="flex min-w-0 items-center gap-1 overflow-hidden">{keep}</span> : keep)}
       <FoldsInto.Provider value={into}>
       {folded ? (
