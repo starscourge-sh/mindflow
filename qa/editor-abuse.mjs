@@ -339,11 +339,22 @@ try {
   await vimRow2.scrollIntoViewIfNeeded()
   const vimOff = vimRow2.locator('[role="switch"]')
   if ((await vimOff.getAttribute('aria-checked')) === 'true') await vimOff.click()
-  await wait(150)
+  await wait(200)
+  // Same path as Vim-on: open the note from Settings via home:open, then focus with caret
+  // (do not Esc Settings or click the editor: both flake under QA_AWAY).
   await open(doc(para('Plain')))
+  // Wait until Vim has left the editor: a letter typed while normal mode still
+  // lingered was swallowed, and the check read only “Plain”.
+  for (let i = 0; i < 40; i++) {
+    await caret('Plain')
+    const now = await read()
+    if (now.vim !== 'normal' && now.text.includes('Plain')) break
+    await wait(50)
+  }
   await caret('Plain')
-  await h.keyboard.type('Q')
   await wait(80)
+  await h.keyboard.type('Q')
+  await wait(150)
   const plain = await read()
   check('with Vim off, a letter is typed', plain.text.includes('Q') && plain.vim !== 'normal', `${plain.vim} ${plain.text}`)
 } catch (error) {

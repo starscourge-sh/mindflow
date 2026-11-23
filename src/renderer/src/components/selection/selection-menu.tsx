@@ -109,6 +109,11 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
   codeNow.current = code
   const bar = useRef<HTMLDivElement>(null)
   const [tight, setTight] = useState(false)
+  // Whether the floating UI has lifted the bar: a whole-note pick waits for this
+  // before its controls mount (so ⌘A then ⌫ never walks every mark). It must be
+  // React state: a mutable flag alone never re-drew, so a short note with every
+  // word picked showed an empty shell and Bold/Italic never arrived.
+  const [lifted, setLifted] = useState(false)
   const full = useRef(0)
   // The editor's words once they are on the page (lib/editor-dom.ts): tiptap's view.dom throws before.
   const page = useEditorDom(editor ?? null)
@@ -140,8 +145,18 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
       shift: { boundary: held.clips, padding: held.pad, crossAxis: true },
       hide: { strategy: 'referenceHidden' as const, boundary: held.clips },
       scrollTarget: held.scrolled as unknown as HTMLElement,
-      onShow: () => held.up || ((held.up = true), tellBar(1)),
-      onHide: () => held.up && ((held.up = false), tellBar(-1)),
+      onShow: () => {
+        if (held.up) return
+        held.up = true
+        tellBar(1)
+        setLifted(true)
+      },
+      onHide: () => {
+        if (!held.up) return
+        held.up = false
+        tellBar(-1)
+        setLifted(false)
+      },
     }
   }, [held])
   const reference = useMemo(() => () => {
@@ -168,6 +183,7 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
     held.layer.remove()
     if (held.up) (held.up = false, tellBar(-1))
   }, [held])
+  // `lifted` is the reactive half of held.up: selecting below reads this, not the mutable flag.
   // Any scroll that moves the words moves the bar with them.
   useEffect(() => {
     const dom = page
@@ -228,7 +244,7 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
     wasTight.current = tight
     editor.view.dispatch(editor.state.tr.setMeta('selectionMenu', 'updatePosition'))
   }, [editor, tight])
-  return { bar, tight, options, reference, appendTo, shouldShow, up: () => held.up }
+  return { bar, tight, options, reference, appendTo, shouldShow, up: () => lifted }
 }
 
 /** How long a whole-note pick must last, with no key since, before the bar offers itself. */
