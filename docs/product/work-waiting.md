@@ -8,7 +8,7 @@ Tags: **[go]** approved to build, **[priority]** do first, **[done]** finished (
 
 ## Who can take what
 
-Split 23 Nov, so another agent can carry on. "Any agent" means a general-purpose agent with no chat history, given the studio handbook (~/Documents/forge/studio) and the app's AGENTS.md. The details of each item are in the parts below.
+Split 23 Nov, so another agent can carry on. "Any agent" means a general-purpose agent with no chat history, given the playbook (`playbook/`, a link to `../playbook`) and the app's AGENTS.md. The details of each item are in the parts below.
 
 **Needs Claude** (taste calls made across many sessions, your real books, or a design still being settled):
 

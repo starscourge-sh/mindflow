@@ -1,13 +1,13 @@
 # Handover: where Haligtree stands
 
-For any agent picking up this app with no chat history. Read this, then `AGENTS.md` (how to run, build and test), then the studio handbook at `~/Documents/forge/studio` (how every app here is built and checked).
+For any agent picking up this app with no chat history. Read this, then `AGENTS.md` (how to run, build and test), then the playbook at `playbook/` (a link to `../playbook`) (how every app here is built and checked).
 
 ## Read first
 
 1. `docs/product/positioning.md`: what Haligtree is and is not.
 2. `docs/product/audience.md`: who it is for, in their own words.
 3. `docs/product/work-waiting.md`: everything queued, split into what any agent can take and what needs Claude or the owner. Start with its "Any agent" list.
-4. `~/Documents/forge/studio/handbook/3-check.md`: the gate every change passes before it is called done.
+4. `playbook/handbook/3-check.md`: the gate every change passes before it is called done.
 
 ## State on 23 Nov 2026
 
@@ -57,4 +57,4 @@ These are the app's, not the studio's, so they live here.
 
 - The live work list (kept current by Claude): https://claude.ai/artifact/2YdeKjnQJsKiwsFgdqPkyX. `docs/product/work-waiting.md` is a copy of it from this date.
 - Claude's own project memory (useful history, not required): `~/.claude/projects/-Users-starscourge-Documents-forge-mindflow/memory/`, indexed by `MEMORY.md` there.
-- Claude's working copy of the studio standard: `~/Documents/forge/studio/playbook` (linked from `~/.claude/skills/app-playbook`).
+- Claude's working copy of the studio standard: `playbook/playbook/` (Claude Code loads it through `~/.claude/skills/app-playbook`).

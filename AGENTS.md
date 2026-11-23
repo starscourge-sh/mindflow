@@ -138,12 +138,10 @@ Working
 - Nested things are drawn as a tree with lines and a fold chevron. Writing comes first; notes before tasks.
 - Loading is always the orb with shimmering words, never grey skeleton bars (`test/no-grey-bars.test.ts`).
 
-## The studio standard
+## The playbook (the standard for every app)
 
-The owner's standard for every app lives at `/Users/starscourge/Documents/forge/studio`:
-- `/Users/starscourge/Documents/forge/studio/handbook/`: how to build here (being written now).
-- `/Users/starscourge/Documents/forge/studio/reference/`: past briefs and the helper rules
-  (`reference/helper-rules.md`).
-- `/Users/starscourge/Documents/forge/studio/playbook/`: the app playbook, its taste, interaction, mistakes and
-  decisions notes. Read `playbook/SKILL.md` before any UI work and run its pre-flight checklist before calling
-  anything done.
+`playbook/` in this repo is a link to `../playbook`, the owner's playbook repo, kept beside every project. On a new computer, clone it next to this repo and the link works.
+- Start at `playbook/README.md`, then its four chapters in `playbook/handbook/` (build, test, check, improve).
+- Look things up in `playbook/reference/` (look, interaction, design values).
+- Nothing is done until it passes the gate in `playbook/handbook/3-check.md`, with screenshots.
+- `playbook/playbook/` is Claude's working copy of the same rules, with their history. Other agents can skip it.
