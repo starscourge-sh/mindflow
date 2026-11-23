@@ -127,7 +127,12 @@ export function bookFeed(db: DatabaseSync) {
     const away = (to: string): boolean => { const id = to.slice(to.lastIndexOf(':') + 1); return !!archivedOne.get(id, id) }
     return out.map((one) => ({ to: one.to, label: untagged(one.label).trim() })).filter((one) => one.label && !away(one.to))
   }
-  const archivedOne = db.prepare('select 1 from nuggets where id = ? and archived_at is not null union all select 1 from captures where id = ? and archived_at is not null limit 1')
+  // Asked when first needed, never as the reading thread starts: a book just made has no archived_at yet until the main
+  // process adds it, and asked up front the thread stopped ("no such column: archived_at", 23 Nov).
+  let archivedStmt: ReturnType<typeof db.prepare> | null = null
+  const archivedOne = { get: (a: string, b: string): unknown => {
+    try { return (archivedStmt ??= db.prepare('select 1 from nuggets where id = ? and archived_at is not null union all select 1 from captures where id = ? and archived_at is not null limit 1')).get(a, b) } catch { return undefined }
+  } }
 
   /** Where a quote came from: the first link back into a kept PDF (at its page) or a kept web page, as the readers write it. */
   const hostOf = (href: string | null): string => {
