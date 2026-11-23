@@ -1099,7 +1099,7 @@ export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, o
             key={color}
             aria-label={color}
             data-color-dot={color}
-            className="size-6 min-h-0 justify-center rounded-full shrink-0 p-0"
+            className="size-6 min-h-0 cursor-pointer justify-center rounded-md shrink-0 p-0"
             // A colour is a glance: the menu stays open to see it land.
             onSelect={(event) => {
               event.preventDefault()
@@ -1108,10 +1108,7 @@ export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, o
               change(group, { color: next })
             }}
           >
-            <span
-              className={cn('size-3 rounded-full shrink-0 transition-transform duration-150', group.color === color && 'scale-125 shadow-[0_0_0_2px_var(--popover),0_0_0_3.5px_currentColor]')}
-              style={{ background: `var(--tt-color-text-${color})`, color: `var(--tt-color-text-${color})` }}
-            />
+            <Swatch color={`var(--tt-color-text-${color})`} on={group.color === color} />
           </ContextMenuItem>
         ))}
       </div>
