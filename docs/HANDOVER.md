@@ -12,7 +12,7 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 ## State on 24 Nov 2026
 
 - Branch: everything is on `main`. The newest build is `dist/Haligtree-0.4.0-beta.219.dmg`; the next build is beta.220 (bump `package.json` first, keep only the newest `dist/Haligtree-*`).
-- Wrapped was redesigned as Midori/scrapbook paper (F41): same Settings › Grain as the window, no cartoon envelopes or op-art stickers. Book-first welcome/wrap probes green. Target-user walk resumes after this lands.
+- Wrapped Midori pass (F41) then WOW densify (F42): deckled paper, worn kraft/washi, desk collage density, grain multiplies into cream stock. Shots in agent store `wrapped-commonplace-proof/after2/`. Book-first probes green. Target-user walk still waits on look greenlight.
 - The owner runs `npm run dev` from this folder and reports bugs with screenshots. Fix on `main`, commit each fix on its own with a plain message saying what the user now sees and why.
 
 ## Known failures (not caused by the newest work)

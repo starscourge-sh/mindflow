@@ -3389,6 +3389,8 @@ html[data-book-hue] [data-book-tint] {
   --frame-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .35 0 0 0 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   /* Dark fibre for cream paper (Wrapped Files, reader desk on a light theme). Never swapped to light speckles. */
   --wrap-paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .45 0 0 0 -.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* Warm fibre baked into wrap paper slips (same family as Review paper finish). */
+  --mf-wrap-fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.27 0 0 0 0 0.16 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23f)'/%3E%3C/svg%3E");
 }
 :root:not([data-light]) {
   --reader-desk-grain: var(--frame-grain);
@@ -4371,25 +4373,30 @@ html[data-small] [data-reading-pane] .note-pane[data-all-shown] [data-thought-do
 @media (min-width: 640px) and (min-height: 560px) {
   .wrap-card { width: min(760px, 86vw); height: min(560px, 86vh); border-radius: 10px; }
 }
-/* Same Settings › Grain as the dark frame (160px feTurbulence tile, one switch): drawn above the silk wash and under
-   the slide, full strength like the notebook cover. Never a second cheap noise overlay. */
+/* Same Settings › Grain as the dark frame (160px feTurbulence, one switch). Sits under the slide like the frame's
+   ::before under the panes: light speckles on charcoal at full strength. Never a second noise recipe. */
 .wrap-card[data-wrap-grain] { position: relative; isolation: isolate; }
-.wrap-card[data-wrap-grain]::after {
+.wrap-card[data-wrap-grain]::before {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
   background-image: var(--frame-grain);
   background-size: 160px;
   border-radius: inherit;
-  /* Same full strength as the dark frame cover: light speckles as drawn, never halved. */
   opacity: 1;
 }
-/* Cream scrapbook cards: dark fibre (--wrap-paper-grain), same 160px tile as the frame, not a second noise recipe. */
-.wrap-card[data-wrap-grain][data-wrap-paper]::after {
+/* Cream scrapbook: multiply dark fibre into the paper so it reads as milled stock, not a flat salt wash over the type.
+   Same SVG as --wrap-paper-grain / reader desk; intensity matched to the shell's full-strength frame grain. */
+.wrap-card[data-wrap-grain][data-wrap-paper]::before {
   background-image: var(--wrap-paper-grain);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
 }
+/* Silk and collage sit above the grain layer; the slide content above both. */
+.wrap-card[data-wrap-grain] > canvas { z-index: 1; }
+.wrap-card[data-wrap-grain] > .relative { z-index: 2; }
 
 /* Where two notes were made one (extensions/joined-from.ts): a hairline either side of its words, in the quiet ink at
    the controls' size, never small grey type; the lines that came over lit a moment as the note opens on it (lib/join-notes.ts). */

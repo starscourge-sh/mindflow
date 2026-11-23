@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
-import { Folder, In, KraftTape, PaperMat, Roll, Scribble, Silk } from './wrap-art'
+import { DeskCollage, Folder, In, InkStamp, KraftTape, MarginNote, PaperMat, Roll, Silk } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
@@ -334,7 +334,18 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     if (f.minutes >= 1) middle.push([5, 'focus'])
     if (f.sites.length) middle.push([5.5, 'sites'])
     if (f.planRows.length) middle.push([6, 'plan'])
-    const order = middle.map(([rank, kind]) => [rank + rand() * 1.2, kind] as const).sort((a, b) => a[0] - b[0]).slice(0, MOST - 3).map(([, kind]) => kind)
+    // Rank by book-first weight + a little luck, then keep at most MOST-3. Never drop notes,
+    // reading or focus when they earned a place: the probe (and the person) expects them.
+    const ranked = middle.map(([rank, kind]) => [rank + rand() * 1.2, kind] as const).sort((a, b) => a[0] - b[0]).map(([, kind]) => kind)
+    const must = new Set<Kind>((['notes', 'reading', 'focus'] as Kind[]).filter((k) => ranked.includes(k)))
+    const order: Kind[] = []
+    const room = MOST - 3
+    for (const kind of ranked) {
+      if (order.length >= room) break
+      const mustLeft = [...must].filter((k) => !order.includes(k)).length
+      if (!must.has(kind) && room - order.length <= mustLeft) continue
+      order.push(kind)
+    }
     return ['intro', ...order, 'outro', 'report']
   }, [facts, seed])
 
@@ -698,50 +709,55 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
   const caption = (own: ReactNode): ReactElement => <p className={CAPTION}>{own}</p>
   /** One thing to say, alone in the middle of the card: the lead-in, the heading, then its sentence under it. */
   const alone = (head: ReactNode, said: ReactNode, more?: ReactNode): ReactElement => (
-    <Centre>{kicker}<In at={0.12} from={e}>{head}</In><In at={0.45}><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.6} className="w-full">{more}</In>}</Centre>
+    <Centre>
+      {/* Quiet blotter behind a lone number so the card is still a desk, not empty air. */}
+      <div aria-hidden className="pointer-events-none absolute inset-[12%] -z-10 opacity-50" style={{
+        background: `color-mix(in srgb, ${p.accent} 8%, ${p.soft})`,
+        backgroundImage: 'var(--wrap-paper-grain)',
+        backgroundSize: '120px',
+        clipPath: 'polygon(0.5% 1.2%, 99% 0.3%, 100% 98.5%, 1% 99.2%)'
+      }} />
+      <InkStamp label="kept" color={p.accent} className="pointer-events-none absolute top-[14%] right-[12%] opacity-70" />
+      {kicker}<In at={0.12} from={e}>{head}</In><In at={0.45}><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.6} className="w-full">{more}</In>}
+    </Centre>
   )
 
   /**
-   * One of your own pictures clipped onto ruled scrapbook paper under masking
-   * tape: Midori / commonplace, never an op-art sticker cutout.
+   * Open Midori on a desk: blotter, deckled page, photo print or kept slip,
+   * stamp, margin scrap, worn tapes — layered density, never one lonely motif.
    */
   const cover = (picture: Picture | undefined): ReactElement => (
     <div data-wrap-cover className="absolute inset-0 grid place-items-center [container-type:size]">
       <In at={0.1} from="scale" className="relative size-[min(100cqw,100cqh)]">
-        <PaperMat ink={p.ink} paper={p.soft} className="!absolute inset-0" />
-        {picture
-          ? (
-            <div className="absolute inset-[14%] rotate-[-1.5deg] overflow-hidden shadow-[0_6px_20px_-6px_rgba(0,0,0,0.45)]"
-              style={{
-                boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 12%, transparent), 0 8px 22px -8px rgb(0 0 0 / 0.4)`,
-                background: STAGE.paper
-              }}>
-              <img data-wrap-hero src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" />
-              {/* Soft white margin like a photo print edge, not a die-cut sticker. */}
-              <div aria-hidden className="pointer-events-none absolute inset-0 ring-1 ring-inset" style={{ boxShadow: `inset 0 0 0 5px ${STAGE.paper}` }} />
-            </div>
-            )
-          : (
-            <div data-wrap-motif className="absolute inset-[16%] flex flex-col justify-between p-5 rotate-[-1.25deg]"
-              style={{
-                background: STAGE.paper,
-                boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 8px 22px -8px rgb(0 0 0 / 0.4)`,
-                clipPath: 'polygon(0.5% 1%, 99% 0%, 100% 98.5%, 1% 100%)',
-                backgroundImage: `repeating-linear-gradient(0deg, transparent 0 24px, color-mix(in srgb, ${STAGE.paperInk} 11%, ${STAGE.paper}) 24px 25px)`
-              }}>
-              <span className="self-end grid size-11 place-items-center text-[9px] font-bold tracking-[0.12em] uppercase rotate-[8deg]"
+        <DeskCollage ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} seed={seed} note={f.period === 'month' ? f.name : 'this week'} stamp="kept">
+          <PaperMat ink={p.ink} paper={p.soft} className="!absolute inset-[10%] !z-[1]" />
+          {picture
+            ? (
+              <div className="absolute inset-[18%] left-[20%] z-[3] rotate-[-2deg]"
                 style={{
-                  color: p.accent,
-                  boxShadow: `inset 0 0 0 1.5px color-mix(in srgb, ${p.accent} 75%, ${STAGE.paper})`,
-                  borderRadius: '48% 52% 50% 50% / 50% 48% 52% 50%',
-                  opacity: 0.9
-                }}>kept</span>
-              <span className="font-heading text-[clamp(18px,4cqi,28px)] leading-tight font-semibold" style={{ color: STAGE.paperInk }}>{f.name}</span>
-            </div>
-            )}
-        <KraftTape className="absolute top-[10%] left-1/2 z-10 w-28 -translate-x-1/2 rotate-[-4deg]" />
-        <KraftTape className="absolute top-[14%] right-[10%] z-10 w-14 rotate-[14deg]" tint={`color-mix(in srgb, ${p.accent} 38%, #c4b79a)`} />
-        <Scribble seed={seed} color={p.accent} width={1.5} className="pointer-events-none absolute top-[8%] left-0 w-full opacity-70" delay={0.35} />
+                  background: STAGE.paper,
+                  backgroundImage: 'var(--wrap-paper-grain)',
+                  backgroundSize: '100px',
+                  padding: 7,
+                  boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 26px -10px rgb(0 0 0 / 0.45)`,
+                  clipPath: 'polygon(0.8% 1.2%, 99% 0.4%, 100% 98.5%, 1% 99.5%, 0.2% 55%)'
+                }}>
+                <img data-wrap-hero src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${STAGE.paperInk} 8%, transparent)` }} />
+              </div>
+              )
+            : (
+              <div data-wrap-motif className="absolute inset-[18%] left-[18%] z-[3] flex flex-col justify-between p-5 rotate-[-1.5deg]"
+                style={{
+                  backgroundImage: `var(--wrap-paper-grain), repeating-linear-gradient(0deg, transparent 0 24px, color-mix(in srgb, ${STAGE.paperInk} 11%, ${STAGE.paper}) 24px 25px)`,
+                  backgroundColor: STAGE.paper,
+                  backgroundSize: '100px, auto',
+                  boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 24px -10px rgb(0 0 0 / 0.42)`,
+                  clipPath: 'polygon(0.6% 1.4%, 98.8% 0.3%, 99.5% 98%, 1.2% 99.4%, 0.3% 48%)'
+                }}>
+                <span className="font-heading text-[clamp(18px,4cqi,28px)] leading-tight font-semibold" style={{ color: STAGE.paperInk }}>{f.name}</span>
+              </div>
+              )}
+        </DeskCollage>
       </In>
     </div>
   )
@@ -846,25 +862,46 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
         if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{fill(look.folder, f.name, f.period)}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
         return split(<><In at={0.12}><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
       case 'well': {
-        // Lines from the journal as tipped paper slips under washi, not floating bold quotes.
+        // Journal lines as deckled slips on a blotter, with stamp and tapes — a desk, not floating quotes.
         const slip = (line: string, i: number): ReactElement => (
-          <In key={line} at={0.28 + i * 0.12} className="relative mx-auto w-full max-w-[36ch]">
-            <div className="relative px-4 py-3 text-left shadow-[0_3px_12px_-4px_rgba(0,0,0,0.28)]"
+          <In key={line} at={0.28 + i * 0.12} className="relative mx-auto w-full max-w-[38ch]">
+            <div className="relative px-4 py-3.5 text-left"
               style={{
-                background: STAGE.paper,
+                background: `var(--wrap-paper-grain), ${STAGE.paper}`,
+                backgroundSize: '100px, auto',
                 color: STAGE.paperInk,
-                rotate: `${(i % 2 ? 1.2 : -1.4) + i * 0.3}deg`,
+                rotate: `${(i % 2 ? 1.4 : -1.6) + i * 0.35}deg`,
                 clipPath: i % 2
-                  ? 'polygon(0.5% 1%, 99% 0%, 100% 98%, 1% 100%)'
-                  : 'polygon(1% 0%, 100% 1.5%, 98.5% 100%, 0% 97%)',
-                backgroundImage: `repeating-linear-gradient(0deg, transparent 0 22px, color-mix(in srgb, ${STAGE.paperInk} 10%, ${STAGE.paper}) 22px 23px)`
+                  ? 'polygon(0% 3%, 4% 0%, 12% 2%, 22% 0%, 34% 2.5%, 48% 0%, 62% 2%, 76% 0.5%, 88% 2%, 100% 0%, 99% 14%, 100% 30%, 98% 48%, 100% 66%, 98% 84%, 100% 100%, 86% 97%, 72% 100%, 56% 97%, 40% 100%, 24% 97%, 10% 100%, 0% 96%, 2% 78%, 0% 58%, 2% 38%, 0% 18%)'
+                  : 'polygon(0% 1%, 6% 2.5%, 16% 0%, 28% 2%, 40% 0%, 54% 2.5%, 68% 0%, 82% 2%, 94% 0%, 100% 3%, 98% 20%, 100% 40%, 97% 60%, 100% 80%, 98% 100%, 84% 97%, 68% 100%, 52% 97%, 36% 100%, 20% 97%, 6% 100%, 0% 90%, 2% 70%, 0% 50%, 2% 30%, 0% 12%)',
+                backgroundImage: `var(--wrap-paper-grain), repeating-linear-gradient(0deg, transparent 0 22px, color-mix(in srgb, ${STAGE.paperInk} 10%, ${STAGE.paper}) 22px 23px), ${STAGE.paper}`,
+                boxShadow: '0 4px 14px -4px rgb(0 0 0 / 0.32)'
               }}>
               <p className="font-heading text-[clamp(16px,2.8cqi,22px)] leading-snug font-semibold text-pretty" dir="auto">{quoted(line, 120)}</p>
-              <KraftTape className="absolute -top-1.5 right-5 w-12 rotate-[8deg]" tint={`color-mix(in srgb, ${p.accent} 32%, #c4b79a)`} />
+              <KraftTape kind="washi" className="absolute -top-1.5 right-5 w-14 rotate-[8deg]" tint={`color-mix(in srgb, ${p.accent} 32%, #d4c4a0)`} />
+              {i === 0 && <InkStamp label="well" color={p.accent} className="absolute -bottom-3 -left-2 scale-75" />}
             </div>
           </In>
         )
-        if (f.well.length < LIST) return <Centre>{kicker}<In at={0.12}><p className={CAPTION}>What went well, from your weekly notes</p></In>{f.well.map((line, i) => slip(line, i))}</Centre>
+        if (f.well.length < LIST) {
+          return (
+            <Centre>
+              {kicker}
+              <In at={0.12}><p className={CAPTION}>What went well, from your weekly notes</p></In>
+              <div className="relative mt-2 w-full max-w-[420px]">
+                <div aria-hidden className="absolute inset-[-8%] -z-10" style={{
+                  background: `color-mix(in srgb, ${p.accent} 10%, ${p.soft})`,
+                  backgroundImage: 'var(--wrap-paper-grain)',
+                  backgroundSize: '110px',
+                  clipPath: 'polygon(0.5% 1%, 99% 0.4%, 100% 98.5%, 1% 99%)',
+                  opacity: 0.7
+                }} />
+                {f.well.map((line, i) => slip(line, i))}
+                <MarginNote text="from the week" ink={STAGE.paperInk} paper={STAGE.paper} className="absolute -right-2 top-0" />
+              </div>
+            </Centre>
+          )
+        }
         return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well, from your weekly notes</p></In></>,
           <div className="grid h-full content-center gap-4">{f.well.slice(0, wide ? 3 : 2).map((line, i) => slip(line, i))}</div>)
       }
@@ -920,16 +957,33 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
     <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-11 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report>
       <In from="scale" className="relative min-h-[64px] overflow-hidden">
         <div className="absolute inset-0">{frame}</div>
-        {/* Photo print tipped on the page, cream margin, masking tape: scrapbook, not a rounded inset. */}
-        <div className="absolute inset-[10%] left-[24%] rotate-[-1.25deg] overflow-hidden"
-          style={{ background: STAGE.paper, boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 24px -10px rgb(0 0 0 / 0.45)` }}>
+        {/* Peek of a second scrap under the print. */}
+        <div aria-hidden className="absolute inset-[16%] left-[28%] rotate-[4deg]"
+          style={{
+            background: `var(--wrap-paper-grain), color-mix(in srgb, ${p.accent} 8%, ${STAGE.paper})`,
+            backgroundSize: '90px, auto',
+            clipPath: 'polygon(1% 1%, 99% 0%, 100% 99%, 0% 98%)',
+            boxShadow: '0 3px 10px -4px rgb(0 0 0 / 0.28)'
+          }} />
+        {/* Photo print tipped on the page, cream margin, worn kraft: scrapbook, not a rounded inset. */}
+        <div className="absolute inset-[12%] left-[26%] rotate-[-2deg]"
+          style={{
+            background: `var(--wrap-paper-grain), ${STAGE.paper}`,
+            backgroundSize: '100px, auto',
+            padding: 6,
+            boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 24px -10px rgb(0 0 0 / 0.45)`,
+            clipPath: 'polygon(0.6% 1%, 99% 0.4%, 100% 98.5%, 1% 99.4%)'
+          }}>
           {picture
-            ? <img src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" style={{ boxShadow: `inset 0 0 0 5px ${STAGE.paper}` }} />
+            ? <img src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" />
             : <div className="grid size-full place-items-center p-4 text-center font-heading text-[20px] font-semibold break-words" style={{ color: STAGE.paperInk }}>{f.tags[0] ? `#${f.tags[0].name}` : f.name}</div>}
-          <KraftTape className="absolute top-[-6%] left-1/2 z-10 w-24 -translate-x-1/2 rotate-[-3deg]" />
+          <KraftTape className="absolute top-[-5%] left-1/2 z-10 w-28 -translate-x-1/2 rotate-[-4deg]" />
+          <KraftTape kind="washi" tint={`color-mix(in srgb, ${p.accent} 35%, #d4c4a0)`} className="absolute bottom-[8%] -right-1 z-10 w-12 rotate-[22deg]" />
+          <InkStamp label="kept" color={p.accent} className="absolute -bottom-2 -left-2 z-10 scale-75" />
         </div>
         {/* The month set on its side as large as its strip lets it, never cut: by the strip's height for its letters, and its width. */}
-        <div className="absolute inset-y-0 left-0 grid w-[22%] place-items-center overflow-hidden [container-type:size]" style={{ background: `color-mix(in srgb, ${p.bg} 92%, ${p.ink})` }}>
+        <div className="absolute inset-y-0 left-0 grid w-[22%] place-items-center overflow-hidden [container-type:size]"
+          style={{ background: `var(--wrap-paper-grain), color-mix(in srgb, ${p.bg} 90%, ${p.ink})`, backgroundSize: '100px, auto' }}>
           <span data-wrap-month className="font-heading font-semibold whitespace-nowrap tracking-[-0.02em]" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: `min(54px, calc(92cqh / ${(0.66 * month.length).toFixed(2)}), 78cqw)` }}>{month}</span>
         </div>
       </In>
