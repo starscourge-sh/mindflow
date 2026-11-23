@@ -76,7 +76,7 @@ import { MatrixView } from './components/haligtree/matrix-view'
 import { comingBack } from '@/lib/note-place'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
-import { Count, Kbd, Toaster, sayNow, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly, askSure } from './components/haligtree/ui'
+import { AskKey, Count, Kbd, POP_ISLANDS, Toaster, sayNow, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly, askSure } from './components/haligtree/ui'
 import { shownName } from '@/lib/haligtree'
 import { GrowFrom } from './components/haligtree/grow-from'
 import { FocusScenery } from './components/haligtree/scenery'
@@ -142,7 +142,6 @@ import type { TabActions } from '@/components/haligtree/tab-row'
 import { activeTab, addTab, bareSplit, closeTab, frontOf, insertPane, keepTabs, moveTab, newTab, onShow, paneOf, pinTab, readSplit, removePane, selectTab, tabStep, tabToNewPane, type Split as SplitState, type Pane as PaneState, type Tab, type Trail } from '@/lib/tabs'
 import type { RowItem } from '@/components/haligtree/row-menu'
 import { keepTitle, openItems, setPaneNotes, setPanes, spendAsideClick, takeClick, titleOf, type PaneWidth } from '@/lib/split'
-import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/haligtree/whats-new'
 import { PdfReader, fromPdfFocus, pdfFocus, pdfName } from '@/components/pdf/pdf-reader'
 import { WebReader, articleName } from '@/components/pdf/web-reader'
@@ -2975,15 +2974,17 @@ export function Home(): React.JSX.Element {
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         // The panel holds still with its heading; its long list scrolls inside, fading at whichever edge has more (the
         // lists' one fade, .mf-more): on the panel itself, the panel's own opening animation took the fade's place.
-        className="flex max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 flex-col gap-1 overflow-hidden p-1.5">
+        // Built as Display's Sort and View popover is: a small heading over each group, its rows in an island (ShowList's islands).
+        className={`flex max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 flex-col gap-1 overflow-hidden p-2 text-control ${POP_ISLANDS}`}>
         {/* A way out in sight: Esc and a click away close it too, but nothing said so. */}
-        <div className="flex items-center justify-between gap-2 pl-2">
-          <span className="text-control font-medium text-foreground">Customize sidebar</span>
-          <Tip label="Close (Esc)"><Button variant="ghost" size="icon-sm" data-customize-close aria-label="Close" onClick={() => (chime('away'), setCustomizing(false))}><AliveIcon icon={XIcon} size={16} /></Button></Tip>
+        <div className="flex items-center justify-between gap-2 pl-1">
+          <span className="text-control font-semibold text-foreground">Customize sidebar</span>
+          <Button variant="ghost" size="sm" data-customize-close className="cursor-pointer text-(--mf-muted-strong) hover:text-foreground" onClick={() => (chime('away'), setCustomizing(false))}>Done<AskKey label="Escape">Esc</AskKey></Button>
         </div>
-        <div data-customize-list="" className="mf-more -mx-1.5 min-h-0 overflow-y-auto px-1.5">
-        <p className="px-2 pt-0.5 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
-        <ShowList places={SECTIONS} setting="sidebarShown" counts={countsIn ? counts : undefined} />
+        {/* How it works, said once as a fact with its lead-in, never a loose paragraph over the rows. */}
+        <p className="px-1 pb-1 text-control text-(--mf-muted-strong)"><strong className="font-semibold text-foreground">Drag a row</strong> to move it. One switched off still opens by G and its letter, or ⌘K.</p>
+        <div data-customize-list="" className="mf-more -mx-2 min-h-0 overflow-y-auto px-2 pb-1">
+        <ShowList islands places={SECTIONS} setting="sidebarShown" counts={countsIn ? counts : undefined} />
         </div>
       </PopoverContent>
       </Popover>

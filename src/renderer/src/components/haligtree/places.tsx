@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { useEmojiIcons } from '@/lib/icon-style'
-import { Pressed, Tip, toast } from './ui'
+import { Island, Pressed, Tip, toast } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { BlockList, SortableList, SortableRow } from './sortable'
 import { LayoutGroup } from 'motion/react'
@@ -358,7 +358,11 @@ export const placeDrawing = (place: Place): Drawing => {
 /** The sidebar's pages that carry a count beside them (home.tsx, counts); the rest only show something, or are a place to set things down. */
 const COUNTED = ['review', 'today', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'lookups', 'sources']
 
-export function ShowList({ places: every, setting, counts }: { places: Place[]; setting: Shown; counts?: Record<string, number> }): React.JSX.Element {
+export function ShowList({ places: every, setting, counts, islands = false }: {
+  places: Place[]; setting: Shown; counts?: Record<string, number>
+  /** In the sidebar's own Customize popover: each block in an island under its heading, as Display's popover draws its groups, and the two actions at the foot. */
+  islands?: boolean
+}): React.JSX.Element {
   const given = setting === 'sidebarShown' ? every.filter((one) => !OFF_SIDEBAR.includes(one.id)) : every
   const shown = useShown(setting)
   // The sidebar's own places for this book, laid out as it lays them out.
@@ -443,22 +447,33 @@ export function ShowList({ places: every, setting, counts }: { places: Place[]; 
     )
     return fixed ? <div key={place.id}>{line}</div> : <SortableRow key={place.id} id={place.id} glide={`show-${setting}-${place.id}`}>{line}</SortableRow>
   }
+  const counting = setting === 'sidebarShown' && (
+    <label data-show-counts className={`flex cursor-pointer items-center gap-2.5 px-2 py-1.5 text-control font-medium text-foreground hover:bg-accent/60 ${islands ? '' : 'mb-1.5 rounded-md'}`}>
+      <span className="flex-1">Show counts</span>
+      <Switch checked={countsOn} onCheckedChange={(sidebarCounts) => (chime(sidebarCounts ? 'on' : 'off'), void haligtree.setSettings({ sidebarCounts }))} aria-label="Show counts" />
+    </label>
+  )
+  const everyOne = hidden.length > 0 && (
+    <button type="button" data-show-every onClick={() => void showEvery()}
+      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control font-medium text-foreground transition-colors hover:bg-accent/60 hover:text-foreground ${islands ? '' : 'mb-1.5'}`}>
+      <AliveIcon icon={EyeIcon} size={14} />
+      {setting === 'sidebarShown' ? (hidden.some((place) => isGroup(place.id)) ? 'Show everything' : 'Show every page') : 'Show every tab'}
+    </button>
+  )
+  const usualOrder = custom && (
+    <button type="button" onClick={() => void backToUsual(order, what)}
+      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground ${islands ? '' : 'mt-1.5'}`}>
+      <AliveIcon icon={RefreshIcon} size={14} />
+      Back to usual order
+    </button>
+  )
+  // Each block's heading in the popover: the sidebar's own where it has one (Library), else what the rows are.
+  const blockTitle = (block: string): React.ReactNode => block === 'Library' ? <span data-show-heading="library">{LIBRARY.label}</span> : block === 'Write' ? 'Pages' : 'More'
   return (
     <LayoutGroup id={`show-${setting}`}>
       <div className="flex flex-col gap-px">
-        {setting === 'sidebarShown' && (
-          <label data-show-counts className="mb-1.5 flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-control font-medium text-foreground hover:bg-accent/60">
-            <span className="flex-1">Show counts</span>
-            <Switch checked={countsOn} onCheckedChange={(sidebarCounts) => (chime(sidebarCounts ? 'on' : 'off'), void haligtree.setSettings({ sidebarCounts }))} aria-label="Show counts" />
-          </label>
-        )}
-        {hidden.length > 0 && (
-          <button type="button" data-show-every onClick={() => void showEvery()}
-            className="mb-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control font-medium text-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
-            <AliveIcon icon={EyeIcon} size={14} />
-            {setting === 'sidebarShown' ? (hidden.some((place) => isGroup(place.id)) ? 'Show everything' : 'Show every page') : 'Show every tab'}
-          </button>
-        )}
+        {islands ? counting && <Island compact title="Counts">{counting}</Island> : counting}
+        {!islands && everyOne}
         {setting === 'sidebarShown' ? (
           // The sidebar's blocks, with the sidebar's own gap between: a row goes anywhere, into whichever block the line is in.
           <BlockList
@@ -466,7 +481,13 @@ export function ShowList({ places: every, setting, counts }: { places: Place[]; 
             keyOf={(place) => place.id}
             onMove={(id, drop) => void dropInBlock(id, drop.block, drop.before, usual)}
             row={(place, among) => row(place, among)}
-            around={(block, at, box, items) => (
+            around={(block, at, box, items) => islands ? (
+              // An empty block keeps its island, so a row can still be dropped into it.
+              <div key={block} data-show-part={block} className="mt-3 flex flex-col gap-3">
+                <Island compact name={block} title={blockTitle(block)}><div className="p-1">{box}</div></Island>
+                {block === 'Write' && <Island compact title="Favorites and Recent"><div data-show-groups className="flex flex-col gap-px p-1">{SIDE_GROUPS.map((group) => row(group, [], true))}</div></Island>}
+              </div>
+            ) : (
               <div key={block} data-show-part={block} className="flex flex-col">
                 {block === 'Library' && items.length > 0
                   ? <div data-show-heading="library" className="mt-2.5 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">{LIBRARY.label}</div>
@@ -484,13 +505,9 @@ export function ShowList({ places: every, setting, counts }: { places: Place[]; 
             </SortableList>
           </div>
         ))}
-        {custom && (
-          <button type="button" onClick={() => void backToUsual(order, what)}
-            className="mt-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
-            <AliveIcon icon={RefreshIcon} size={14} />
-            Back to usual order
-          </button>
-        )}
+        {islands
+          ? (everyOne || usualOrder) && <div data-show-foot className="mt-2 flex flex-wrap items-center gap-1">{everyOne}{usualOrder}</div>
+          : usualOrder}
       </div>
     </LayoutGroup>
   )
