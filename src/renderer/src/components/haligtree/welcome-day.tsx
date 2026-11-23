@@ -15,12 +15,10 @@ import { LAND, PostcardResult, quoteNow, shortOf } from './welcome-reel'
 import { quoted } from '../../../../main/clip'
 
 /**
- * The welcome's Remember chapter: the three things kept so far (the task and
- * the two gems from Write, the quote from Catch), each coming back, left to
- * right, as the app brings it back: the task on the day's sticky on the
- * desktop, the gem with a question in Review (the plain one in the Feed), the quote a year on as a postcard
- * on Home. All three stay up once shown. Each drawn from the app's own parts;
- * pictures only: nothing here takes a click or reads your data.
+ * The welcome's Remember chapter: the three things kept so far, each coming
+ * back left to right: gems first (Review + Feed), then the quote as a Home
+ * postcard, then (last) the task on the day's sticky. Book keepers before
+ * plans. All three stay up once shown. Pictures only.
  */
 
 /** A ticked task's line through its words, a little below the middle of each line. */
@@ -108,11 +106,11 @@ const clip = (text: string, words = 4): string => {
   return all.length > words ? `${all.slice(0, words).join(' ').replace(/[,.]$/, '')}…` : text
 }
 
-/** Each thing kept and how it comes back, in the words of the story told now: what it is, when, and what Haligtree does, its key words *marked*. */
-export const back =(): { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] => [
-  { kind: 'task', kept: clip(flowTask().title), when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
+/** Each thing kept and how it comes back: gems and quote before the task sticky. */
+export const back = (): { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] => [
   { kind: 'gem', kept: clip(flowWords().gem, 3), when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'A gem with a question *comes back in “Review”* as you start to forget it. A plain one turns up in your “Feed”.' },
-  { kind: 'quote', kept: shortOf('quote'), when: 'A year on', said: 'The line you saved *shows up on “Home”*, and as a hint, like a postcard from your past self.' }
+  { kind: 'quote', kept: shortOf('quote'), when: 'A year on', said: 'The line you saved *shows up on “Home”*, and as a hint, like a postcard from your past self.' },
+  { kind: 'task', kept: clip(flowTask().title), when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'When you need plans too: with “Stick Today on the desktop”, they *sit on your desktop*. Tick them off there.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
 const CHIP = 'flex h-9 items-center gap-1.5 overflow-hidden rounded-full border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]'
