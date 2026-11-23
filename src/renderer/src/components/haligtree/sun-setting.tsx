@@ -8,6 +8,7 @@ import type { Settings } from '@/lib/haligtree'
 import { clock } from '@/lib/clock'
 import { sunAgain, type Sun } from '@/lib/sun'
 import { Setting } from './settings-view'
+import { Island, POP_ISLANDS } from './ui'
 
 /**
  * "Your sun": the evening starts at sunset where you are, not at a fixed hour.
@@ -39,9 +40,11 @@ export function SunSetting({ settings, set }: { settings: Settings; set: (patch:
             <PopoverTrigger asChild>
               <button type="button" data-sun-place className="cursor-pointer rounded-sm font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground">{sun?.place ?? 'Pick a city'}</button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 gap-0 p-0 text-control" data-sun-places>
+            {/* A plain list to pick from: the islanded popovers' heading and frame (display.tsx), the search its first row. */}
+            <PopoverContent align="start" className={`w-64 gap-0 p-2 text-control ${POP_ISLANDS}`} data-sun-places>
+              <Island compact title="Sunset in">
               <input autoFocus type="text" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a city…" spellCheck={false}
-                className="w-full border-b border-border bg-transparent px-3 py-2 text-control outline-none placeholder:text-muted-foreground" />
+                className="h-8 w-full px-2 text-control text-foreground outline-none placeholder:text-muted-foreground" />
               <div className="max-h-64 min-h-0 overflow-y-auto p-1">
                 {!term && (
                   <button type="button" role="menuitemradio" aria-checked={!settings.sunPlace} onClick={() => pick('')} className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent">
@@ -56,8 +59,9 @@ export function SunSetting({ settings, set }: { settings: Settings; set: (patch:
                     <span className="truncate text-meta text-muted-foreground">{one.zone.split('/')[0]}</span>
                   </button>
                 ))}
-                {places && !shown.length && <p className="px-2 py-1.5 text-muted-foreground">No city called that: try the nearest big one</p>}
+                {places && !shown.length && <p className="px-2 py-1.5 text-foreground">No city called that: try the nearest big one</p>}
               </div>
+              </Island>
             </PopoverContent>
           </Popover>
           {said && <span>· {said}</span>}

@@ -5,7 +5,7 @@ import GearIcon from '@/components/ui/gear-icon'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { chime } from '@/lib/sound'
 import { haligtree } from '@/lib/haligtree'
-import { Tip } from './ui'
+import { Island, POP_ISLANDS, Tip } from './ui'
 import { Check } from '@/components/ui/icons'
 
 const NAMES = new Intl.DisplayNames(['en'], { type: 'language' })
@@ -44,7 +44,9 @@ export function SpellLanguages({ picked, disabled }: { picked: string[]; disable
           </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="end" className="w-64 gap-0 p-0 text-control" data-spell-languages>
+      {/* A plain list to tick: the islanded popovers' heading and frame (display.tsx), the search its first row. */}
+      <PopoverContent align="end" className={`w-64 gap-0 p-2 text-control ${POP_ISLANDS}`} data-spell-languages>
+        <Island compact title="Spellcheck in">
         <input
           autoFocus
           type="text"
@@ -52,9 +54,9 @@ export function SpellLanguages({ picked, disabled }: { picked: string[]; disable
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Find a language…"
           spellCheck={false}
-          className="w-full border-b border-border bg-transparent px-3 py-2 text-control outline-none placeholder:text-muted-foreground"
+          className="h-8 w-full px-2 text-control text-foreground outline-none placeholder:text-muted-foreground"
         />
-        <div className="min-h-0 overflow-y-auto p-1">
+        <div className="max-h-64 overflow-y-auto p-1">
           {shown.map((code) => {
             const ticked = on.includes(code)
             return (
@@ -74,8 +76,9 @@ export function SpellLanguages({ picked, disabled }: { picked: string[]; disable
               </button>
             )
           })}
-          {langs && !shown.length && <p className="px-2 py-1.5 text-muted-foreground">No language called that</p>}
+          {langs && !shown.length && <p className="px-2 py-1.5 text-foreground">No language called that</p>}
         </div>
+        </Island>
       </PopoverContent>
     </Popover>
   )
