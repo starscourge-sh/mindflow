@@ -3052,7 +3052,9 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
           </button>
         </PopoverAnchor>
       </Tip>
-      <PopoverContent align="end" sideOffset={6} data-volume-control className={cn('w-56 gap-2 p-3', calm && 'data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100')}
+      {/* One slider: the islanded popovers' heading and frame (display.tsx), the level said beside the heading as the
+          Calendar's Reminder says its own. */}
+      <PopoverContent align="end" sideOffset={6} data-volume-control className={cn('w-56 gap-0 p-2 text-control', POP_ISLANDS, calm && 'data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100')}
         // The slider takes the keys at once, for the arrows.
         onOpenAutoFocus={(event) => {
           event.preventDefault()
@@ -3061,10 +3063,8 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
         // The button itself is no outside click: a click on it still turns sounds on or off, with the volume kept open.
         onInteractOutside={(event) => void ((event.target as HTMLElement | null)?.closest?.('[data-sound-toggle]') && event.preventDefault())}
       >
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-foreground">Volume</span>
-          <span data-volume-level className="text-sm text-muted-foreground tabular-nums">{!on ? 'Off' : level <= 0 ? 'Silent' : `${Math.round(level * 100)}%`}</span>
-        </div>
+        <Island compact title="Volume" actions={<span data-volume-level className="text-control font-medium text-foreground tabular-nums">{!on ? 'Off' : level <= 0 ? 'Silent' : `${Math.round(level * 100)}%`}</span>}>
+        <div className="px-3 py-3">
         <Slider aria-label="Volume" min={0} max={1} step={0.05} value={[level]}
           onValueChange={([raw]) => {
             clearTimeout(closeTimer.current)
@@ -3074,6 +3074,8 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
             if (notch !== Math.round(level / 0.05)) stepTap(notch, 0, 20)
             set(next)
           }} />
+        </div>
+        </Island>
       </PopoverContent>
     </Popover>
   )
