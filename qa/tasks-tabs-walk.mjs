@@ -43,20 +43,21 @@ try {
   // A seed made today has nothing carried over yet (qa/make-seed.mjs): said, not failed.
   if (!(await card.count())) { console.log('SKIP the carried-over card: no task in this seed has been carried over twice'); throw Object.assign(new Error('skip'), { skip: true }) }
   const id = await card.evaluate((el) => el.closest('[data-task-row]')?.getAttribute('data-id'))
-  await card.getByText('Pick a date').click(); await h.waitForTimeout(500)
+  await card.getByText('Another day…').click(); await h.waitForTimeout(500)
   const placed = await h.evaluate(() => ({ calendar: !!document.querySelector('[data-radix-popper-content-wrapper] [role="grid"], [data-radix-popper-content-wrapper] table'), opened: !!document.querySelector('[data-open][data-task-row], [data-close-beside]') }))
-  check('"Pick a date" opens a calendar in place, not the whole task', placed.calendar && !placed.opened, JSON.stringify(placed))
+  check('"Another day…" opens a calendar in place, not the whole task', placed.calendar && !placed.opened, JSON.stringify(placed))
   await h.locator('[data-radix-popper-content-wrapper]').getByText('Tomorrow', { exact: true }).first().click(); await h.waitForTimeout(800)
   const due = (await s.v('tasks')).find((t) => t.id === id)?.dueAt
   const tomorrow = await h.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toDateString() })
   check('…and "Tomorrow" there moves the task to tomorrow', !!due && new Date(due).toDateString() === tomorrow, JSON.stringify({ due, tomorrow }))
-  // The carried-over card's own "Tomorrow", one press.
+  // "Do it today": its day stays, the count starts again, and the card goes.
   const next = h.locator('[data-task-ask="carried"]').first()
   if (await next.count()) {
     const other = await next.evaluate((el) => el.closest('[data-task-row]')?.getAttribute('data-id'))
-    await next.getByRole('button', { name: 'Tomorrow', exact: true }).click(); await h.waitForTimeout(800)
-    const moved = (await s.v('tasks')).find((t) => t.id === other)?.dueAt
-    check('the card\'s own "Tomorrow" moves it to tomorrow in one press', !!moved && new Date(moved).toDateString() === tomorrow, JSON.stringify({ moved }))
+    const before = (await s.v('tasks')).find((t) => t.id === other)
+    await next.getByRole('button', { name: 'Do it today', exact: true }).click(); await h.waitForTimeout(800)
+    const after = (await s.v('tasks')).find((t) => t.id === other)
+    check('"Do it today" keeps its day and lets the card go', after?.dueAt === before?.dueAt && !(await h.locator(`[data-task-row][data-id="${other}"] [data-task-ask="carried"]`).count()), JSON.stringify({ before: before?.dueAt, after: after?.dueAt, rolled: after?.rollovers }))
   }
   if (process.env.QA_SHOTS) { await s.look?.('dark'); await h.waitForTimeout(400); await h.screenshot({ path: `${process.env.QA_SHOTS}/today-dark.png` }) }
 } catch (error) { if (!error.skip) check('ran', false, error.stack) } finally { await close() }
