@@ -176,6 +176,20 @@ const TAGS = new RegExp(String.raw`(^|\s)(#${TAG_HERE})`, 'gu')
 const TAG_AT = new RegExp(String.raw`(?:^|\s)#((?:${TAG_HERE})?)$`, 'u')
 
 /**
+ * A popover's name field (the Calendar's event and task popovers): it grows to a second line rather than cut the name.
+ * The words' own size and edges, so a task's lit words drawn under it (`TaskInput`) fall on them letter for letter.
+ */
+export const NAME_FIELD = 'block w-full min-w-0 flex-1 resize-none overflow-hidden bg-transparent py-2 text-body outline-none [field-sizing:content] [overflow-wrap:anywhere] placeholder:text-muted-foreground'
+/** A name is one line of words: a line break pasted into it is a space. */
+export const oneLine = (text: string): string => text.replace(/\s*\n\s*/g, ' ')
+/** ↵ in a name that wraps sends its form, as it did when it was one line; no line break is ever typed into a name. */
+export const submitOnEnter = (event: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
+  if (event.key !== 'Enter' || event.metaKey || event.ctrlKey || event.altKey || event.nativeEvent.isComposing || event.defaultPrevented) return
+  event.preventDefault()
+  event.currentTarget.form?.requestSubmit()
+}
+
+/**
  * The line a task is typed into, Todoist's way: the words it read as a date,
  * a deadline, a repeat or a priority light up where they stand, #tags too,
  * and chips at the end say what it understood. A "#" offers the tags in use,
@@ -183,8 +197,10 @@ const TAG_AT = new RegExp(String.raw`(?:^|\s)#((?:${TAG_HERE})?)$`, 'u')
  * input over a copy of its own text, so the typing is the browser's and only
  * the colour is drawn: every key, ⌥3's "#" with it, types as it does anywhere.
  */
-export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, onBlur, autoFocus, label, kept, attrs, trail }: {
+export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, onBlur, autoFocus, label, kept, attrs, trail, grows = false }: {
   value: string
+  /** A name field that grows to a second line rather than cut the name (`NAME_FIELD`): ↵ still sends its form. */
+  grows?: boolean
   /** The field's own marks and handlers beyond these (a subtask's `data-subtask`, its paste). */
   attrs?: React.InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | number | undefined>
   /** Drawn after the words in place of the chips, from the field's own reading of them (a subtask's offer to be a task). */
@@ -266,44 +282,48 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
     const el = event.currentTarget
     setCaret(el.selectionStart === el.selectionEnd ? el.selectionStart : null)
   }
+  const field: React.InputHTMLAttributes<HTMLInputElement> & React.RefAttributes<HTMLInputElement> & { 'data-task-input': string } = {
+    ref: (node) => {
+      own.current = node
+      if (typeof inputRef === 'function') inputRef(node)
+      else if (inputRef) (inputRef as React.RefObject<HTMLInputElement | null>).current = node
+    },
+    ...attrs,
+    'data-task-input': '',
+    'aria-label': label,
+    autoFocus,
+    value,
+    'aria-expanded': offered.length > 0,
+    'aria-autocomplete': 'list',
+    onChange: (event) => (onChange(grows ? oneLine(event.target.value) : event.target.value), follow(event), where(event)),
+    onScroll: follow,
+    onSelect: (event) => (follow(event), where(event)),
+    onBlur: (event) => (setCaret(null), onBlur?.(event)),
+    onKeyDown: (event) => {
+      // ⌫ just after lit words (as Todoist's): the first press keeps them as words, the next deletes as ever.
+      const el = event.currentTarget
+      const after = kept && event.key === 'Backspace' && !event.metaKey && !event.altKey && !event.ctrlKey && el.selectionStart === el.selectionEnd
+        ? read?.spans.filter((one) => one.to === el.selectionStart) ?? [] : []
+      if (after.length) return (event.preventDefault(), keep(after))
+      if (offered.length && !event.metaKey && !event.altKey) {
+        // A tag typed out whole is kept as typed: ↵ adds the task, Tab still takes the one offered.
+        const keys = event.key === 'Tab' ? new KeyboardEvent('keydown', { key: 'Enter' }) : event.key === 'Enter' && all.some((one) => one.tag === part) ? null : event.nativeEvent
+        if (keys && list.current?.onKeyDown({ event: keys } as never)) return (event.preventDefault(), event.stopPropagation(), chime('settled'))
+        if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), setShut(value))
+      }
+      onKeyDown?.(event)
+      if (grows) submitOnEnter(event)
+    },
+    placeholder
+  }
   return (
     <span className={`flex min-w-0 flex-1 items-center gap-2 ${className}`}>
       <span className="relative min-w-0 flex-1">
-        <div ref={mirror} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre">{pieces}</div>
-        <input
-          ref={(node) => {
-            own.current = node
-            if (typeof inputRef === 'function') inputRef(node)
-            else if (inputRef) (inputRef as React.RefObject<HTMLInputElement | null>).current = node
-          }}
-          {...attrs}
-          data-task-input
-          aria-label={label}
-          autoFocus={autoFocus}
-          value={value}
-          aria-expanded={offered.length > 0}
-          aria-autocomplete="list"
-          onChange={(event) => (onChange(event.target.value), follow(event), where(event))}
-          onScroll={follow}
-          onSelect={(event) => (follow(event), where(event))}
-          onBlur={(event) => (setCaret(null), onBlur?.(event))}
-          onKeyDown={(event) => {
-            // ⌫ just after lit words (as Todoist's): the first press keeps them as words, the next deletes as ever.
-            const el = event.currentTarget
-            const after = kept && event.key === 'Backspace' && !event.metaKey && !event.altKey && !event.ctrlKey && el.selectionStart === el.selectionEnd
-              ? read?.spans.filter((one) => one.to === el.selectionStart) ?? [] : []
-            if (after.length) return (event.preventDefault(), keep(after))
-            if (offered.length && !event.metaKey && !event.altKey) {
-              // A tag typed out whole is kept as typed: ↵ adds the task, Tab still takes the one offered.
-              const keys = event.key === 'Tab' ? new KeyboardEvent('keydown', { key: 'Enter' }) : event.key === 'Enter' && all.some((one) => one.tag === part) ? null : event.nativeEvent
-              if (keys && list.current?.onKeyDown({ event: keys } as never)) return (event.preventDefault(), event.stopPropagation(), chime('settled'))
-              if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), setShut(value))
-            }
-            onKeyDown?.(event)
-          }}
-          placeholder={placeholder}
-          className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-muted-foreground placeholder-shown:text-ellipsis"
-        />
+        {/* The words drawn under the field, lit where they were read; wrapped as the field wraps them when it grows. */}
+        <div ref={mirror} aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden ${grows ? 'py-2 whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre'}`}>{pieces}</div>
+        {grows
+          ? <textarea {...(field as unknown as React.TextareaHTMLAttributes<HTMLTextAreaElement>)} rows={1} className={`${NAME_FIELD} relative text-transparent caret-foreground`} />
+          : <input {...field} className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-muted-foreground placeholder-shown:text-ellipsis" />}
         {offered.length > 0 && (
           // The editor's own # list (note-link-menu.tsx NoteList), at the # being typed, never at the field's far left.
           <div data-tag-offers className="tiptap-suggestion-popup absolute top-full mt-1.5" style={{ left: tagAt }}

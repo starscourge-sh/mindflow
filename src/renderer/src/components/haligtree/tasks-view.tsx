@@ -36,7 +36,7 @@ import { short } from '@/lib/clock'
 import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPriority, useKept } from './task-input'
 import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
-import { Empty, FoldItem, MenuRows, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
+import { Empty, FoldItem, MenuRows, Island, Kbd, Page, PANEL_FIELD, PanelRow, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
@@ -1825,15 +1825,23 @@ export function TaskRows({ task }: { task: Task }): React.JSX.Element {
       .then(() => (chime('tap'), toast(said, () => void haligtree.saveTask(task.id, { title: was }))))
   }
   return (
-    <div data-task-rows className="flex flex-col px-1 pb-2">
-      <DatePicker time allDay={!!task.allDay} value={task.dueAt} onChange={(due, timed) => setDue(task, due, timed)} placeholder="Not scheduled" />
-      {/* Its tags in a row shaped as an event's people are: the mark on the rows' one left edge, the words on the date's
-          words' edge, the tags it offers listed under the field; a press anywhere on the row puts the caret in it. */}
-      <div data-task-tags onClick={(event) => !(event.target as Element).closest('input, button') && tagField.current?.focus()}
-        className="flex cursor-text items-start gap-2 px-2 py-1.5">
-        <Tag aria-hidden className="mt-px size-4 shrink-0" />
-        <TagRow bare tags={named.tags} field={tagField} onAdd={(tag) => retag([...named.tags, tag], `Tagged #${tag}`)} onRemove={(tag) => retag(named.tags.filter((one) => one !== tag), `#${tag} taken off`)} onDone={() => tagField.current?.blur()} />
-      </div>
+    // Display's anatomy (display.tsx), as an open event's rows have it (calendar-events.tsx, EventRows): a small heading,
+    // the rows in an island, each row's name on the left and its value in a field on the right.
+    <div data-task-rows className="flex flex-col px-3 pb-3">
+      <Island compact title="Details">
+        <PanelRow label="When">
+          <DatePicker time allDay={!!task.allDay} value={task.dueAt} onChange={(due, timed) => setDue(task, due, timed)} placeholder="Not scheduled"
+            className={cn(PANEL_FIELD, 'justify-start py-1 hover:bg-accent/50 data-[state=open]:border-ring')} />
+        </PanelRow>
+        {/* Its tags in a field shaped as an event's people are, the tags it offers listed under the field; a press anywhere
+            in it puts the caret in it. */}
+        <PanelRow label="Tags">
+          <div data-task-tags onClick={(event) => !(event.target as Element).closest('input, button') && tagField.current?.focus()}
+            className={cn(PANEL_FIELD, 'cursor-text justify-start py-0.5 hover:bg-accent/50 focus-within:border-ring')}>
+            <TagRow bare tags={named.tags} field={tagField} onAdd={(tag) => retag([...named.tags, tag], `Tagged #${tag}`)} onRemove={(tag) => retag(named.tags.filter((one) => one !== tag), `#${tag} taken off`)} onDone={() => tagField.current?.blur()} />
+          </div>
+        </PanelRow>
+      </Island>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Island, IslandRow, Tip } from './ui'
+import { cn } from '@/lib/cn'
 import { Chips } from './display'
 import { TimeField } from './time-field'
 import { dayMonth, dayjs } from '../../../../main/dates'
@@ -90,7 +91,8 @@ export function DatePicker({ value, onChange, time = false, allDay = false, plac
         </Tip>
       ) : (
       <PopoverTrigger asChild>
-        <button type="button" data-date-picker className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control hover:bg-accent hover:text-foreground ${date ? '' : 'text-muted-foreground'} ${className}`}>
+        {/* A caller's own look wins where it says otherwise (a popover's panel field). */}
+        <button type="button" data-date-picker className={cn('flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control hover:bg-accent hover:text-foreground', !date && 'text-muted-foreground', className)}>
           {children ?? (
             <>
               <CalendarDays className="size-4 shrink-0" />

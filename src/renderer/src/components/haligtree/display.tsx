@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioG
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Count, FoldItem, MenuRows, MoreBelow, Island, Rolling, Tip, typing } from './ui'
+import { Count, FoldItem, MenuRows, MoreBelow, Island, PANEL_FIELD, PanelRow, POP_ISLANDS, Rolling, Tip, typing } from './ui'
 import { chime } from '@/lib/sound'
 import { glideWay, spring } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
@@ -295,7 +295,7 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="flex h-7 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input px-2.5 text-left hover:bg-accent/50 data-[state=open]:border-ring">
+        <button type="button" className={`${PANEL_FIELD} hover:bg-accent/50 data-[state=open]:border-ring`}>
           <span className={`truncate ${names.length ? 'text-foreground' : 'text-muted-foreground'}`}>{shown}</span>
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
@@ -349,12 +349,6 @@ const Section = ({ title, children }: { title: string; children: ReactNode }): R
   <Island compact name={title} title={title}>
     {children}
   </Island>
-)
-const Row = ({ label, children }: { label: string; children: ReactNode }): React.JSX.Element => (
-  <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1.5">
-    <div className="text-muted-foreground">{label}</div>
-    {children}
-  </div>
 )
 
 /**
@@ -681,16 +675,16 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       <Section title="Sort by">
         {sorts.length > 1 && <SortList sorts={sorts} sort={view.sort} note={sortNote} onSort={(sort) => onChange({ ...view, sort })} />}
         {groups.length > 1 && (
-          <Row label="Grouping">
+          <PanelRow label="Grouping">
             <Pick options={groups} chosen={[view.group]} many={false} onPick={(group) => onChange({ ...view, group })} />
-          </Row>
+          </PanelRow>
         )}
         {/* Grouped, each group can be its own island: a few rows each, folding, so a long list reads as a few short ones. */}
         {groups.length > 1 && view.group !== 'none' && (
-          <Row label="Sections as">
+          <PanelRow label="Sections as">
             <Pick options={[{ id: 'islands', label: 'Islands', hint: `Each ${GROUP_WORD[view.group] ?? 'group'} in a box of its own` }, { id: 'plain', label: 'One list', hint: 'Every row in one run, under its heading' }]} chosen={[islandsOn(view) ? 'islands' : 'plain']} many={false}
               onPick={(as) => (chime('tap'), onChange({ ...view, islands: as === 'islands' }))} />
-          </Row>
+          </PanelRow>
         )}
       </Section>
     )}
@@ -713,18 +707,18 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
           ))}
         </div>
         {folders && (
-          <Row label="Show folder">
+          <PanelRow label="Show folder">
             <Switch data-show-folder aria-label="Show folder" className="justify-self-end" checked={view.folders !== false} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), onChange({ ...view, folders: on }))} />
-          </Row>
+          </PanelRow>
         )}
       </Section>
     )}
     {shownFacets.length > 0 && (
       <Section title="Filter">
         {shownFacets.map((facet) => (
-          <Row key={facet.key} label={facet.label}>
+          <PanelRow key={facet.key} label={facet.label}>
             <Pick options={facet.options} chosen={view.filter[facet.key] ?? []} many onPick={(id) => toggle(facet.key, id)} />
-          </Row>
+          </PanelRow>
         ))}
       </Section>
     )}
@@ -808,7 +802,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
         // Closed, the keys go back to the list, not to this button: Enter then opens a note, not the menu again.
         onCloseAutoFocus={(event) => event.preventDefault()}
         onKeyDown={onKeyDown}
-        className="w-72 gap-0 p-2 text-control [&_.mf-island]:rounded-sm"
+        className={`w-72 gap-0 p-2 text-control ${POP_ISLANDS}`}
         ref={fit}
         onInteractOutside={inside}
       >

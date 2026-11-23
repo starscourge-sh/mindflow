@@ -84,7 +84,7 @@ const state = () => h.evaluate(() => {
   const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom } }
   const pop = document.querySelector('[data-cal-add]')
   const draft = document.querySelector('[data-cal-level] [data-cal-draft], [data-month-own] [data-cal-draft]')
-  const field = pop?.querySelector('input')
+  const field = pop?.querySelector('textarea, input')
   return {
     pop: pop && { ...box(pop), kind: pop.dataset.calAdd, side: pop.closest('[data-cal-hold]')?.dataset.side, keyed: !!pop.closest('[data-cal-hold]')?.hasAttribute('data-keyed'), arrow: box((pop.closest('[data-cal-hold]') ?? pop).querySelector('[data-slot="popover-arrow"]')), sw: box(pop.querySelector('[role="radiogroup"]')),
       focused: document.activeElement === field, words: field?.value ?? null, said: pop.querySelector('[data-new-event-said], [data-day-side-when]')?.textContent ?? '', opaque: getComputedStyle(pop).backgroundColor },
@@ -784,7 +784,7 @@ try {
       await wait(700)
       const s = await state()
       // What it holds under its top row scrolls inside it when the window is this short; nothing else may run past its edges.
-      const cut = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const box = pop.getBoundingClientRect(); const sized = pop.querySelector('[data-cal-add-sized]'); const inner = sized.getBoundingClientRect(); return { out: [...pop.querySelectorAll('input, button, p')].filter((el) => el.offsetParent && !sized.contains(el) && (el.getBoundingClientRect().bottom > box.bottom + 0.5 || el.getBoundingClientRect().right > box.right + 0.5)).length + (inner.bottom > box.bottom + 0.5 || inner.right > box.right + 0.5 ? 1 : 0), scrolls: sized.scrollHeight > sized.clientHeight + 1 } })
+      const cut = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const box = pop.getBoundingClientRect(); const sized = pop.querySelector('[data-cal-add-sized]'); const inner = sized.getBoundingClientRect(); return { out: [...pop.querySelectorAll('textarea, input, button, p')].filter((el) => el.offsetParent && !sized.contains(el) && (el.getBoundingClientRect().bottom > box.bottom + 0.5 || el.getBoundingClientRect().right > box.right + 0.5)).length + (inner.bottom > box.bottom + 0.5 || inner.right > box.right + 0.5 ? 1 : 0), scrolls: sized.scrollHeight > sized.clientHeight + 1 } })
       await shot(`open-560-${kind}`)
       check(`560 by 400: the popover on the ${kind} is inside the window, never over it, with nothing cut (what does not fit scrolls inside it)`, inside(s) && clear(s, await thing(SEL[kind], label, false)) && cut?.out === 0, `side ${s.pop?.side}; ${cut?.out} cut; scrolls ${cut?.scrolls}; ${JSON.stringify(s.pop && [Math.round(s.pop.x), Math.round(s.pop.y), Math.round(s.pop.r), Math.round(s.pop.b)])}`)
       await shut()
@@ -822,6 +822,14 @@ try {
         scrolls: sized ? sized.scrollHeight > sized.clientHeight + 1 : false, mask: sized ? getComputedStyle(sized).maskImage !== 'none' : false
       }
     })
+    /** The islands at or in `sel`: whether each has its heading, how many rows it holds, and its look (class, corner, fill, edge). */
+    const islandOf = (sel) => h.evaluate((sel) => {
+      const el = document.querySelector(sel)
+      if (!el) return null
+      const all = el.closest('.mf-island') ? [el.closest('.mf-island')] : [...el.querySelectorAll('.mf-island')]
+      return all.map((box) => { const st = getComputedStyle(box); return { headed: !!box.parentElement?.querySelector(':scope > div > h2')?.textContent.trim(), rows: box.children.length, look: [box.className, st.borderRadius, st.backgroundColor, st.borderColor, st.borderWidth].join(' | ') } })
+    }, sel)
+    const islands = {}
     const theEvent = async () => (await eventsNamed('Opens here'))[0]
     const fits = (r) => r && r.x >= 11.5 && r.y >= 51.5 && r.r <= innerW - 11.5 && r.b <= innerH - 11.5
     let innerW = 1440
@@ -830,9 +838,12 @@ try {
       let r = await rows()
       await shot('rows-event')
       check('an open event has its quiet rows: calendar, place, people, reminder and repeat, each one line', r?.quiet.join() === 'calendar,remind,repeat' && r.place && r.people, JSON.stringify(r && { quiet: r.quiet, place: r.place, people: r.people }))
-      // One left edge: every row's mark starts where the first row's does, and the place's and the people's words start together.
-      const edges = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); const left = (el) => el ? Math.round(el.getBoundingClientRect().left * 10) / 10 : null; return { marks: [...pop.querySelectorAll('[data-event-rows] svg:first-child, [data-event-rows] label > svg, [data-event-people] svg')].filter((el) => el.getBoundingClientRect().width >= 14).map(left), place: left(pop.querySelector('[data-event-rows] input[placeholder="Place"]')), people: left(pop.querySelector('[data-event-people] input')) } })
-      check('the rows start on one left edge, and the words of "Place" and "People" start together (within 1px)', edges.marks.length >= 5 && Math.max(...edges.marks) - Math.min(...edges.marks) <= 1 && Math.abs(edges.place - edges.people) <= 1, JSON.stringify(edges))
+      // Display's anatomy: every row's name on one left edge, and every row's value (the fields of Calendar, Reminder and
+      // Repeat, the place, the people) on one edge of its own to the right of them.
+      const edges = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); const left = (el) => el ? Math.round(el.getBoundingClientRect().left * 10) / 10 : null; return { names: [...pop.querySelectorAll('[data-quiet-row] > button > :first-child, [data-event-rows] .mf-island > :not([data-quiet-row]) > :first-child')].map(left), values: [...pop.querySelectorAll('[data-quiet-row] > button > :last-child, [data-event-rows] input[placeholder="Place"], [data-event-people] > :first-child')].map(left) } })
+      const spread = (all) => Math.max(...all) - Math.min(...all)
+      check('the rows\' names start on one left edge, and their values (each in its field) on one edge to their right (within 1px)', edges.names.length === 5 && edges.values.length === 5 && spread(edges.names) <= 1 && spread(edges.values) <= 1 && edges.values[0] > edges.names[0] + 40, JSON.stringify(edges))
+      islands.event = await islandOf('[data-cal-add] [data-event-rows]')
       const shutHeight = r?.h
       // The reminder: a line that opens its choices in place; the width is one, the height follows.
       // Every height the popover is drawn at for a second and a half from here. (With pictures being taken the page draws
@@ -895,6 +906,7 @@ try {
       const r = await rows()
       await shot('rows-task')
       check('an open task has its rows: its day and time, and its tags', r?.day && r.tags && Math.abs(r.w - 320) < 1 && r.wide === 0, JSON.stringify(r && { day: r.day, tags: r.tags, w: r.w, wide: r.wide }))
+      islands.task = await islandOf('[data-cal-add] [data-task-rows]')
       await h.locator('[data-cal-add] [data-task-rows] [data-task-tags] input').click()
       await h.keyboard.type('errand', { delay: 8 })
       await h.keyboard.press('Enter')
@@ -927,6 +939,16 @@ try {
     } else console.log('NOTE  560 by 400: the event is not drawn by name at this size')
     await c.size(1440, 900)
     await wait(500)
+    // The north star (the user, 23 Nov: "the islanding popovers should be your northstar, because your calendar popovers
+    // look dry"): the event's and the task's rows sit in islands drawn as the Inbox's Sort and View popover draws its own.
+    await go('inbox')
+    await h.locator('[data-display]').first().click().catch(() => {})
+    await wait(700)
+    const star = await islandOf('[data-slot="popover-content"] [role="menu"][aria-label="Sort by"]')
+    await h.keyboard.press('Escape')
+    await go('calendar')
+    await wait(800)
+    check('the open event\'s and task\'s rows sit in headed islands, the same island (class, corner, fill, edge) as the Sort and View popover\'s', !!star && ['event', 'task'].every((one) => islands[one]?.every((box) => box.headed && box.rows > 1 && box.look === star[0].look)), JSON.stringify({ star: star?.[0], ...islands }))
   }
 
   if (parts.includes('put')) {
@@ -1365,7 +1387,7 @@ try {
       await h.mouse.click(...at)
       await wait(700)
       s = await state()
-      const ro = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const field = pop.querySelector('input'); return { open: !!pop.getAttribute('data-cal-open'), page: !!pop.querySelector('[data-cal-open-page]'), rows: !!pop.querySelector('[data-event-rows]'), readOnly: !!field?.readOnly, keep: !!pop.querySelector('[data-new-event-add]'), said: pop.textContent } })
+      const ro = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const field = pop.querySelector('textarea, input'); return { open: !!pop.getAttribute('data-cal-open'), page: !!pop.querySelector('[data-cal-open-page]'), rows: !!pop.querySelector('[data-event-rows]'), readOnly: !!field?.readOnly, keep: !!pop.querySelector('[data-new-event-add]'), said: pop.textContent } })
       await shot('unhappy-mac')
       check('a click opens the same popover on it, read only: its name in a line that cannot be typed in, no "Open", no rows, no ↵ to keep, and it says whose it is', !!ro?.open && !ro.page && !ro.rows && ro.readOnly && !ro.keep && s.pop?.words === 'Mac breakfast' && /Family/.test(ro.said) && /change it in Calendar/.test(ro.said) && inside(s) && clear(s, await thing('[data-cal-level] [data-cal-event][data-readonly]', 'Mac breakfast', false)), JSON.stringify(ro && { open: ro.open, page: ro.page, rows: ro.rows, readOnly: ro.readOnly, keep: ro.keep }) + ` ${s.pop?.words}`)
       await h.keyboard.type('xyz', { delay: 8 })
@@ -1413,7 +1435,7 @@ try {
       await wait(600)
       let s = await state()
       check('  Esc in the ask changes nothing and leaves the popover up with its words', await h.locator('[data-scope-ask]').count() === 0 && !!s.pop && s.pop.words === 'Weekly standup 10am' && (await standups()).every((one) => new Date(one.start).getHours() === 9), `${s.pop?.words}; ${(await standups()).filter((one) => new Date(one.start).getHours() !== 9).length} moved`)
-      await h.locator('[data-cal-add] input').first().focus()
+      await h.locator('[data-cal-add] :is(textarea, input)').first().focus()
       await h.keyboard.press('Enter')
       await wait(700)
       await h.locator('[data-scope-ask] [data-scope="one"]').click().catch(() => {})
@@ -1482,10 +1504,10 @@ try {
         const past = over.length
         const what = over.slice(0, 3).map((el) => `${el.tagName.toLowerCase()}${[...el.attributes].filter((a) => a.name.startsWith('data-')).map((a) => `[${a.name}]`).join('')} ${Math.round((el.getBoundingClientRect().right - box.right) * 10) / 10}px`)
         const said = pop.querySelector('[data-new-event-said]')
-        return { w: box.width, side: pop.closest('[data-cal-hold]')?.dataset.side ?? null, past, what, saidCut: said ? said.scrollWidth > said.clientWidth + 1 : null, scrolls: sized.scrollHeight > sized.clientHeight + 1, sideways: sized.scrollWidth > sized.clientWidth + 1, place: (pop.querySelector('[data-event-rows] input[placeholder="Place"]')?.value ?? '').length, people: pop.querySelectorAll('[data-event-people] span.rounded-full').length }
+        return { w: box.width, side: pop.closest('[data-cal-hold]')?.dataset.side ?? null, past, what, saidCut: said ? said.scrollWidth > said.clientWidth + 1 : null, scrolls: sized.scrollHeight > sized.clientHeight + 1, sideways: sized.scrollWidth > sized.clientWidth + 1, place: (pop.querySelector('[data-event-rows] input[placeholder="Place"]')?.value ?? '').length, people: pop.querySelectorAll('[data-event-people] span.rounded-full').length, nameWhole: (() => { const name = pop.querySelector('[data-new-event-words]'); return !!name && name.scrollHeight <= name.clientHeight + 1 && name.scrollWidth <= name.clientWidth + 1 && name.clientHeight > 30 })() }
       })
       await shot(`unhappy-worst-${w}`)
-      check(`${w} by ${hh}, a long name with an unbreakable word, a long place and three people: the popover keeps its width, inside the window, nothing past its edge, the reading wrapped not cut, and no sideways scroll`, Math.abs(worst.w - Math.min(320, w - 24)) < 1 && inside(s) && worst.past === 0 && worst.saidCut === false && !worst.sideways && worst.place > 60 && worst.people === 3, JSON.stringify(worst))
+      check(`${w} by ${hh}, a long name with an unbreakable word, a long place and three people: the popover keeps its width, inside the window, nothing past its edge, the name and the reading wrapped not cut, and no sideways scroll`, Math.abs(worst.w - Math.min(320, w - 24)) < 1 && inside(s) && worst.past === 0 && worst.saidCut === false && worst.nameWhole && !worst.sideways && worst.place > 60 && worst.people === 3, JSON.stringify(worst))
       await shut()
     }
     await c.size(1440, 900)

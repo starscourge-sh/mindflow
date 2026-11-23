@@ -3393,6 +3393,24 @@ function FoldingIsland({ title, name, filled, actions, className, children }: { 
   )
 }
 
+/**
+ * A popover's islands (Display's Sort and View panel, the Calendar's event and task popovers): a smaller corner than a
+ * page's, given by the popover that holds them.
+ */
+export const POP_ISLANDS = '[&_.mf-island]:rounded-sm'
+/** One row of a popover's island: its name in a column of its own on the left, what it is set to on the right. */
+export const PANEL_ROW = 'grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1.5'
+/** The field on a panel row's right that shows what is chosen and opens the choices (Display's Grouping, the Calendar's Reminder). */
+export const PANEL_FIELD = 'flex min-h-7 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input px-2.5 text-left'
+export function PanelRow({ label, children, className, ...rest }: { label: ReactNode; children: ReactNode; className?: string } & Omit<React.HTMLAttributes<HTMLDivElement>, 'children'>): React.JSX.Element {
+  return (
+    <div className={cn(PANEL_ROW, className)} {...rest}>
+      <div className="text-muted-foreground">{label}</div>
+      {children}
+    </div>
+  )
+}
+
 /** One row of an island: a label on the left, its value or control on the right. */
 export function IslandRow({ label, note, children, className }: { label?: ReactNode; note?: ReactNode; children?: ReactNode; className?: string }): React.JSX.Element {
   return (

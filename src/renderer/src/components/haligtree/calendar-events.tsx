@@ -25,7 +25,9 @@ import { dayjs, dayKey, num } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { TimeField } from './time-field'
 import { RowMenu, copyLink, copyLinkItem, type RowItem } from './row-menu'
-import { Island, Kbd, Prop, PropInput, Props, Tip, refuse, toast } from './ui'
+import { Island, Kbd, PANEL_FIELD, PANEL_ROW, PanelRow, Prop, PropInput, Props, Tip, refuse, toast } from './ui'
+import { cn } from '@/lib/cn'
+import { NAME_FIELD, oneLine, submitOnEnter } from './task-input'
 import { quoted } from '../../../../main/clip'
 import { IslandBox, useFold } from './islands'
 import type { Place } from './cal-add'
@@ -641,14 +643,13 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, onPlace, on
 }): React.JSX.Element {
   const ownText = useState(one?.title ?? '')
   const [text, setText] = words ?? ownText
-  const field = useRef<HTMLInputElement>(null)
+  const field = useRef<HTMLTextAreaElement>(null)
   useEffect(() => (requestAnimationFrame(() => {
-    // The caret at the end, the name read from its start (as the task popover's, day-side.tsx).
+    // The caret at the end of the whole name (as the task popover's, day-side.tsx).
     const el = field.current
     if (!el) return
     el.focus()
     el.setSelectionRange(el.value.length, el.value.length)
-    el.scrollLeft = 0
   }), () => void (held && (held.current = null))), []) // eslint-disable-line react-hooks/exhaustive-deps
   const known = useKnownPeople()
   const calendars = useCalendars()
@@ -706,8 +707,9 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, onPlace, on
     <form data-new-event data-event-open={one?.key} className="flex flex-col px-3 pt-2.5 pb-3" onSubmit={(event) => (event.preventDefault(), void save())}>
       <div className="flex w-full flex-col gap-2.5">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
-          <input ref={field} data-new-event-words value={text} readOnly={one?.readOnly} onChange={(event) => setText(event.target.value)} aria-label={one ? 'The event’s name' : `A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
-            placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground" />
+          {/* The whole name in sight, on a second line where it is long (one line cut "Return the briefcase to Ma"); ↵ adds it, never a new line. */}
+          <textarea ref={field} data-new-event-words rows={1} value={text} readOnly={one?.readOnly} onChange={(event) => setText(oneLine(event.target.value))} onKeyDown={submitOnEnter} aria-label={one ? 'The event’s name' : `A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
+            placeholder="Lunch with Sam fri 1pm" className={`${NAME_FIELD} text-foreground`} />
           {/* A new one's ↵ is the popover's one filled button; on one that exists it is a quiet key (keeping a name is not
               the main thing there), and one of your Mac's, read only, has nothing to keep. */}
           {!one?.readOnly && <Button type="submit" size="sm" variant={one ? 'ghost' : undefined} data-new-event-add aria-label={one ? 'Keep' : 'Add'}><span className="hidden @[40rem]/page:inline">{one ? 'Keep' : 'Add'}</span> <Kbd>↵</Kbd></Button>}
@@ -718,12 +720,17 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, onPlace, on
           <p><strong className="font-semibold">{(one ? set!.name : read.title) || 'An event'}</strong>, {whenSaid(start, fixedEnd, allDay, clock)}{one ? (one.repeatSaid ? `, ${smallStart(one.repeatSaid)}` : '') : read.repeat ? `, ${smallStart(repeatSaid(read.repeat, start))}` : ''}.</p>
           {(place || people.length > 0) && <p>{place && <>At <strong className="font-semibold">{place}</strong>. </>}{people.length > 0 && <>With <strong className="font-semibold">{people.join(', ')}</strong>.</>}</p>}
         </div>
-        {/* Which calendar a new one will be on; one that exists has it as a row under its line (EventRows). */}
-        {!one && <CalendarPick calendars={calendars} on={on} onPick={(cal) => (chime('tap'), setCalendar(cal.id))} />}
-        {/* One quiet line, never a paragraph, saying by example what the words can hold; it gives way in a short window, so nothing in the popover is cut. */}
+        {/* One quiet line, never a paragraph, saying by example what the words can hold, wrapped where it is long; it gives
+            way in a short window, so nothing in the popover is cut. */}
         {one?.readOnly
           ? <p data-new-event-hint className="text-control text-muted-foreground">From your Mac’s calendar: change it in Calendar.</p>
-          : <p data-new-event-hint className="truncate text-control text-muted-foreground [@media(max-height:520px)]:hidden">{one ? 'Type fri 1pm, @Cafe or with Sam to change it.' : 'Reads fri 1pm, @Cafe, with Sam, every week.'}</p>}
+          : <p data-new-event-hint className="text-control text-muted-foreground [@media(max-height:520px)]:hidden">{one ? 'Type fri 1pm, @Cafe or with Sam to change it.' : 'Reads fri 1pm, @Cafe, with Sam, every week.'}</p>}
+        {/* Which calendar a new one will be on, in an island as Display's rows are; one that exists has it as a row of its own (EventRows). */}
+        {!one && (
+          <Island compact title="Details" className="mt-0.5">
+            <PanelRow label="Calendar"><CalendarPick calendars={calendars} on={on} onPick={(cal) => (chime('tap'), setCalendar(cal.id))} /></PanelRow>
+          </Island>
+        )}
       </div>
     </form>
   )
@@ -790,8 +797,8 @@ function Fold({ open, children }: { open: boolean; children: React.ReactNode }):
   return <motion.div ref={box} data-quiet-body style={{ height: whole }} className="overflow-hidden">{children}</motion.div>
 }
 
-export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }: {
-  icon: typeof Bell; name: string; said: React.ReactNode; open: boolean; onOpen: (open: boolean) => void
+export function QuietRow({ name, said, open, onOpen, row, children }: {
+  name: string; said: React.ReactNode; open: boolean; onOpen: (open: boolean) => void
   /** Its name for a probe. */
   row: string
   children: React.ReactNode
@@ -801,15 +808,19 @@ export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }
   const [keyed, setKeyed] = useState(false)
   return (
     <div data-quiet-row={row} data-open={open || undefined} className="flex flex-col">
+      {/* A row of Display's panel (ui.tsx, PANEL_ROW): its name on the left, and on the right what it is set to, in the
+          field Display's choices show theirs in; it opens its choices in place, under it in its island. */}
       <button type="button" aria-expanded={open} onClick={() => (setKeyed(byKeys()), chime(open ? 'fold' : 'open'), onOpen(!open))}
-        // A press answers at once: the row gives a little, as every row of a list here does (DESIGN.md, Alive Not Ingratiating).
-        className="group/head flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-control text-foreground outline-none transition-[background-color,scale] duration-150 ease-(--mf-ease) hover:bg-accent focus-visible:bg-accent active:scale-[0.98] motion-reduce:transition-none">
-        <Icon aria-hidden className="size-4 shrink-0" />
-        <span className="shrink-0">{name}</span>
-        <span data-quiet-said className="min-w-0 flex-1 truncate text-right font-medium">{said}</span>
-        <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground group-hover/head:text-foreground ${keyed ? '' : 'transition-transform duration-150 ease-(--mf-ease) motion-reduce:transition-none'} ${open ? 'rotate-90' : ''}`} />
+        // A press answers at once: the field gives a little, as every row of a list here does (DESIGN.md, Alive Not Ingratiating).
+        className={`group/head ${PANEL_ROW} w-full text-left text-control outline-none`}>
+        <span className="text-muted-foreground">{name}</span>
+        <span className={`${PANEL_FIELD} py-1 text-foreground transition-[background-color,border-color,scale] duration-150 ease-(--mf-ease) group-hover/head:bg-accent/50 group-focus-visible/head:border-ring group-active/head:scale-[0.98] group-aria-expanded/head:border-ring motion-reduce:transition-none`}>
+          {/* Wrapped where it is long ("Every week on Monday, Wednesday and Friday"), never cut. */}
+          <span data-quiet-said className="min-w-0 flex-1 [overflow-wrap:anywhere]">{said}</span>
+          <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground group-hover/head:text-foreground ${keyed ? '' : 'transition-transform duration-150 ease-(--mf-ease) motion-reduce:transition-none'} ${open ? 'rotate-90' : ''}`} />
+        </span>
       </button>
-      <Fold open={open}><div className="pb-1.5">{children}</div></Fold>
+      <Fold open={open}><div className="px-1.5 pb-1.5">{children}</div></Fold>
     </div>
   )
 }
@@ -832,21 +843,30 @@ export function EventRows({ one, onKey }: { one: Shown; onKey: (key: string) => 
   }
   const on = calendars.find((cal) => cal.id === one.calendarId)
   return (
-    <div data-event-rows className="flex flex-col px-1 pb-2">
-      <QuietRow row="calendar" icon={CalendarDays} name="Calendar" open={open.has('calendar')} onOpen={turn('calendar')}
-        said={<span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: inkOf(on?.color) }} />{on?.name ?? 'Calendar'}</span>}>
-        <div className="px-1"><CalendarPick calendars={calendars} on={one.calendarId} onPick={(cal) => cal.id !== one.calendarId && void save({ calendarId: cal.id }, `On ${cal.name} now`)} /></div>
-      </QuietRow>
-      {/* The page's own field, without its example and its tip here: in a popover the example read as a place already set,
-          and nothing floats over the popover. Its word, like “People” under it, says what goes there. */}
-      <PropInput key={`place-${one.place ?? ''}`} icon={MapPin} value={one.place ?? ''} placeholder="Place" lead="At" onSave={(place) => place !== (one.place ?? '') && void save({ place: place || null }, place ? `At ${place}` : 'No place now')} />
-      <PeopleField people={one.people} known={known} onSave={(people) => void save({ people }, people.length ? `With ${people.join(', ')}` : 'Nobody named now')} />
-      <QuietRow row="remind" icon={Bell} name="Reminder" said={remindName(one.remind)} open={open.has('remind')} onOpen={turn('remind')}>
-        <RemindChoices value={one.remind} allDay={one.allDay} start={one.start} onSave={(remind) => void save({ remind }, remind === null ? 'No reminder now' : `Reminds you ${remindName(remind).toLowerCase()}`)} />
-      </QuietRow>
-      <QuietRow row="repeat" icon={RepeatIcon} name="Repeat" said={one.repeatSaid || 'Does not repeat'} open={open.has('repeat')} onOpen={turn('repeat')}>
-        <RepeatChoices one={one} onSave={(repeat) => void save({ repeat }, repeat ? repeatSaid(repeat, one.start) : 'Does not repeat now', false)} />
-      </QuietRow>
+    // Display's anatomy (display.tsx): a small heading over each group, the group's rows in an island of their own.
+    <div data-event-rows className="flex flex-col px-3 pb-3">
+      <Island compact title="Where and who">
+        <QuietRow row="calendar" name="Calendar" open={open.has('calendar')} onOpen={turn('calendar')}
+          said={<span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: inkOf(on?.color) }} />{on?.name ?? 'Calendar'}</span>}>
+          <CalendarPick calendars={calendars} on={one.calendarId} onPick={(cal) => cal.id !== one.calendarId && void save({ calendarId: cal.id }, `On ${cal.name} now`)} />
+        </QuietRow>
+        {/* Written in where it is, in the field the row's choices show theirs in; ↵ or leaving keeps it. */}
+        <PanelRow label="Place">
+          <input key={`place-${one.place ?? ''}`} defaultValue={one.place ?? ''} placeholder="Place" aria-label="Place"
+            onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
+            onBlur={(event) => { const place = event.target.value.trim(); if (place !== (one.place ?? '')) void save({ place: place || null }, place ? `At ${place}` : 'No place now') }}
+            className={`${PANEL_FIELD} bg-transparent text-control text-foreground outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:border-ring`} />
+        </PanelRow>
+        <PanelRow label="People"><PeopleField inRow people={one.people} known={known} onSave={(people) => void save({ people }, people.length ? `With ${people.join(', ')}` : 'Nobody named now')} /></PanelRow>
+      </Island>
+      <Island compact title="When">
+        <QuietRow row="remind" name="Reminder" said={remindName(one.remind)} open={open.has('remind')} onOpen={turn('remind')}>
+          <RemindChoices value={one.remind} allDay={one.allDay} start={one.start} onSave={(remind) => void save({ remind }, remind === null ? 'No reminder now' : `Reminds you ${remindName(remind).toLowerCase()}`)} />
+        </QuietRow>
+        <QuietRow row="repeat" name="Repeat" said={one.repeatSaid || 'Does not repeat'} open={open.has('repeat')} onOpen={turn('repeat')}>
+          <RepeatChoices one={one} onSave={(repeat) => void save({ repeat }, repeat ? repeatSaid(repeat, one.start) : 'Does not repeat now', false)} />
+        </QuietRow>
+      </Island>
     </div>
   )
 }
@@ -1007,7 +1027,11 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
 }
 
 /** Who is coming: each a chip with its ×; typed, the names you already have are offered first. */
-function PeopleField({ people, known, onSave }: { people: string[]; known: string[]; onSave: (people: string[]) => void }): React.JSX.Element {
+function PeopleField({ people, known, onSave, inRow = false }: {
+  people: string[]; known: string[]; onSave: (people: string[]) => void
+  /** On a popover's panel row (EventRows): named by the row, the names in the row's field, nothing round it. */
+  inRow?: boolean
+}): React.JSX.Element {
   const [text, setText] = useState('')
   const offered = text.trim() ? known.filter((name) => name.toLowerCase().includes(text.trim().toLowerCase()) && !people.includes(name)).slice(0, 5) : []
   const add = (name: string): void => {
@@ -1017,10 +1041,12 @@ function PeopleField({ people, known, onSave }: { people: string[]; known: strin
     onSave([...people, clean])
   }
   return (
-    <div data-event-people className="flex flex-col gap-1 px-2 py-1.5">
-      <div className="flex flex-wrap items-center gap-1">
+    <div data-event-people className={`flex min-w-0 flex-col gap-1 ${inRow ? '' : 'px-2 py-1.5'}`}>
+      {/* On a row, a press anywhere in its field puts the caret in it. */}
+      <div onClick={inRow ? (event) => !(event.target as Element).closest('input, button') && event.currentTarget.querySelector('input')?.focus() : undefined}
+        className={inRow ? cn(PANEL_FIELD, 'cursor-text flex-wrap justify-start gap-1 py-0.5 hover:bg-accent/50 focus-within:border-ring') : 'flex flex-wrap items-center gap-1'}>
         {/* As far from its words as the place's mark is from its own (8px), so the two fields' words start on one edge. */}
-        <Users className="mr-1 size-4 shrink-0" />
+        {!inRow && <Users className="mr-1 size-4 shrink-0" />}
         {people.map((name) => (
           <span key={name} className="flex h-6 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-control text-foreground">
             {name}
@@ -1035,7 +1061,7 @@ function PeopleField({ people, known, onSave }: { people: string[]; known: strin
           className="h-6 min-w-20 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-muted-foreground" />
       </div>
       {offered.length > 0 && (
-        <div className="flex flex-col pl-6">
+        <div className={`flex flex-col ${inRow ? '' : 'pl-6'}`}>
           {offered.map((name) => <button key={name} type="button" onClick={() => add(name)} className="rounded-sm px-1.5 py-0.5 text-left text-control text-foreground hover:bg-accent">{name}</button>)}
         </div>
       )}

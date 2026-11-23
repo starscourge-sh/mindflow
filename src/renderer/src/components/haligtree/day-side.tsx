@@ -211,13 +211,11 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
   useEffect(() => onName?.(name), [name]) // eslint-disable-line react-hooks/exhaustive-deps
   const field = useRef<HTMLInputElement>(null)
   useEffect(() => (requestAnimationFrame(() => {
-    // The caret at the end, the name read from its start: a name a few letters too long showed cut at its first letter.
+    // The caret at the end of the whole name, wrapped onto a second line where it is long, never cut.
     const el = field.current
     if (!el) return
     el.focus()
     el.setSelectionRange(el.value.length, el.value.length)
-    el.scrollLeft = 0
-    el.dispatchEvent(new Event('scroll'))
   }), () => void (held.current = null)), []) // eslint-disable-line react-hooks/exhaustive-deps
   const { day, minute } = ask
   const length = minute === null ? 0 : ask.length
@@ -283,7 +281,7 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
     <form data-day-side-draft data-task-open={task?.id} className="flex flex-col px-3 pt-2.5 pb-3" onSubmit={(event) => (event.preventDefault(), void save())}>
       <div className="flex w-full flex-col gap-2.5">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
-          <TaskInput inputRef={field} value={text} onChange={setText} kept={kept} label={task ? 'The task’s name' : `A new task for ${dayjs(day).format('dddd D MMMM')}`}
+          <TaskInput grows inputRef={field} value={text} onChange={setText} kept={kept} label={task ? 'The task’s name' : `A new task for ${dayjs(day).format('dddd D MMMM')}`}
             placeholder="Call the dentist 10am #home !!" />
           <Button type="submit" size="sm" variant={task ? 'ghost' : undefined} data-day-side-add aria-label={task ? 'Keep' : 'Add'}><Kbd>↵</Kbd></Button>
         </div>
@@ -293,8 +291,9 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPla
           : <p data-day-side-when className="text-body text-foreground [overflow-wrap:anywhere]">
               For <strong className="font-semibold">{shownAt.format('dddd D MMMM')}</strong>{shownMinute !== null && <> at <strong className="font-semibold">{clock(shownAt)}</strong></>}{shownLength ? <>, for <strong className="font-semibold">{lasting(shownLength)}</strong></> : null}.
             </p>}
-        {/* One quiet line, never a paragraph, saying by example what the words can hold; it gives way in a short window, so nothing in the popover is cut. */}
-        <p data-day-side-hint className="truncate text-control text-muted-foreground [@media(max-height:520px)]:hidden">{task ? 'Type fri 1pm or !! to change it.' : 'Reads fri 1pm, #home, and !! for priority.'}</p>
+        {/* One quiet line, never a paragraph, saying by example what the words can hold, wrapped where it is long; it gives
+            way in a short window, so nothing in the popover is cut. */}
+        <p data-day-side-hint className="text-control text-muted-foreground [@media(max-height:520px)]:hidden">{task ? 'Type fri 1pm or !! to change it.' : 'Reads fri 1pm, #home, and !! for priority.'}</p>
       </div>
     </form>
   )
