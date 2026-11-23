@@ -12,7 +12,7 @@ import { exampleMap } from '@/lib/examples'
 import { Example } from './example'
 import { chime } from '@/lib/sound'
 import { FLOAT } from '@/lib/float'
-import { Empty, Rolling, Tip, TypedMark } from './ui'
+import { Empty, Island, POP_ISLANDS, Rolling, Tip, TypedMark } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { History, Palette, Pause, Play, RotateCcw, Search as SearchIcon, Unlink, X } from 'lucide-react'
 import GearIcon from '@/components/ui/gear-icon'
@@ -515,8 +515,10 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
           <span className="tabular-nums">{num(count)} on {count === 1 ? 'its' : 'their'} own</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">
-        <p className="border-b px-3 py-2 text-foreground"><span className="font-medium">Find them company.</span> Open one and type <TypedMark>@</TypedMark> to link it to another note. Linked, it joins the map.</p>
+      {/* A plain list: the islanded popovers' heading and frame (display.tsx), what to do with them its first row. */}
+      <PopoverContent align="end" side="top" className={`w-80 gap-0 p-2 text-control ${POP_ISLANDS}`}>
+        <Island compact title={`${num(count)} on ${count === 1 ? 'its' : 'their'} own`}>
+        <p className="px-2 py-1.5 text-foreground"><span className="font-semibold">Find them company.</span> Open one and type <TypedMark>@</TypedMark> to link it to another note. Linked, it joins the map.</p>
         <ul className="max-h-72 overflow-y-auto p-1">
           {list.slice(0, 300).map((one) => {
             const kind = kindOf(one.kind) ?? CAPTURE_TYPES[0]
@@ -532,8 +534,9 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
             )
           })}
           {/* The rest are not a dead end: as these get linked, the next ones take their place. */}
-          {count > Math.min(300, list.length) && <li className="px-2 py-1.5 text-muted-foreground">And {count - Math.min(300, list.length)} more. As you link these, the next ones show here.</li>}
+          {count > Math.min(300, list.length) && <li className="px-2 py-1.5 text-foreground">And {num(count - Math.min(300, list.length))} more. As you link these, the next ones show here.</li>}
         </ul>
+        </Island>
       </PopoverContent>
     </Popover>
   )

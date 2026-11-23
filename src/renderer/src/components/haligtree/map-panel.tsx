@@ -7,7 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { hueTint, MAP_HUES, MAP_LOOK, type MapGroup, type MapLook } from '@/lib/map-look'
-import { Tip } from './ui'
+import { Island, POP_ISLANDS, Tip } from './ui'
+import { Swatch } from './row-menu'
 import { SCRUB, ScrubField } from '@/components/pdf/scrub-field'
 
 /**
@@ -168,13 +169,21 @@ function Colour({ hue, pick }: { hue: string; pick: (hue: string) => void }): Re
           <span className="size-3.5 rounded-full shrink-0" style={{ background: hueTint(hue) }} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-auto flex-wrap gap-0.5 p-1.5">
-        {MAP_HUES.map((one) => (
-          <button key={one} type="button" aria-label={one} aria-pressed={hue === one} data-map-swatch={one} onClick={() => (chime('tap'), pick(one), setOpen(false))}
-            className={cn('grid size-7 cursor-pointer place-items-center rounded-full shrink-0 transition-transform hover:scale-110 active:scale-[0.97]', hue === one && 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-popover')}>
-            <span className="size-4 rounded-full shrink-0" style={{ background: hueTint(one) }} />
-          </button>
-        ))}
+      {/* The nine on one line under a small heading, drawn as every row of colours is (the marked day's, a menu's): a
+          small square, the one worn ticked. A pick keeps it open, so the next can be tried; Esc or a click away shuts it. */}
+      <PopoverContent align="end" className={`w-auto gap-0 p-2 text-control ${POP_ISLANDS}`}>
+        <Island compact title="Colour">
+          <div role="group" aria-label="Its colour" className="flex flex-nowrap items-center gap-0.5 p-1">
+            {MAP_HUES.map((one) => (
+              <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
+                <button type="button" aria-label={one} aria-pressed={hue === one} data-map-swatch={one} onClick={() => hue !== one && (chime('tap'), pick(one))}
+                  className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md transition-colors duration-150 hover:bg-accent motion-reduce:transition-none">
+                  <Swatch color={hueTint(one)} on={hue === one} />
+                </button>
+              </Tip>
+            ))}
+          </div>
+        </Island>
       </PopoverContent>
     </Popover>
   )
