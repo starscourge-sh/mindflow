@@ -9,7 +9,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 delete process.env.QA_ARGS
 process.env.HALIGTREE_QA_CALENDAR = '[]'
-const SHOTS = process.argv[2] ?? ''
+const SHOTS = process.argv[2] ?? process.env.QA_SHOTS ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 800, seeded: false })
