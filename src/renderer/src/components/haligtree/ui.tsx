@@ -3399,9 +3399,10 @@ function FoldingIsland({ title, name, filled, actions, className, children }: { 
  */
 export const POP_ISLANDS = '[&_.mf-island]:rounded-sm'
 /** One row of a popover's island: its name in a column of its own on the left, what it is set to on the right. */
-export const PANEL_ROW = 'grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1.5'
+// Kept tight: in a 320px popover a roomier row wrapped its choices to two lines ("10 minutes / before", the user, 23 Nov).
+export const PANEL_ROW = 'grid grid-cols-[4.75rem_1fr] items-center gap-x-2 px-2 py-1'
 /** The field on a panel row's right that shows what is chosen and opens the choices (Display's Grouping, the Calendar's Reminder). */
-export const PANEL_FIELD = 'flex min-h-7 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input px-2.5 text-left'
+export const PANEL_FIELD = 'flex min-h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-md border border-input px-2 text-left'
 export function PanelRow({ label, children, className, ...rest }: { label: ReactNode; children: ReactNode; className?: string } & Omit<React.HTMLAttributes<HTMLDivElement>, 'children'>): React.JSX.Element {
   return (
     <div className={cn(PANEL_ROW, className)} {...rest}>
