@@ -105,6 +105,21 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   return { node: listed, carried: { row: { pane, id: listed.dataset.id! }, title: titleOf(listed), kind: listed.dataset.dragKind }, column: true, edgeOnly: !sorts || !!listed.closest('[data-split-edge]') }
 }
 
+/**
+ * What a carried row has to leave before the places come up: for a row in your own order, the whole list it is ordered
+ * in (the smallest box in its pane holding all that list's rows, islands and all); for anything else, itself.
+ */
+const columnOf = (source: NonNullable<ReturnType<typeof sourceOf>>): DOMRect => {
+  const row = source.column && !source.edgeOnly ? source.node.closest<HTMLElement>('[data-sortable-id]') : null
+  const pane = row?.closest('[data-pane]')
+  if (!pane) return source.node.getBoundingClientRect()
+  const count = (node: Element): number => node.querySelectorAll('[data-sortable-id]').length
+  let list: Element | null = row?.parentElement ?? null
+  while (list && list !== pane && count(list) < 2) list = list.parentElement
+  while (list && list !== pane && list.parentElement && list.parentElement !== pane && count(list.parentElement) > count(list)) list = list.parentElement
+  return (list && list !== pane ? list : source.node).getBoundingClientRect()
+}
+
 /** How long a carried thing rests on a folded folder before it springs open (Finder's spring-loaded folders). */
 const SPRING_MS = 700
 
@@ -573,7 +588,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       if (home) reset()
       if (event.button !== 0 || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return
       const source = sourceOf(event.target)
-      down = source && { x: event.clientX, y: event.clientY, source, column: source.node.getBoundingClientRect() }
+      down = source && { x: event.clientX, y: event.clientY, source, column: columnOf(source) }
     }
     const onMove = (event: PointerEvent): void => {
       if (!down || home) return
@@ -591,12 +606,15 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         // edge. The first tab of a page stands in that edge, and carried onto it a row was offered a split, never the tab.
         // Looked for only at the edge (or with the places up): a carry down the middle of a long list reads nothing more.
         const onPlace = (nearEdge || active) && document.elementsFromPoint(px, event.clientY).some((one) => !!one.closest('[data-row-drop]'))
-        const atEdge = nearEdge && !onPlace
+        // Over the list it is ordered in, the list's own drag has it, at the window's edge too: a row reordered in a list
+        // against the edge brought both places up and the window stepped back inside a frame (23 Nov).
+        const inList = !down.source.edgeOnly && px >= down.column.left - OUTSIDE && px <= down.column.right + OUTSIDE && event.clientY >= down.column.top && event.clientY <= down.column.bottom
+        const atEdge = nearEdge && !onPlace && !inList
         // Out past the list's own column to either side (Pages' rows sit in a narrow column): the list is left, the places come up.
         const out = !down.source.edgeOnly && (px < down.column.left - OUTSIDE || px > down.column.right + OUTSIDE)
         const edge = elsewhere || atEdge || out
         // Back in over its column, away from the edge: they go, and the list's drag carries on.
-        const back = !elsewhere && !out && (onPlace || !box || (px > box.left + INSET + NARROW && px < box.right - INSET - NARROW) || px < box.left || px > box.right)
+        const back = !elsewhere && !out && (inList || onPlace || !box || (px > box.left + INSET + NARROW && px < box.right - INSET - NARROW) || px < box.left || px > box.right)
         if (active && back) return hide()
         if (!active && !edge) return
       }
