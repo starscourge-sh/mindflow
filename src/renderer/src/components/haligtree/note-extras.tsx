@@ -11,7 +11,7 @@ import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import UnlinkIcon from '@/components/ui/unlink-icon'
 
-import { CAPTURE_TYPES, useKindKeyBehindDetails } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, KIND_LIST, useKindKeyBehindDetails } from '../capture-kinds/capture-kind-picker'
 import { SUPER_TAGS, type Field } from '../capture-kinds/kind-fields'
 import { Search } from '../search'
 import { Command, CommandInput, CommandItem, CommandList, CommandShortcut } from '@/components/ui/command'
@@ -34,7 +34,7 @@ import { canSplit, usePane, usePaneWidth } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { ReadThrough } from './read-through'
-import { Island, Prop, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly, useSmoothScrollOn } from './ui'
+import { Island, POP_ISLANDS, Prop, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly, useSmoothScrollOn } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
@@ -89,8 +89,11 @@ export function KindAsker(): React.JSX.Element | null {
   }
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
-      <div role="dialog" aria-modal="true" aria-label="Change kind" className="w-80 overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
+      {/* The list's Sort / View popover's anatomy (display.tsx), on the marked day's panel (milestones.tsx): the search a
+          field on top, the kinds under a small heading in an island, as the capture's own kind picker has them. */}
+      <div role="dialog" aria-modal="true" aria-label="Change kind" className={`w-80 rounded-float bg-popover p-3 text-control shadow-(--mf-panel-shadow) ${POP_ISLANDS}`} onMouseDown={(event) => event.stopPropagation()}>
         <Command
+          className={KIND_LIST}
           value={row}
           onValueChange={(label) => {
             const at = CAPTURE_TYPES.findIndex((type) => type.label === label)
@@ -107,6 +110,7 @@ export function KindAsker(): React.JSX.Element | null {
           }}
         >
           <CommandInput autoFocus placeholder="Change kind to…" />
+          <Island compact title="Kinds">
           <CommandList className="max-h-[min(26rem,60vh)]">
             {CAPTURE_TYPES.map((type, index) => (
               <CommandItem key={type.id} value={type.label} onSelect={() => done(type.id)}>
@@ -120,6 +124,7 @@ export function KindAsker(): React.JSX.Element | null {
               </CommandItem>
             ))}
           </CommandList>
+          </Island>
         </Command>
       </div>
     </div>

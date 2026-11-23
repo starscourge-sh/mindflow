@@ -15,7 +15,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/compon
 import { useShortcut } from "@/lib/use-shortcut"
 
 import type { BlockColor } from "@/extensions/block-color"
-import { Tip } from '@/components/haligtree/ui'
+import { Island, POP_ISLANDS, Tip } from '@/components/haligtree/ui'
 import { Bookmark, Check, Link, ListTodo, NotebookText, Quote } from '@/components/ui/icons'
 
 /**
@@ -62,6 +62,12 @@ export function kindRank(kind: string): number {
 /** Two kinds in that order, for a sort. */
 export const byKind = (a: string, b: string): number => kindRank(a) - kindRank(b)
 
+/**
+ * A list of kinds to pick from (this picker, and "Change kind" over the page): its search a field of its own, as the
+ * marked day's name is (milestones.tsx), over the rows' island.
+ */
+export const KIND_LIST = '[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:focus-within:border-foreground/25 [&_[data-slot=command-input]]:h-9 [&_[data-slot=command-input]]:py-0 [&_[data-slot=command-input]]:text-body'
+
 /** The pill, and the list it opens. */
 /** Quick capture's one-line pill: its kind mark, where ⌃L's list hangs from while the footer's chip is out of sight. */
 const PILL_MARK = { current: { getBoundingClientRect: (): DOMRect => document.querySelector('[data-pill-kind]')?.getBoundingClientRect() ?? new DOMRect() } }
@@ -93,7 +99,10 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
       const top = (first.getBoundingClientRect().top - box.top) / scale + list.scrollTop
       const pitch = (second.getBoundingClientRect().top - first.getBoundingClientRect().top) / scale
       const above = (box.top - (list.closest<HTMLElement>('[data-slot="popover-content"]')?.getBoundingClientRect().top ?? box.top)) / scale
-      const room = (parseFloat(getComputedStyle(list).getPropertyValue('--radix-popover-content-available-height')) || innerHeight) - above
+      // Less what sits under the list inside the popover too (its island's edge, the popover's own padding).
+      const pop = list.closest<HTMLElement>('[data-slot="popover-content"]')
+      const under = pop ? Math.max(0, (pop.getBoundingClientRect().bottom - box.bottom) / scale) : 0
+      const room = (parseFloat(getComputedStyle(list).getPropertyValue('--radix-popover-content-available-height')) || innerHeight) - above - under
       // Every row whole where they all fit, in the pill and the grown box alike: cut at three and a half, the fourth
       // ("Word") showed faded and cut off with room to spare below it. Short of room, as many rows as fit, each whole,
       // the list scrolling for the rest with its own fade at the foot (mf-more) saying there are more.
@@ -143,8 +152,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
           makes below the pill as it does for "/" (lib/fit-box.ts). */}
       {pill && <PopoverAnchor virtualRef={PILL_MARK} />}
       {/* In the box, it opens over the box at the size it is, scrolling inside itself when short (lib/fit-box.ts KEEPS). */}
-      <PopoverContent data-keeps-size={pill ? undefined : ''} side="bottom" sideOffset={6} className="w-64 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
+      {/* The list's Sort / View popover's anatomy (display.tsx): the search a field on top, the kinds under a small
+          heading in an island (KIND_LIST, shared with "Change kind" in note-extras.tsx). */}
+      <PopoverContent data-keeps-size={pill ? undefined : ''} side="bottom" sideOffset={6} className={`w-64 gap-0 p-2 ${POP_ISLANDS}`} style={keyed ? { animation: 'none' } : undefined} align="start">
         <Command
+          className={KIND_LIST}
           // Each type its own note as you move through them, as the themes
           // have: a scale under the list. Picking one lands with a chord.
           value={row}
@@ -166,6 +178,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
           }}
         >
           <CommandInput placeholder="Change kind…" shortcut="⌃L" />
+          <Island compact title="Kinds">
           <CommandList
             ref={watchList}
           >
@@ -202,6 +215,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
               )
             })}
           </CommandList>
+          </Island>
         </Command>
       </PopoverContent>
     </Popover>
