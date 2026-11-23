@@ -8,6 +8,8 @@ import { num, plural } from '../../../../main/dates'
 import { WritingSound } from './writing-sound'
 import { SlidersHorizontal } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
+import { Island, POP_ISLANDS } from './ui'
 import { askProofread, checkingLive, grammarSentence, setCheckingLive } from '@/lib/grammar'
 import { quoted } from '../../../../main/clip'
 import { minutesToRead, sizeOf } from '@/lib/note-size'
@@ -187,8 +189,10 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
   // rest (Focus, Word aim, Proofread, marking mistakes, a sound) behind one "Tools" control. It was a wall of nine
   // outlined pills across the foot, every tool as loud as the next.
   const quiet = 'cursor-pointer rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground data-on:text-foreground data-[state=open]:bg-foreground/[0.05] data-[state=open]:text-foreground'
-  const row = 'flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent'
-  const seg = 'flex-1 cursor-pointer rounded-md px-2 py-1 whitespace-nowrap text-control text-muted-foreground transition-colors hover:text-foreground data-on:bg-background data-on:text-foreground data-on:shadow-xs'
+  // The panel is built as Display's Sort and View popover is: a small heading over each group, its rows in an island.
+  const row = 'flex w-full cursor-pointer items-center justify-between gap-3 px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/50'
+  // Focus's three as tiles, the way Display's "View as" draws its choices.
+  const tile = 'flex cursor-pointer items-center justify-center rounded-md px-1 py-1.5 whitespace-nowrap text-control text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground data-on:bg-accent data-on:text-foreground'
   // A tool that opens something of its own (Word aim's question, Proofread) closes the panel first.
   const [open, setOpen] = useState(false)
   const lit = focus !== 'off' || checking
@@ -209,23 +213,27 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
             <SlidersHorizontal className="size-3.5" />Tools{lit && <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-primary" />}
           </button>
         </PopoverTrigger>
-        <PopoverContent data-room-tools-panel side="top" align="end" className="z-[70] w-72 gap-1 p-1.5" onCloseAutoFocus={(event) => (event.preventDefault(), !document.querySelector('[data-ask]') && editor?.commands.focus())}>
+        <PopoverContent data-room-tools-panel side="top" align="end" className={`z-[70] w-72 gap-0 p-2 text-control ${POP_ISLANDS}`} onCloseAutoFocus={(event) => (event.preventDefault(), !document.querySelector('[data-ask]') && editor?.commands.focus())}>
           {/* Each says what it does; pressed again, it is off. */}
-          <p data-focus-label className="px-2 pt-1 pb-1 text-meta text-muted-foreground">Focus on the</p>
-          <div className="mx-1 mb-1 flex gap-0.5 rounded-lg bg-foreground/[0.05] p-0.5">
-            <button type="button" data-focus="off" data-on={focus === 'off' || undefined} aria-pressed={focus === 'off'} className={seg} onClick={() => setFocus('off')}>whole page</button>
-            {(['sentence', 'paragraph'] as const).map((to) => (
-              <button key={to} type="button" data-focus={to} data-on={focus === to || undefined} aria-pressed={focus === to} className={seg} onClick={() => setFocus(focus === to ? 'off' : to)}>{to}</button>
-            ))}
-          </div>
-          <button type="button" data-aim-ask className={row} onClick={() => (setOpen(false), askAim())}>Word aim…</button>
-          {proof && found === null && <button type="button" data-proofread-ask className={row} onClick={() => (setOpen(false), setReport(null), askProofread())}>Proofread</button>}
-          {proof && live && (
-            <button type="button" data-grammar-live data-on={checking || undefined} role="switch" aria-checked={checking} className={row} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>
-              Mark mistakes as I write<span aria-hidden className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${checking ? 'bg-primary' : 'bg-foreground/15'}`}><span className={`absolute top-0.5 size-3 rounded-full shrink-0 bg-background shadow-xs transition-[left] ${checking ? 'left-3.5' : 'left-0.5'}`} /></span>
-            </button>
-          )}
-          <WritingSound className={`${row} justify-start`} />
+          <Island compact name="Focus on" title={<span data-focus-label>Focus on</span>}>
+            <div className="grid grid-cols-3 gap-1 p-1">
+              {([['off', 'Whole page'], ['sentence', 'Sentence'], ['paragraph', 'Paragraph']] as const).map(([to, label]) => (
+                <button key={to} type="button" data-focus={to} data-on={focus === to || undefined} aria-pressed={focus === to} className={tile} onClick={() => setFocus(to === 'off' || focus === to ? 'off' : to)}>{label}</button>
+              ))}
+            </div>
+          </Island>
+          <Island compact title="While you write">
+            <button type="button" data-aim-ask className={row} onClick={() => (setOpen(false), askAim())}>Word aim…</button>
+            {proof && found === null && <button type="button" data-proofread-ask className={row} onClick={() => (setOpen(false), setReport(null), askProofread())}>Proofread</button>}
+            {proof && live && (
+              // The words name the switch and press it too, as Customize sidebar's "Show counts" row does.
+              <label className="flex w-full cursor-pointer items-center justify-between gap-3 px-2 py-1.5 text-control text-foreground transition-colors hover:bg-accent/50">
+                <span>Mark mistakes as I write</span>
+                <Switch data-grammar-live checked={checking} onCheckedChange={(on) => (setCheckingLive(on), setChecking(on), chime(on ? 'on' : 'off'))} />
+              </label>
+            )}
+            <WritingSound className={`${row} justify-start`} />
+          </Island>
         </PopoverContent>
       </Popover>
     </span>

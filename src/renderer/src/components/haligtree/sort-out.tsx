@@ -10,7 +10,7 @@ import { sortOut, suggestedTag, type Sort, type Sorted } from '../../../../main/
 import { num, plural } from '../../../../main/dates'
 import { shiftTo } from './tasks-view'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Tip, toast } from './ui'
+import { AskKey, Island, PANEL_FIELD, POP_ISLANDS, Tip, toast } from './ui'
 import { ChevronDown, Undo2, X } from 'lucide-react'
 import { takeExit, unpromote } from '@/lib/capture-links'
 import { markSorted, openInboxSort, sortAway, sortDue } from '@/lib/sort-out'
@@ -164,17 +164,14 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
         onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b px-5 py-3">
           <h2 className="font-heading text-heading font-semibold text-foreground">Sort this out</h2>
-          <span className="flex-1" />
-          <Tip label="Close"><button type="button" aria-label="Close" onClick={close} className="grid size-7 shrink-0 place-items-center self-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-4" /></button></Tip>
           <p data-sort-note className="basis-full text-body text-foreground">{num(rows.length)} lines. Change any guess; <strong className="font-semibold">nothing moves until you say so</strong>.</p>
         </div>
-        <div className="flex flex-col gap-5 overflow-y-auto px-5 py-4">
+        {/* Each heading the lines sat under, small over an island of its lines, as Display's popover groups its rows. */}
+        <div className={`overflow-y-auto px-5 py-4 ${POP_ISLANDS}`}>
           {groups.map((group, at) => (
-            <section key={at}>
-              {group.under && <h3 className="mb-1 text-control font-semibold text-foreground">{group.under}</h3>}
-              <ul className="flex flex-col">
+            <Island key={at} compact title={group.under ?? undefined} name={`${group.under ?? ''}${at}`}>
                 {group.rows.map((row) => (
-                  <li key={row.id} data-sort-row={row.id} data-kind={row.kind} className="flex flex-col gap-1 rounded-md px-1 py-1.5 hover:bg-accent/40">
+                  <div key={row.id} data-sort-row={row.id} data-kind={row.kind} className="flex flex-col gap-1 px-2 py-1.5">
                     <div className="flex items-center gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -186,7 +183,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
                               event.stopPropagation()
                               cycle(row, event.key === 'ArrowDown' ? 1 : -1)
                             }}
-                            className="flex h-7 w-[5.5rem] shrink-0 items-center justify-between gap-1 rounded-md border border-foreground/10 bg-foreground/[0.04] pr-1.5 pl-2 text-left text-control font-semibold transition-colors hover:border-foreground/25 hover:bg-accent data-[state=open]:bg-accent" style={{ color: TINT[row.kind] }}>
+                            className={`${PANEL_FIELD} w-[5.5rem] shrink-0 cursor-pointer font-semibold transition-colors hover:bg-accent/50 data-[state=open]:border-ring`} style={{ color: TINT[row.kind] }}>
                             {KINDS.find((kind) => kind.id === row.kind)!.label}
                             <ChevronDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
                           </button>
@@ -222,15 +219,14 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
                         </button>
                       </Tip>
                     </div>
-                    {row.kind === 'task' && row.done && <p className="pl-[5.5rem] text-control font-medium text-[var(--tt-color-text-green)]">Ticked on the page: kept as done</p>}
+                    {row.kind === 'task' && row.done && <p className="pl-[6.375rem] text-control font-medium text-[var(--tt-color-text-green)]">Ticked on the page: kept as done</p>}
                     {row.kind === 'task' && row.steps.length > 0 && (
-                      <p className="pl-[5.5rem] text-control text-muted-foreground">{num(row.steps.length)} {row.steps.length === 1 ? 'step' : 'steps'}: {row.steps.map((one) => one.text).join(', ')}</p>
+                      <p className="pl-[6.375rem] text-control text-muted-foreground">{num(row.steps.length)} {row.steps.length === 1 ? 'step' : 'steps'}: {row.steps.map((one) => one.text).join(', ')}</p>
                     )}
-                    {row.kind === 'note' && row.tag && <p className="pl-[5.5rem] text-control text-muted-foreground">Tagged #{row.tag}, from its heading</p>}
-                  </li>
+                    {row.kind === 'note' && row.tag && <p className="pl-[6.375rem] text-control text-muted-foreground">Tagged #{row.tag}, from its heading</p>}
+                  </div>
                 ))}
-              </ul>
-            </section>
+            </Island>
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t px-5 py-3">
@@ -246,7 +242,8 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
               Keep the page as a note too
             </label>
           )}
-          <Button size="sm" disabled={busy || !kept.length} onClick={() => void sort()}>Sort them</Button>
+          <Button type="button" variant="ghost" size="sm" className="cursor-pointer text-(--mf-muted-strong) hover:text-foreground" onClick={close}>Cancel<AskKey label="Escape">Esc</AskKey></Button>
+          <Button size="sm" className="cursor-pointer" disabled={busy || !kept.length} onClick={() => void sort()}>Sort them<AskKey label="Command Return">⌘↵</AskKey></Button>
         </div>
       </div>
     </div>
@@ -367,7 +364,6 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
           <span data-sort-timer={up ? 'up' : minutes} className="text-body font-semibold tabular-nums" style={{ color: up ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>
             {up ? 'Ten minutes are up' : `${plural(minutes, 'minute')} left`}
           </span>
-          <Tip label="Close"><button type="button" aria-label="Close" onClick={close} className="grid size-7 shrink-0 place-items-center self-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-4" /></button></Tip>
           {/* The clock as a thin line that empties, never a red alarm. */}
           <span aria-hidden className="relative mt-1.5 block h-1 basis-full overflow-hidden rounded-[2px] bg-foreground/10">
             <span className="absolute inset-0 origin-left rounded-[2px] bg-[var(--tt-color-text-green)] transition-transform duration-1000 ease-linear" style={{ transform: `scaleX(${left / (SORT_MINUTES * 60_000)})` }} />
@@ -375,33 +371,40 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
           <p data-sort-note className="basis-full text-body text-foreground">
             {rows === null ? '' : !list.length ? 'Your Inbox is empty. Nothing to sort this morning.'
               : up ? <><strong className="font-semibold">That is the ten minutes.</strong> Sort what you have decided; the rest waits for tomorrow.</>
-              : <>{num(list.length)} {list.length === 1 ? 'capture' : 'captures'}, oldest first. Pick where each goes with <strong className="font-semibold">T G R B L</strong>; nothing moves until you say so.</>}
+              : <>Pick where each goes; <strong className="font-semibold">nothing moves until you say so</strong>.</>}
           </p>
         </div>
-        <ul className="flex flex-col overflow-y-auto px-3 py-2">
-          {list.map((row, at) => (
-            <li key={row.id} data-sort-row={row.id} data-kind={row.way} data-cursor={at === cursor || undefined} onMouseMove={(event) => realMove(event) && setCursor(at)}
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-              <span className={`min-w-0 flex-1 truncate text-body ${row.way === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{row.text || 'New note'}</span>
-              <span className="flex shrink-0 items-center gap-1">
-                {WAYS.map((way) => (
-                  <button key={way.id} type="button" aria-pressed={row.way === way.id} onClick={() => set(row.id, way.id)}
-                    className={`flex h-6 items-center gap-1 rounded-md px-2 text-control font-medium transition-colors ${row.way === way.id ? 'bg-foreground text-background' : 'hover:bg-accent'}`}
-                    style={row.way === way.id ? undefined : { color: way.tint }}>
-                    {way.label}
-                  </button>
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {/* One island under its count, as Display's popover draws a group: each line's ways as segmented tiles, the row
+            the keys act on showing each tile's key (the room for them kept on every row, so nothing shifts). */}
+        {list.length > 0 && (
+          <div className={`overflow-y-auto px-5 py-4 ${POP_ISLANDS}`}>
+            <Island compact title={`${num(list.length)} ${list.length === 1 ? 'capture' : 'captures'}, oldest first`}>
+              {list.map((row, at) => (
+                <div key={row.id} data-sort-row={row.id} data-kind={row.way} data-cursor={at === cursor || undefined} onMouseMove={(event) => realMove(event) && setCursor(at)}
+                  className={`flex items-center gap-2 px-2 py-1.5 transition-colors ${at === cursor ? 'bg-accent/50' : ''}`}>
+                  <span className={`min-w-0 flex-1 truncate text-body ${row.way === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{row.text || 'New note'}</span>
+                  <span className="flex shrink-0 items-center gap-0.5">
+                    {WAYS.map((way) => (
+                      <button key={way.id} type="button" aria-pressed={row.way === way.id} onClick={() => set(row.id, way.id)}
+                        className={`flex h-6 cursor-pointer items-center rounded-md px-2 text-control transition-colors ${row.way === way.id ? 'bg-accent font-semibold' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}
+                        style={row.way === way.id && way.id !== 'leave' ? { color: way.tint } : undefined}>
+                        {way.label}<span className={at === cursor ? '' : 'invisible'}><AskKey label={way.key}>{way.key}</AskKey></span>
+                      </button>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </Island>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 border-t px-5 py-3">
           <p data-sort-counts className="min-w-0 flex-1 text-body text-foreground">
             {WAYS.map((way) => [way, list.filter((row) => row.way === way.id).length] as const).filter(([, n]) => n).map(([way, n], at) => (
               <span key={way.id}>{at ? ', ' : ''}<strong className="font-semibold tabular-nums" style={{ color: way.tint }}>{num(n)}</strong> {way.said[n === 1 ? 0 : 1]}</span>
             ))}
           </p>
-          <Button size="sm" disabled={busy || !moving.length} onClick={() => void sort()}>Sort them</Button>
+          <Button type="button" variant="ghost" size="sm" className="cursor-pointer text-(--mf-muted-strong) hover:text-foreground" onClick={close}>Cancel<AskKey label="Escape">Esc</AskKey></Button>
+          <Button size="sm" className="cursor-pointer" disabled={busy || !moving.length} onClick={() => void sort()}>Sort them<AskKey label="Command Return">⌘↵</AskKey></Button>
         </div>
       </div>
     </div>
