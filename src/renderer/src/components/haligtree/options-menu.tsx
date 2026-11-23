@@ -30,7 +30,9 @@ import { MenuGlyph } from '@/components/ui/menu-icon'
 /** One setting the box can have switched on or off. */
 type Option = { label: string; /** What it means, as a tip on the line: the label stays a short name. */ hint?: string; on: boolean; keys?: string; set: (on: boolean) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
 /** Something to do rather than switch: a new box, a bigger window. */
-export type Action = { label: string; hint?: string; keys?: string; run: () => void }
+export type Action = { label: string; hint?: string; keys?: string; run: () => void; /** Opens somewhere to type: run once the menu has closed, so the keys land there. */ typing?: boolean }
+/** A choice that opens somewhere to type, waiting for its menu to close: run there, in place of giving the keys back. */
+let afterClose: (() => void) | null = null
 /**
  * One labelled part of a menu. 'sounds' and 'theme' are the app's own
  * switches, drawn where they stand in the list. Defined once, so the gear
@@ -45,6 +47,9 @@ export type More = { label: string; more: (Option | Action)[] }
 /** Closed, the keys go back to the writing, not to the button. */
 const backToWriting = (event: Event): void => {
   event.preventDefault()
+  const run = afterClose
+  afterClose = null
+  if (run) return run()
   document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus()
 }
 
@@ -109,7 +114,7 @@ function Item({ one }: { one: Option | Action }): React.JSX.Element {
     </DropdownMenuCheckboxItem>
   ) : (
     // Room on the right like the tickable rows, so every shortcut lines up.
-    <DropdownMenuItem onSelect={one.run} className="pr-8">
+    <DropdownMenuItem onSelect={() => (one.typing ? (afterClose = one.run) : one.run())} className="pr-8">
       {/* Every line its drawing in the one icon place, as every menu row has it. */}
       <MenuGlyph label={one.label} small />
       <Named label={one.label} hint={one.hint} />

@@ -16,7 +16,9 @@ try {
   await h.evaluate(() => localStorage.setItem('vim', 'on'))
   await h.reload(); await h.waitForTimeout(2000)
   await go('today'); await h.waitForTimeout(1000)
-  await h.locator('[data-write-day]').first().click(); await h.waitForTimeout(600)
+  // "Write out my day" lives in the bar's ⋯ (23 Nov).
+  await h.locator('[data-page] header [aria-label="More"]').last().click(); await h.waitForTimeout(400)
+  await h.getByRole('menuitem', { name: /Write out my day/ }).first().click(); await h.waitForTimeout(1200)
   await h.keyboard.type('buy bread')
   const typing = await state()
   check('Vim on: the line opens ready to type', typing.words?.includes('buy bread') && /insert/i.test(typing.mode ?? ''), JSON.stringify(typing))

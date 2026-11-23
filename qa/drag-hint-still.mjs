@@ -1,5 +1,5 @@
-// Starting a drag on Today written out moves nothing else on the page: the "Or drop it on Tomorrow" hint is laid
-// over the page, so every other line and box keeps its place while the drag starts and goes on (sampled each frame).
+// Starting a drag on Today written out moves nothing else on the page: every other line and box keeps its place
+// while the drag starts and goes on (sampled each frame).
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-q/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/drag-hint-still.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -27,11 +27,14 @@ try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   for (const words of ['Ring the plumber today', 'Post the parcel today', 'Buy stamps today']) await v('task:add', words)
   await go('today'); await wait(800)
-  await h.locator('[data-page] header [data-write-day]').first().click(); await wait(1200)
+  // "Write out my day" lives in the bar's ⋯ (23 Nov).
+  await h.locator('[data-page] header [aria-label="More"]').last().click(); await h.waitForTimeout(400)
+  await h.getByRole('menuitem', { name: /Write out my day/ }).first().click(); await h.waitForTimeout(1200)
   const rows = h.locator('[data-page] [data-sortable-id]')
   check('Today written out has lines to drag', (await rows.count()) >= 2, String(await rows.count()))
   const carried = await rows.first().getAttribute('data-sortable-id')
   const before = await places(carried)
+  if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/before.png` })
   delete before[carried]
   const box = await rows.first().boundingBox()
   await h.mouse.move(box.x + 40, box.y + box.height / 2)
@@ -43,9 +46,8 @@ try {
     const now = await places(carried)
     for (const [key, top] of Object.entries(before)) if (key in now && Math.abs(now[key] - top) > 1 && key !== carried) moved.add(`${key} ${top}→${now[key]}`)
   }
-  check('the drop hint shows while dragging', await h.evaluate(() => /drop it on/i.test(document.querySelector('[data-page]').innerText)))
   check(`nothing under the list moves as the drag starts (${Object.keys(before).length} sampled)`, Object.keys(before).length > 0 && moved.size === 0, [...moved].slice(0, 4).join('; '))
-  await h.screenshot({ path: `${process.env.QA_DATA}/drag.png` })
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? process.env.QA_DATA}/drag.png` })
   await h.mouse.up()
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

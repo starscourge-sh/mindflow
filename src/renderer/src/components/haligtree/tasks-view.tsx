@@ -14,7 +14,7 @@ import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, PencilLine, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 import { hrefFor, looksLikeAddress } from '@/extensions/link-tidy'
 import { tagTint } from './tag-icon'
@@ -36,7 +36,7 @@ import { short } from '@/lib/clock'
 import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPriority, useKept } from './task-input'
 import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
-import { Empty, FoldItem, MenuRows, Island, Kbd, Page, PANEL_FIELD, PanelRow, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
+import { Empty, Island, Kbd, Page, PANEL_FIELD, PanelRow, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
@@ -55,7 +55,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/haligtree/ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { LateMenu } from './late-tasks'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Rest } from './scenery'
 import { OptionsMenu } from './options-menu'
 import { deadlineLoud, loud, loudOf } from '@/lib/loud'
@@ -512,7 +512,12 @@ function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: Task; a
       <span className={answers}>
         {/* The one day most often meant, one click (the user, 23 Nov): a fresh count, as "Pick a date" gives. */}
         <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => moveTo(task, 1))}>Tomorrow</Button>
-        <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
+        {/* Its own small calendar, in place: opening the whole task to pick a day was too much (the user, 23 Nov). */}
+        <DatePicker chip quick time allDay={!!task.allDay} value={task.dueAt ?? null} className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+          onChange={(due) => {
+            const was = { due: task.dueAt ?? null, plan: task.planFor ?? null }
+            void freshCount(task).then(() => haligtree.saveTask(task.id, { due })).then(() => (chime('tap'), toast(due ? `Moved to ${whenInLine(due, !!task.allDay)}` : 'No date', () => void haligtree.saveTask(task.id, was))))
+          }}>Pick a date</DatePicker>
         <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
         {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
         <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => {
@@ -926,8 +931,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     (task.notify ?? notify) === 'pull' &&
     ((!!task.dueAt && !task.allDay && Date.parse(task.dueAt) <= Date.now()) || (!!task.deadline && !!task.deadlineTimed && Date.parse(task.deadline) <= Date.now()))
   const today = base.filter((task) => dayOf(task) >= startOfDay())
-  // With nothing else on the tab, the fold stands open: a fresh start never leaves a tab looking empty.
-  const heldShown = heldOpen || !open_.some((task) => !task.heldAt && (mode === 'alltasks' || homeOf(task) === home))
+  // Folded at the foot on every tab until opened, the same list in the same place (the user, 23 Nov: open at the top on
+  // a tab with nothing else, folded at the foot on the others, it read as a different list on each). With nothing else
+  // on the tab its heading says so.
+  const heldShown = heldOpen
+  const onlyHeld = !open_.some((task) => !task.heldAt && (mode === 'alltasks' || homeOf(task) === home))
   const heldGroup: [string, Task[], string?][] = !example && held.length ? [[ON_HOLD, heldShown ? held : [], 'held']] : []
   const groups: [string, Task[], string?][] = [...(
     view.group === 'none'
@@ -1381,21 +1389,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
   // Today's rows, dragged onto a tab, go there.
   const lead = <TasksTabs mode={mode} onOpen={onOpen} drops={mode === 'today' ? { upcoming: 'upcoming', later: 'later' } : undefined} />
-  // On Today alone, where it writes; the controls after it sit at the bar's right end, so nothing moves without it.
-  const writeOut = mode === 'today' && (
-    <>
-    <Tip label="A new line at the end of the list, to write a task a line">
-      <Button data-write-day variant="ghost" size="sm"
-        onClick={() => (matrixed && setView({ ...view, group: 'when' }), startWriting(null))}>
-        Write out my day
-      </Button>
-      </Tip>
-      <MenuRows><FoldItem icon={PencilLine} label="Write out my day" onSelect={() => (matrixed && setView({ ...view, group: 'when' }), startWriting(null))} /></MenuRows>
-    </>
-  )
   const actions = (
         <span className="flex items-center gap-1">
-          {writeOut}
           {/* Sort, group and filter, on every tab: its button here, F, or from ⋯, in the same place on every tab. */}
           {(
             <Display
@@ -1417,8 +1412,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
               // Sort, group and filter is the Display button beside this menu (and F): one home.
               { label: 'Your order', hint: 'In the order you set with ⌥J and ⌥K, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) }
             ] },
-            // Things to do, apart from the ways to see the list above: never one more tick among them.
+            // Things to do, apart from the ways to see the list above: never one more tick among them. "Write out my day"
+            // lives here, not on the bar: beside the bar's own controls it overflowed Today's bar alone, which then folded
+            // Sort and the rest into ⋯, so the search jumped sideways between tabs (the user, 23 Nov).
             { items: [
+              ...(mode === 'today' ? [{ label: 'Write out my day', hint: 'A new line at the end of the list, to write a task a line', typing: true, run: () => (matrixed && setView({ ...view, group: 'when' }), startWriting(null)) }] : []),
               ...(focusTools ? [{ label: 'I have 15 min', hint: 'What fits in the time you have, to start one', run: () => openFits() }] : []),
               { label: 'Stick Today on the desktop', run: () => stickOnDesktop('today', 'today') },
               { label: 'Fresh start: put every open task on hold', run: freshStart }
@@ -1437,7 +1435,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : givenLead ?? lead} search={!example && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder={`Find in ${project ? projectName : TASK_TABS.find((one) => one.id === mode)?.label ?? 'Tasks'}`} className="w-40" />} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : givenLead ?? lead} search={!example && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder={`Find in ${project ? projectName : TASK_TABS.find((one) => one.id === mode)?.label ?? 'Tasks'}`} className="w-40" />} count={example ? undefined : several.chosen.length || shown.filter((task) => !task.heldAt).length + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
         {/* A folder's head, where it sits on its Pages and Notes (list-words, 16px down), so switching tabs moves nothing. */}
         {said && <div data-kind-chips="" className="list-words pt-4 pb-2">{said}</div>}
 
@@ -1649,7 +1647,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                     <button type="button" data-on-hold aria-expanded={heldShown} onClick={() => (chime(heldShown ? 'off' : 'tap'), heldShown || unfold(held), setHeldOpen(!heldShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
                       <ChevronRight className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
-                      <span className="ml-auto font-normal text-(--mf-muted-strong)">From a fresh start · right-click one to bring it back</span>
+                      <span className="ml-auto font-normal text-(--mf-muted-strong)">{onlyHeld ? 'Nothing else on this tab · drag or right-click one to bring it back' : 'From a fresh start · drag or right-click one to bring it back'}</span>
                     </button>
                   </h2>
                 ) : row.key.startsWith('tgroup:') ? (

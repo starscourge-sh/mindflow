@@ -683,12 +683,17 @@ export function FolderMark({ icon, color, className, empty = false }: { icon: st
   if (empty)
     return (
       <span data-folder-mark="" data-folder-empty="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0 transition-transform duration-150 ease-out group-active/row:scale-[0.94] motion-reduce:transition-none', className)} style={{ '--ink': ink } as CSSProperties}>
-        {/* Only its outline, dashed, the inside the page's own colour: a folder with nothing in it. */}
+        {/* A real folder with nothing in it (the user, 23 Nov: "an actual empty folder look"): the same back and tab as a
+            full one, its inside in shadow, and its front fallen open toward you, so the empty inside shows. */}
         <svg viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible">
           <path d="M1 3a2 2 0 0 1 2-2h6.2a2 2 0 0 1 1.4.6l1.4 1.4h13a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z"
-            style={{ fill: 'transparent', stroke: 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', strokeWidth: 1, strokeDasharray: '2.5 2' }} />
+            style={{ fill: 'color-mix(in oklab, var(--ink) var(--mark-back), var(--background))', stroke: 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', strokeWidth: 0.75 }} />
+          <path d="M3 6h22v13H3Z" style={{ fill: 'color-mix(in oklab, black 22%, transparent)' }} />
         </svg>
-        {icon && <span className="absolute inset-x-0 bottom-0 top-[4px] flex items-center justify-center opacity-45 grayscale-[0.6] [&>span]:text-[0.6875rem] [&_svg]:size-3"><GroupIcon icon={icon} color={color} className="size-3" /></span>}
+        <span className="absolute inset-x-[1px] bottom-[1px] top-[9px] flex items-center justify-center rounded-[2.5px] shadow-[inset_0_1px_0_color-mix(in_oklab,white_45%,transparent)] [&>span]:text-[0.6875rem] [&_svg]:size-3"
+          style={{ background: 'color-mix(in oklab, var(--ink) var(--mark-front), var(--background))', border: '0.75px solid color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', transform: 'perspective(28px) rotateX(-28deg)', transformOrigin: 'bottom' }}>
+          {icon ? <GroupIcon icon={icon} color={color} className="size-3" /> : null}
+        </span>
       </span>
     )
   return (
