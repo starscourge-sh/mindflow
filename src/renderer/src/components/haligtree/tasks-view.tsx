@@ -2809,6 +2809,9 @@ function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
     const list = own.current?.parentElement
     if (!list) return
     const read = (): void => {
+      // Held still while a row is carried: the band is the three places, and the room a carried row leaves is not one of
+      // them (the user, 23 Nov: the room took on the band's paper). Read again once it is let go.
+      if (document.documentElement.hasAttribute('data-dragging')) return
       const rows = ids.split(' ').map((id) => list.querySelector<HTMLElement>(`[data-task-row][data-id="${CSS.escape(id)}"]`)).filter((one): one is HTMLElement => !!one)
       const box = list.getBoundingClientRect()
       // Round the rows themselves, a hair outside them, never past the list's edges (the user, 23 Nov). Three split by a

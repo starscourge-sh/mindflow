@@ -771,6 +771,9 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title={`Open ${APP_NAME} to`} note={`The page the main window shows when ${APP_NAME} starts.`} more="Any other page is a G and its letter, or ⌘K, away." keywords="start page open first launch home today inbox map default landing"
             below={<div data-start-page><Chips options={START_PAGES.filter((id) => shownPages(settings).includes(id)).map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === startPageOf(settings, START_PAGES)} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
+          <Setting title="Page tabs" note="How the tabs at the top of a page look: Tasks', the Journal's, Questions', Review's." keywords="tabs tab bar pills boxed segmented look style compact"
+            below={<Choices label="Page tabs" min="6rem" options={(['plain', 'boxed'] as const).map((look) => ({ id: look, label: look === 'plain' ? 'Plain' : 'Boxed', show: <TabLookSample look={look} /> }))}
+              on={(id) => id === (settings.tabLook ?? 'plain')} pick={(tabLook) => set({ tabLook: tabLook as Settings['tabLook'] })} />} />
           <Setting title="Sidebar side" note="Which side of the main window the sidebar sits on." keywords="sidebar left right side swap flip mirror position"
             below={<Choices label="Sidebar side" min="6rem" options={(['left', 'right'] as const).map((side) => ({ id: side, label: side === 'left' ? 'Left' : 'Right', show: <SideSample side={side} /> }))} on={(id) => id === (settings.sidebarSide ?? 'left')} pick={(sidebarSide) => set({ sidebarSide: sidebarSide as Settings['sidebarSide'] })} />} />
           <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at the window's edge and it slides out; move away and it goes." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">
@@ -2707,5 +2710,16 @@ function SessionSounds({ chosen, pick }: { chosen: TickSound; pick: (sound: Tick
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+  )
+}
+
+/** "Page tabs" shown as itself: three small tabs in each look, the first chosen. */
+function TabLookSample({ look }: { look: 'plain' | 'boxed' }): React.JSX.Element {
+  return (
+    <span aria-hidden className={cn('flex items-center gap-0.5 text-[0.625rem]', look === 'boxed' && 'rounded-md border border-foreground/10 bg-accent/40 p-0.5')}>
+      {['Day', 'Week', 'Month'].map((word, n) => (
+        <span key={word} className={cn('px-1.5 py-0.5', look === 'boxed' ? 'rounded' : 'rounded-full', n === 0 ? (look === 'boxed' ? 'border border-foreground/15 bg-background text-foreground shadow-sm' : 'bg-accent text-foreground') : 'text-muted-foreground')}>{word}</span>
+      ))}
+    </span>
   )
 }

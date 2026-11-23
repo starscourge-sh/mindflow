@@ -1,3 +1,4 @@
+import { TabChips } from './tab-chips'
 import { useEffect, useState } from 'react'
 import { WeekParagraph } from './ai-offers'
 import type { JSONContent } from '@tiptap/core'
@@ -16,7 +17,6 @@ import { openOnes } from './goals-view'
 import { exampleMonth, exampleYear } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
-import { Chips } from './display'
 import { DayBanner } from './scenery'
 import { MonthReflect } from './reflect-view'
 import { EarlierPages, SERIF, weekSpan } from './issue'
@@ -47,8 +47,10 @@ export const SCALE_VIEW: Record<Scale, string> = { day: 'day', week: 'weekpage',
 function ScaleSwitch({ scale, onScale }: { scale: Scale; onScale?: (scale: Scale) => void }): React.JSX.Element | null {
   if (!onScale) return null
   return (
-    <Chips className="shrink-0" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'year', label: 'Year' }]}
-      on={(id) => id === scale} pick={(id) => id !== scale && onScale(id as Scale)} />
+    // The app's one bar of page tabs (tab-chips.tsx), as Tasks', Questions' and Review's are: the loose chips read as a
+    // second design of the same thing beside them (the user, 23 Nov).
+    <TabChips<Scale> name="journal-scale" tabs={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'year', label: 'Year' }]}
+      value={scale} onChange={onScale} />
   )
 }
 

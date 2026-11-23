@@ -360,6 +360,8 @@ const DEFAULTS = {
   boxHideButtons: false,
   // Quick capture opens as one line (a pill) and grows only once there is more to show. Off to start.
   boxOneLine: false,
+  // Page tabs (Tasks, Questions, the Journal…): plain pills, the Journal's compact look, or a boxed bar. Plain to start.
+  tabLook: 'plain' as 'plain' | 'boxed',
   // Glance tabs on the one line (Write, Notes, Today): on to start whenever “One line to start” is on.
   boxGlance: true,
   // The Dock's icon: the leaves in bronze or gold.
