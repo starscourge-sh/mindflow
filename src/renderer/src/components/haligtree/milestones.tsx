@@ -92,13 +92,12 @@ export function MilestoneAsker(): React.JSX.Element | null {
           <FlagTriangleRight aria-hidden className="size-4 shrink-0" style={{ color: inkOf({ color }) }} />
           {asked.existing ? 'The marked day' : 'Mark a day: what is it for?'}
         </h2>
-        {/* Its emoji and its name, one field as an event's name is in the Calendar's popover. */}
+        {/* Its name, with the icon picked under "Look" shown before it. A blank emoji box with a ✦ in it here read as a
+            mystery button (the user, 23 Nov): any other emoji is typed in the Icon row's "Other". */}
         <div className="flex min-h-10 items-center rounded-lg border pl-1 focus-within:border-foreground/25">
-          <input value={icon} onChange={(event) => setIcon([...event.target.value].slice(-2).join(''))} aria-label="Emoji" placeholder="✦"
-            className="h-8 w-9 shrink-0 rounded-md bg-transparent text-center text-body outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:bg-accent/50" />
-          <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
+          {icon && <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center text-body">{icon}</span>}
           <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Exam, Launch, Mum's birthday" aria-label="What the day is for" maxLength={60}
-            className="h-9 min-w-0 flex-1 bg-transparent pr-3 pl-1 text-body text-foreground outline-none placeholder:text-muted-foreground" />
+            className={cn('h-9 min-w-0 flex-1 bg-transparent pr-3 text-body text-foreground outline-none placeholder:text-muted-foreground', icon ? 'pl-0.5' : 'pl-2')} />
         </div>
         <Island compact title="When">
           <PanelRow label="On">
@@ -111,11 +110,14 @@ export function MilestoneAsker(): React.JSX.Element | null {
         </Island>
         <Island compact title="Look">
           <PanelRow label="Icon">
-            <div role="group" aria-label="Its icon" className="flex flex-nowrap items-center gap-0.5">
+            <div role="group" aria-label="Its icon" className="flex flex-wrap items-center gap-0.5 gap-y-1">
               {MARK_ICONS.map((one) => (
                 <button key={one} type="button" aria-pressed={icon === one} onClick={() => (chime('tap'), setIcon(icon === one ? '' : one))}
                   className={`grid size-7 shrink-0 place-items-center rounded-md text-[0.95rem] transition-colors duration-150 hover:bg-accent motion-reduce:transition-none ${icon === one ? 'bg-accent ring-1 ring-foreground/15' : ''}`}>{one}</button>
               ))}
+              {/* Any other emoji, typed in: says what it is for. */}
+              <input value={(MARK_ICONS as readonly string[]).includes(icon) ? '' : icon} onChange={(event) => setIcon([...event.target.value].slice(-2).join(''))} aria-label="Another emoji" placeholder="Other"
+                className={cn(PANEL_FIELD, 'h-7 w-20 shrink-0 text-center text-control', !(MARK_ICONS as readonly string[]).includes(icon) && icon && 'border-ring')} />
             </div>
           </PanelRow>
           {/* The nine on one line, drawn as every row of colours is (the book menu's): a small square, the one worn ticked. */}

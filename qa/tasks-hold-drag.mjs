@@ -61,7 +61,7 @@ try {
   await drag(keep.y, todayRow.y)
   const back = (await s.v('tasks')).find((t) => t.id === keep.id)
   const under = await h.evaluate((id) => { const row = document.querySelector(`[data-task-row][data-id="${id}"]`); const heads = [...document.querySelectorAll('[data-row-part]')].filter((one) => row && one.getBoundingClientRect().top < row.getBoundingClientRect().top); return heads.at(-1)?.dataset.rowPart ?? null }, keep.id)
-  check('carried over another part, no heading lights (room opens where it lands, as among rows)', lookAt?.lit === 0, JSON.stringify(lookAt))
+  check('carried over another part, its heading lights and no row moves over it', lookAt?.lit === 1, JSON.stringify(lookAt))
   check('a task on hold dropped on "Today" is brought back for today and stands under "Today"', !(await held(keep.id)) && !!back?.dueAt && new Date(back.dueAt).toDateString() === new Date(await h.evaluate(() => Date.now())).toDateString() && under === 'Today', JSON.stringify({ todayRow: !!todayRow, due: back?.dueAt, under }))
   // 2c the user's next try: a task with no date let go on "Today" is moved to today, not refused.
   await foot()

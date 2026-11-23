@@ -814,7 +814,7 @@ await part('One look: Tasks', async () => {
   // Out of Overdue over Today's rows: Today's heading lights, the card says where it goes, and the drop is said with Undo.
   was = await boxes()
   at = await hold(await grip(t.late), await edge(t.wash, true))
-  await oneLook('Tasks, Overdue carried over Today', at, { words: 'Move to Today' })
+  await oneLook('Tasks, Overdue carried over Today', at, { words: 'Move to Today', lit: true })
   await putBack('Tasks, Overdue over Today', was)
   await hold(await grip(t.late), await edge(t.wash, true)); await wait(350); await h.mouse.up(); await wait(1300)
   const moved = await task(t.late)

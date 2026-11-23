@@ -309,7 +309,8 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
       <div className={page ? cn(ROW_SHAPE, ROW_PAD) : 'flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2'}>
         {page ? <GroupTile group={folder} empty={!n} /> : <span className="flex size-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>}
         <NameInPlace initial={folder.name} data-folder-name={folder.id} label="Folder name" placeholder="Name the folder" onDone={name}
-          className={cn('min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40', page && 'text-control font-medium')} />
+          // As Finder names a new folder: a field as wide as the name, a fine ring round it, never a bar across the row (23 Nov).
+          className={cn('min-w-[5rem] max-w-full rounded-[4px] bg-background px-1 text-foreground outline-none ring-2 ring-ring/45 [field-sizing:content]', page && 'text-control font-medium')} />
       </div>
     )
   // The app's one chooser for its icon (emoji, icons, a picture of your own), from its menu: pointed at, the icon

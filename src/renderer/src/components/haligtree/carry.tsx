@@ -950,15 +950,14 @@ export function useTargets(places: Places | undefined, parts: Parts | undefined,
       light(spot)
       return { target: name, how: 'join', into: name, label: said, gap: null, around: [], act: 'place' }
     },
-    part: (id, target, _within, row) => {
+    part: (id, target, within, row) => {
       const to = parts?.of(target)
       if (!parts || to === undefined || to === parts.of(id)) return null
       const take = parts.take(id, to)
       const no = 'refused' in take
-      // Taken in, it lights nothing: the list opens room where it will land, as a row moved among rows, or into a group, does
-      // (the user, 23 Nov: a lit heading was not the app's way). Refused, nothing lights either; the card says why.
-      void row
-      light(null)
+      // Taken in, its heading lights. A list that can open room there instead (kept-groups.tsx, whose headings move with
+      // its rows) dims it again and opens the room.
+      light(no ? null : ((within ?? document).querySelector<HTMLElement>(`[data-row-part="${CSS.escape(to)}"]`) ?? row ?? null))
       return { target: to, how: 'join', into: no ? null : to, label: no ? take.refused : take.words, gap: null, around: [], refused: no || undefined, act: 'part' }
     },
     dim: () => light(null),
