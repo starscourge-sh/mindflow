@@ -1182,13 +1182,21 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   const dropInPart = (id: string, target: string): void => {
     const task = shown.find((one) => one.id === id)
     if (!task) return
-    // Out of "On hold": brought back, at the head of the part it was let go in, as "Bring it back" does with its Undo.
+    const rest = shown.map((one) => one.id).filter((one) => one !== id)
+    const first = rest.findIndex((one) => partOf.get(one) === target)
+    const head = first >= 0 ? [...rest.slice(0, first), id, ...rest.slice(first)] : []
+    // Out of "On hold": brought back. Let go in "Today", it is today's too, so it stays where it was dropped: brought
+    // back with its old date alone, it fell into "Overdue" (the user, 23 Nov). One notice, one Undo for both.
     if (partOf.get(id) === ON_HOLD) {
-      const rest = shown.map((one) => one.id).filter((one) => one !== id)
-      const first = rest.findIndex((one) => partOf.get(one) === target)
-      bringBack(task)
-      if (first >= 0) void place([...rest.slice(0, first), id, ...rest.slice(first)]).catch(() => undefined)
-      return
+      if (target !== 'Today') return void (bringBack(task), head.length && void place(head).catch(() => undefined))
+      const was = { due: task.dueAt ?? null, plan: task.planFor ?? null }
+      return void call<string | null>('task:back', id).then((at) => {
+        if (!at) return
+        void place(head, { id, patch: { dueAt: shiftTo(0, task.dueAt), heldAt: null }, save: haligtree.saveTask(id, { due: shiftTo(0, task.dueAt) }) }).then(() => {
+          chime('unshelve')
+          toast(`Brought back for today: ${quoted(splitTags(task.title).text, 48)}`, () => void haligtree.saveTask(id, was).then(() => call('task:hold', id, at)).then(() => chime('away')))
+        }, () => undefined)
+      })
     }
     // Into "On hold": put away as a fresh start puts it, with Undo and ⌘Z.
     if (target === ON_HOLD) {
@@ -1198,11 +1206,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
         toast(`On hold: ${quoted(splitTags(task.title).text, 48)}`, () => void call('task:back', id).then(() => chime('unshelve')))
       })
     }
-    const rest = shown.map((one) => one.id).filter((one) => one !== id)
-    const before = rest.indexOf(target)
-    const order = before >= 0 ? [...rest.slice(0, before), id, ...rest.slice(before)] : []
     const due = shiftTo(0, task.dueAt)
-    void place(order, { id, patch: { dueAt: due }, save: moveTo(task, 0) }).catch(() => undefined)
+    void place(head, { id, patch: { dueAt: due }, save: moveTo(task, 0) }).catch(() => undefined)
   }
   /** A row dropped among the rows: your own order from now on, with ⌘Z. */
   const moveRow = (id: string, target: string, after: boolean): void => {
@@ -1232,7 +1237,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   const takenBy = (id: string, part: string): { words: string } | { refused: string } =>
     partOf.get(id) === ON_HOLD ? { words: 'Bring it back' }
     : part === ON_HOLD ? { words: 'Put on hold' }
-    : part === 'Today' && partOf.get(id) === 'Overdue' ? { words: 'Move to Today' }
+    // Into "Today" from any part (Overdue, a later day, No date on All): moved to today, where it was let go.
+    : part === 'Today' ? { words: 'Move to Today' }
     : part === 'Overdue' ? { refused: 'Its date puts a task in “Overdue”: change the date to move it' }
     : part === 'Waiting on someone' ? { refused: 'Who it waits on puts a task there: change that to move it' }
     : { refused: `What a task is puts it in “${part}”, not where it is dropped` }
