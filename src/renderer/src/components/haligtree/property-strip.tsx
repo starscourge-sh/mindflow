@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
-import { AlignLeft, Calendar, ChevronRight, Clock, Hash, Link2, List, Plus, SquareCheck, Star, Tags, Text, X, type LucideIcon } from 'lucide-react'
+import { AlignLeft, Calendar, Check, ChevronRight, Clock, Hash, Link2, List, Plus, SquareCheck, Star, Tags, Text, X, type LucideIcon } from 'lucide-react'
 import type { Editor } from '@tiptap/react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -15,7 +15,8 @@ import { dayMonth } from '../../../../main/dates'
 import { tagsIn } from '../../../../main/tag-words'
 import { Chips } from './display'
 import { DatePicker } from './date-picker'
-import { Kbd, Tip, openTag, toast } from './ui'
+import { AskKey, Grows, Island, PANEL_FIELD, PanelRow, POP_ISLANDS, Tip, openTag, toast } from './ui'
+import { cn } from '@/lib/cn'
 import { hoverNote } from './note-preview'
 import { FLOAT } from '@/lib/float'
 import { useSuperTags } from './note-extras'
@@ -212,16 +213,22 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
               <button type="button" data-property-kind={prop.key} aria-label="Kind of value" className="-mx-1 grid size-6 shrink-0 place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"><Icon className={size.icon} /></button>
             </PopoverTrigger>
           </Tip>
-          <PopoverContent align="start" className="w-auto gap-0 p-1">
-            {PROP_TYPES.map((one) => {
-              const KindIcon = ICONS[one.id] ?? Text
-              return (
-                <button key={one.id} type="button" data-kind={one.id} data-on={one.id === prop.type ? '' : undefined} onClick={() => (setType(prop, one.id), setOpen(null))}
-                  className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-foreground transition-colors hover:bg-accent data-[on]:font-medium">
-                  <KindIcon className="size-3.5 text-muted-foreground" />{one.label}
-                </button>
-              )
-            })}
+          {/* The list's Sort / View popover's anatomy (display.tsx): a small heading over the choices in an island. */}
+          <PopoverContent align="start" className={`w-52 gap-0 p-2 text-control ${POP_ISLANDS}`}>
+            <Island compact title="Kind of value">
+              <div className="flex flex-col p-1">
+                {PROP_TYPES.map((one) => {
+                  const KindIcon = ICONS[one.id] ?? Text
+                  return (
+                    <button key={one.id} type="button" data-kind={one.id} data-on={one.id === prop.type ? '' : undefined} onClick={() => (setType(prop, one.id), setOpen(null))}
+                      className="flex h-7 items-center gap-2 rounded-sm px-2 text-left text-foreground transition-colors hover:bg-accent data-[on]:font-medium">
+                      <KindIcon className="size-3.5 text-muted-foreground" />{one.label}
+                      {one.id === prop.type && <Check aria-hidden className="ml-auto size-3.5" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </Island>
           </PopoverContent>
         </Popover>
       ) : <Icon className={`${size.icon} shrink-0`} />}
@@ -271,7 +278,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                           : <span className={`private-text text-foreground ${panel ? 'line-clamp-2 hyphens-auto [overflow-wrap:break-word]' : 'truncate'}`}>{prop.type === 'link' ? <LinkName link={String(prop.value)} /> : said(prop)}</span>}
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent align="start" className="w-72 p-3" onOpenAutoFocus={(event) => prop.type === 'date' && event.preventDefault()}>
+                    <PopoverContent align="start" className={`w-80 gap-0 p-2 text-control ${POP_ISLANDS}`} onOpenAutoFocus={(event) => prop.type === 'date' && event.preventDefault()}>
                       <PropEditor prop={prop} tags={tags} onSave={(value) => void save(prop.key, value, prop.label).then(() => setOpen(null))}
                         onRename={(to) => void notes.renameField(table, id, prop.key, to).then(() => (chime('retag'), setOpen(null), toast(`Renamed to ${quoted(to, 80)}`, () => void notes.renameField(table, id, to, prop.key).then(() => chime('undo')))))}
                         onType={(type) => setType(prop, type)}
@@ -626,7 +633,8 @@ function PropEditor({ prop, tags, onSave, onRename, onType, onSuper }: {
     const raw = text.current?.value ?? ''
     onSave(raw.trim() ? readValue(raw, prop.type === 'long' || prop.type === 'rating' ? 'text' : prop.type).value : null)
   }
-  const field = 'h-8 w-full rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none placeholder:text-muted-foreground'
+  // A panel row's field, as the Calendar's Place and the marked day's note are (PANEL_FIELD).
+  const field = cn(PANEL_FIELD, 'bg-transparent text-foreground outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:border-ring')
   const control = (() => {
     if (prop.type === 'bool') return <Chips options={[{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }]} on={(one) => (one === 'yes' ? prop.value === true : prop.value === false)} pick={(one) => onSave(prop.value === (one === 'yes') ? null : one === 'yes')} />
     if (prop.type === 'choice')
@@ -647,39 +655,61 @@ function PropEditor({ prop, tags, onSave, onRename, onType, onSuper }: {
         </div>
       )
     if (prop.type === 'date')
-      return <DatePicker value={typeof prop.value === 'string' && /^\d{4}-\d\d-\d\dT/.test(prop.value) ? prop.value : null} onChange={(iso) => onSave(iso)} suggest={prop.field?.suggest ?? ['tomorrow', 'in a week', 'in a month']} className="w-full" />
+      return <DatePicker value={typeof prop.value === 'string' && /^\d{4}-\d\d-\d\dT/.test(prop.value) ? prop.value : null} onChange={(iso) => onSave(iso)} suggest={prop.field?.suggest ?? ['tomorrow', 'in a week', 'in a month']}
+        className={cn(PANEL_FIELD, 'justify-start py-1 text-foreground hover:bg-accent/50 data-[state=open]:border-ring')} />
     if (prop.type === 'long')
       return <textarea ref={(node) => void (text.current = node)} autoFocus rows={3} defaultValue={String(prop.value ?? '')} placeholder={prop.field?.ghost ?? prop.field?.placeholder ?? prop.label} aria-label={prop.label}
-        onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || !event.shiftKey) && (event.preventDefault(), commit())} className={`${field} h-auto resize-none py-1.5 [field-sizing:content]`} />
+        onKeyDown={(event) => event.key === 'Enter' && (event.metaKey || !event.shiftKey) && (event.preventDefault(), commit())} className={`${field} resize-none py-1 [field-sizing:content]`} />
     return <input ref={(node) => void (text.current = node)} autoFocus defaultValue={prop.value === undefined ? '' : String(prop.value)} placeholder={prop.field?.ghost ?? prop.field?.placeholder ?? (prop.type === 'link' ? 'A note, as [[Its name]]' : prop.type === 'number' ? 'A number' : prop.label)} aria-label={prop.label}
       onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), commit())} className={field} />
   })()
+  // Typed, not picked: kept by Enter or Save. A pick (a chip, a star, a day) is kept as it is made.
+  const typed = prop.type !== 'bool' && prop.type !== 'choice' && prop.type !== 'rating' && prop.type !== 'date'
+  // The list's Sort / View popover's anatomy (display.tsx), as the Calendar's event popover has it: each group a small
+  // heading over an island of its rows, the one way to take it off quietly on the left of the foot, Save on the right.
   return (
-    <div className="flex flex-col gap-2.5" onKeyDown={(event) => event.stopPropagation()}>
-      {prop.tag ? (
-        <p className="text-xs"><span className="font-medium text-foreground">{prop.label}</span> <span className="text-muted-foreground">from #{prop.tag}</span></p>
-      ) : (
-        <input value={name} onChange={(event) => setName(event.target.value.replace(/:/g, ''))} aria-label="Name" onBlur={() => name.trim() && name.trim() !== prop.key && onRename(name.trim())}
-          onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), (event.target as HTMLInputElement).blur())}
-          className="h-7 w-full rounded-md bg-transparent px-1 text-xs font-medium text-foreground outline-none hover:bg-accent focus-visible:bg-accent" />
-      )}
-      {prop.field?.does && <p className="text-xs leading-relaxed text-muted-foreground">{prop.field.does}</p>}
-      {control}
+    <div className="flex flex-col" onKeyDown={(event) => event.stopPropagation()}>
+      <Island compact title={prop.tag ? <>{prop.label} <span className="font-normal text-(--mf-muted-strong)">from #{prop.tag}</span></> : 'Property'}>
+        {!prop.tag && (
+          <PanelRow label="Name">
+            <input value={name} onChange={(event) => setName(event.target.value.replace(/:/g, ''))} aria-label="Name" onBlur={() => name.trim() && name.trim() !== prop.key && onRename(name.trim())}
+              onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), (event.target as HTMLInputElement).blur())}
+              className={field} />
+          </PanelRow>
+        )}
+        {/* A new kind of value brings its own control: the island's height glides to it. */}
+        <Grows>
+          <PanelRow label="Value" className={prop.type === 'long' || prop.type === 'choice' ? 'items-start [&>:first-child]:pt-1' : undefined}>{control}</PanelRow>
+        </Grows>
+        {prop.field?.does && <p className="px-2 py-1.5 text-meta leading-relaxed text-(--mf-muted-strong)">{prop.field.does}</p>}
+      </Island>
       {!prop.tag && (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Kind of value</span>
-          <Chips options={PROP_TYPES.map((one) => ({ id: one.id, label: one.label }))} on={(one) => one === prop.type} pick={(one) => onType(one as PropType)} />
-        </div>
+        <Island compact title="Kind of value">
+          {/* Tiles, as Display's "View as": each kind its picture and its name under it. */}
+          <div role="group" aria-label="Kind of value" className="grid grid-cols-3 gap-1 p-1">
+            {PROP_TYPES.map((one) => {
+              const KindIcon = ICONS[one.id] ?? Text
+              const on = one.id === prop.type
+              return (
+                <button key={one.id} type="button" aria-label={one.label} aria-pressed={on} onClick={() => !on && onType(one.id)}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-md px-0.5 pt-1.5 pb-1 transition-colors ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}`}>
+                  <KindIcon className="size-4" />
+                  <span className="text-[11px] leading-none whitespace-nowrap">{one.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </Island>
       )}
       {!prop.tag && tags.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Give it to every note tagged</span>
-          <Chips options={tags.slice(0, 6).map((tag) => ({ id: tag, label: `#${tag}` }))} on={() => false} pick={onSuper} />
-        </div>
+        <Island compact title="Give it to every note tagged">
+          <Chips className="p-1.5" options={tags.slice(0, 6).map((tag) => ({ id: tag, label: `#${tag}` }))} on={() => false} pick={onSuper} />
+        </Island>
       )}
-      <div className="flex items-center justify-between">
-        {prop.type !== 'bool' && prop.type !== 'choice' && prop.type !== 'rating' && prop.type !== 'date' ? <Button size="sm" variant="ghost" onClick={commit}>Save <Kbd>↵</Kbd></Button> : <span />}
-        <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => onSave(null)}>{prop.tag ? 'Clear' : 'Remove'}</Button>
+      <div className="mt-3 flex items-center gap-1">
+        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onSave(null)}>{prop.tag ? 'Clear' : 'Remove'}</Button>
+        <span className="flex-1" />
+        {typed && <Button size="sm" className="hover:bg-primary hover:brightness-110" onClick={commit}>Save<AskKey label="Return">↵</AskKey></Button>}
       </div>
     </div>
   )
