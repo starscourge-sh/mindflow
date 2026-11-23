@@ -10,10 +10,10 @@ import { unloaded, useLive, haligtree, type Recent } from '@/lib/haligtree'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { MARK_COLORS, MARK_ICONS, countdown, inkOf, markDay, marks, nextOf, onDay, openMark, useMilestones, type Milestone } from '@/lib/milestones'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { RowMenu, type RowItem } from './row-menu'
+import { RowMenu, Swatch, type RowItem } from './row-menu'
 import { DatePicker } from './date-picker'
-import { Rolling, Tip, refuse, toast } from './ui'
+import { AskKey, Grows, Island, PANEL_FIELD, POP_ISLANDS, PanelRow, Rolling, Tip, refuse, toast } from './ui'
+import { cn } from '@/lib/cn'
 import { dayKey, dayMonth, dayName, dayjs, noon, num, plural } from '../../../../main/dates'
 import { daysBetween } from '../../../../main/goal-days'
 
@@ -77,70 +77,93 @@ export function MilestoneAsker(): React.JSX.Element | null {
     done({ day: dayKey(day), title: title.trim(), icon: icon.trim() || null, color, note: note?.link ?? null })
   }
   const left = day ? daysBetween(dayKey(), dayKey(day)) : null
+  // The list's Sort / View popover's anatomy (display.tsx): the name on top, then each group a small heading over an
+  // island of its own rows, the buttons at the foot with their keys said quietly in them.
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[16vh]" onMouseDown={() => done(null)}>
-      <div role="dialog" aria-modal="true" aria-label={asked.existing ? 'Change the marked day' : 'Mark a day'} className="flex w-[min(30rem,90vw)] flex-col gap-3 rounded-xl bg-popover p-4 shadow-(--mf-panel-shadow)"
+      <div role="dialog" aria-modal="true" aria-label={asked.existing ? 'Change the marked day' : 'Mark a day'} className={`flex w-[min(24rem,90vw)] flex-col gap-3 rounded-float bg-popover p-3 text-control shadow-(--mf-panel-shadow) ${POP_ISLANDS}`}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           event.stopPropagation()
           if (event.key === 'Escape') done(null)
           if (event.key === 'Enter' && !(event.target as HTMLElement).closest('[data-slot="popover-content"], [data-note-pick]')) (event.preventDefault(), keep())
         }}>
-        <p className="flex items-center gap-2 text-sm">
-          <FlagTriangleRight className="size-4" style={{ color: inkOf({ color }) }} />
+        <h2 className="flex items-center gap-2 px-1 text-body font-semibold text-foreground">
+          <FlagTriangleRight aria-hidden className="size-4 shrink-0" style={{ color: inkOf({ color }) }} />
           {asked.existing ? 'The marked day' : 'Mark a day: what is it for?'}
-        </p>
-        <div className="flex items-center gap-2">
-          <Input value={icon} onChange={(event) => setIcon([...event.target.value].slice(-2).join(''))} aria-label="Emoji" placeholder="✦" className="w-10 shrink-0 text-center" />
-          <Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Exam, Launch, Mum's birthday" aria-label="What the day is for" maxLength={60} />
+        </h2>
+        {/* Its emoji and its name, one field as an event's name is in the Calendar's popover. */}
+        <div className="flex min-h-10 items-center rounded-lg border pl-1 focus-within:border-foreground/25">
+          <input value={icon} onChange={(event) => setIcon([...event.target.value].slice(-2).join(''))} aria-label="Emoji" placeholder="✦"
+            className="h-8 w-9 shrink-0 rounded-md bg-transparent text-center text-body outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:bg-accent/50" />
+          <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
+          <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Exam, Launch, Mum's birthday" aria-label="What the day is for" maxLength={60}
+            className="h-9 min-w-0 flex-1 bg-transparent pr-3 pl-1 text-body text-foreground outline-none placeholder:text-muted-foreground" />
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-control">
-          <span className="text-muted-foreground">On</span>
-          <DatePicker value={day} onChange={setDay} placeholder="Pick the day" suggest={['tomorrow', 'next friday', 'in 1 month', 'in 3 months']} className="border bg-accent/30" />
-          {left !== null && <span className="text-xs text-muted-foreground"><Rolling by="word" text={left === 0 ? 'today' : left > 0 ? `in ${plural(left, 'day')}` : `${num(-left)} ${left === -1 ? 'day' : 'days'} ago`} /></span>}
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          {MARK_ICONS.map((one) => (
-            <button key={one} type="button" aria-pressed={icon === one} onClick={() => (chime('tap'), setIcon(icon === one ? '' : one))}
-              className={`grid size-7 place-items-center rounded-md text-[0.95rem] transition-colors hover:bg-accent ${icon === one ? 'bg-accent ring-1 ring-foreground/15' : ''}`}>{one}</button>
-          ))}
-          <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-          {MARK_COLORS.map((one) => (
-            <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
-              <button type="button" aria-label={one} aria-pressed={color === one} onClick={() => (chime('tap'), setColor(color === one ? null : one))}
-                className={`grid size-6 place-items-center rounded-full transition-transform hover:scale-110 ${color === one ? 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-popover' : ''}`}>
-                <span className="size-3.5 rounded-full shrink-0" style={{ background: `var(--tt-color-text-${one})` }} />
-              </button>
-            </Tip>
-          ))}
-        </div>
-        {note ? (
-          <p className="flex items-center gap-2 text-control">
-            <span className="text-muted-foreground">Note</span>
-            <span className="private-text min-w-0 flex-1 truncate">{note.label}</span>
-            <button type="button" onClick={() => (chime('off'), setNote(null))} className="text-xs text-muted-foreground hover:text-foreground">Unlink</button>
-          </p>
-        ) : (
-          <div className="relative" data-note-pick>
-            <Input value={finding} onChange={(event) => setFinding(event.target.value)} placeholder="Link a note to it (if you want to)" aria-label="Link a note"
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && found[0]) (event.preventDefault(), event.stopPropagation(), chime('tap'), setNote({ link: found[0].id, label: found[0].label }), setFinding(''))
-              }} />
-            {found.length > 0 && (
-              <div className="absolute inset-x-0 top-full z-10 mt-1 flex flex-col rounded-float border bg-popover p-1 shadow-(--mf-panel-shadow)">
+        <Island compact title="When">
+          <PanelRow label="On">
+            <div className="flex min-w-0 items-center gap-2">
+              <DatePicker value={day} onChange={setDay} placeholder="Pick the day" suggest={['tomorrow', 'next friday', 'in 1 month', 'in 3 months']}
+                className={cn(PANEL_FIELD, 'flex-1 justify-start py-1 text-foreground hover:bg-accent/50 data-[state=open]:border-ring')} />
+              {left !== null && <span data-mark-left className="shrink-0 font-medium text-foreground tabular-nums"><Rolling by="word" text={left === 0 ? 'today' : left > 0 ? `in ${plural(left, 'day')}` : `${num(-left)} ${left === -1 ? 'day' : 'days'} ago`} /></span>}
+            </div>
+          </PanelRow>
+        </Island>
+        <Island compact title="Look">
+          <PanelRow label="Icon">
+            <div role="group" aria-label="Its icon" className="flex flex-nowrap items-center gap-0.5">
+              {MARK_ICONS.map((one) => (
+                <button key={one} type="button" aria-pressed={icon === one} onClick={() => (chime('tap'), setIcon(icon === one ? '' : one))}
+                  className={`grid size-7 shrink-0 place-items-center rounded-md text-[0.95rem] transition-colors duration-150 hover:bg-accent motion-reduce:transition-none ${icon === one ? 'bg-accent ring-1 ring-foreground/15' : ''}`}>{one}</button>
+              ))}
+            </div>
+          </PanelRow>
+          {/* The nine on one line, drawn as every row of colours is (the book menu's): a small square, the one worn ticked. */}
+          <PanelRow label="Colour">
+            <div role="group" aria-label="Its colour" className="flex flex-nowrap items-center gap-0.5">
+              {MARK_COLORS.map((one) => (
+                <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
+                  <button type="button" aria-label={one} aria-pressed={color === one} onClick={() => (chime('tap'), setColor(color === one ? null : one))}
+                    className="grid size-6 shrink-0 place-items-center rounded-md transition-colors duration-150 hover:bg-accent motion-reduce:transition-none">
+                    <Swatch color={`var(--tt-color-text-${one})`} on={color === one} />
+                  </button>
+                </Tip>
+              ))}
+            </div>
+          </PanelRow>
+        </Island>
+        <Island compact title="Linked note">
+          {note ? (
+            <PanelRow label="Note">
+              <div className={cn(PANEL_FIELD, 'py-1')}>
+                <span className="private-text min-w-0 flex-1 truncate text-foreground">{note.label}</span>
+                <button type="button" onClick={() => (chime('off'), setNote(null))} className="-mr-1 shrink-0 rounded px-1.5 py-0.5 text-(--mf-muted-strong) hover:bg-accent hover:text-foreground">Unlink</button>
+              </div>
+            </PanelRow>
+          ) : (
+            <div data-note-pick>
+              <PanelRow label="Note">
+                <input value={finding} onChange={(event) => setFinding(event.target.value)} placeholder="Find a note, if you want one" aria-label="Link a note"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && found[0]) (event.preventDefault(), event.stopPropagation(), chime('tap'), setNote({ link: found[0].id, label: found[0].label }), setFinding(''))
+                  }}
+                  className={cn(PANEL_FIELD, 'bg-transparent text-foreground outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:border-ring')} />
+              </PanelRow>
+              {/* The notes it finds, under the field inside the island; the island's height glides as they come and go. */}
+              <Grows inner="flex flex-col px-1 pb-1 empty:p-0">
                 {found.map((one) => (
                   <button key={one.id} type="button" onClick={() => (chime('tap'), setNote({ link: one.id, label: one.label }), setFinding(''))}
-                    className="private-text truncate rounded px-2 py-1 text-left text-control hover:bg-accent">{one.label}</button>
+                    className="private-text truncate rounded-md py-1 pr-2 pl-[calc(4.75rem+0.75rem)] text-left text-foreground hover:bg-accent">{one.label}</button>
                 ))}
-              </div>
-            )}
-          </div>
-        )}
-        <div className="mt-1 flex items-center gap-2">
-          <p className="mr-auto text-xs text-muted-foreground">Enter to keep it · Escape to leave it</p>
-          {asked.existing && <Button variant="ghost" size="sm" onClick={() => done('drop')}>Unmark</Button>}
-          <Button variant="ghost" size="sm" onClick={() => done(null)}>Cancel</Button>
-          <Button size="sm" onClick={keep} disabled={!title.trim() || !day}>{asked.existing ? 'Keep it' : 'Mark the day'}</Button>
+              </Grows>
+            </div>
+          )}
+        </Island>
+        <div className="flex items-center gap-1">
+          {asked.existing && <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => done('drop')}>Unmark</Button>}
+          <span className="flex-1" />
+          <Button variant="ghost" size="sm" className="text-(--mf-muted-strong) hover:text-foreground" onClick={() => done(null)}>Cancel<AskKey label="Escape">Esc</AskKey></Button>
+          <Button size="sm" className="hover:bg-primary hover:brightness-110" onClick={keep} disabled={!title.trim() || !day}>{asked.existing ? 'Keep it' : 'Mark the day'}<AskKey label="Return">↵</AskKey></Button>
         </div>
       </div>
     </div>
