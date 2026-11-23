@@ -17,12 +17,8 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/tiptap-ui-primitive/popover"
-import { Separator } from "@/components/tiptap-ui-primitive/separator"
-import {
-  Card,
-  CardBody,
-  CardItemGroup,
-} from "@/components/tiptap-ui-primitive/card"
+import { Island, POP_ISLANDS } from "@/components/haligtree/ui"
+import { Swatch } from "@/components/haligtree/row-menu"
 
 // --- Tiptap UI ---
 import type {
@@ -34,7 +30,6 @@ import {
   pickHighlightColorsByValue,
   useColorHighlight,
 } from "@/components/tiptap-ui/color-highlight-button"
-import { ButtonGroup } from "@/components/tiptap-ui-primitive/button-group"
 
 interface ColorHighlightPopoverContentProps {
   /**
@@ -132,50 +127,56 @@ export function ColorHighlightPopoverContent({
     autoSelectFirstItem: false,
   })
 
+  // The islanded popover's anatomy (the marked-day popover, milestones.tsx): a small heading over an island holding the
+  // colours as one line of squares, the one worn ticked, and "None" at its end to take a highlight off.
+  const tile =
+    "grid size-7! min-w-7! shrink-0 cursor-pointer place-items-center rounded-md! p-0!"
   return (
-    <Card
+    <div
       ref={containerRef}
       tabIndex={0}
-      // Never stripped bare for a narrow window: the box is narrow, not a
-      // phone, and without its edge the panel sank into a dark page.
+      role="menu"
+      aria-label="Highlight colors"
+      className={`flex flex-col rounded-float border bg-popover p-3 text-control shadow-(--mf-panel-shadow) outline-none ${POP_ISLANDS}`}
     >
-      <CardBody>
-        <CardItemGroup orientation="horizontal">
-          <ButtonGroup>
-            {colors.map((color, index) => (
-              <ButtonGroup key={color.value}>
-                <ColorHighlightButton
-                  editor={editor}
-                  highlightColor={
-                    useColorValue ? color.colorValue : color.value
-                  }
-                  tooltip={color.label}
-                  aria-label={`${color.label} highlight color`}
-                  tabIndex={index === selectedIndex ? 0 : -1}
-                  data-highlighted={selectedIndex === index}
-                  useColorValue={useColorValue}
-                />
-              </ButtonGroup>
-            ))}
-          </ButtonGroup>
-          <Separator />
-          <ButtonGroup>
-            <Button
-              onClick={handleRemoveHighlight}
-              aria-label="Remove highlight"
-              tooltip="Remove highlight"
-              tabIndex={selectedIndex === colors.length ? 0 : -1}
-              type="button"
-              role="menuitem"
-              variant="ghost"
-              data-highlighted={selectedIndex === colors.length}
-            >
-              <BanIcon className="tiptap-button-icon" />
-            </Button>
-          </ButtonGroup>
-        </CardItemGroup>
-      </CardBody>
-    </Card>
+      <Island compact title="Highlight">
+        <div role="group" aria-label="Its colour" className="flex flex-nowrap items-center gap-0.5 px-1.5 py-1">
+          {colors.map((color, index) => {
+            const value = useColorValue ? color.colorValue : color.value
+            return (
+              <ColorHighlightButton
+                key={color.value}
+                editor={editor}
+                highlightColor={value}
+                tooltip={color.label}
+                aria-label={`${color.label} highlight color`}
+                tabIndex={index === selectedIndex ? 0 : -1}
+                data-highlighted={selectedIndex === index}
+                useColorValue={useColorValue}
+                className={tile}
+              >
+                <Swatch color={color.value} on={!!editor?.isActive("highlight", { color: value })} />
+              </ColorHighlightButton>
+            )
+          })}
+          <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
+          <Button
+            onClick={handleRemoveHighlight}
+            aria-label="Remove highlight"
+            tooltip="Remove highlight"
+            tabIndex={selectedIndex === colors.length ? 0 : -1}
+            type="button"
+            role="menuitem"
+            variant="ghost"
+            data-highlighted={selectedIndex === colors.length}
+            className="h-7! cursor-pointer gap-1.5 rounded-md! px-2!"
+          >
+            <BanIcon className="size-3.5 shrink-0" />
+            None
+          </Button>
+        </div>
+      </Island>
+    </div>
   )
 }
 

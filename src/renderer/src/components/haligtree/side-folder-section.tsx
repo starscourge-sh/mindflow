@@ -380,7 +380,7 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
         </div>
       </PopoverAnchor>
       <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
-        <IconChoice group={folder} onPick={pick} />
+        <IconChoice group={folder} onPick={pick} onColor={(color) => { const was = folder.color ?? null; void store.set(folder.id, { color }).then(() => quietly(() => void store.set(folder.id, { color: was }))) }} />
       </PopoverContent>
     </Popover>
   )

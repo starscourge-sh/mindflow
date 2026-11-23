@@ -456,7 +456,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
         </div>
       </PopoverAnchor>
       <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
-        <IconChoice group={group} onPick={pick} />
+        <IconChoice group={group} onPick={pick} onColor={(color) => { const was = group.color; void groups.set(group.id, { color }).then(() => quietly(() => void groups.set(group.id, { color: was }))) }} />
       </PopoverContent>
     </Popover>
   )
