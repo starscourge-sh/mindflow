@@ -9,9 +9,11 @@ await s.size(1300, 1000)
 const { h, close } = s
 h.setDefaultTimeout(8000)
 const rowsAll = () => h.evaluate(() => [...document.querySelectorAll('[data-task-row]')].map((r) => ({ id: r.dataset.id, held: r.hasAttribute('data-set-aside'), y: r.getBoundingClientRect().top + 12 })))
+let lookAt = null
 const drag = async (from, to) => {
   await h.mouse.move(460, from); await h.mouse.down()
   await h.mouse.move(460, from - 8, { steps: 3 }); await h.mouse.move(460, to, { steps: 14 }); await h.waitForTimeout(300)
+  lookAt = await h.evaluate(() => ({ lit: document.querySelectorAll('[data-drop-hot]').length, words: document.querySelector('[data-carry-card]')?.textContent ?? '' }))
   await h.mouse.up(); await h.waitForTimeout(1200)
 }
 const rows = rowsAll
@@ -53,11 +55,13 @@ try {
   const todayRow = await h.evaluate(() => { const head = document.querySelector('[data-row-part="Today"]'); const all = [...document.querySelectorAll('[data-task-row]')]; const r = all.find((one) => head && one.getBoundingClientRect().top > head.getBoundingClientRect().bottom); return r && { id: r.dataset.id, y: r.getBoundingClientRect().top + 12 } })
   await foot()
   // One with no deadline: a past deadline keeps a task in "Overdue" whatever its day, as it should.
-  const noDeadline = new Set((await s.v('tasks:held')).filter((t) => !t.deadline).map((t) => t.id))
-  const keep = (await seen()).find((r) => r.held && noDeadline.has(r.id))
+  // One with a deadline gone by: dropped on "Today" that deadline moves too, so it is not still "Overdue".
+  const late = new Set((await s.v('tasks:held')).filter((t) => t.deadline).map((t) => t.id))
+  const keep = (await seen()).find((r) => r.held && late.has(r.id)) ?? (await seen()).find((r) => r.held)
   await drag(keep.y, todayRow.y)
   const back = (await s.v('tasks')).find((t) => t.id === keep.id)
   const under = await h.evaluate((id) => { const row = document.querySelector(`[data-task-row][data-id="${id}"]`); const heads = [...document.querySelectorAll('[data-row-part]')].filter((one) => row && one.getBoundingClientRect().top < row.getBoundingClientRect().top); return heads.at(-1)?.dataset.rowPart ?? null }, keep.id)
+  check('carried over another part, no heading lights (room opens where it lands, as among rows)', lookAt?.lit === 0, JSON.stringify(lookAt))
   check('a task on hold dropped on "Today" is brought back for today and stands under "Today"', !(await held(keep.id)) && !!back?.dueAt && new Date(back.dueAt).toDateString() === new Date(await h.evaluate(() => Date.now())).toDateString() && under === 'Today', JSON.stringify({ todayRow: !!todayRow, due: back?.dueAt, under }))
   // 2c the user's next try: a task with no date let go on "Today" is moved to today, not refused.
   await foot()
@@ -75,5 +79,17 @@ try {
   const into = list.find((r) => r.held)
   await drag(away.y, into.y)
   check('a live task dragged into "On hold" goes on hold', await held(away.id), away.id)
+  // The add box (the user, 23 Nov): ⌫ once keeps "!!!" as words; deleted and typed again, it is read again.
+  const box = h.getByPlaceholder(/Add a task/).first()
+  await box.click(); await h.keyboard.type('ship it !!!', { delay: 20 }); await h.waitForTimeout(300)
+  const chips = () => h.evaluate(() => [...document.querySelectorAll('[data-task-chip]')].map((one) => one.getAttribute('data-task-chip')).join(','))
+  const first = await chips()
+  await h.keyboard.press('Backspace'); await h.waitForTimeout(200)
+  const kept = await chips()
+  for (let n = 0; n < 3; n++) await h.keyboard.press("Backspace")
+  await h.keyboard.type('!!!', { delay: 20 }); await h.waitForTimeout(300)
+  const again = await chips()
+  check('"!!!" kept as words by ⌫, then deleted (three presses, one each) and typed again, is read as a priority again', /priority/.test(first) && !/priority/.test(kept) && /priority/.test(again) && (await box.inputValue()) === 'ship it !!!', JSON.stringify({ first, kept, again, words: await box.inputValue() }))
+  await h.keyboard.press('Meta+a'); await h.keyboard.press('Backspace')
 } catch (error) { check('ran', false, error.stack) } finally { await close() }
 done()

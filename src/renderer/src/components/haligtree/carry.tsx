@@ -53,6 +53,8 @@ export type Aim = {
   gap: number | null
   /** Every group the carried row would be inside, innermost first: their panels take the room in. */
   around: string[]
+  /** Another part of the list the row is let go in (Overdue, Today, On hold): its name, `target` the row it lands beside. */
+  part?: string
   /** The room sits close under the row at the gap, in the same group, rather than just over the next row. */
   snug?: boolean
   /** How much more (or less) room a group carried takes where it lands than where it was: a subgroup's block sits in less air. */
@@ -886,7 +888,7 @@ export type Places = { drop: (id: string, place: string) => void; said: (place: 
  * what is in it. Carried over another part's rows, nothing opens: that part's heading (`data-row-part`) lights and
  * the card says what letting go does (`words`), or why it cannot go there (`refused`).
  */
-export type Parts = { of: (id: string) => string | undefined; take: (id: string, part: string) => { words: string } | { refused: string }; drop: (id: string, part: string) => void }
+export type Parts = { of: (id: string) => string | undefined; take: (id: string, part: string) => { words: string } | { refused: string }; drop: (id: string, part: string, beside?: { row: string; after: boolean }) => void }
 
 /**
  * Level with a part's own heading, that part is meant, whichever row is nearer (the heading's top half is nearer the
@@ -948,19 +950,22 @@ export function useTargets(places: Places | undefined, parts: Parts | undefined,
       light(spot)
       return { target: name, how: 'join', into: name, label: said, gap: null, around: [], act: 'place' }
     },
-    part: (id, target, within, row) => {
+    part: (id, target, _within, row) => {
       const to = parts?.of(target)
       if (!parts || to === undefined || to === parts.of(id)) return null
       const take = parts.take(id, to)
       const no = 'refused' in take
-      light(no ? null : ((within ?? document).querySelector<HTMLElement>(`[data-row-part="${CSS.escape(to)}"]`) ?? row ?? null))
+      // Taken in, it lights nothing: the list opens room where it will land, as a row moved among rows, or into a group, does
+      // (the user, 23 Nov: a lit heading was not the app's way). Refused, nothing lights either; the card says why.
+      void row
+      light(null)
       return { target: to, how: 'join', into: no ? null : to, label: no ? take.refused : take.words, gap: null, around: [], refused: no || undefined, act: 'part' }
     },
     dim: () => light(null),
     drop: (id, aim) => {
       if (aim.refused) return { said: aim.label ?? '' }
       if (aim.act === 'place') return (places?.drop(id, aim.target), {})
-      if (aim.act === 'part') return (parts?.drop(id, aim.target), {})
+      if (aim.act === 'part') return (parts?.drop(id, aim.part ?? aim.target, aim.part ? { row: aim.target, after: aim.how === 'after' } : undefined), {})
       return null
     }
   }

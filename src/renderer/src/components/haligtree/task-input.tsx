@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { tagTint } from './tag-icon'
 import { NoteList } from '@/components/note-link/note-link-menu'
 import type { SuggestionListHandle } from '@/components/suggestion/suggestion-renderer'
@@ -115,7 +115,12 @@ export const keptIn = (list: Kept['list'], value: string): Kept['list'] =>
     if (value.slice(one.from, one.to) === one.text) return [one]
     let best = -1
     for (let at = value.indexOf(one.text); at >= 0; at = value.indexOf(one.text, at + 1)) if (best < 0 || Math.abs(at - one.from) < Math.abs(best - one.from)) best = at
-    return best < 0 ? [] : [{ ...one, from: best, to: best + one.text.length }]
+    if (best >= 0) return [{ ...one, from: best, to: best + one.text.length }]
+    // Cut back by ⌫ from its end ("!!!" to "!!"): what is left stays words, so each press deletes and none lights it again.
+    let k = 0
+    while (k < one.text.length && value[one.from + k] === one.text[k]) k++
+    const end = one.from + k
+    return k > 0 && (end === value.length || /\s/.test(value[end])) ? [{ from: one.from, to: end, text: one.text.slice(0, k) }] : []
   })
 
 /** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. With `onKeep`, each has an × that keeps its words as words. */
@@ -218,6 +223,11 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
 }): React.JSX.Element {
   const plain = useMemo(() => (kept ? keptIn(kept.list, value) : []), [kept, value])
   const read = useMemo(() => (value.trim() ? readTask(value, new Date(), plain) : null), [value, plain])
+  // Kept words deleted are let go, not held for later: typed again ("!!!" after ⌫ and a fresh start), they are read
+  // again (the user, 23 Nov: "if i backspace sometimes then start again ... it stop inferring?").
+  useEffect(() => {
+    if (kept && plain.length !== kept.list.length) kept.set(plain)
+  }, [kept, plain])
   // Keep a reading's words as words: one act, its own quiet sound, the chip folding away as the words go plain.
   const keep = (spans: Span[]): void => {
     if (!kept || !spans.length) return

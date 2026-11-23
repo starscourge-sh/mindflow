@@ -246,14 +246,15 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, nestSays, places, parts,
         : { target, how: 'join', into: null, label: may.refused, gap: null, around: [], refused: true })
     }
     if (!onMove) return (targets.dim(), point(null, true))
-    // Another part of the list, whose own rule says what is in it: its heading lights and nothing opens.
-    const part = targets.part(id, target, lift.within)
-    if (part) return point(part)
-    targets.dim()
     // Among the rows, the one under the pointer makes way: up if the carried row came from above it, down if from below.
     const [from, to] = [keys.indexOf(id), keys.indexOf(target)]
     const gap = from < to ? to : to - 1
     const next = keys[gap + 1]
+    // Another part of the list, whose own rule says what is in it: taken in, room opens where it lands, as among rows,
+    // and the card says what letting go does there ("Move to Today"); refused, nothing opens and the card says why.
+    const part = targets.part(id, target, lift.within)
+    if (part) return point(part.refused ? part : { ...part, part: part.target, target, how: from < to ? 'after' : 'before', into: null, gap, around: [] })
+    targets.dim()
     // Last of its part (a heading comes next), the room sits close under the row before it.
     point({ target, how: from < to ? 'after' : 'before', into: null, label: 'Move here', gap, around: [], snug: next === undefined || (!!parts && parts.of(next) !== parts.of(id)) })
   }

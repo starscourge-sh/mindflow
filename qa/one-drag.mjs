@@ -814,7 +814,7 @@ await part('One look: Tasks', async () => {
   // Out of Overdue over Today's rows: Today's heading lights, the card says where it goes, and the drop is said with Undo.
   was = await boxes()
   at = await hold(await grip(t.late), await edge(t.wash, true))
-  await oneLook('Tasks, Overdue carried over Today', at, { words: 'Move to Today', lit: true })
+  await oneLook('Tasks, Overdue carried over Today', at, { words: 'Move to Today' })
   await putBack('Tasks, Overdue over Today', was)
   await hold(await grip(t.late), await edge(t.wash, true)); await wait(350); await h.mouse.up(); await wait(1300)
   const moved = await task(t.late)
@@ -1354,12 +1354,11 @@ if (!BOOK) await part('One look, kept in order: Goals', async () => {
   at = await carryTo(far[0], far[1])
   await oneLook('Goals, a goal carried among those more than a year off', at, { words: 'Move here' })
   await putBack('Goals, more than a year off', was)
-  // Over another day's goals: that day's heading lights, the card names the day, nothing opens.
+  // Over another day's goals: room opens where it lands, as among rows (the user, 23 Nov), and the card names the day.
   was = await paneBoxes()
   at = await carryTo(g.Alder, shared[1], 0.84)
-  let d = await oneLook('Goals, a goal carried over another day', at, { words: /^Move to \d{1,2} \w{3} \d{4}$/, lit: true })
-  const lit = await h.evaluate(() => { const one = document.querySelector('[data-drop-hot]'); return one ? { part: one.dataset.rowPart ?? null, head: one.dataset.groupHead ?? null } : null })
-  check('Goals, over another day: what lights is that day’s heading', !!lit?.part && lit.part === lit.head && d.words === `Move to ${lit.part}`, JSON.stringify(lit))
+  let d = await oneLook('Goals, a goal carried over another day', at, { words: /^Move to \d{1,2} \w{3} \d{4}$/ })
+  check('Goals, over another day: no heading lights', !(await h.evaluate(() => document.querySelector('[data-drop-hot]'))), d.words)
   await putBack('Goals, over another day', was)
   // On a heading itself its own part is meant, whichever row is nearer (its top edge is nearer the part before it).
   const heads = await h.evaluate(() => [...document.querySelectorAll('[data-row-part]')].filter((one) => !one.closest('aside[data-chrome]') && one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return { part: one.dataset.rowPart, y: r.y, h: r.height } }))
@@ -1368,8 +1367,8 @@ if (!BOOK) await part('One look, kept in order: Goals', async () => {
     was = await paneBoxes()
     let a0 = await paneRow(shared[0])
     at = await hold({ x: a0.x + 200, y: a0.y + 16 }, { x: a0.x + 200, y: heads[1].y + heads[1].h * 0.2 })
-    d = await oneLook('Goals, a goal carried onto the top edge of another day’s heading', at, { words: `Move to ${heads[1].part}`, lit: true })
-    check('Goals, on another day’s heading: that heading lights, not the one before it', (await h.evaluate(() => document.querySelector('[data-drop-hot]')?.dataset.rowPart ?? null)) === heads[1].part, heads[1].part)
+    d = await oneLook('Goals, a goal carried onto the top edge of another day’s heading', at, { words: `Move to ${heads[1].part}` })
+    check('Goals, on another day’s heading: that day is meant, not the one before it, and no heading lights', d.words === `Move to ${heads[1].part}` && !(await h.evaluate(() => document.querySelector('[data-drop-hot]'))), d.words)
     await putBack('Goals, on another day’s heading', was)
     was = await paneBoxes()
     a0 = await paneRow(far[1])

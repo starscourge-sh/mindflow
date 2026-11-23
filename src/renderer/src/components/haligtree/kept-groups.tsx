@@ -447,11 +447,15 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const until = list && node && !box!.contains(node) ? Math.round(list.getBoundingClientRect().bottom - parseFloat(getComputedStyle(list).paddingBottom)) : undefined
       return aimAt({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, lift, air, until, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
     }
-    // Over a row of another part, where the list's own rule says which part a row is in: nothing opens. That part's
-    // heading lights (the row itself, where no heading stands over it) and the card says what letting go does, or why
-    // it cannot go there. Never a quiet band that says nothing.
+    // Over a row of another part, where the list's own rule says which part a row is in: taken in, room opens where it
+    // lands, as among rows (the user, 23 Nov: a lit heading was not the app's way), and the card says what letting go
+    // does; refused, nothing opens and the card says why. Never a quiet band that says nothing.
     const other = alone && !isGroup(target) ? targets.part(id, target, pane.current, over.node) : null
-    if (other) return point(other)
+    if (other) {
+      if (other.refused) return point(other)
+      const [from, to] = [keys.indexOf(id), keys.indexOf(target)]
+      return aimAt({ ...other, part: other.target, target, how: from < to ? 'after' : 'before', into: null, gap: from < to ? to : to - 1, around: [] })
+    }
     if (parts && !alone && !isGroup(id) && !isGroup(target) && parts.of(target) !== undefined) return aimAt({ target, how: 'join', into: null, label: 'Carry one at a time to move it there', gap: null, around: [], refused: true })
     aimAt(null)
   }

@@ -510,6 +510,8 @@ function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: Task; a
     <div data-task-ask="carried" className={box} onClick={(event) => event.stopPropagation()}>
       <span className={question}>Carried over {num(times)} times. What now?</span>
       <span className={answers}>
+        {/* The one day most often meant, one click (the user, 23 Nov): a fresh count, as "Pick a date" gives. */}
+        <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => moveTo(task, 1))}>Tomorrow</Button>
         <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => pickDate(task.id, onPick))}>Pick a date</Button>
         <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
         {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
@@ -729,6 +731,19 @@ export const homeOf = (task: Task): 'today' | 'upcoming' | 'later' | 'routines' 
 
 /** The fold a fresh start's tasks wait in, at the foot of the tab each belongs to. */
 const ON_HOLD = 'On hold'
+/** The parts of a list a dropped task is put on the day of: how many days from today. */
+const DAY_PARTS: Record<string, number> = { Today: 0, Tomorrow: 1 }
+/** A task put on a day by a drop: its day, and a deadline already gone by moved to that day too; with what it was, for Undo. */
+const onDay = (task: Task, days: number): { was: Partial<Record<'due' | 'plan' | 'deadline', string | null>>; patch: Partial<Task>; save: { due: string; deadline?: string } } => {
+  const due = shiftTo(days, task.dueAt)
+  const late = !!task.deadline && Date.parse(task.deadline) < Date.parse(due)
+  const deadline = late ? shiftTo(days, task.deadline) : undefined
+  return {
+    was: { due: task.dueAt ?? null, plan: task.planFor ?? null, ...(late ? { deadline: task.deadline ?? null } : {}) },
+    patch: { dueAt: due, ...(deadline ? { deadline } : {}) },
+    save: { due, ...(deadline ? { deadline } : {}) }
+  }
+}
 
 const byWhen = (list: Task[]): [string, Task[]][] => {
   // Never before the day after tomorrow: weeks start on Monday, so on a Sunday the week ended where tomorrow starts,
@@ -1179,22 +1194,24 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
    * Carried out of Overdue onto Today's rows: moved to today, and drawn there at once (before the row it was let go on,
    * when it was let go on one). Saved by its date alone, it stood back in Overdue until the save came back, then jumped (58).
    */
-  const dropInPart = (id: string, target: string): void => {
+  const dropInPart = (id: string, target: string, beside?: { row: string; after: boolean }): void => {
     const task = shown.find((one) => one.id === id)
     if (!task) return
+    // Where it was let go: beside the row the room opened at, or at the head of the part.
     const rest = shown.map((one) => one.id).filter((one) => one !== id)
-    const first = rest.findIndex((one) => partOf.get(one) === target)
+    const first = beside && rest.includes(beside.row) ? rest.indexOf(beside.row) + (beside.after ? 1 : 0) : rest.findIndex((one) => partOf.get(one) === target)
     const head = first >= 0 ? [...rest.slice(0, first), id, ...rest.slice(first)] : []
     // Out of "On hold": brought back. Let go in "Today", it is today's too, so it stays where it was dropped: brought
     // back with its old date alone, it fell into "Overdue" (the user, 23 Nov). One notice, one Undo for both.
     if (partOf.get(id) === ON_HOLD) {
-      if (target !== 'Today') return void (bringBack(task), head.length && void place(head).catch(() => undefined))
-      const was = { due: task.dueAt ?? null, plan: task.planFor ?? null }
+      const days = DAY_PARTS[target]
+      if (days === undefined) return void (bringBack(task), head.length && void place(head).catch(() => undefined))
+      const { was, patch, save } = onDay(task, days)
       return void call<string | null>('task:back', id).then((at) => {
         if (!at) return
-        void place(head, { id, patch: { dueAt: shiftTo(0, task.dueAt), heldAt: null }, save: haligtree.saveTask(id, { due: shiftTo(0, task.dueAt) }) }).then(() => {
+        void place(head, { id, patch: { ...patch, heldAt: null }, save: haligtree.saveTask(id, save) }).then(() => {
           chime('unshelve')
-          toast(`Brought back for today: ${quoted(splitTags(task.title).text, 48)}`, () => void haligtree.saveTask(id, was).then(() => call('task:hold', id, at)).then(() => chime('away')))
+          toast(`Brought back for ${target.toLowerCase()}: ${quoted(splitTags(task.title).text, 48)}`, () => void haligtree.saveTask(id, was).then(() => call('task:hold', id, at)).then(() => chime('away')))
         }, () => undefined)
       })
     }
@@ -1206,8 +1223,13 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
         toast(`On hold: ${quoted(splitTags(task.title).text, 48)}`, () => void call('task:back', id).then(() => chime('unshelve')))
       })
     }
-    const due = shiftTo(0, task.dueAt)
-    void place(head, { id, patch: { dueAt: due }, save: moveTo(task, 0) }).catch(() => undefined)
+    // Into "Today" or "Tomorrow": on that day, and a deadline already past moves with it, so it is not still "Overdue".
+    const days = DAY_PARTS[target] ?? 0
+    const { was, patch, save } = onDay(task, days)
+    void place(head, { id, patch, save: haligtree.saveTask(id, save).then(() => {
+      chime('tap')
+      toast(`Moved to ${target === 'Tomorrow' ? 'tomorrow' : 'today'}`, () => void haligtree.saveTask(id, was))
+    }) }).catch(() => undefined)
   }
   /** A row dropped among the rows: your own order from now on, with ⌘Z. */
   const moveRow = (id: string, target: string, after: boolean): void => {
@@ -1239,6 +1261,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     : part === ON_HOLD ? { words: 'Put on hold' }
     // Into "Today" from any part (Overdue, a later day, No date on All): moved to today, where it was let go.
     : part === 'Today' ? { words: 'Move to Today' }
+    : part === 'Tomorrow' ? { words: 'Move to Tomorrow' }
     : part === 'Overdue' ? { refused: 'Its date puts a task in “Overdue”: change the date to move it' }
     : part === 'Waiting on someone' ? { refused: 'Who it waits on puts a task there: change that to move it' }
     : { refused: `What a task is puts it in “${part}”, not where it is dropped` }
