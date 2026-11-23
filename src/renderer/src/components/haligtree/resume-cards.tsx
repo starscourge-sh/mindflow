@@ -171,7 +171,8 @@ export function WelcomeBack({ onOpen, onView }: { onOpen: (type: string, id: str
     else onView(last.view.id, last.view.focus)
   }
   return (
-    <div data-welcome-back className="page-column relative w-full px-5 pt-4 @[44rem]/page:px-8">
+    // On the same edges as every card on Home under it (px-3, px-6 wide): it stood 9px narrower each side than "Good morning" (23 Nov).
+    <div data-welcome-back className="page-column relative w-full px-3 pt-4 @[44rem]/page:px-6">
       <button type="button" onClick={go} className="group w-full cursor-pointer rounded-lg px-2 py-2 text-left hover:bg-foreground/[0.045]">
         <span className="font-heading text-[1.25rem] leading-snug text-foreground">
           You were {reading ? 'reading' : 'in'} <span className="font-semibold">{last.title}</span>{page ? `, p. ${num(page)}` : ''}.
