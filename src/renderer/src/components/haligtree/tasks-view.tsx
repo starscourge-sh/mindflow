@@ -14,7 +14,7 @@ import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { AlignLeft, CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { AlignLeft, CalendarDays, Info, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 import { hrefFor, looksLikeAddress } from '@/extensions/link-tidy'
 import { tagTint } from './tag-icon'
@@ -2800,7 +2800,8 @@ function TaskProject({ task }: { task: Task }): React.JSX.Element {
  * put while a row is carried in or out, and the order decides who stands on it.
  */
 function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
-  const [at, setAt] = useState<{ top: number; height: number } | null>(null)
+  type Piece = { top: number; height: number; left: number; width: number }
+  const [at, setAt] = useState<Piece[]>([])
   // The list it lies in is its own parent: the list's ref is set only once its rows are drawn.
   const own = useRef<HTMLDivElement>(null)
   const ids = three.join(' ')
@@ -2809,11 +2810,21 @@ function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
     if (!list) return
     const read = (): void => {
       const rows = ids.split(' ').map((id) => list.querySelector<HTMLElement>(`[data-task-row][data-id="${CSS.escape(id)}"]`)).filter((one): one is HTMLElement => !!one)
-      if (!rows.length) return setAt(null)
-      const edge = list.getBoundingClientRect().top
-      const top = Math.min(...rows.map((one) => one.getBoundingClientRect().top)) - edge
-      const bottom = Math.max(...rows.map((one) => one.getBoundingClientRect().bottom)) - edge
-      setAt((now) => (now && Math.abs(now.top - top) < 0.5 && Math.abs(now.height - (bottom - top)) < 0.5 ? now : { top, height: bottom - top }))
+      const box = list.getBoundingClientRect()
+      // Round the rows themselves, a hair outside them, never past the list's edges (the user, 23 Nov). Three split by a
+      // heading ("Overdue", then "Today") get a band each, so no heading ever sits inside one.
+      const runs: DOMRect[][] = []
+      for (const r of rows.map((one) => one.getBoundingClientRect()).sort((a, b) => a.top - b.top)) {
+        const last = runs.at(-1)
+        if (last && r.top - last.at(-1)!.bottom < 8) last.push(r)
+        else runs.push([r])
+      }
+      const next = runs.map((run) => {
+        const top = run[0].top - box.top - 2
+        const left = Math.min(...run.map((r) => r.left)) - box.left - 4
+        return { top, height: run.at(-1)!.bottom - box.top + 2 - top, left, width: Math.max(...run.map((r) => r.right)) - box.left + 4 - left }
+      })
+      setAt((now) => (now.length === next.length && now.every((one, n) => (Object.keys(one) as (keyof Piece)[]).every((key) => Math.abs(one[key] - next[n][key]) < 0.5)) ? now : next))
     }
     read()
     // The rows come in after the list (it draws only what is in view), and grow and shrink: read again on each.
@@ -2823,5 +2834,18 @@ function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
     come.observe(list, { childList: true, subtree: true })
     return () => (watch.disconnect(), come.disconnect())
   }, [ids])
-  return <div ref={own} aria-hidden data-three-band={at ? '' : undefined} className="pointer-events-none absolute inset-x-0 -z-10 rounded-lg" style={at ? { top: at.top, height: at.height } : { display: 'none' }} />
+  return (
+    <>
+      <div ref={own} hidden />
+      {at.map((one, n) => <div key={n} data-three-band="" aria-hidden className="pointer-events-none absolute -z-10 rounded-lg" style={one} />)}
+      {/* Why it looks like this, said where it is: the band is today's three, and how a task gets on it. */}
+      {at[0] && (
+        <Tip label="Your three for today: if you finish only these, it was a good day. They are the top three of your list; drag a task up here to swap it in." side="right">
+          <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" style={{ top: at[0].top + 6, left: at[0].left + at[0].width + 4 }}>
+            <Info className="size-3.5" />
+          </button>
+        </Tip>
+      )}
+    </>
+  )
 }
