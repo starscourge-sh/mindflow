@@ -378,7 +378,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
             the keys act on showing each tile's key (the room for them kept on every row, so nothing shifts). */}
         {list.length > 0 && (
           <div className={`overflow-y-auto px-5 py-4 ${POP_ISLANDS}`}>
-            <Island compact title={`${num(list.length)} ${list.length === 1 ? 'capture' : 'captures'}, oldest first`}>
+            <Island compact title={`${plural(list.length, 'capture')}, oldest first`}>
               {list.map((row, at) => (
                 <div key={row.id} data-sort-row={row.id} data-kind={row.way} data-cursor={at === cursor || undefined} onMouseMove={(event) => realMove(event) && setCursor(at)}
                   className={`flex items-center gap-2 px-2 py-1.5 transition-colors ${at === cursor ? 'bg-accent/50' : ''}`}>
