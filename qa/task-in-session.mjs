@@ -328,13 +328,11 @@ try {
   await wait(1200)
   // One of the day's three, its number in the margin, and what stands there.
   const three = await h.evaluate(() => { const one = document.querySelector('[data-task-row] > [data-three]'); return one ? one.closest('[data-task-row]').getAttribute('data-id') : null })
-  const numberSel = `${row(three)} > [data-three]`
+  const numberSel = `${row(three)} [data-three]`
 
   if (PART.includes('dot')) await part('the dot', async () => {
     await see(three)
     const number = await box(numberSel)
-    // How far left of its row the number's right edge stands: every row's margin is the same column.
-    const column = number && number.r - (await box(row(three))).x
     const before = { three: await boxes(three) }
     await see(F)
     before.F = await boxes(F)
@@ -344,7 +342,7 @@ try {
     const dotA = await box(dot(F))
     const inner = await box(`${dot(F)} .mf-listening`)
     const tick = await box(`${row(F)} [data-task-tick]`)
-    check('1 the row of the task in a session has a dot in the left margin, in the column the day\'s numbers stand in', started && !!inner && !!number && Math.abs(inner.r - (await box(row(F))).x - column) < 0.6 && inner.r <= tick.x - 4 && (await h.evaluate(() => document.querySelectorAll('[data-session-dot]').length)) === 1, JSON.stringify({ inner, column, row: (await box(row(F)))?.x, tick: tick && { x: tick.x } }))
+    check('1 the row of the task in a session has a dot under its tick, where the day\'s numbers stand', started && !!inner && !!number && Math.abs((inner.x + inner.w / 2) - (tick.x + tick.w / 2)) < 1 && inner.y >= tick.b && (await h.evaluate(() => document.querySelectorAll('[data-session-dot]').length)) === 1, JSON.stringify({ inner, tick }))
     check('1 nothing in the row moved by a pixel as it came (row, tick, name, small line and each thing in it)', !!dotA && !!before.F && (await boxes(F)) === before.F, `${before.F} -> ${await boxes(F)}`)
     // The welcome's own piece beside it, to compare: the same class the welcome's key recorder draws.
     await h.evaluate(() => { const one = document.createElement('span'); one.className = 'mf-listening'; one.id = 't1-welcome-dot'; one.style.cssText = 'position:fixed;left:8px;bottom:8px'; document.body.append(one) })
@@ -437,8 +435,9 @@ try {
     const both = frames.filter(([dotOn, numberOn]) => dotOn && numberOn).length
     await see(three)
     const back = await box(numberSel)
-    const backAt = back && back.r - (await box(row(three))).x
-    check('ended from the row\'s menu: the dot goes and the number is back in one frame, where it stood', ended && !(await box(dot(three))) && !!back && Math.abs(backAt - column) < 0.01 && neither === 0 && both === 0 && frames.some(([dotOn]) => dotOn) && (await boxes(three)) === before.three, `${frames.length} frames, ${neither} with neither, ${both} with both`)
+    const backTick = await box(`${row(three)} [data-task-tick]`)
+    const backAt = back && backTick && (back.x + back.w / 2) - (backTick.x + backTick.w / 2)
+    check('ended from the row\'s menu: the dot goes and the number is back in one frame, where it stood', ended && !(await box(dot(three))) && !!back && Math.abs(backAt) < 1 && neither === 0 && both === 0 && frames.some(([dotOn]) => dotOn) && (await boxes(three)) === before.three, `${frames.length} frames, ${neither} with neither, ${both} with both`)
     // Abandoned from the pill's own window, and called off: gone each time.
     await see(F)
     await menu(F, 'Start a focus session')
@@ -1040,8 +1039,8 @@ try {
       const when = await box(`${row(B)} [data-task-when]`)
       const time = await box(`${row(B)} [data-task-spent]`)
       const rowBox = await box(row(B))
-      return check(`${name}: the dot is a round ${d ? d.w : '?'}px dot left of the tick, in the window; the date keeps its place and the time is last, inside the row`,
-        !!d && Math.abs(d.w - d.h) < 0.01 && Number.isInteger(d.w) && d.x >= 2 && d.r <= t.x - 3 && page <= 0 && !!when && !!time && when.x >= rowBox.x && time.r <= rowBox.r + 0.5 && (time.y > when.y + 4 || time.x > when.r), JSON.stringify({ d, tick: t && t.x, when, time, page }))
+      return check(`${name}: the dot is a round ${d ? d.w : '?'}px dot under the tick, in the window; the date keeps its place and the time is last, inside the row`,
+        !!d && Math.abs(d.w - d.h) < 0.01 && Number.isInteger(d.w) && d.x >= 2 && Math.abs((d.x + d.w / 2) - (t.x + t.w / 2)) < 1 && d.y >= t.b && page <= 0 && !!when && !!time && when.x >= rowBox.x && time.r <= rowBox.r + 0.5 && (time.y > when.y + 4 || time.x > when.r), JSON.stringify({ d, tick: t && t.x, when, time, page }))
     }
     await shape('light')
     if (SHOTS) await shot('look-light', await around(B))

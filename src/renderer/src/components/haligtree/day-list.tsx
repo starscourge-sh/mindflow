@@ -18,10 +18,10 @@ export function writeOutDay(): void {
 /** Today takes the ask once it is drawn: true when one was waiting. */
 export const takeWriteDay = (): boolean => (pending ? ((pending = false), true) : false)
 
-/** Whether a task is on today's list: open and for today, or ticked today. */
+/** Whether a task is on today's list: open and for today (never one on hold since a fresh start), or ticked today. */
 const inNow = (task: Task): boolean => {
   const day = placed(task)
-  if (task.status === 'open') return !task.waitingOn && (dueToday(task) || (day !== null && day >= startOfDay() && day < startOfDay(1)))
+  if (task.status === 'open') return !task.waitingOn && !task.heldAt && (dueToday(task) || (day !== null && day >= startOfDay() && day < startOfDay(1)))
   return task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (day ?? 0) < startOfDay(1)
 }
 

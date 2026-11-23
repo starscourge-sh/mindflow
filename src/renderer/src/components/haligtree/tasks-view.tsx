@@ -1006,13 +1006,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     rows.splice(above >= 0 ? above : after >= 0 ? after + 1 : foot >= 0 ? foot : rows.length, 0, { writer: true })
   }
   // The day's three: the first three of today's tasks as the list shows them, numbered in the margin.
-  const three = mode === 'today' && view.group === 'when' && !example ? shown.filter((task) => dayOf(task) < startOfDay(1) && !task.waitingOn).slice(0, 3).map((task) => task.id) : []
+  const three = mode === 'today' && view.group === 'when' && !example ? shown.filter((task) => dayOf(task) < startOfDay(1) && !task.waitingOn && !task.heldAt).slice(0, 3).map((task) => task.id) : []
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
   const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
-  // A task open beside the list: the list stands flush in its own column, with no margin for the numbers.
-  const beside = !!open || !!coming
   const pick = (id: string): void => {
     const ready = readNow<TaskFull>('task', id)
     if (ready) return (asked(), setComing(null), setOpen(ready))
@@ -1649,15 +1647,12 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                         className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) || fresh(task.id) >= 0 ? 'mf-arrive' : ''}`}
                         style={fresh(task.id) > 0 ? { animationDelay: `${Math.min(fresh(task.id), 8) * 30}ms` } : undefined}
                       >
-                        {/* One of the day's three: its number in the margin before the circle. */}
-                        {/* A focus session running on it: the dot stands there instead while it runs, and nothing in the row moves (task-time.tsx). */}
-                        {time.running?.taskId === task.id
-                          ? <SessionDot id={task.id} time={time} className="absolute right-full mr-1 flex w-3 items-center justify-end top-2 h-5" />
-                          : three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`absolute top-2 right-full mr-1 h-5 w-3 items-center justify-end @max-[61rem]/page:hidden ${beside ? 'hidden' : 'flex'}`} />}
+                        {/* The circle's own column: one of the day's three wears its number under it, on every width and with a
+                            task open beside the list, so it never moves into the title or leaves the row (the user, 23 Nov). */}
+                        <span className="flex shrink-0 flex-col items-center gap-1">
                         <Tip label="Complete">
                         <button
                           type="button"
-                        
                           onClick={() => complete(task)}
                           // The tick shows only over the circle, never the row.
                           data-task-tick
@@ -1667,6 +1662,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                           <Check className={`size-3 transition-opacity ${leaving(task.id) ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
                         </Tip>
+                        {/* A focus session running on it: its dot stands in the same place instead, and nothing in the row moves (task-time.tsx). */}
+                        {time.running?.taskId === task.id
+                          ? <SessionDot id={task.id} time={time} className="flex h-4 items-center" />
+                          : three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="leading-4" />}
+                        </span>
                         {/* Its own column beside the circle, so the title and the line under it start in one place. */}
                         {room && <span className="-mx-1 mt-[3px] flex shrink-0"><TaskPriority task={task} room className="size-3.5 shrink-0" /></span>}
                         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
@@ -1676,9 +1676,6 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                             <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}><AppNamed id={task.id} text={taskName(task.title).text} /></span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
-                            {/* Narrow, with no margin to stand in, the day's number follows the title instead of going: every title keeps one left edge.
-                                A task open beside the list leaves the list no margin either: there the numbers stood against the pane's edge (16 Nov). */}
-                            {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline ${beside ? 'inline' : 'hidden'}`} />}
                           </span>
                           {/* Its small line folds open and shut (a link or a day taken off), never vanishing at once under the pointer. */}
                           <AnimatePresence initial={false}>
