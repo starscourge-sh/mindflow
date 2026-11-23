@@ -2841,7 +2841,7 @@ function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
       {/* Why it looks like this, said where it is: the band is today's three, and how a task gets on it. */}
       {at[0] && (
         <Tip label="Your three for today: if you finish only these, it was a good day. They are the top three of your list; drag a task up here to swap it in." side="right">
-          <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" style={{ top: at[0].top + 6, left: at[0].left + at[0].width + 4 }}>
+          <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" style={{ top: at[0].top + 6, left: at[0].left + at[0].width + 4 }}>
             <Info className="size-3.5" />
           </button>
         </Tip>

@@ -342,8 +342,10 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
             // On a folder's page, Writing's folder row from before Folders (kept-groups.tsx `GroupTile`): the drawn folder
             // with its icon in a page thumbnail's box, the name on the titles' line, what it holds in words on the right.
             <>
-              <GroupTile group={folder} empty={!n} className={cn('transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100')} />
+              {/* On a page a folder opens, never folds (the user, 23 Nov: pointed at, its drawing gave way to a fold, or to nothing in an empty one). */}
+              <GroupTile group={folder} empty={!n} />
               <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{folder.name}</span>
+              {/* Pointed at, the count gives its place to the row's "…" and "+". */}
               {!!n && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100">{kind ? kind.held : heldSaid(all, folder.id)}</span>}
             </>
           ) : (
@@ -355,7 +357,7 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
             </>
           )}
         </button>
-        {onFold && <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
+        {onFold && !page && <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
           className={`absolute ${page ? 'top-1/2 left-2 size-9 -translate-y-1/2' : 'top-[0.1875rem] left-1.5 size-5'} flex cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <ChevronRight className={`size-3.5 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
         </button>}
