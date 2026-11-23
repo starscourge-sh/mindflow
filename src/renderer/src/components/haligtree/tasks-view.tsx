@@ -1029,7 +1029,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     rows.splice(above >= 0 ? above : after >= 0 ? after + 1 : foot >= 0 ? foot : rows.length, 0, { writer: true })
   }
   // The day's three: the first three of today's tasks as the list shows them, numbered in the margin.
-  const three = mode === 'today' && view.group === 'when' && !example ? shown.filter((task) => dayOf(task) < startOfDay(1) && !task.waitingOn && !task.heldAt).slice(0, 3).map((task) => task.id) : []
+  // Today's three wherever today's tasks stand under "Today": the All tab's "Today" too, so the same part never looks two ways (23 Nov).
+  const three = (mode === 'today' || mode === 'alltasks') && view.group === 'when' && !example ? shown.filter((task) => dayOf(task) < startOfDay(1) && !task.waitingOn && !task.heldAt).slice(0, 3).map((task) => task.id) : []
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
