@@ -24,7 +24,14 @@ try {
   await h.waitForSelector('[data-intro]', { timeout: 10000 })
   await h.keyboard.press('Enter')
   await h.waitForSelector('[data-thesis="line"]', { timeout: 8000 })
-  const seen = [await chapter()]
+  // A letter settles Why without going on (↵ would Continue once settled; Esc asks to leave).
+  await h.keyboard.press('x')
+  await h.waitForSelector('[data-thesis="gap-2"]', { timeout: 8000 })
+  await h.waitForTimeout(400)
+  const thesisGaps = await h.evaluate(() => [...document.querySelectorAll('[data-thesis^="gap-"]')].map((el) => el.textContent ?? ''))
+  check('thesis three lead with writing and reading, not plans', thesisGaps[0]?.includes('Your writing') && /reading/i.test(thesisGaps[1] ?? '') && !/plan/i.test(thesisGaps[1] ?? ''), thesisGaps.join(' | '))
+  check('still on Why after settling the thesis', (await chapter()) === 'Why', await chapter())
+  const seen = ['Why']
   for (let i = 0; i < 50 && seen[seen.length - 1] !== 'Ready'; i++) {
     const was = await chapter()
     const skip = await h.$('footer button:has-text("Skip trying it")')
@@ -35,10 +42,6 @@ try {
     if (now !== was) seen.push(now)
   }
   check('↵ reaches every step in order, Why to Ready (book-first)', seen.join(' > ') === STEPS.join(' > '), seen.join(' > '))
-  check('thesis three lead with writing and reading, not plans', await h.evaluate(() => {
-    const gaps = [...document.querySelectorAll('[data-thesis^="gap-"]')].map((el) => el.textContent ?? '')
-    return gaps[0]?.includes('Your writing') && gaps[1]?.includes('reading') && !gaps[1]?.toLowerCase().includes('plan')
-  }))
   await h.keyboard.press('Shift+Enter'); await h.waitForTimeout(700)
   check('⇧↵ goes back a step (Ready to Your notes)', (await chapter()) === 'Your notes', await chapter())
   await h.keyboard.press('ArrowLeft'); await h.waitForTimeout(700)
