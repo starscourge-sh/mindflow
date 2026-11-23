@@ -2,12 +2,12 @@ import { useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { num, plural } from '../../../../main/dates'
-import { Decoded, FIRST_PICTURES, askSure, quietly, refuse, toast } from './ui'
+import { Decoded, FIRST_PICTURES, Grows, Island, PANEL_FIELD, POP_ISLANDS, PanelRow, askSure, quietly, refuse, toast } from './ui'
+import { cn } from '@/lib/cn'
 import { ReadsIn } from '@/lib/reads-in'
 import { EXAMPLE_TAG } from '../../../../main/name'
 import { Button } from '@/components/ui/button'
 import { Chip, Chips } from './display'
-import { INPUT_FRAME } from './hash-field'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { Tree, treeOf } from './branches'
 import { GroupCover } from './group-cover'
@@ -749,13 +749,23 @@ const TYPED: { id: string; label: string; says: string }[] = [
   { id: 'exact', label: 'Exact', says: 'Only every mark the same, capitals too, counts at once: formulas, symbols, case names.' }
 ]
 
-/** One setting in the sheet: its name, its choices, and what the one chosen does, on a quiet line under. */
-function Setting({ name, says, children, id }: { name: string; says?: string; children: React.ReactNode; id: string }): React.JSX.Element {
+/**
+ * One setting in the popover, as Display's groups are: its name a small heading over an island holding its choices,
+ * a row for its own number when it has one, and what the one chosen does, said in the island's last row.
+ */
+function Setting({ name, says, children, own, id }: { name: string; says?: string; children: React.ReactNode; /** Its own number's row, when it has one. */ own?: React.ReactNode; id: string }): React.JSX.Element {
   return (
-    <div data-deck-setting={id} className="grid gap-1.5">
-      <span className="text-control font-medium text-foreground">{name}</span>
-      <div className="flex min-h-8 flex-wrap items-center gap-1.5 text-xs">{children}</div>
-      {says && <span className="text-xs leading-snug text-muted-foreground">{says}</span>}
+    <div data-deck-setting={id}>
+      <Island compact title={name}>
+        <div>
+          <div className="flex min-h-9 flex-wrap items-center gap-1 px-1.5 py-1">{children}</div>
+          {/* What a choice opens comes and goes with the island's height gliding to it, never a jump. */}
+          <Grows inner="[&>*]:border-t [&>*]:border-border/60">
+            {own}
+            {says && <p className="px-2 py-1.5 text-xs leading-relaxed text-foreground">{says}</p>}
+          </Grows>
+        </div>
+      </Island>
     </div>
   )
 }
@@ -787,18 +797,26 @@ function DeckSettings({ tag, name, at, study, onClose }: { tag: string; name: st
     <Popover open onOpenChange={(open) => void (!open && (chime('fold'), onClose()))}>
       <PopoverAnchor virtualRef={{ current: at }} />
       {/* Beside the deck, never over it: what it is set for stays in view. */}
-      <PopoverContent side={window.innerWidth < 720 ? "bottom" : "left"} align="start" sideOffset={8} data-deck-settings={tag} data-finish-sheet className="w-80 max-w-[calc(100vw-1rem)] gap-3.5 p-4 text-control" onFocusOutside={(event) => event.preventDefault()}>
-        <span className="font-serif text-lg leading-tight text-foreground [overflow-wrap:break-word]">{name}</span>
-        <Setting id="new" name="New cards a day" says={perDay === 0 ? 'Only reviews: no new cards start.' : undefined}>
+      <PopoverContent side={window.innerWidth < 720 ? "bottom" : "left"} align="start" sideOffset={8} data-deck-settings={tag} data-finish-sheet className={`w-80 max-w-[calc(100vw-1rem)] gap-3 p-3 text-control ${POP_ISLANDS}`} onFocusOutside={(event) => event.preventDefault()}>
+        <h2 className="px-1 text-body font-semibold text-foreground [overflow-wrap:break-word]">{name}</h2>
+        <Setting id="new" name="New cards a day" says={perDay === 0 ? 'Only reviews: no new cards start.' : undefined}
+          own={perDay !== undefined && perDay > 0 && (
+            <PanelRow label="Each day">
+              <ScrubField label={`New cards a day for ${name}`} min={1} max={999} value={perDay} className={cn(SCRUB, 'justify-self-start')} onChange={(n) => void haligtree.setTag(tag, { newPerDay: n })} />
+            </PanelRow>
+          )}>
           <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own' }, { id: 'none', label: 'None' }]}
             on={(id) => id === (perDay === undefined ? '' : perDay === 0 ? 'none' : 'own')}
             pick={(id) => set({ newPerDay: id === '' ? null : id === 'none' ? 0 : (perDay || 10) }, { newPerDay: perDay ?? null })} />
-          {perDay !== undefined && perDay > 0 && <ScrubField label={`New cards a day for ${name}`} min={1} max={999} value={perDay} className={SCRUB} onChange={(n) => void haligtree.setTag(tag, { newPerDay: n })} />}
         </Setting>
-        <Setting id="keep" name="How much to remember" says={keep !== undefined ? 'Higher brings its cards back sooner and more often.' : undefined}>
+        <Setting id="keep" name="How much to remember" says={keep !== undefined ? 'Higher brings its cards back sooner and more often.' : undefined}
+          own={keep !== undefined && (
+            <PanelRow label="Remember">
+              <span className="flex items-center gap-0.5 justify-self-start text-foreground"><ScrubField label={`How much to remember of ${name}`} min={70} max={99} value={Math.round(keep * 100)} className={SCRUB} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} />%</span>
+            </PanelRow>
+          )}>
           <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own' }]} on={(id) => (id === 'own') === (keep !== undefined)}
             pick={(id) => set({ retention: id === '' ? null : (keep ?? 0.9) }, { retention: keep ?? null })} />
-          {keep !== undefined && <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of ${name}`} min={70} max={99} value={Math.round(keep * 100)} className={SCRUB} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} />%</span>}
         </Setting>
         <Setting id="timer" name="Timer on each card" says={timer ? 'A clock counts down under the card; at the end its answer shows.' : undefined}>
           <Chips options={TIMERS.map((seconds) => ({ id: String(seconds), label: seconds ? `${seconds} s` : 'None' }))} on={(id) => id === String(timer)}
@@ -807,13 +825,19 @@ function DeckSettings({ tag, name, at, study, onClose }: { tag: string; name: st
         <Setting id="typed" name="Typed answers" says={TYPED.find((one) => one.id === typed)?.says}>
           <Chips options={TYPED} on={(id) => id === typed} pick={(id) => set({ typed: (id || null) as 'exact' | 'meaning' | null }, { typed: (typed || null) as 'exact' | 'meaning' | null })} />
         </Setting>
-        <Setting id="sides" name="Its two sides" says="Like English and Spanish, in place of question and answer.">
-          {[[front, setFront, 'Question'], [back, setBack, 'Answer']].map(([value, change, hint]) => (
-            <input key={hint as string} aria-label={`${hint as string} side`} value={value as string} placeholder={hint as string} onChange={(event) => (change as (to: string) => void)(event.target.value)}
-              onBlur={saveSides} onKeyDown={(event) => event.key === 'Enter' && (event.currentTarget.blur())}
-              className={`${INPUT_FRAME} h-8 w-0 flex-1 text-control`} />
-          ))}
-        </Setting>
+        {/* Two named fields: the island's rows, each its name on the left, as the marked day's Note row is. */}
+        <div data-deck-setting="sides">
+          <Island compact title="Its two sides">
+            {([['Front', front, setFront, 'Question'], ['Back', back, setBack, 'Answer']] as const).map(([label, value, change, hint]) => (
+              <PanelRow key={hint} label={label}>
+                <input aria-label={`${hint} side`} value={value} placeholder={hint} onChange={(event) => change(event.target.value)}
+                  onBlur={saveSides} onKeyDown={(event) => event.key === 'Enter' && (event.currentTarget.blur())}
+                  className={cn(PANEL_FIELD, 'bg-transparent text-foreground outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:border-ring')} />
+              </PanelRow>
+            ))}
+            <p className="px-2 py-1.5 text-xs leading-relaxed text-foreground">Like English and Spanish, in place of question and answer.</p>
+          </Island>
+        </div>
       </PopoverContent>
     </Popover>
   )
