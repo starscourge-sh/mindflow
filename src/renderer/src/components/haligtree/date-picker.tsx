@@ -84,7 +84,8 @@ export function DatePicker({ value, onChange, time = false, allDay = false, plac
                 if (!open) chime('open')
                 setOpen(!open)
               }}
-              className={`-mx-1 -my-1 cursor-pointer rounded px-1 py-1 transition-colors hover:bg-accent/70 data-[state=open]:bg-accent ${className}`}>
+              // Merged, so a caller's own look (a button among buttons) wins over the chip's in-line spacing and fill (24 Nov).
+              className={cn('-mx-1 -my-1 cursor-pointer rounded px-1 py-1 transition-colors hover:bg-accent/70 data-[state=open]:bg-accent', className)}>
               {children}
             </span>
           </PopoverTrigger>

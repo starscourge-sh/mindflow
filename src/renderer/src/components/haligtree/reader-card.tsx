@@ -246,7 +246,7 @@ export function CardFace({ seed, name, facts, small = false }: { seed: number; n
           pointer) they measure short, so the words were cut through their middles. */}
       <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase">{title}</p>
       {/* What the book is, on its own line under its title: beside four stamps it ran off the label ("COMMONPLAC", the user, 24 Nov). */}
-      <p aria-hidden data-reader-book className="mt-0.5 font-mono text-[0.5rem] font-medium tracking-[0.14em] uppercase opacity-70">Commonplace book</p>
+      <p aria-hidden data-reader-book className="mt-0.5 font-mono text-[0.5rem] font-medium tracking-[0.14em] uppercase">Commonplace book</p>
       {/* The foot: the stamps, and the day's tag under them. */}
       <div className="mt-auto flex flex-col items-stretch gap-2.5 border-t border-current/15 pt-2.5">
         <div className="flex items-end justify-between gap-2">

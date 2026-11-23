@@ -2080,7 +2080,8 @@ export function SmoothScroll({ children, wide = false, fit = false, beside }: { 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {beside?.(box)}
-      <div ref={setBox} className="min-h-0 flex-1 overflow-y-auto">
+      {/* A page never scrolls sideways: whatever pokes past it (a hover light left at an old width) is clipped (24 Nov). */}
+      <div ref={setBox} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         {/* Room under the last line for the floating "Top" button, so it never sits on the page's last words. */}
         <div className={cn(!wide && 'page-column', fit && 'flex flex-col', fit === 'columns' ? '@[34rem]/page:h-full' : fit ? 'h-full' : 'pb-16')}>{children}</div>
       </div>

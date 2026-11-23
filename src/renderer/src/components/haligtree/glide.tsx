@@ -524,6 +524,9 @@ function Chosen({ spot, snap, travel = spring.fast, className }: { spot: Spot | 
   // The size the box is drawn at; the transform stretches it to each row.
   const base = useRef<{ width: number; height: number } | null>(null)
   if (!base.current && spot) base.current = { width: spot.width, height: spot.height }
+  // Nothing lit: no size kept. A box left at a row's old width stood out past a list narrowed since (a task opened beside
+  // it) and made the pane scroll sideways (the user, 24 Nov).
+  if (!spot) base.current = null
   const size = base.current ?? { width: 1, height: 1 }
   const at = (one: Spot): { transform: string } => ({ transform: `translate(${one.left}px, ${one.top}px) scale(${one.width / size.width}, ${one.height / size.height})` })
   // At rest on a row of another size, it takes that size at once (the same

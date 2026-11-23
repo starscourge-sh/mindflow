@@ -3285,8 +3285,16 @@ const CapturePrompt = ({
     // the way Raycast Notes reads, instead of being cut by a hard line. No
     // card edge or shadow of its own: the box is one frosted sheet throughout.
     // data-caret-room: the Journal's caret, two pixels and the accent's colour, where the system's one pixel was hard to see.
-    <div data-caret-room className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden"
-      style={{ transform: 'translate(0,0)' }}>
+    <div data-caret-room className="mf-faded relative flex min-h-0 w-full flex-1 cursor-text flex-col overflow-hidden"
+      style={{ transform: 'translate(0,0)' }}
+      // A press on the empty room under the words puts the caret at their end, as in Notes: people click there to start
+      // writing (the user, 24 Nov). A press on the words themselves, or a control, is left to them.
+      onMouseDown={(event) => {
+        const on = event.target as HTMLElement
+        if (on.closest('.ProseMirror, button, a, input, textarea, [role="button"], [contenteditable="true"]')) return
+        event.preventDefault()
+        editorNow.current?.commands.focus('end')
+      }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
           does and what it is when you leave it out. */}

@@ -510,14 +510,15 @@ function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: Task; a
     <div data-task-ask="carried" className={box} onClick={(event) => event.stopPropagation()}>
       <span className={question}>Carried over {num(times)} times. What now?</span>
       <span className={answers}>
-        {/* The one day most often meant, one click (the user, 23 Nov): a fresh count, as "Pick a date" gives. */}
-        <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => moveTo(task, 1))}>Tomorrow</Button>
-        {/* Its own small calendar, in place: opening the whole task to pick a day was too much (the user, 23 Nov). */}
-        <DatePicker chip quick time allDay={!!task.allDay} value={task.dueAt ?? null} className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+        {/* Doing it today after all: the count starts again and its day stays (the user, 24 Nov: "what if today is when I
+            now decide to complete?"). One way to pick another day, its calendar in place with Tomorrow and Next week on top:
+            a "Tomorrow" button beside it was a second way to do the same. */}
+        <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => (chime('settled'), toast('Kept for today: the count starts again')))}>Do it today</Button>
+        <DatePicker chip quick time allDay={!!task.allDay} value={task.dueAt ?? null} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'm-0')}
           onChange={(due) => {
             const was = { due: task.dueAt ?? null, plan: task.planFor ?? null }
             void freshCount(task).then(() => haligtree.saveTask(task.id, { due })).then(() => (chime('tap'), toast(due ? `Moved to ${whenInLine(due, !!task.allDay)}` : 'No date', () => void haligtree.saveTask(task.id, was))))
-          }}>Pick a date</DatePicker>
+          }}>Another day…</DatePicker>
         <Button variant="ghost" size="sm" onClick={() => toSomeday(task)}>Someday</Button>
         {/* The older answer, kept: smaller, by a new name. The name is selected to write over, wherever the task is open. */}
         <Button variant="ghost" size="sm" onClick={() => void freshCount(task).then(() => {
@@ -2845,7 +2846,8 @@ function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
       {/* Why it looks like this, said where it is: the band is today's three, and how a task gets on it. */}
       {at[0] && (
         <Tip label="Your three for today: if you finish only these, it was a good day. They are the top three of your list; drag a task up here to swap it in." side="right">
-          <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" style={{ top: at[0].top + 6, left: at[0].left + at[0].width + 4 }}>
+          <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" // Inside the band's top-right corner: outside it, the list grew wider than its pane and scrolled sideways (the user, 24 Nov).
+            style={{ top: at[0].top + 6, left: at[0].left + at[0].width - 26 }}>
             <Info className="size-3.5" />
           </button>
         </Tip>

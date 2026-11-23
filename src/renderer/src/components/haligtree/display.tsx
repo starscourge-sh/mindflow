@@ -613,6 +613,8 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       if (event.key !== 'f' || event.metaKey || event.ctrlKey || event.altKey) return
       // Already taken by what had the keys (a rot card's F tidies it).
       if (typing() || event.defaultPrevented) return
+      // Only where its button is on show: quick capture's hidden list opened a Display over the words on a stray F (24 Nov).
+      if (!openNow.current && !button.current?.getClientRects().length) return
       event.preventDefault()
       show(!openNow.current)
     }
