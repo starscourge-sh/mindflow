@@ -25,13 +25,12 @@ import { APP_NAME } from '../../../../main/name'
 import { quoted } from '../../../../main/clip'
 
 /**
- * A month or a week, wrapped: a story of a few cards, one thing each, the
- * way Spotify Wrapped tells a year. What you captured most, your busiest
- * day, the hours of focus and where they went, the sites it kept you off,
- * planned against did, what you saw, the gems kept, the longest run of days,
- * and what you said went well. Only cards with something true to say are
- * shown, and each says it in a sentence, its chart labelled. ← and → (or a
- * click on either side) turn, Esc closes. Made from your own notes, on this Mac.
+ * A month or a week, wrapped: a scrapbook of a few cards, one thing each
+ * (Spotify Wrapped’s pace, Midori notebook’s feel). What you caught and tagged,
+ * gems kept, pages and pictures, reading finished, then busiest day and runs;
+ * focus hours, blocked sites and planned-vs-did come later, never as the lead.
+ * Only cards with something true to say are shown. ← → turn, Esc closes.
+ * Made from your own notes, on this Mac.
  *
  * It comes to you: once a month ends, the first open after the 1st offers
  * "Your October, wrapped" (WrapOffer), and the Sunday digest opens the week's.
@@ -208,8 +207,8 @@ type Facts = {
 type Kind = 'quiet' | 'intro' | 'tags' | 'focus' | 'sites' | 'reading' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
 
 /** What the month most was, in a word: the report card's "Top kind". */
-const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number }): string =>
-  f.minutes >= 600 ? 'Deep worker' : f.gems >= 5 ? 'Gem keeper' : f.captures >= 40 ? 'Collector' : f.planned ? 'Planner' : f.captures ? 'Noticer' : 'Quiet'
+const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number; reads: number }): string =>
+  f.gems >= 5 ? 'Gem keeper' : f.captures >= 40 ? 'Collector' : f.reads >= 5 ? 'Reader' : f.minutes >= 600 ? 'Deep worker' : f.planned ? 'Planner' : f.captures ? 'Noticer' : 'Quiet'
 
 const ENTRANCES = ['up', 'left', 'scale'] as const
 /** The card is wide over the dimmed app from this size; under it, the whole window (main.css .wrap-card). */
@@ -275,7 +274,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       busiest: recap.busiestDay ? { label: dayName(noon(recap.busiestDay.name), 'never'), day: recap.busiestDay.name, n: recap.busiestDay.n } : null,
       // An hour is said only with enough caught to mean something, and one hour clearly ahead of the next.
       hours: recap.hours, hour: thinkingHour(recap.hours),
-      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites, reads, before,
+      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned, reads: reads.finished }), sites, reads, before,
       thin, pages: pageNames ?? [],
       ...worst
     }
@@ -320,19 +319,22 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     if (f.thin) return ['quiet']
     const rand = seeded(seed + 1)
     // The most to say first; near equals trade places now and then.
+    // Book keep first (tags, notes/gems, reading, pictures), then the month's
+    // shape (well, run, busiest, hours). Focus, blocked sites and plan-vs-did
+    // last: writers open a wrap for what they kept, not a productivity score.
     const middle: [number, Kind][] = []
     if (f.tags.length || f.captures) middle.push([1, 'tags'])
-    if (f.minutes >= 1) middle.push([2, 'focus'])
-    if (f.sites.length) middle.push([2.5, 'sites'])
-    if (f.reads.total) middle.push([3.5, 'reading'])
-    if (f.planRows.length) middle.push([3, 'plan'])
-    if (f.pictures.length) middle.push([3, 'pictures'])
-    if (f.notes.length) middle.push([4, 'notes'])
-    if (f.well.length) middle.push([5, 'well'])
-    if (f.run >= 2) middle.push([5, 'run'])
-    if (f.busiest) middle.push([6, 'busiest'])
-    if (f.hour !== null) middle.push([6, 'hours'])
-    const order = middle.map(([rank, kind]) => [rank + rand() * 1.5, kind] as const).sort((a, b) => a[0] - b[0]).slice(0, MOST - 3).map(([, kind]) => kind)
+    if (f.notes.length) middle.push([1.2, 'notes'])
+    if (f.reads.total) middle.push([1.5, 'reading'])
+    if (f.pictures.length) middle.push([2, 'pictures'])
+    if (f.well.length) middle.push([2.5, 'well'])
+    if (f.run >= 2) middle.push([3, 'run'])
+    if (f.busiest) middle.push([3.5, 'busiest'])
+    if (f.hour !== null) middle.push([4, 'hours'])
+    if (f.minutes >= 1) middle.push([5, 'focus'])
+    if (f.sites.length) middle.push([5.5, 'sites'])
+    if (f.planRows.length) middle.push([6, 'plan'])
+    const order = middle.map(([rank, kind]) => [rank + rand() * 1.2, kind] as const).sort((a, b) => a[0] - b[0]).slice(0, MOST - 3).map(([, kind]) => kind)
     return ['intro', ...order, 'outro', 'report']
   }, [facts, seed])
 

@@ -16,17 +16,10 @@ import odysseyPrint from '@/assets/welcome-books/odyssey.webp'
 
 /**
  * The welcome's Write chapter: the thought about a book caught in Catch
- * grows into a page (a print from the book, then one written paragraph),
- * and a drawn pointer selects two phrases in it (dragged across, then
- * "Make a task" or "Make a gem" pressed beside the selection), one made a
- * task (its day read from the words, by the same reader the app uses,
- * task-words.ts) and two gems: one kept as it is, which comes back now and
- * then, and the last sentence with a question for Review. Every card is
- * drawn as the app draws it (the box, a page, the bar, a task row with its
- * date, the gem card), each picked phrase and the card it becomes in one
- * colour, a line drawn from the very words to the card. Pictures only:
- * nothing here takes a click. Still (a skip, Motion off, Reduce motion), it
- * is all there at once.
+ * grows into a page (a print from the book, then one written paragraph).
+ * A drawn pointer picks gems first (plain keep, then a Review question),
+ * and a dated task last. Cards match the app; pictures only. Still (skip,
+ * Motion off, Reduce motion): all there at once.
  */
 
 /** The two things the note becomes, each in its own colour: its mark in the note and its card share it. */
@@ -81,10 +74,10 @@ const FLOW_LAST = 'Nothing is copied out: each one stays linked to its line in t
  * typed so far, and the closing line.
  */
 export type FlowShot = { /** The caught thought, typed so far. */ caught: string; /** "New page", offered beside the capture and then pressed. */ newPage: 'off' | 'shown'; /** The page's title, typed so far. */ title: string; /** How many of the page's lines are written. */ body: number; shown: number; picked: Pick | null; pressed: boolean; lit: number; question: string; last: boolean; cursor: Aim | null; bar: boolean }
-/** A phrase picked out of the page: the task, the plain gem (kept as it is), or the gem with a question. */
+/** A phrase picked out of the page: plain gem, gem with a question, then (last) a dated task. */
 export type Pick = 'task' | 'kept' | 'gem'
-/** The order they are picked and set down in, each marked when `lit` reaches its place (1, 2, 3). */
-export const PICKS: readonly Pick[] = ['task', 'kept', 'gem']
+/** The order they are picked and set down in, each marked when `lit` reaches its place (1, 2, 3). Gems before plans. */
+export const PICKS: readonly Pick[] = ['kept', 'gem', 'task']
 /** Where the pointer is headed: a picked line's start, its end (dragging the selection across it), or its "Make a" button. */
 export type Aim = { line: Pick | 'page'; to: 'start' | 'end' | 'button' }
 export const FLOW_START: FlowShot = { caught: '', newPage: 'off', title: '', body: 0, shown: 1, picked: null, pressed: false, lit: 0, question: '', last: false, cursor: null, bar: false }
@@ -109,9 +102,9 @@ const SPINE = 'color-mix(in oklab, var(--muted-foreground) 55%, transparent)'
 /** The lines drawn between the cards: from where each one leaves to where it lands, in its colour. */
 const LINKS: { id: string; from: string; to: string; at: number; ink: string }[] = [
   { id: 'note', from: 'caught', to: 'note', at: 2, ink: SPINE },
-  { id: 'task', from: 'line:task', to: 'task', at: 3, ink: `color-mix(in oklab, ${HUE.task.ink} 70%, transparent)` },
-  { id: 'kept', from: 'line:kept', to: 'kept', at: 4, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` },
-  { id: 'gem', from: 'line:gem', to: 'gem', at: 5, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` }
+  { id: 'kept', from: 'line:kept', to: 'kept', at: 3, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` },
+  { id: 'gem', from: 'line:gem', to: 'gem', at: 4, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` },
+  { id: 'task', from: 'line:task', to: 'task', at: 5, ink: `color-mix(in oklab, ${HUE.task.ink} 70%, transparent)` }
 ]
 
 /** A card set down in its place: it fades and grows in, never moves anything else. */
@@ -291,7 +284,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
   // Grown from the top of its room, under the page's words: centred in it, each card set down moved every card already
   // there up by half its height (the page 12px as the gems came, Write, 19 Nov film, 53.3s).
   return (
-    <figure ref={room} data-story={words.id} aria-label="The thought caught on a walk becomes a page; a phrase in it becomes a task, one sentence a gem that comes back now and then, and another a gem with a question for Review" className="flex min-h-0 w-full flex-1 flex-col justify-start">
+    <figure ref={room} data-story={words.id} aria-label="The thought caught on a walk becomes a page; sentences become gems that come back, and a phrase can become a dated task" className="flex min-h-0 w-full flex-1 flex-col justify-start">
       <div ref={root} className="relative flex shrink-0 flex-col">
         {/* Over the cards. A picked phrase's line starts at the page's right edge, level with the phrase's last line of words (marked in place by its
             highlight and icon), and curves across to its card: it never runs through or under the paragraph. The cards stand in the order their phrases
@@ -387,13 +380,13 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
             {/* Both gems in one card, as the Gems list keeps them: a row each, its words, and under them how it comes back beside the list's own mark
                 (items-view.tsx, rowOf): the eye for one that comes back now and then, the brain for one Review asks. Each row lands as it is made. */}
             <motion.div data-gems className={`${CARD} overflow-hidden`} initial={false}
-              animate={{ opacity: shot.shown >= 4 ? 1 : 0, scale: shot.shown >= 4 ? 1 : 0.95 }} transition={quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }}>
+              animate={{ opacity: shot.shown >= 3 ? 1 : 0, scale: shot.shown >= 3 ? 1 : 0.95 }} transition={quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }}>
               <p className={`${HEAD} px-3.5 pt-2.5`}><Gem className="size-3.5" style={{ color: HUE.gem.ink }} />Gems</p>
-              <Landed id="kept" on={shot.shown >= 4} quiet={quiet} className="px-3.5 pt-1.5 pb-2">
+              <Landed id="kept" on={shot.shown >= 3} quiet={quiet} className="px-3.5 pt-1.5 pb-2">
                 <GemRow on="kept" words={words.kept} />
                 <p data-comes="feed" className={`${SUB} mt-1 pl-5`}>{FLOW_SAID.kept}</p>
               </Landed>
-              <Landed id="gem" on={shot.shown >= 5} quiet={quiet} className="border-t border-foreground/10 px-3.5 pt-1.5 pb-2">
+              <Landed id="gem" on={shot.shown >= 4} quiet={quiet} className="border-t border-foreground/10 px-3.5 pt-1.5 pb-2">
                 <GemRow on="gem" words={words.gem} />
                 {/* The whole question kept in place unseen, so the box never grows as it is typed (a second line pushed the cards down mid-way).
                     The typed words stand at its top, where they will end: centred in the room of the whole question, they rose
@@ -408,7 +401,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                 <p data-comes="review" className={`${SUB} mt-1 pl-5`}>{FLOW_SAID.gem}</p>
               </Landed>
             </motion.div>
-            <Landed id="task" on={shot.shown >= 3} quiet={quiet}>
+            <Landed id="task" on={shot.shown >= 5} quiet={quiet}>
               {/* A task, as the Tasks list draws its row: the box, the name, its day under it. */}
               <div className={`${CARD} px-3.5 pt-2.5 pb-2.5`}>
                 <div className={HEAD}><span data-ink="task" className="flex" style={{ color: HUE.task.ink }}><Check className="size-3.5" /></span>Task</div>

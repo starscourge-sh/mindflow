@@ -1,9 +1,6 @@
-// The welcome's steps, by a power user on keys and a first-timer who clicks: ↵ walks every step to Ready, ⇧↵ and ←
-// come back, a mark in the row at the foot goes straight to its step; on "Out of the box" a tile plays (ringed, its
-// line filling, its demo moving) and a click plays another; on "Permissions" the calendar's "Grant access" goes
-// through the app's own request (the calendar stand-in HALIGTREE_QA_CALENDAR, never the real macOS one) and its row
-// says "Access granted", and "Turn on alerts" turns alerts on (its sample notification counted, never shown in a
-// test run); Esc with nothing playing asks before leaving, Esc again stays, and ↵ on the question leaves.
+// The welcome's steps, book-first: ↵ walks Why → You → Catch → Write → Remember → Out of the box →
+// Name it → Make it yours → Permissions → Your notes → Ready. ⇧↵ and ← come back; a foot mark jumps.
+// Out of the box: first tile is Reading (not dated plans); Permissions calendar + alerts as before.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-a/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-steps.mjs [shots folder]
 import { mkdirSync } from 'fs'
 import { join } from 'path'
@@ -11,25 +8,24 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 delete process.env.QA_ARGS
-// The calendar's stand-in: macOS's own question is never asked by a test run.
 process.env.HALIGTREE_QA_CALENDAR = '[]'
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 800, seeded: false })
 const { h, errors, close } = c
-const STEPS = ['Why', 'You', 'Catch', 'Out of the box', 'Permissions', 'Make it yours', 'Name it', 'Plan', 'Your notes', 'Ready']
+const STEPS = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Out of the box', 'Name it', 'Make it yours', 'Permissions', 'Your notes', 'Ready']
+const TOUR = String(STEPS.indexOf('Out of the box') + 1)
+const PERMS = String(STEPS.indexOf('Permissions') + 1)
 const chapter = () => h.evaluate(() => (document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '').replace(/^Chapter \d+ of \d+: /, ''))
 const up = () => h.evaluate(() => !!document.querySelector('.mf-welcome'))
 const shot = (name) => SHOTS && h.screenshot({ type: 'jpeg', quality: 82, scale: 'css', path: join(SHOTS, `steps-${name}.jpg`) })
 try {
   await h.waitForSelector('[data-intro]', { timeout: 10000 })
-  // Past the arrival, as a person in a hurry does.
   await h.keyboard.press('Enter')
   await h.waitForSelector('[data-thesis="line"]', { timeout: 8000 })
-  // 1. ↵ through every step. A step still playing takes one ↵ to settle; Catch's own way past is "Skip trying it".
   const seen = [await chapter()]
-  for (let i = 0; i < 40 && seen[seen.length - 1] !== 'Ready'; i++) {
+  for (let i = 0; i < 50 && seen[seen.length - 1] !== 'Ready'; i++) {
     const was = await chapter()
     const skip = await h.$('footer button:has-text("Skip trying it")')
     if (skip) await skip.click()
@@ -38,19 +34,22 @@ try {
     const now = await chapter()
     if (now !== was) seen.push(now)
   }
-  check('↵ reaches every step in order, Why to Ready', seen.join(' > ') === STEPS.join(' > '), seen.join(' > '))
-  // 2. Back by keys, then a mark in the row.
+  check('↵ reaches every step in order, Why to Ready (book-first)', seen.join(' > ') === STEPS.join(' > '), seen.join(' > '))
+  check('thesis three lead with writing and reading, not plans', await h.evaluate(() => {
+    const gaps = [...document.querySelectorAll('[data-thesis^="gap-"]')].map((el) => el.textContent ?? '')
+    return gaps[0]?.includes('Your writing') && gaps[1]?.includes('reading') && !gaps[1]?.toLowerCase().includes('plan')
+  }))
   await h.keyboard.press('Shift+Enter'); await h.waitForTimeout(700)
   check('⇧↵ goes back a step (Ready to Your notes)', (await chapter()) === 'Your notes', await chapter())
   await h.keyboard.press('ArrowLeft'); await h.waitForTimeout(700)
-  check('← goes back a step (Your notes to Plan)', (await chapter()) === 'Plan', await chapter())
-  await h.click('[data-mark-to="4"]'); await h.waitForTimeout(900)
-  check('a mark in the row goes to its step (Out of the box)', (await chapter()) === 'Out of the box', await chapter())
-  check('the step you are on is the long gold mark', await h.evaluate(() => document.querySelector('[data-mark-to="4"]')?.getAttribute('aria-current') === 'step'))
-  // 3. A tile plays: ringed, its line filling along its foot, its demo moving; a click plays another from its start.
+  check('← goes back a step (Your notes to Permissions)', (await chapter()) === 'Permissions', await chapter())
+  await h.click(`[data-mark-to="${TOUR}"]`); await h.waitForTimeout(900)
+  check('a mark in the row goes to Out of the box', (await chapter()) === 'Out of the box', await chapter())
+  check('the step you are on is the long gold mark', await h.evaluate((n) => document.querySelector(`[data-mark-to="${n}"]`)?.getAttribute('aria-current') === 'step', TOUR))
   await h.waitForSelector('[data-tile][data-playing]', { timeout: 6000 }).catch(() => null)
   const playing = await h.evaluate(() => document.querySelector('[data-tile][data-playing]')?.getAttribute('data-tile') ?? null)
   check('on Out of the box a tile plays by itself', !!playing, String(playing))
+  check('first tile is Reading (book-first), not Dated plans', playing === 'pdfcard' || (await h.evaluate(() => document.querySelector('[data-tile]')?.getAttribute('data-tile'))) === 'pdfcard', String(playing))
   check('the tile playing has its line filling', (await h.locator('[data-tile][data-playing] [data-tile-progress]').count()) === 1)
   const before = await h.evaluate(() => document.querySelector('[data-tile][data-playing]')?.textContent ?? '')
   await h.waitForTimeout(1600)
@@ -60,8 +59,9 @@ try {
   await h.click('[data-tile="review"]'); await h.waitForTimeout(400)
   check('a click on another tile plays it', await h.evaluate(() => document.querySelector('[data-tile="review"]')?.hasAttribute('data-playing')))
   check('six tiles, each a demo the Powers page draws', (await h.locator('[data-tile]').count()) === 6)
-  // 4. Permissions: the calendar's Grant access goes through the app's own request and its row says so.
-  await h.click('[data-mark-to="5"]'); await h.waitForTimeout(900)
+  const tileOrder = await h.evaluate(() => [...document.querySelectorAll('[data-tile]')].map((el) => el.getAttribute('data-tile')))
+  check('Dated plans is the last tile', tileOrder[tileOrder.length - 1] === 'taskwords', tileOrder.join(' > '))
+  await h.click(`[data-mark-to="${PERMS}"]`); await h.waitForTimeout(900)
   await h.waitForSelector('[data-grant="calendar"]:not([data-state="reading"])', { timeout: 6000 }).catch(() => null)
   check('the calendar row asks first', (await h.getAttribute('[data-grant="calendar"]', 'data-state')) === 'unasked', await h.getAttribute('[data-grant="calendar"]', 'data-state'))
   await h.click('[data-grant="calendar"] [data-grant-ask]')
@@ -72,7 +72,6 @@ try {
   await h.waitForSelector('[data-grant="alerts"][data-state="granted"]', { timeout: 6000 }).catch(() => null)
   check('Turn on alerts: alerts are on, and its row says so', (await h.evaluate(async () => (await window.api.haligtree('settings')).notify)) === 'alerts' && /Alerts on/.test(await h.locator('[data-grant="alerts"]').innerText()))
   await shot('permissions')
-  // 5. Esc asks before leaving; Esc again stays; ↵ on the question leaves.
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
   check('Esc with nothing playing asks "Leave the welcome?"', await h.locator('[data-leave-ask]').isVisible().catch(() => false))
   await shot('leave-ask')

@@ -193,7 +193,7 @@ try {
     if (!works) failed++
   }
   // Every chapter to the last, Ready, as a newcomer walks it (17 Nov: "the welcome screens are still broken").
-  const steps = ['Why', 'You', 'Catch', 'Out of the box', 'Permissions', 'Make it yours', 'Name it', 'Plan', 'Your notes', 'Ready']
+  const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Out of the box', 'Name it', 'Make it yours', 'Permissions', 'Your notes', 'Ready']
   let total = 0
   const holdRows = []
   for (let at = 0; at < steps.length; at++) {

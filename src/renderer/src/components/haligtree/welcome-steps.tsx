@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { BellRing, CalendarDays, Check, Mic, Play } from 'lucide-react'
 import { EASE } from '@/lib/motion'
@@ -7,7 +7,6 @@ import { calendar } from '@/lib/mac-calendar'
 import { haligtree, type Settings } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
 import { DEMOS, DemoLive } from './power-demos'
-import { APP_NAME } from '../../../../main/name'
 
 /**
  * The right-hand side of the welcome's own steps (welcome.tsx, Split), shown
@@ -17,16 +16,17 @@ import { APP_NAME } from '../../../../main/name'
  */
 
 /**
- * What it does with nothing set up, one tile each, in the order a first day meets them: catch, read, see it again,
- * remember, find, look back. `ms` is one run of its demo (the sum of its steps), so the next starts as it ends.
+ * What it does with nothing set up, one tile each. Book wins first (read, come
+ * back, remember, find, look back), dated tasks last. `ms` is one run of its
+ * demo so the next starts as it ends.
  */
 const TILES: { id: string; name: string; line: string; ms: number }[] = [
-  { id: 'taskwords', name: 'Quick capture', line: 'Words become a task, its day and time read from them.', ms: 6600 },
   { id: 'pdfcard', name: 'Reading', line: 'Words picked in a PDF become a card for Review.', ms: 5300 },
-  { id: 'feed', name: 'The Feed', line: 'The day’s own things come back as posts, until you are caught up.', ms: 5600 },
+  { id: 'feed', name: 'The Feed', line: 'Kept lines and gems come back as posts, until you are caught up.', ms: 5600 },
   { id: 'review', name: 'Review', line: 'A gem asks its question as you start to forget it.', ms: 4600 },
-  { id: 'lookitup', name: '⌘K', line: 'Find a note, or look the words up.', ms: 5300 },
-  { id: 'wrapped', name: 'Wrapped', line: 'Your month and year, played back like a story.', ms: 4900 }
+  { id: 'lookitup', name: '⌘K', line: 'Find a note, a quote, or look the words up.', ms: 5300 },
+  { id: 'wrapped', name: 'Wrapped', line: 'Your month in the book, played back like a scrapbook.', ms: 4900 },
+  { id: 'taskwords', name: 'Dated plans', line: 'When you need it: words become a task, day and time read from them.', ms: 6600 }
 ]
 
 /**
@@ -185,30 +185,6 @@ export function Grants(): React.JSX.Element {
           </div>
         )
       })}
-    </div>
-  )
-}
-
-/**
- * The Plan step's words. A PLACEHOLDER, to be written once the plan and its trial are decided: until then it names
- * no price, no term and no trial length, and says plainly that it is a placeholder.
- */
-export const PLAN_WORDS = {
-  title: 'Your plan.',
-  line: 'Placeholder: what a plan adds, and how its trial works, will be said here once they are decided.',
-  card: `Plan details for ${APP_NAME} go here.`
-}
-
-/** The Plan's right-hand side: an empty, dashed frame marked as a placeholder, so nobody takes it for an offer. */
-export function PlanCard(): React.JSX.Element {
-  return <Frame>{PLAN_WORDS.card}</Frame>
-}
-
-function Frame({ children }: { children: ReactNode }): React.JSX.Element {
-  return (
-    <div data-plan-placeholder className="flex h-[14rem] w-full max-w-[34rem] flex-col items-start justify-center gap-2 rounded-xl border border-dashed border-foreground/25 px-6">
-      <span className="rounded-full bg-foreground/[0.07] px-2 py-0.5 text-[0.8125rem] font-semibold text-(--mf-wl-body)">Placeholder</span>
-      <span className="text-[1.0625rem] leading-snug text-foreground">{children}</span>
     </div>
   )
 }

@@ -14,7 +14,7 @@ import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
 import { useFitPicture, useFitText } from '@/lib/fit-text'
 import { shift, spring, still, still as calm } from '@/lib/motion'
-import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, pageTurn, quietBed, titleChime } from '@/lib/sound'
+import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -34,8 +34,9 @@ import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { Grainient, INTRO_DELAY, INTRO_SECONDS, SPARK_HOLD, type GrainientHandle } from '@/components/ui/grainient'
-import { Grants, PLAN_WORDS, PlanCard, Tiles } from './welcome-steps'
-import { flowWords } from './welcome-flow'
+import { Grants, Tiles } from './welcome-steps'
+import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
+import { CURSOR_MS, FLOW_START, flowEnd, flowParts, flowWords, FlowTree, PICKS, type FlowShot, type Pick } from './welcome-flow'
 import {
   CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, quoteNow, Rise, Caught, Stage,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
@@ -44,24 +45,23 @@ import { APP_NAME } from '../../../../main/name'
 
 /**
  * The welcome, the first time Haligtree opens (and again from the Haligtree menu, ⌘K
- * or Settings): a short film that follows one thought, a question about old
- * movies had on a walk, from being caught to coming back. Each chapter opens
- * on what the one before left on the stage, and moves it on. Each idea is
- * said in one place only.
+ * or Settings): a short film that follows one thought from a book, from being
+ * caught to coming back. Biggest wins first for a commonplace-book reader:
+ * book feel, catching into the book, writing it out, gems that return. Tasks
+ * show up later, never as the lead. Each chapter opens on what the one before
+ * left on the stage. Each idea is said in one place only.
  *
- *   1 Why: the case in one screen, the day dated as a diary dates an entry
- *   2 You: four optional questions, and what Haligtree did with the answers
- *   3 Catch: the key goes down, the box opens; the thought, a line from the
- *     film (its source read) and a plan to see it again (its day read) are
- *     caught; the kinds there are; then your turn
- *   4 Out of the box: a tile for each thing it does from the first day, each
- *     playing its own small demo in turn (power-demos.tsx, as the Powers page)
- *   5 Permissions: what macOS must allow, each asked for in place, its state live
- *   6 Make it yours: the theme dial
+ *   1 Why: the case in one screen (a modern commonplace book)
+ *   2 You: optional questions, and what Haligtree did with the answers
+ *   3 Catch: the key, the box; a thought and a quote from the book; your turn
+ *   4 Write: the thought becomes a page; lines become gems (then a task)
+ *   5 Remember: gems, the quote, and a task each come back where they live
+ *   6 Out of the box: tiles for reading, Feed, Review, ⌘K, Wrapped, then tasks
  *   7 Name it: your book's name, on its reader card
- *   8 Plan: a placeholder for the plan and its trial, to be written
- *   9 Your notes: bring them in from Obsidian, Apple Notes or files
- *  10 Ready: start, or the sandbox
+ *   8 Make it yours: the theme dial
+ *   9 Permissions: what macOS must allow, each asked for in place
+ *  10 Your notes: bring them in from Obsidian, Apple Notes or files
+ *  11 Ready: start, or the sandbox
  *
  * A row of short marks bottom left says where you are (each one a way to that
  * step), Back is the round button before them, Continue bottom right. ↵ goes
@@ -71,17 +71,18 @@ import { APP_NAME } from '../../../../main/name'
  */
 
 // Why first: the whole idea in one screen, so someone who stops there still has it.
-const CHAPTERS = ['Why', 'You', 'Catch', 'Out of the box', 'Permissions', 'Make it yours', 'Name it', 'Plan', 'Your notes', 'Ready']
+const CHAPTERS = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Out of the box', 'Name it', 'Make it yours', 'Permissions', 'Your notes', 'Ready']
 const WHY = 1
 const YOU = 2
 const CATCH = 3
-const TOUR = 4
-const GRANTS = 5
-const DIAL = 6
+const WRITE = 4
+const BACK = 5
+const TOUR = 6
 const NAME = 7
-const PLAN = 8
-const NOTES = 9
-const LAST = 10
+const DIAL = 8
+const GRANTS = 9
+const NOTES = 10
+const LAST = 11
 const EASE = ENTER
 /** The name a book has until it is given one (main/books.ts, DEFAULT_NAME). */
 const DEFAULT_BOOK = 'My book'
@@ -786,11 +787,12 @@ export function Welcome(): React.JSX.Element | null {
               {at === WHY && !veiled && <ThesisChapter play={play} report={report} />}
               {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} paid={paid} onPaid={setPaid} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} turn={turn} mine={mine} />}
+              {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
+              {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
               {at === TOUR && <TourChapter play={play} report={report} />}
-              {at === GRANTS && <GrantsChapter play={play} report={report} />}
-              {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
               {at === NAME && <NameChapter play={play} report={report} onNext={next} save={nameSave} />}
-              {at === PLAN && <PlanChapter play={play} report={report} />}
+              {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
+              {at === GRANTS && <GrantsChapter play={play} report={report} />}
               {at === NOTES && <NotesChapter play={play} report={report} setup={setup} onImport={bringIn} />}
               {at === LAST && <WelcomeStamp still={!play} />}
               {at === LAST && <Start state={state} onState={setState} name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} still={!play} onPick={start} setup={setup} />}
@@ -1053,26 +1055,22 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
 
 /**
  * The whole idea, on one screen, so someone who reads nothing else still has
- * it, every line serving one promise (your notes come back to you; you do
- * not have to go back to them): the day, dated as a diary dates an entry;
- * most notes are never seen again; where thinking lives now, three kinds of
- * thing in three apps (said plainly, no brands, so a newcomer is never lost);
- * why: in each, going back is your job; and the answer, come up a word at a time: Haligtree
- * is one place for all three, and they come back on their own, a memory card on Home (hint-card,
- * this day last year) and a spaced question in Review; and what a commonplace
- * book is, in one line. One thing at a time.
+ * it: most notes rot; writing, reading and memory sit in three apps; going
+ * back is your job; Haligtree is a modern commonplace book that brings them
+ * back (Home, Feed, Review). One thing at a time. Plans and tasks come later
+ * in the welcome, never as the thesis.
  */
 const THESIS = 'Most notes are written once and never seen again.'
 /**
- * Where thinking lives now, by what it is, never by brand: anyone scattered
- * across apps sees themselves, whether or not they have heard of Obsidian or
- * Anki (those are asked about on the next page, "What did you use before?").
- * The one place each kind ends up is what the pointer sets in italics.
+ * Where a reader's thinking lives now, by what it is, never by brand: writing,
+ * what you keep from reading, and what you mean to remember. (Plans are real
+ * in the app; they are not the first pitch.) Apps you used before are asked
+ * on the next page.
  */
 const THREE: [string, string][] = [
   ['Your writing', 'lives in one app.'],
-  ['Your plans', 'live in another.'],
-  ['What you want to remember and practice (flashcards)', 'lives in a third.']
+  ['What you keep from reading', 'lives in another.'],
+  ['What you want to remember and practice', 'lives in a third.']
 ]
 /** Written in the margin beside the cause, as a reader annotates a page, its arrow drawn to it: the objection the answer meets. */
 const MARGIN_NOTE = 'But\u2026 you never write anything down to do nothing with it.'
@@ -1089,8 +1087,8 @@ const noteWrites = (): { starts: number[]; lengths: number[]; arrowAt: number; e
 }
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-// One thing is pitched: the three are one thought, growing. What Haligtree is was said at the top, in the tagline.
-const ANSWER = `${APP_NAME} changes the direction. Instead of asking you to search, it brings your writing, plans, and practice *back to you*.`
+// One thing is pitched: a commonplace book that returns what you kept. Tagline already named Haligtree.
+const ANSWER = `${APP_NAME} is a modern commonplace book. One place for what you write, keep and practice, and *they come back to you*.`
 
 type ThesisState = { noted: boolean; opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; book: boolean }
 const THESIS_START: ThesisState = { noted: false, opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, book: false }
@@ -1339,7 +1337,7 @@ function Shine({ children, done = false }: { children: ReactNode; done?: boolean
 
 // --- 3 Catch ------------------------------------------------------------------------
 
-/** What Catch catches, in order: the thought the story follows, a line from its book, then the story's task. */
+/** What Catch catches, in order: the thought, a line from its book, then (last) a dated task. Book before plans. */
 const CAUGHT: Kind[] = ['note', 'quote', 'todo']
 
 type CatchState = { keys: boolean; down: number[]; box: Box | null; filled: Kind[]; said: Kind[]; kinds: boolean; aha: 'keys' | null }
@@ -1407,24 +1405,24 @@ function catchBeats(): Beat<CatchState>[] {
 
 /** What Haligtree did with each thing caught, beside it: a bold lead-in, then why it helps. The keys' line is said under the keys. */
 const AHA: Partial<Record<Kind, [string, string]>> = {
-  note: ['Caught in seconds.', 'Now your mind can let go of it.'],
+  note: ['Caught into your book.', 'A thought from the walk, kept before it fades.'],
   quote: ['Kept with its source.', `${APP_NAME} read who said it, and where.`],
-  todo: ['Dated for you.', `On your list for ${STORY_DAY}, at ${clock(dayjs().hour(20).minute(0).toDate())}.`]
+  todo: ['And if it is a plan…', `Dated for ${STORY_DAY}, at ${clock(dayjs().hour(20).minute(0).toDate())}, on your list.`]
 }
 const KEYS_SAID: [string, string] = ['Just watch first.', 'See how it reads what you write. Then it is your turn.']
 /** Catch's line: what the box is and what it does that others do not. No keys in it: they are on the stage, to watch. */
 const CATCH_BOX = 'Quick capture opens over any app, and it'
-const CATCH_SHINE = 'spots the details'
-/** What it spots, said plainly after the shine: what the three catches below show. */
-const CATCH_TAIL = ': dates, names, kinds.'
+const CATCH_SHINE = 'reads what you wrote'
+/** What it spots, said plainly after the shine: quote source first, then kinds (dates last). */
+const CATCH_TAIL = ': who said a line, where, and what kind it is.'
 
-/** The kinds, each with what it does: the welcome's own words for them. */
+/** The kinds, each with what it does: the welcome's own words for them. Book kinds first in the list's story. */
 const WHAT: Record<string, string> = {
   note: 'Anything else, kept as you wrote it',
-  todo: 'Goes to your tasks, on the day it names',
   quote: 'Someone’s words, signed with who said them',
   word: 'A word to learn, asked back in “Review”',
   link: 'A page, kept with its name and picture',
+  todo: 'Goes to your tasks, on the day it names',
   decision: 'A choice, back on a date to check it still holds',
   experiment: 'Tried until a date, then asks what you found'
 }
@@ -1600,7 +1598,113 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   )
 }
 
-// --- 4 Out of the box, 5 Permissions, 8 Plan, 9 Your notes -----------------------------
+// --- 4 Write ------------------------------------------------------------------------
+
+const WRITE_TITLE = 'Write it out.'
+const WRITE_LINE = 'What you catch waits in your Inbox. When it needs room, write it out as a page; pick a line to keep as a gem, then one Review will ask you. A dated plan can wait until last.'
+
+/**
+ * The thought caught in Catch, written out a key at a time; then it grows into
+ * a page; gems are picked first (plain, then with a question), and a task last.
+ * Each card lands with its own words under it.
+ */
+function writeBeats(): Beat<FlowShot>[] {
+  const random = seeded(31)
+  const beats: Beat<FlowShot>[] = [{ at: 0, to: {} }]
+  const written = typed<FlowShot>(flowWords().caught, 400, (sofar) => ({ caught: sofar }), random, 0.9, 1700)
+  beats.push(...written.beats)
+  const offer = written.end + 600
+  beats.push({ at: offer, to: { newPage: 'shown' } })
+  beats.push({ at: offer + 250, to: { cursor: { line: 'page', to: 'button' } } })
+  const press = offer + 250 + CURSOR_MS.button + 260
+  beats.push({ at: press, to: { pressed: true }, cue: () => click('tick') })
+  beats.push({ at: press + 170, to: { pressed: false, newPage: 'off', cursor: null, shown: 2 }, cue: cue('slide') })
+  const title = typed<FlowShot>(flowWords().note, press + 600, (sofar) => ({ title: sofar }), random, 0.85, 1400)
+  beats.push(...title.beats)
+  let line = title.end + 350
+  for (let n = 1; n <= flowParts(); n++) (beats.push({ at: line, to: { body: n }, cue: () => click('soft') }), (line += 420))
+  const grows = line
+  const pick = (t: number, line: Pick, shown: number, sound: () => void): number => {
+    const dragAt = t + CURSOR_MS.travel + 60
+    const barAt = dragAt + CURSOR_MS.drag + 40
+    const pressAt = barAt + 180 + CURSOR_MS.button + 40
+    beats.push({ at: t, to: { cursor: { line, to: 'start' } } })
+    beats.push({ at: dragAt, to: { cursor: { line, to: 'end' }, picked: line, pressed: false }, cue: () => click('soft') })
+    beats.push({ at: barAt, to: { bar: true } })
+    beats.push({ at: barAt + 180, to: { cursor: { line, to: 'button' } } })
+    beats.push({ at: pressAt, to: { pressed: true }, cue: () => click('tick') })
+    beats.push({ at: pressAt + 160, to: { picked: null, bar: false, pressed: false, lit: PICKS.indexOf(line) + 1, shown }, cue: sound })
+    return pressAt + 160
+  }
+  // Gems first (commonplace keepsakes), then a dated task: never lead the write demo with plans.
+  let t = pick(grows + 500, 'kept', 3, cue('promote'))
+  t = pick(t + 450, 'gem', 4, cue('promote'))
+  t = pick(t + 450, 'task', 5, cue('tag'))
+  beats.push({ at: t + 500, to: { cursor: null } })
+  const question = typed<FlowShot>(flowWords().question, t + 450, (sofar) => ({ question: sofar }), random, 0.75, 1500)
+  beats.push(...question.beats)
+  beats.push({ at: question.end + 500, to: { last: true }, cue: cue('settled') })
+  beats.push({ at: question.end + 1100, to: {} })
+  return beats
+}
+
+function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
+  const [beats] = useState(writeBeats)
+  const show = useScript<FlowShot>(FLOW_START, beats, play, 1, glance(`${WRITE_TITLE} ${WRITE_LINE.split('. ')[0]}.`))
+  useReport(report, show.done, show.settle, show.part)
+  return (
+    <>
+      <Words tag="Writing" title={WRITE_TITLE} still={!play} done={show.done} wide>{WRITE_LINE}<ForYou setup={setup} at="write" /></Words>
+      <div className="relative flex min-h-0 flex-1 flex-col pb-2">
+        <FlowTree shot={show.done ? flowEnd() : show.state} quiet={!play} />
+      </div>
+    </>
+  )
+}
+
+// --- 5 Remember ---------------------------------------------------------------------
+
+const BACK_TITLE = 'It comes back to you.'
+const BACK_LINE = 'Gems return in Review and the Feed, a saved line on Home, and a plan on the day’s sticky: each where it belongs.'
+
+/**
+ * Gems and the quote first (the book’s keep), then the task sticky last. Real
+ * milliseconds; each moment stays once shown.
+ */
+const BACK_BEATS: Beat<BackShot>[] = [
+  { at: 0, to: {} },
+  // Gem (Review + Feed) first.
+  { at: 50, to: { shown: 1 }, cue: cue('open') },
+  { at: 1200, to: { over: true }, cue: () => fold() },
+  { at: 2100, to: { curve: true } },
+  // Quote postcard second.
+  { at: 5400, to: { shown: 2 }, cue: cue('memory') },
+  { at: 7300, to: { signed: true } },
+  // Task sticky last: useful, never the lead.
+  { at: 9000, to: { shown: 3 }, cue: cue('stick') },
+  { at: 10400, to: { ticked: true }, cue: cue('done') },
+  { at: 12400, to: {} }
+]
+
+function RememberChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
+  const show = useScript<BackShot>(BACK_START, BACK_BEATS, play, 1, glance(`${BACK_TITLE} ${BACK_LINE} ${forYou(setup, 'remember')}`))
+  useReport(report, show.done, show.settle, show.part)
+  return (
+    <>
+      <Words tag="Coming back" title={BACK_TITLE} still={!play} done={show.done} wide>
+        {BACK_LINE}
+        <ForYou setup={setup} at="remember" />
+      </Words>
+      <div className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
+        <ComeBack shot={show.done ? BACK_END : show.state} quiet={!play} said={shining} />
+      </div>
+    </>
+  )
+}
+
+const shining = (said: string): ReactNode => parts(said).map((part, i) => (part.key ? <Shine key={i}>{part.text}</Shine> : <span key={i}>{part.text}</span>))
+
+// --- 6 Out of the box, 9 Permissions, 10 Your notes -----------------------------
 
 /**
  * A step in two parts, as one: its words in a column on the left (the tag, the title, one line), and on the
@@ -1615,8 +1719,8 @@ function Split({ words, children }: { words: ReactNode; children: ReactNode }): 
   )
 }
 
-const TOUR_TITLE = 'What it does for you.'
-const TOUR_LINE = 'With nothing set up. Each one plays in turn; click any to watch it again.'
+const TOUR_TITLE = 'Still more, from the first day.'
+const TOUR_LINE = 'Reading, the Feed, Review, find, Wrapped, and only then a dated task. Each plays in turn; click any to watch it again.'
 
 function TourChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   // Nothing here to wait for: the tiles play on their own, and Continue is ready from the start.
@@ -1629,11 +1733,6 @@ const GRANTS_LINE = 'Each is optional, and macOS asks in its own words. Skip any
 function GrantsChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   useReport(report, true, () => undefined)
   return <Split words={<Words tag="Permissions" title="Let it reach a little further." still={!play} done>{GRANTS_LINE}</Words>}><Grants /></Split>
-}
-
-function PlanChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
-  useReport(report, true, () => undefined)
-  return <Split words={<Words tag="Plan" title={PLAN_WORDS.title} still={!play} done>{PLAN_WORDS.line}</Words>}><PlanCard /></Split>
 }
 
 const NOTES_LINE = 'See what each thing becomes, then bring them in: your book opens as they arrive. Or Continue, and do it later from “Settings”.'

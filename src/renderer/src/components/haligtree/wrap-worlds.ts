@@ -15,16 +15,18 @@ export const WORLD_NAMES: Record<World, string> = { files: 'Files', night: 'Nigh
 export type Palette = { bg: string; ink: string; accent: string; alt: string; soft: string; glow: [string, string] }
 
 export const PALETTES: Record<World, Palette[]> = {
+  // Files: scrapbook paper and stamp ink (cream, sepia, date-stamp red, oak),
+  // not purple-on-white dashboard chrome.
   files: [
-    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#634ff3', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#8b7cf6', '#5fb8f0'] },
-    { bg: '#232321', ink: '#f1efe9', accent: '#c6f24e', alt: '#f1efe9', soft: '#3a3a37', glow: ['#c6f24e', '#2fc4a0'] },
-    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#d22000', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#ff5a3c', '#f6c945'] },
-    { bg: '#232321', ink: '#f1efe9', accent: '#e8c547', alt: '#f1efe9', soft: '#3a3a37', glow: ['#e8c547', '#8b7cf6'] }
+    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#8f5c0c', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#c4a35a', '#8f5c0c'] },
+    { bg: '#232321', ink: '#f1efe9', accent: '#e0c27a', alt: '#f1efe9', soft: '#3a3a37', glow: ['#e0c27a', '#8f5c0c'] },
+    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#a33c28', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#c45a3c', '#e0c27a'] },
+    { bg: '#232321', ink: '#f1efe9', accent: '#d4a574', alt: '#f1efe9', soft: '#3a3a37', glow: ['#d4a574', '#a33c28'] }
   ],
   night: [
-    { bg: '#07060c', ink: '#f3eefe', accent: '#b48cff', alt: '#4fd6ff', soft: '#2a2440', glow: ['#6d3cff', '#1fb6ff'] },
+    { bg: '#07060c', ink: '#f3eefe', accent: '#e0c27a', alt: '#c4a35a', soft: '#2a2440', glow: ['#e0c27a', '#8f5c0c'] },
     { bg: '#050a08', ink: '#ecfff6', accent: '#55f0b0', alt: '#ffd36b', soft: '#16302a', glow: ['#16c47f', '#ffd36b'] },
-    { bg: '#0b0508', ink: '#fff0f4', accent: '#ff6b9a', alt: '#ffb86b', soft: '#3a1626', glow: ['#ff3d7f', '#7a3cff'] }
+    { bg: '#0b0508', ink: '#fff0f4', accent: '#c45a3c', alt: '#e0c27a', soft: '#3a1626', glow: ['#c45a3c', '#e0c27a'] }
   ]
 }
 
@@ -60,12 +62,12 @@ export function nextSeed(): number {
   return seed
 }
 
-/** First lines, in Haligtree's own voice; `{name}` is the month or week. */
+/** First lines, in Haligtree's own voice; `{name}` is the month or week. Scrapbook, not a scorecard. */
 export const INTROS = [
   'You kept a book all {name}. Here is what it held.',
-  '{name}, in your own notes.',
+  '{name}, pages from your own hand.',
   'Before {name} goes on the shelf, a look back.',
-  'You caught things all {name}. We counted, gently.',
+  'Quotes, gems, reading: what {name} left in the book.',
   'A few cards on {name}. Nothing to grade.'
 ]
 export const OUTROS = [
@@ -75,4 +77,4 @@ export const OUTROS = [
   'Thank you for writing it down.',
   'Same time next {period}? Your book will be here.'
 ]
-export const FOLDER_LINES = ['We pulled some of your notes, just in case.', 'A few you might want again.', 'From the drawer this {period}.']
+export const FOLDER_LINES = ['We pulled some pages, just in case.', 'A few lines you might want again.', 'From the drawer this {period}.']
