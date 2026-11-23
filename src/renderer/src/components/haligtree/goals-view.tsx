@@ -21,14 +21,15 @@ import { readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
 import { ShowMore, useShowMore } from './show-more'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/cn'
 import { Chips } from './display'
 import { ListSearch, NoteList, type Entry } from './note-list'
 import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { calendarsNow, events, useCalendars } from '@/lib/events'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
-import { Empty, FoldItem, MenuRows, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, typing, useListKeys, quietly } from './ui'
+import { AskKey, Empty, FoldItem, Grows, MenuRows, Island, Kbd, PANEL_FIELD, PanelRow, POP_ISLANDS, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, typing, useListKeys, quietly } from './ui'
 import { useFolding } from './items-view'
 import { ICE, KIND_ICON, kindOf } from '@/lib/goal-kind'
 import { archive, useOwnOrder } from '@/lib/notes'
@@ -327,36 +328,51 @@ export function GoalAsker(): React.JSX.Element | null {
   const left = target ? daysLeft(dayKey(target)) : null
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[18vh]" onMouseDown={() => done(null)}>
-      <div role="dialog" aria-modal="true" aria-label="New goal" className="flex w-[min(30rem,90vw)] flex-col gap-3 rounded-xl bg-popover p-4 shadow-(--mf-panel-shadow)"
+      {/* Built as the marked day's popover is (milestones.tsx, MarkAsker): the name on top, each group a small heading
+          over an island of its own rows, the buttons at the foot with their keys said quietly in them. */}
+      <div role="dialog" aria-modal="true" aria-label="New goal" className={`flex w-[min(24rem,90vw)] flex-col gap-3 rounded-float bg-popover p-3 text-control shadow-(--mf-panel-shadow) ${POP_ISLANDS}`}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           event.stopPropagation()
           if (event.key === 'Escape') done(null)
           if (event.key === 'Enter' && !(event.target as HTMLElement).closest('[data-slot="popover-content"]')) (event.preventDefault(), keep())
         }}>
-        <p className="flex items-center gap-2 text-sm">
-          {dateless ? <Telescope className="size-4" style={{ color: ACCENT }} /> : <Flag className="size-4" style={{ color: ACCENT }} />}
-          <Rolling by="word" text={dateless ? 'A someday goal: one for your life list, no day to it' : 'A goal: something to have done by a day'} />
-        </p>
-        <Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder={dateless ? 'e.g. Visit Hobbiton' : 'e.g. Run the 10k under an hour'} aria-label="The goal" />
-        <div className="flex flex-wrap items-center gap-2 text-control">
-          <span className="text-muted-foreground">By</span>
-          <DatePicker value={dateless ? null : target} onChange={(day) => (setTarget(day), day && setDateless(false))} placeholder="Pick the day" suggest={['in 1 month', 'in 3 months', 'in 6 months', 'in 1 year']}
-            className="border bg-accent/30" />
-          <span className="text-muted-foreground">or</span>
-          {/* No day at all: a goal for someday, as Tasks' Later is a task for someday. */}
-          <Chips options={[{ id: 'someday', label: 'No day: someday' }]} on={() => dateless} pick={() => (chime(dateless ? 'off' : 'on'), setDateless(!dateless))} />
-          {!dateless && left !== null && left >= 0 && <span className="text-control font-semibold text-foreground"><Rolling by="word" text={leftSaid(left).toLowerCase()} /></span>}
+        <h2 className="flex items-center gap-2 px-1 text-body font-semibold text-foreground">
+          {dateless ? <Telescope aria-hidden className="size-4 shrink-0" style={{ color: ACCENT }} /> : <Flag aria-hidden className="size-4 shrink-0" style={{ color: ACCENT }} />}
+          <Rolling by="word" text={dateless ? 'A someday goal, for your life list' : 'A goal: something done by a day'} />
+        </h2>
+        <div className="flex min-h-10 items-center rounded-lg border focus-within:border-foreground/25">
+          <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder={dateless ? 'e.g. Visit Hobbiton' : 'e.g. Run the 10k under an hour'} aria-label="The goal"
+            className="h-9 min-w-0 flex-1 bg-transparent px-3 text-body text-foreground outline-none placeholder:text-muted-foreground" />
         </div>
-        {dateless && <p data-someday-said className="-mt-1 text-control text-foreground">No countdown and no rush: it waits under “Someday” in Goals, and you log a step whenever you take one.</p>}
-        <Input value={why} onChange={(event) => setWhy(event.target.value)} placeholder="Why it matters (if you want to say)" aria-label="Why it matters" />
-        <div className="mt-1 flex items-center gap-2">
-          {missing && !ready
-            ? <p role="alert" className="mr-auto text-xs font-medium text-[var(--tt-color-text-orange)]">{missing.text}</p>
-            : <p className="mr-auto text-xs text-muted-foreground">Enter to set it · Escape to leave it</p>}
-          <Button variant="ghost" size="sm" onClick={() => done(null)}>Cancel</Button>
+        <Island compact title="When">
+          <PanelRow label="By">
+            <div className="flex min-w-0 items-center gap-2">
+              <DatePicker value={dateless ? null : target} onChange={(day) => (setTarget(day), day && setDateless(false))} placeholder="Pick the day" suggest={['in 1 month', 'in 3 months', 'in 6 months', 'in 1 year']}
+                className={cn(PANEL_FIELD, 'flex-1 justify-start py-1 text-foreground hover:bg-accent/50 data-[state=open]:border-ring')} />
+              {!dateless && left !== null && left >= 0 && <span className="shrink-0 font-medium text-foreground tabular-nums"><Rolling by="word" text={leftSaid(left).toLowerCase()} /></span>}
+            </div>
+          </PanelRow>
+          {/* No day at all: a goal for someday, as Tasks' Later is a task for someday. What that means opens under it. */}
+          <div>
+            <PanelRow label="Someday">
+              <Switch data-goal-someday aria-label="No day: someday" className="justify-self-end" checked={dateless} onCheckedChange={(next) => (chime(next ? 'on' : 'off'), setDateless(next))} />
+            </PanelRow>
+            <Grows>
+              {dateless && <p data-someday-said className="px-2 pt-0.5 pb-1.5 text-control text-foreground">No countdown and no rush: it waits under “Someday” in Goals, and you log a step whenever you take one.</p>}
+            </Grows>
+          </div>
+        </Island>
+        <Island compact title="Why it matters">
+          <input value={why} onChange={(event) => setWhy(event.target.value)} placeholder="If you want to say" aria-label="Why it matters"
+            className="h-8 w-full bg-transparent px-2 text-control text-foreground outline-none placeholder:text-muted-foreground" />
+        </Island>
+        <div className="flex items-center gap-1">
+          {missing && !ready && <p role="alert" className="px-1 text-control font-medium text-[var(--tt-color-text-orange)]">{missing.text}</p>}
+          <span className="flex-1" />
+          <Button variant="ghost" size="sm" className="text-(--mf-muted-strong) hover:text-foreground" onClick={() => done(null)}>Cancel<AskKey label="Escape">Esc</AskKey></Button>
           <motion.span key={missing?.n ?? 0} animate={missing ? { x: [0, -6, 6, -4, 4, 0] } : undefined} transition={{ duration: 0.32, ease: 'easeOut' }}>
-            <Button size="sm" onClick={keep} aria-disabled={!ready} className={ready ? '' : 'opacity-60'}>Set the goal</Button>
+            <Button size="sm" onClick={keep} aria-disabled={!ready} className={cn('hover:bg-primary hover:brightness-110', !ready && 'opacity-60')}>Set the goal<AskKey label="Return">↵</AskKey></Button>
           </motion.span>
         </div>
       </div>
