@@ -1,6 +1,7 @@
 import { type Task } from '@/lib/haligtree'
 import { yourOrder, dueToday, placed } from '@/lib/tasks'
 import { dayKey, startOfDay } from '../../../../main/dates'
+import { Tip } from './ui'
 
 /**
  * Write out your day: Today's list itself is written in (tasks-view.tsx, the
@@ -31,7 +32,10 @@ export const dayThree = (tasks: Task[]): string[] =>
 /** A task's number among the day's three, quiet in the margin; green once it is done. */
 export function ThreeMark({ n, done = false, className = '' }: { n: number; done?: boolean; className?: string }): React.JSX.Element {
   return (
-    <span data-three={n} role="img" aria-label={`One of today's three, number ${n}`} className={`text-control font-semibold tabular-nums ${className}`}
-      style={{ color: done ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>{n}</span>
+    // Said on pointing, as a bare number beside a title read as nothing (the user, 23 Nov: "what is the 1").
+    <Tip label={`${['First', 'Second', 'Third'][n - 1] ?? `Number ${n}`} of today's three`}>
+      <span data-three={n} role="img" aria-label={`One of today's three, number ${n}`} className={`cursor-default text-control font-semibold tabular-nums ${className}`}
+        style={{ color: done ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>{n}</span>
+    </Tip>
   )
 }
