@@ -55,6 +55,6 @@ These are the app's, not the studio's, so they live here.
 
 ## Where the rest lives
 
-- The live work list (kept current by Claude): https://claude.ai/artifact/2YdeKjnQJsKiwsFgdqPkyX. `docs/product/work-waiting.md` is a copy of it from this date.
+- The work list is `docs/product/work-waiting.md` (the source of truth); Claude mirrors it to https://claude.ai/artifact/2YdeKjnQJsKiwsFgdqPkyX for the owner.
 - Claude's own project memory (useful history, not required): `~/.claude/projects/-Users-starscourge-Documents-forge-mindflow/memory/`, indexed by `MEMORY.md` there.
 - Claude's working copy of the studio standard: `playbook/playbook/` (Claude Code loads it through `~/.claude/skills/app-playbook`).

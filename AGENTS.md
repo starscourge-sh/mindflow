@@ -145,3 +145,11 @@ Working
 - Look things up in `playbook/reference/` (look, interaction, design values).
 - Nothing is done until it passes the gate in `playbook/handbook/3-check.md`, with screenshots.
 - `playbook/playbook/` is Claude's working copy of the same rules, with their history. Other agents can skip it.
+
+## Keep the handover true (every session, before you stop)
+
+The next agent knows only what these files say, so leave them true:
+- `docs/HANDOVER.md`: update "State" (newest build, what is in flight), "Known failures" (add what you found, remove what you fixed) and "Decided recently" (any new rule the owner gave).
+- `docs/product/work-waiting.md`: the work list. It is the source of truth: mark items done with the date, add new asks in the owner's words in the right part, and keep "Who can take what" current. (Claude mirrors it to a web page for the owner; the file in the repo wins if they differ.)
+- A lesson that holds for every app goes into `playbook/` (handbook or reference), in a line or two, not into this repo.
+- Commit these changes with the work they describe.

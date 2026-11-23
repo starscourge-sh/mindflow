@@ -1,4 +1,4 @@
-Copied from the live work list on 23 Nov 2026; the live page is the one kept up to date by Claude, this copy is for agents without access to it.
+Copied from the live work list on 23 Nov 2026. From now on this file is the source of truth: keep it current (see AGENTS.md, "Keep the handover true"). Claude mirrors it to a web page for the owner.
 
 # The work waiting
 
