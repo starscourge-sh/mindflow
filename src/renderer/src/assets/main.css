@@ -3391,6 +3391,13 @@ html[data-book-hue] [data-book-tint] {
 :root:not([data-light]) {
   --reader-desk-grain: var(--frame-grain);
 }
+/* Today's three in Tasks (tasks-view.tsx, ThreeBand): the same paper, tinted with the accent and edged faintly, so
+   the three places read as one band of their own and not as the calendar's all-day lane. */
+[data-three-band] {
+  background-color: color-mix(in oklab, var(--tt-brand-color-500) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tt-brand-color-500) 22%, transparent);
+}
+[data-three-band],
 [data-cal-allday],
 :is(span, div):has(+ [data-cal-allday-lane]) {
   background-image:

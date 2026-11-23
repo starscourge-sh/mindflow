@@ -1595,6 +1595,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
           <Example on={example} tryIt={TRY_TASKS[mode]}>
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
           <Highlight light={rowsHover.light} className="bg-accent/25" />
+          {three.length > 0 && <ThreeBand three={three} />}
           {/* On Today, a row is dragged into your own order, or onto the Upcoming or Later tab. */}
           {/* On every list, a row rested on another's middle becomes its step. */}
           <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : project ? groupRow : nestRow} nests={nests}
@@ -2770,4 +2771,36 @@ function TaskProject({ task }: { task: Task }): React.JSX.Element {
       </span>
     </Island>
   )
+}
+
+/**
+ * Today's three on one band of the calendar's all-day paper, tinted with the accent so it reads as its own place
+ * (the user, 23 Nov). The band is the three places, not the three tasks: drawn behind the first three rows, it stays
+ * put while a row is carried in or out, and the order decides who stands on it.
+ */
+function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
+  const [at, setAt] = useState<{ top: number; height: number } | null>(null)
+  // The list it lies in is its own parent: the list's ref is set only once its rows are drawn.
+  const own = useRef<HTMLDivElement>(null)
+  const ids = three.join(' ')
+  useLayoutEffect(() => {
+    const list = own.current?.parentElement
+    if (!list) return
+    const read = (): void => {
+      const rows = ids.split(' ').map((id) => list.querySelector<HTMLElement>(`[data-task-row][data-id="${CSS.escape(id)}"]`)).filter((one): one is HTMLElement => !!one)
+      if (!rows.length) return setAt(null)
+      const edge = list.getBoundingClientRect().top
+      const top = Math.min(...rows.map((one) => one.getBoundingClientRect().top)) - edge
+      const bottom = Math.max(...rows.map((one) => one.getBoundingClientRect().bottom)) - edge
+      setAt((now) => (now && Math.abs(now.top - top) < 0.5 && Math.abs(now.height - (bottom - top)) < 0.5 ? now : { top, height: bottom - top }))
+    }
+    read()
+    // The rows come in after the list (it draws only what is in view), and grow and shrink: read again on each.
+    const watch = new ResizeObserver(read)
+    watch.observe(list)
+    const come = new MutationObserver(read)
+    come.observe(list, { childList: true, subtree: true })
+    return () => (watch.disconnect(), come.disconnect())
+  }, [ids])
+  return <div ref={own} aria-hidden data-three-band={at ? '' : undefined} className="pointer-events-none absolute inset-x-0 -z-10 rounded-lg" style={at ? { top: at.top, height: at.height } : { display: 'none' }} />
 }
