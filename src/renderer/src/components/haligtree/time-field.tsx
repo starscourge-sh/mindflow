@@ -3,6 +3,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
+import { Island, POP_ISLANDS } from './ui'
 
 /** "9", "930", "9:30", "21.30", "9pm", "9:30 am" as "09:30" or "21:30"; null when it is not a time. */
 function readTime(words: string): string | null {
@@ -89,20 +90,23 @@ export function TimeField({ value, onChange, label, className }: { value: string
           }}
         />
       </PopoverAnchor>
-      <PopoverContent align="start" className="w-28 gap-0 p-1" onOpenAutoFocus={(event) => event.preventDefault()}
+      {/* A plain list of times, framed as every popover's choices are (display.tsx): its name over it, in an island. */}
+      <PopoverContent align="start" className={`w-40 gap-0 p-2 ${POP_ISLANDS}`} onOpenAutoFocus={(event) => event.preventDefault()}
         // A click on the field itself is not "outside": it keeps the list open.
         onInteractOutside={(event) => (event.target as HTMLElement | null)?.closest?.('[data-time-field]') && event.preventDefault()}>
-        <div ref={list} role="listbox" aria-label={label} className="flex max-h-56 flex-col overflow-y-auto">
-          {HALVES.map((one) => (
-            <button key={one} type="button" role="option" aria-selected={one === value} data-time={one} tabIndex={-1}
-              // Picked before the field's blur, so the field keeps the pick, not its draft.
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => (chime('tap'), keep(one), setOpen(false))}
-              className={`rounded-md px-2.5 py-1 text-left text-control tabular-nums transition-colors hover:bg-accent ${one === value ? 'bg-accent font-semibold text-foreground' : 'text-foreground'}`}>
-              {one}
-            </button>
-          ))}
-        </div>
+        <Island compact title={label}>
+          <div ref={list} role="listbox" aria-label={label} className="mf-more flex max-h-56 flex-col overflow-y-auto p-1">
+            {HALVES.map((one) => (
+              <button key={one} type="button" role="option" aria-selected={one === value} data-time={one} tabIndex={-1}
+                // Picked before the field's blur, so the field keeps the pick, not its draft.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => (chime('tap'), keep(one), setOpen(false))}
+                className={`shrink-0 rounded-sm px-2 py-1 text-left text-control tabular-nums transition-colors hover:bg-accent ${one === value ? 'bg-accent font-semibold text-foreground' : 'text-foreground'}`}>
+                {one}
+              </button>
+            ))}
+          </div>
+        </Island>
       </PopoverContent>
     </Popover>
   )
