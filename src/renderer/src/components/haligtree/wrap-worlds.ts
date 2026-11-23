@@ -1,10 +1,10 @@
 /**
  * The two looks a wrap can take ("worlds"), their palettes, and the lines
- * each open picks from: Files (paper and ink, op-art framing your own
- * pictures) and Night (a slow silk of light). Every colour a wrap card
- * paints with lives here, so no component carries a colour of its own.
- * Sticker and Kinetic were cut (18 Nov): their sunbursts, tiled words and
- * echoed numbers said nothing about the month and covered its words.
+ * each open picks from: Files (cream scrapbook paper, stamp ink, tape) and
+ * Night (a slow silk of light). Every colour a wrap card paints with lives
+ * here, so no component carries a colour of its own. Sticker, Kinetic and
+ * op-art frames were cut: sunbursts, tiled words and sticker cutouts said
+ * nothing about the month and read as cartoons.
  */
 
 export const WORLDS = ['files', 'night'] as const

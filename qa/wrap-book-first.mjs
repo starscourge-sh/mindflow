@@ -42,11 +42,17 @@ try {
   })
   await h.evaluate(([id, worst]) => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: { id, world: 'files', worst } })), [week, WORST])
   await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 })
+  // Let the typed line and paper springs settle before a proof shot.
+  if (SHOTS) await wait(900)
   const kinds = []
   for (let i = 0; i < 14; i++) {
     const kind = await h.locator('[data-wrap-card]').getAttribute('data-wrap-card')
     kinds.push(kind)
-    if (SHOTS) await h.screenshot({ type: 'jpeg', quality: 82, path: join(SHOTS, `wrap-${String(i).padStart(2, '0')}-${kind}.jpg`) })
+    if (SHOTS) {
+      await wait(kind === 'intro' || kind === 'notes' || kind === 'well' || kind === 'report' ? 700 : 280)
+      const box = await h.locator('[data-wrap-card]').boundingBox()
+      await h.screenshot({ type: 'jpeg', quality: 90, path: join(SHOTS, `wrap-${String(i).padStart(2, '0')}-${kind}.jpg`), ...(box ? { clip: box } : {}) })
+    }
     if (kind === 'report' || kind === 'quiet') break
     await h.keyboard.press('ArrowRight')
     await wait(350)

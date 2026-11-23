@@ -9,9 +9,10 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 3. `docs/product/work-waiting.md`: everything queued, split into what any agent can take and what needs Claude or the owner. Start with its "Any agent" list.
 4. `playbook/handbook/3-check.md`: the gate every change passes before it is called done.
 
-## State on 23 Nov 2026
+## State on 24 Nov 2026
 
 - Branch: everything is on `main`. The newest build is `dist/Haligtree-0.4.0-beta.219.dmg`; the next build is beta.220 (bump `package.json` first, keep only the newest `dist/Haligtree-*`).
+- Wrapped was redesigned as Midori/scrapbook paper (F41): same Settings › Grain as the window, no cartoon envelopes or op-art stickers. Book-first welcome/wrap probes green. Target-user walk resumes after this lands.
 - The owner runs `npm run dev` from this folder and reports bugs with screenshots. Fix on `main`, commit each fix on its own with a plain message saying what the user now sees and why.
 
 ## Known failures (not caused by the newest work)

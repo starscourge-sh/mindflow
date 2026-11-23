@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
-import { Folder, In, OpArt, Roll, Scribble, Silk, type Op } from './wrap-art'
+import { Folder, In, KraftTape, PaperMat, Roll, Scribble, Silk } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
@@ -238,7 +238,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     const world = forced ?? pick(rand, WORLDS)
     // Files wears the paper of the app's own theme: cream under a light one, charcoal under a dark one. Night is always night.
     const fits = PALETTES[world].filter((one) => world !== 'files' || (parseInt(one.bg.slice(1, 3), 16) > 128) === (surface === 'light'))
-    return { world, p: pick(rand, fits.length ? fits : PALETTES[world]), intro: pick(rand, INTROS), outro: pick(rand, OUTROS), folder: pick(rand, FOLDER_LINES), entrance: pick(rand, ENTRANCES), op: pick(rand, ['rings', 'checker', 'stripes', 'arcs'] as const) }
+    return { world, p: pick(rand, fits.length ? fits : PALETTES[world]), intro: pick(rand, INTROS), outro: pick(rand, OUTROS), folder: pick(rand, FOLDER_LINES), entrance: pick(rand, ENTRANCES) }
   }, [seed, forced, surface])
   const [at, setAt] = useState(0)
   const [byKey, setByKey] = useState(false)
@@ -384,6 +384,9 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   const kind = kinds[at]
   const variant = Math.floor(seeded(seed + at * 31)() * 3)
   const quiet = `color-mix(in srgb, ${p.ink} 72%, ${p.bg})`
+  // Same Settings › Grain as the dark frame: one SVG, one switch. Never a second cheap noise layer.
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  const grainOn = settings?.frameGrain !== false
   return (
     <motion.div role="dialog" aria-modal aria-label={facts?.title ?? 'Wrapped'} data-wrap-story={id} data-wrap-world={world}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} transition={{ duration: 0.25 }}
@@ -393,14 +396,15 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       <Backdrop p={p} hue={HUES[at % HUES.length]} />
       {/* A wide card over the dimmed app; on a small window, the whole window, as on a phone. The app's own pieces inside
           (the flowing row of pictures, the week's paragraph) read the card's ink and paper through the theme's names. */}
-      <motion.div ref={shown} data-wrap-card={kind ?? 'loading'}
+      <motion.div ref={shown} data-wrap-card={kind ?? 'loading'} data-wrap-grain={grainOn ? '' : undefined} data-wrap-paper={light(p.bg) ? '' : undefined}
         initial={still() ? false : { opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         className="wrap-card @container relative flex flex-col overflow-hidden"
         style={{ background: p.bg, color: p.ink, boxShadow: STAGE.shadow, '--wrap-quiet': quiet, '--wrap-bg': p.bg, '--foreground': p.ink, '--muted-foreground': quiet, '--mf-muted-strong': quiet, '--background': p.bg } as React.CSSProperties}>
-        {/* The card's own paper, the same light moving in it faintly: stronger in Night, whose look is the light. */}
-        <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={world === 'night' ? 0.5 : light(p.bg) ? 0.14 : 0.2} scale={0.35} />
-        <div className="relative min-h-0 flex-1" onPointerDown={(event) => void (pressedAt.current = event.clientX)} onClick={(event) => {
+        {/* Night keeps a soft silk; Files is quiet paper. Texture is Settings › Grain on the card, not Silk noise. */}
+        {world === 'night' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={0.5} scale={0.35} />}
+        {world === 'files' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={light(p.bg) ? 0.05 : 0.08} scale={0.35} />}
+        <div className="relative z-[2] min-h-0 flex-1" onPointerDown={(event) => void (pressedAt.current = event.clientX)} onClick={(event) => {
           // A drag (the row of pictures) let go is not a turn.
           if (Math.abs(event.clientX - pressedAt.current) > 6 || (event.target as HTMLElement).closest('button, a, [data-wrap-flow]')) return
           const box = event.currentTarget.getBoundingClientRect()
@@ -467,7 +471,7 @@ function Backdrop({ p, hue }: { p: Palette; hue: number }): React.JSX.Element {
   )
 }
 
-type Look = { world: World; p: Palette; intro: string; outro: string; folder: string; entrance: (typeof ENTRANCES)[number]; op: Op }
+type Look = { world: World; p: Palette; intro: string; outro: string; folder: string; entrance: (typeof ENTRANCES)[number] }
 /** An empty month says so, rather than promising cards it does not have. */
 const opening = (f: Facts, line: string): string => (!f.captures && !f.minutes ? `A quiet ${f.period}: nothing caught or focused on yet.` : fill(line, f.name, f.period))
 const fill = (line: string, name: string, period: string): string => line.replaceAll('{name}', name).replaceAll('{period}', period).replace(/^./, (c) => c.toUpperCase())
@@ -477,16 +481,16 @@ const siteWords = (site: string): ReactNode => site.length <= 16 ? <span classNa
 /** A length kept on one line in a heading: "3 h 30 min", never "3" at a line's end and "h 30 min" under it. */
 const held = (minutes: number): string => howLong(minutes).replace(/ /g, '\u00a0')
 
-const BIG = 'text-[clamp(28px,6cqi,50px)] leading-[1.02] font-black tracking-tight break-words'
-const HUGE = 'text-[clamp(52px,14cqi,120px)] leading-[0.9] font-black tracking-tighter'
+const BIG = 'font-heading text-[clamp(28px,6cqi,50px)] leading-[1.02] font-semibold tracking-[-0.02em] break-words'
+const HUGE = 'font-heading text-[clamp(52px,14cqi,120px)] leading-[0.9] font-semibold tracking-[-0.03em]'
 /** A long heading steps down by its length, so a long tag or site still sits in two or three lines. */
-const fit = (text: string): string => (text.length <= 16 ? BIG : text.length <= 30 ? 'text-[clamp(24px,4.6cqi,38px)] leading-[1.05] font-black tracking-tight break-words' : 'text-[clamp(20px,3.4cqi,28px)] leading-[1.1] font-black tracking-tight break-words')
+const fit = (text: string): string => (text.length <= 16 ? BIG : text.length <= 30 ? 'font-heading text-[clamp(24px,4.6cqi,38px)] leading-[1.05] font-semibold tracking-[-0.02em] break-words' : 'font-heading text-[clamp(20px,3.4cqi,28px)] leading-[1.1] font-semibold tracking-[-0.02em] break-words')
 /** A line under a heading or number, saying what it counts: never a label above one. */
 const CAPTION = 'mt-3 text-[15px] leading-snug font-semibold text-(--wrap-quiet) text-pretty'
 /** A card with one thing to say says it alone, centred and large: never a big word beside a half-empty column. */
 const SOLO_CAPTION = 'mx-auto mt-4 max-w-[44ch] text-[17px] leading-snug font-semibold text-(--wrap-quiet) text-balance'
 /** A lone heading (one tag, one site) as large as its length lets it be, still in two or three lines at most. */
-const solo = (text: string): string => `${text.length <= 12 ? 'text-[clamp(44px,11cqi,92px)] leading-[0.95]' : text.length <= 24 ? 'text-[clamp(34px,7.4cqi,64px)] leading-[1]' : 'text-[clamp(26px,5.2cqi,44px)] leading-[1.05]'} font-black tracking-tight break-words text-balance`
+const solo = (text: string): string => `font-heading ${text.length <= 12 ? 'text-[clamp(44px,11cqi,92px)] leading-[0.95]' : text.length <= 24 ? 'text-[clamp(34px,7.4cqi,64px)] leading-[1]' : 'text-[clamp(26px,5.2cqi,44px)] leading-[1.05]'} font-semibold tracking-[-0.03em] break-words text-balance`
 /** A list is drawn only with this many in it; fewer are said in the card's sentence instead. */
 const LIST = 3
 
@@ -541,7 +545,7 @@ function Rows({ rows: all, p, wide, small = 3 }: { rows: { name: ReactNode; key:
   )
 }
 
-/** The span's days as a calendar, a week a row: the longest run in the loud colour, other days with something in ink, quiet days an outline. */
+/** The span's days as a calendar, a week a row: run days as stamp-ink washes, busy days as graphite marks, quiet days a faint ruled box. Never app-calendar pills. */
 function Calendar({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   const busy = new Set(f.busy)
   const first = dayjs(f.from).startOf('week')
@@ -550,16 +554,24 @@ function Calendar({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   // A week is one row, large enough to read at a glance; a month's four or five rows smaller, to fit beside its number.
   const week = cells.length <= 7
   const size = week ? 'size-[clamp(30px,6cqi,48px)] text-[14px]' : 'size-[clamp(18px,3.6cqi,28px)] text-[11px]'
+  const lean = (i: number): number => ((i * 17) % 5) - 2
   return (
     <div data-wrap-calendar className="grid h-full place-items-center">
-      <div className="grid grid-cols-7 gap-[clamp(3px,0.6cqi,5px)]">
-        {Array.from({ length: 7 }, (_, i) => <span key={`d${i}`} className={`${size} grid place-items-center font-bold text-(--wrap-quiet)`}>{first.add(i, 'day').format('dd')[0]}</span>)}
+      <div className="grid grid-cols-7 gap-[clamp(4px,0.7cqi,6px)] p-2" style={{ background: `color-mix(in srgb, ${p.ink} 4%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${p.ink} 10%, transparent)` }}>
+        {Array.from({ length: 7 }, (_, i) => <span key={`d${i}`} className={`${size} grid place-items-center text-[10px] font-semibold uppercase tracking-[0.08em] text-(--wrap-quiet)`}>{first.add(i, 'day').format('dd')[0]}</span>)}
         {cells.map((day, i) => {
           if (!day) return <span key={i} className={size} />
           const inRun = day >= f.runFrom && day <= f.runTo
           return (
-            <motion.span key={day} data-day={day} data-run={inRun || undefined} className={`${size} grid place-items-center rounded-[4px] leading-none font-bold tabular-nums`}
-              style={inRun ? { background: p.accent, color: p.bg } : busy.has(day) ? { background: `color-mix(in srgb, ${p.ink} 30%, ${p.bg})`, color: p.ink } : { boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${p.ink} 22%, ${p.bg})`, color: 'var(--wrap-quiet)' }}
+            <motion.span key={day} data-day={day} data-run={inRun || undefined} className={`${size} grid place-items-center leading-none font-semibold tabular-nums`}
+              style={{
+                rotate: `${lean(i)}deg`,
+                ...(inRun
+                  ? { background: `color-mix(in srgb, ${p.accent} 88%, ${p.ink})`, color: p.bg, clipPath: 'polygon(4% 2%, 98% 0%, 100% 96%, 2% 100%)' }
+                  : busy.has(day)
+                    ? { background: `color-mix(in srgb, ${p.ink} 22%, ${p.bg})`, color: p.ink, clipPath: 'polygon(1% 3%, 100% 1%, 97% 100%, 0% 96%)' }
+                    : { boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${p.ink} 18%, ${p.bg})`, color: 'var(--wrap-quiet)' })
+              }}
               initial={still() ? false : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + i * 0.012, type: 'spring', stiffness: 400, damping: 24 }}>
               {dayjs(day).date()}
             </motion.span>
@@ -690,21 +702,46 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
   )
 
   /**
-   * One of your own pictures (heroesOf: a photo or art, never a page of words), framed by the op-art (Spotify's 2025
-   * cover), as large a square as its half of the card holds and never cut by it; with none, the op-art round a disc in
-   * the loud colour. The scribble draws over the art.
+   * One of your own pictures clipped onto ruled scrapbook paper under masking
+   * tape: Midori / commonplace, never an op-art sticker cutout.
    */
   const cover = (picture: Picture | undefined): ReactElement => (
     <div data-wrap-cover className="absolute inset-0 grid place-items-center [container-type:size]">
-      <In at={0.1} from="scale" className="relative size-[min(100cqw,100cqh)] overflow-hidden rounded-[6px]">
-        <OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" />
+      <In at={0.1} from="scale" className="relative size-[min(100cqw,100cqh)]">
+        <PaperMat ink={p.ink} paper={p.soft} className="!absolute inset-0" />
         {picture
-          ? <div className="absolute inset-[15%] overflow-hidden rounded-[4px]" style={{ boxShadow: `0 0 0 6px ${p.bg}`, background: `url("${picture.src}") center / cover` }}>
-              {/* The kept picture itself over its small copy, placed on its face or subject (lib/picture-focus.ts). */}
+          ? (
+            <div className="absolute inset-[14%] rotate-[-1.5deg] overflow-hidden shadow-[0_6px_20px_-6px_rgba(0,0,0,0.45)]"
+              style={{
+                boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 12%, transparent), 0 8px 22px -8px rgb(0 0 0 / 0.4)`,
+                background: STAGE.paper
+              }}>
               <img data-wrap-hero src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" />
+              {/* Soft white margin like a photo print edge, not a die-cut sticker. */}
+              <div aria-hidden className="pointer-events-none absolute inset-0 ring-1 ring-inset" style={{ boxShadow: `inset 0 0 0 5px ${STAGE.paper}` }} />
             </div>
-          : <div data-wrap-motif className="absolute inset-[27%] rounded-full" style={{ background: p.accent, boxShadow: `0 0 0 8px ${p.bg}` }} />}
-        <Scribble seed={seed} color={p.accent} width={3} className="pointer-events-none absolute top-[10%] left-0 w-full" delay={0.35} />
+            )
+          : (
+            <div data-wrap-motif className="absolute inset-[16%] flex flex-col justify-between p-5 rotate-[-1.25deg]"
+              style={{
+                background: STAGE.paper,
+                boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 8px 22px -8px rgb(0 0 0 / 0.4)`,
+                clipPath: 'polygon(0.5% 1%, 99% 0%, 100% 98.5%, 1% 100%)',
+                backgroundImage: `repeating-linear-gradient(0deg, transparent 0 24px, color-mix(in srgb, ${STAGE.paperInk} 11%, ${STAGE.paper}) 24px 25px)`
+              }}>
+              <span className="self-end grid size-11 place-items-center text-[9px] font-bold tracking-[0.12em] uppercase rotate-[8deg]"
+                style={{
+                  color: p.accent,
+                  boxShadow: `inset 0 0 0 1.5px color-mix(in srgb, ${p.accent} 75%, ${STAGE.paper})`,
+                  borderRadius: '48% 52% 50% 50% / 50% 48% 52% 50%',
+                  opacity: 0.9
+                }}>kept</span>
+              <span className="font-heading text-[clamp(18px,4cqi,28px)] leading-tight font-semibold" style={{ color: STAGE.paperInk }}>{f.name}</span>
+            </div>
+            )}
+        <KraftTape className="absolute top-[10%] left-1/2 z-10 w-28 -translate-x-1/2 rotate-[-4deg]" />
+        <KraftTape className="absolute top-[14%] right-[10%] z-10 w-14 rotate-[14deg]" tint={`color-mix(in srgb, ${p.accent} 38%, #c4b79a)`} />
+        <Scribble seed={seed} color={p.accent} width={1.5} className="pointer-events-none absolute top-[8%] left-0 w-full opacity-70" delay={0.35} />
       </In>
     </div>
   )
@@ -732,7 +769,7 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
         )
       }
       case 'intro':
-        if (night) return <Centre>{kicker}<In at={0.12} from={e}><h2 className="text-[clamp(40px,10cqi,84px)] leading-[0.95] font-black tracking-tight text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={opening(f, look.intro)} /></p></In></Centre>
+        if (night) return <Centre>{kicker}<In at={0.12} from={e}><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={opening(f, look.intro)} /></p></In></Centre>
         return split(<>
           <In at={0.12} from={e}><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
           <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium"><Typed story text={opening(f, look.intro)} /></p></In>
@@ -808,10 +845,29 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
         if (!night && wide) return split(<In><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
         if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{fill(look.folder, f.name, f.period)}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
         return split(<><In at={0.12}><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
-      case 'well':
-        // One or two lines in your words are the card: set large in the middle, each in its own quote.
-        if (f.well.length < LIST) return <Centre>{kicker}<In at={0.12}><p className={CAPTION}>What went well, from your weekly notes</p></In>{f.well.map((line, i) => <In key={line} at={0.3 + i * 0.15}><p className="max-w-[30ch] text-[clamp(22px,4cqi,32px)] leading-snug font-bold text-balance" dir="auto">{quoted(line, 120)}</p></In>)}</Centre>
-        return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well, from your weekly notes</p></In></>, <ul className="grid h-full [align-content:safe_center] gap-3">{f.well.slice(0, wide ? 4 : 3).map((line, i) => <In key={line} at={0.3 + i * 0.1}><li className="text-[17px] leading-snug font-medium text-pretty" dir="auto">{quoted(line, 90)}</li></In>)}</ul>)
+      case 'well': {
+        // Lines from the journal as tipped paper slips under washi, not floating bold quotes.
+        const slip = (line: string, i: number): ReactElement => (
+          <In key={line} at={0.28 + i * 0.12} className="relative mx-auto w-full max-w-[36ch]">
+            <div className="relative px-4 py-3 text-left shadow-[0_3px_12px_-4px_rgba(0,0,0,0.28)]"
+              style={{
+                background: STAGE.paper,
+                color: STAGE.paperInk,
+                rotate: `${(i % 2 ? 1.2 : -1.4) + i * 0.3}deg`,
+                clipPath: i % 2
+                  ? 'polygon(0.5% 1%, 99% 0%, 100% 98%, 1% 100%)'
+                  : 'polygon(1% 0%, 100% 1.5%, 98.5% 100%, 0% 97%)',
+                backgroundImage: `repeating-linear-gradient(0deg, transparent 0 22px, color-mix(in srgb, ${STAGE.paperInk} 10%, ${STAGE.paper}) 22px 23px)`
+              }}>
+              <p className="font-heading text-[clamp(16px,2.8cqi,22px)] leading-snug font-semibold text-pretty" dir="auto">{quoted(line, 120)}</p>
+              <KraftTape className="absolute -top-1.5 right-5 w-12 rotate-[8deg]" tint={`color-mix(in srgb, ${p.accent} 32%, #c4b79a)`} />
+            </div>
+          </In>
+        )
+        if (f.well.length < LIST) return <Centre>{kicker}<In at={0.12}><p className={CAPTION}>What went well, from your weekly notes</p></In>{f.well.map((line, i) => slip(line, i))}</Centre>
+        return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well, from your weekly notes</p></In></>,
+          <div className="grid h-full content-center gap-4">{f.well.slice(0, wide ? 3 : 2).map((line, i) => slip(line, i))}</div>)
+      }
       case 'run': {
         const said = <>days in a row with something caught or focused on, {dayjs(f.runFrom).format('D MMMM')} to {dayjs(f.runTo).format('D MMMM')}. Not a streak to keep: just how it went.</>
         const number = <div className={HUGE} style={{ color: p.accent }}><Roll n={f.run} /></div>
@@ -842,32 +898,39 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
   return <div className="absolute inset-0 overflow-hidden">{body}</div>
 }
 
-/** The card to keep: the month on its side, a framed picture, two ranked lists, a big number and a word. */
+/** The card to keep: scrapbook page with a taped photo print, month on the spine, ranked lists and a stamp word. */
 function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
   const { p, world } = look
-  const frame = world === 'files' ? <OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" /> : <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} />
+  const frame = world === 'files'
+    ? <PaperMat ink={p.ink} paper={p.soft} className="!absolute inset-0" />
+    : <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} />
   const picture = f.heroes[0]
   const month = f.period === 'month' ? f.name.split(' ')[0] : 'Week'
   // A tile with nothing in it is not drawn: never "None yet", a 0 or "Quiet" set large as if it were news.
   const list = (title: string, rows: string[]): ReactElement | null => rows.length ? (
-    <div className="min-w-0"><p className="text-[11px] font-semibold text-(--wrap-quiet)">{title}</p>
-      <ol className="mt-1 space-y-0.5 text-[14px] font-bold">{rows.slice(0, 5).map((row, i) => <li key={row + i} className="truncate" dir="auto">{i + 1} {row}</li>)}</ol></div>
+    <div className="min-w-0"><p className="text-[11px] font-semibold tracking-[0.04em] uppercase text-(--wrap-quiet)">{title}</p>
+      <ol className="mt-1 space-y-0.5 text-[14px] font-semibold">{rows.slice(0, 5).map((row, i) => <li key={row + i} className="truncate" dir="auto">{i + 1} {row}</li>)}</ol></div>
   ) : null
   const lists = [list('Top tags', f.tags.map((t) => `#${t.name}`)), list(f.notesLabel, f.notes)].filter(Boolean)
   const figures = [
-    f.minutes > 0 && <div key="minutes"><p className="text-[clamp(26px,5cqi,40px)] leading-none font-black"><Roll n={f.minutes} delay={0.5} /></p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">{f.minutes === 1 ? 'minute' : 'minutes'} focused</p></div>,
-    f.kind !== 'Quiet' && <div key="kind" className="min-w-0"><p className="text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-black" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">your kind of {f.period}</p></div>
+    f.minutes > 0 && <div key="minutes"><p className="font-heading text-[clamp(26px,5cqi,40px)] leading-none font-semibold"><Roll n={f.minutes} delay={0.5} /></p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">{f.minutes === 1 ? 'minute' : 'minutes'} focused</p></div>,
+    f.kind !== 'Quiet' && <div key="kind" className="min-w-0"><p className="font-heading text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-semibold" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">your kind of {f.period}</p></div>
   ].filter(Boolean)
   return (
     <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-11 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report>
-      <In from="scale" className="relative min-h-[64px] overflow-hidden rounded-[6px]">
+      <In from="scale" className="relative min-h-[64px] overflow-hidden">
         <div className="absolute inset-0">{frame}</div>
-        <div className="absolute inset-[8%] left-[22%] overflow-hidden rounded-[4px]" style={{ background: p.soft }}>
-          {picture ? <img src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" /> : <div className="grid size-full place-items-center p-4 text-center text-[20px] font-black break-words">{f.tags[0] ? `#${f.tags[0].name}` : f.name}</div>}
+        {/* Photo print tipped on the page, cream margin, masking tape: scrapbook, not a rounded inset. */}
+        <div className="absolute inset-[10%] left-[24%] rotate-[-1.25deg] overflow-hidden"
+          style={{ background: STAGE.paper, boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 24px -10px rgb(0 0 0 / 0.45)` }}>
+          {picture
+            ? <img src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" style={{ boxShadow: `inset 0 0 0 5px ${STAGE.paper}` }} />
+            : <div className="grid size-full place-items-center p-4 text-center font-heading text-[20px] font-semibold break-words" style={{ color: STAGE.paperInk }}>{f.tags[0] ? `#${f.tags[0].name}` : f.name}</div>}
+          <KraftTape className="absolute top-[-6%] left-1/2 z-10 w-24 -translate-x-1/2 rotate-[-3deg]" />
         </div>
         {/* The month set on its side as large as its strip lets it, never cut: by the strip's height for its letters, and its width. */}
-        <div className="absolute inset-y-0 left-0 grid w-[22%] place-items-center overflow-hidden [container-type:size]" style={{ background: p.bg }}>
-          <span data-wrap-month className="font-black whitespace-nowrap" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: `min(54px, calc(92cqh / ${(0.66 * month.length).toFixed(2)}), 78cqw)` }}>{month}</span>
+        <div className="absolute inset-y-0 left-0 grid w-[22%] place-items-center overflow-hidden [container-type:size]" style={{ background: `color-mix(in srgb, ${p.bg} 92%, ${p.ink})` }}>
+          <span data-wrap-month className="font-heading font-semibold whitespace-nowrap tracking-[-0.02em]" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: `min(54px, calc(92cqh / ${(0.66 * month.length).toFixed(2)}), 78cqw)` }}>{month}</span>
         </div>
       </In>
       <div className="grid min-w-0 [align-content:safe_center] gap-3 @2xl:gap-5">
