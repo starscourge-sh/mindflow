@@ -107,7 +107,7 @@
 /* Drag to split (split-drop.tsx): while something is carried toward a side,
    a list's own lifted row and the search over the page step back, so only
    the small card and the two places show. */
-html[data-split-drag] .mf-drag-picture [data-carried-card] {
+html[data-split-drag] :is(.mf-drag-picture [data-carried-card], [data-carried-self]) {
   opacity: 0 !important;
 }
 html[data-split-drag] [role='dialog'][aria-label='Search'] {

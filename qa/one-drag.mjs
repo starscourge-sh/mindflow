@@ -670,6 +670,17 @@ const oneLook = async (name, at, want) => {
   await wait(450)
   const d = await drawn()
   const told = JSON.stringify(d)
+  // A list that only reorders carries the row itself (23 Nov, the user: no empty room holds its place): no card, the row
+  // under the pointer, the others parted with the one line where it lands, and no band anywhere.
+  if (want.itself) {
+    const self = await h.evaluate(() => { const r = document.querySelector('[data-sortable-id][data-held] > [data-carried-self]')?.getBoundingClientRect(); return r && { top: r.top, bottom: r.bottom, left: r.left } })
+    check(`${name}: the row itself under the pointer, no card`, d.cards === 0 && !!self && Math.abs((self.top + self.bottom) / 2 - at.y) <= 12, JSON.stringify({ cards: d.cards, self, at }))
+    check(`${name}: exactly one line, with its dot, and no band filling any place`, d.lines === 1 && d.dot && !d.rooms && !d.lit && !(await h.locator('[data-own-room]').count()), told)
+    check(`${name}: no row is over another`, d.overlap <= 1, `overlap ${d.overlap}px`)
+    if (SHOTS) for (const look of ['light', 'dark']) { await c.look(look); await wait(150); await h.screenshot({ path: `${SHOTS}/look-${name.replace(/\W+/g, '-')}-${look}.png` }) }
+    if (SHOTS) { await c.look('light'); await wait(150) }
+    return d
+  }
   // (Carried onto a tab, the card rides just under the tab, so the tab's own name stays in sight.)
   check(`${name}: one card, under the pointer`, d.cards === 1 && !!d.card && at.y >= d.card.top - (want.lit ? 36 : 10) && at.y <= d.card.bottom + 10 && at.x >= d.card.left - 60 && at.x <= d.card.right, JSON.stringify({ cards: d.cards, card: d.card, at }))
   check(`${name}: the card says ${want.words}`, want.words instanceof RegExp ? want.words.test(d.words) : d.words === want.words, d.words || '(no words)')
@@ -853,7 +864,7 @@ await part('One look: the Queue', async () => {
     was = await boxes()
     const [a, b] = [await sortRow(queue[0]), await sortRow(queue[1])]
     at = await hold({ x: a.x + 200, y: a.y + a.h / 2 }, { x: a.x + 200, y: b.y + b.h * 0.86 })
-    await oneLook('The Queue, a row carried down', at, { words: 'Move here' })
+    await oneLook('The Queue, a row carried down', at, { itself: true })
     await putBack('The Queue', was)
   } else console.log(`SKIP  One look: the Queue has ${queue.length} rows`)
 })
@@ -864,7 +875,7 @@ await part('One look: the Inbox', async () => {
   const was = await boxes()
   const [a, b] = [await sortRow(rows[0]), await sortRow(rows[1])]
   const at = await hold({ x: a.x + 200, y: a.y + Math.min(20, a.h / 2) }, { x: a.x + 200, y: b.y + b.h * 0.86 })
-  await oneLook('The Inbox, a note carried down', at, { words: 'Move here' })
+  await oneLook('The Inbox, a note carried down', at, { itself: true })
   await putBack('The Inbox', was)
 })
 await part('One look: the sidebar', async () => {
@@ -878,7 +889,7 @@ await part('One look: the sidebar', async () => {
     was = await boxes()
     const [a, b] = [await sortRow(pins[0]), await sortRow(pins[1])]
     at = await hold({ x: a.x + 40, y: a.y + a.h / 2 }, { x: a.x + 40, y: b.y + b.h * 0.86 })
-    await oneLook('The sidebar, a pin carried down', at, { words: 'Move here' })
+    await oneLook('The sidebar, a pin carried down', at, { itself: true })
     await putBack('The sidebar, a pin', was)
   } else console.log(`SKIP  One look: ${pins.length} pins in the sidebar`)
   await sideTop(); await wait(300)

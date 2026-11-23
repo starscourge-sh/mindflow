@@ -14,6 +14,7 @@ import { byKeys, EASE, glideWay, hush, shift, speak, speakAfter, spring as sprin
 import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
+import { InHand } from './carry'
 import Lenis from 'lenis'
 import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED, openSource, sources, type SourceSummary } from '@/lib/sources'
@@ -2874,8 +2875,12 @@ export function VirtualList<T>({ items, keyOf, holds, held, cursor, estimate = 4
     return () => window.removeEventListener('haligtree:show-row', show)
   }, [scroller]) // eslint-disable-line react-hooks/exhaustive-deps
   const drawn = rows.getVirtualItems()
-  // Out of the rows drawn, the row in hand stands on its own at its place, so the list's flow under it never moves.
-  const heldAt = held ? items.findIndex((one) => keyOf(one) === held || !!holds?.(one, held)) : -1
+  // Out of the rows drawn, the row in hand stands on its own at its place, so the list's flow under it never moves. Not
+  // named, it is the one a list round it carries (carry.tsx): a row carried as itself stays drawn under the pointer
+  // however far the list scrolls under it.
+  const hand = useContext(InHand)
+  const holding = held ?? hand
+  const heldAt = holding ? items.findIndex((one) => keyOf(one) === holding || !!holds?.(one, holding)) : -1
   const away = heldAt >= 0 && !drawn.some((one) => one.index === heldAt) ? rows.measurementsCache[heldAt] : undefined
   return (
     // As tall as the rows drawn and the room kept for those above and below them, never a height of its own: a height

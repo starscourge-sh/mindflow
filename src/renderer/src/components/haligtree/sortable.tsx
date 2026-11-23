@@ -295,21 +295,27 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, nestSays, places, parts,
   }
   // A row taller in the list than in the hand (a task with its steps open): the card rides where it was taken.
   const folded = shot ? shot.tall - span : 0
+  // A list that only reorders carries the row itself, under the pointer where it was taken (taken on its folded steps,
+  // by its middle): the others part for it, and nothing fills a place, as a book slides along its shelf (ShelfList).
+  // A list that also takes a row in (a step, a place, another part) carries the card, which says what letting go does.
+  const itself = !onNest && !places && !parts
+  const grab = itself && shot ? (shot.top < span ? shot.top : span / 2) : null
   return (
     // Its screen-reader lines go to the page's foot, never among the rows (a tree of rows counts its children).
     // Where each row slides is worked out once, for them all (Shaped): dnd-kit moves none itself, and reads no row as under the card.
     <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nothing} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={() => read.current()} onDragEnd={(event) => flushSync(() => onDragEnd(event))} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={stayPut}>
         <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={keys.join('\n')}>
-          <Shaped aim={aim} keys={keys} hand={shot?.id ?? null} many={shot ? [shot.id] : []} span={span} inset={0} row={span} snap={snap} blocks={[]} footRoom={false} within={shot?.within}>
+          <Shaped aim={aim} keys={keys} hand={shot?.id ?? null} many={shot ? [shot.id] : []} span={span} inset={0} row={span} snap={snap} blocks={[]} footRoom={false} within={shot?.within} grab={grab}>
             {drawn}
             {/* Folded in the hand, the list keeps the height it had: one scrolled to its end does not jump. */}
             {folded > 0.5 && <div aria-hidden data-kept-height="" style={{ height: folded }} />}
           </Shaped>
         </Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
-      <Overlay dropAnimation={still() || quiet ? null : SETTLE}>
-        {shot && <Lifted shot={shot} words={aim?.label ?? null} refused={!!aim?.refused} at={folded > 0.5 ? shot.top : undefined} />}
+      {/* Carried as itself, nothing is drawn in the hand: the overlay is kept for the closed hand and Esc alone. */}
+      <Overlay dropAnimation={still() || quiet || itself ? null : SETTLE}>
+        {shot && !itself && <Lifted shot={shot} words={aim?.label ?? null} refused={!!aim?.refused} at={folded > 0.5 ? shot.top : undefined} />}
       </Overlay>
     </DndContext>
   )

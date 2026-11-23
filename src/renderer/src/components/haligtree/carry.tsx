@@ -94,6 +94,12 @@ export type Carry = {
   home: string | null
   /** A panel's give: what moves past its place on this run, and by how much. */
   give: Give
+  /**
+   * The row in hand carried as itself (a plain list's own order): how far down it the pointer holds it. It rides under
+   * the pointer there, the others part to show where it lands with the one line, and no band fills any place. Null: a
+   * card is carried instead (a list that also takes a row in as a step, onto a place, or into another part).
+   */
+  grab?: number | null
 }
 /**
  * As a panel takes what is carried its foot swells a little, and everything under
@@ -521,7 +527,32 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
   // carried with it wait, faded, in their places, so only one row's room ever opens and no row is drawn over another.
   // Forming a new group, the room is the dashed place under the row it forms on, and its own place is closed over.
   const room = isDragging && !!aim && aim.gap !== null && !aim.make
-  const fade = isDragging ? 0 : faded ? 0.3 : undefined
+  // Carried as itself: the row rides under the pointer, held where it was taken, and leaves no filled place anywhere.
+  const grab = isDragging ? carry?.grab ?? null : null
+  const itself = grab !== null
+  const self = useRef<HTMLDivElement>(null)
+  // Placed from the row's own box as it now stands (its slide to the room included), again as the pointer moves, as the
+  // list scrolls under it and as that slide changes, so the row stays where the hand took it.
+  useLayoutEffect(() => {
+    const el = self.current
+    if (grab === null || !el) return
+    const put = (): void => {
+      const home = el.parentElement?.getBoundingClientRect()
+      if (home) el.style.translate = `0 ${Math.round(pointerY - grab - home.top)}px`
+    }
+    el.style.transition = 'none'
+    put()
+    window.addEventListener('pointermove', put, true)
+    window.addEventListener('scroll', put, true)
+    return () => {
+      window.removeEventListener('pointermove', put, true)
+      window.removeEventListener('scroll', put, true)
+      // Let go or put back, it glides from under the pointer into its place, on the box's own transition.
+      el.style.transition = ''
+      el.style.translate = ''
+    }
+  }, [grab, y])
+  const fade = itself ? undefined : isDragging ? 0 : faded ? 0.3 : undefined
   return (
     <motion.div
       ref={ref}
@@ -538,7 +569,8 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
       tabIndex={-1}
       role={undefined}
       // Lit too as the one thing standing for its part, where that part has no heading over it (useTargets).
-      className="group/grip relative isolate rounded-md data-[nest-hot]:bg-accent data-[nest-hot]:ring-1 data-[nest-hot]:ring-ring data-[drop-hot]:bg-accent data-[drop-hot]:ring-1 data-[drop-hot]:ring-ring"
+      // Carried as itself, it rides over the rows it passes.
+      className={cn('group/grip relative isolate rounded-md data-[nest-hot]:bg-accent data-[nest-hot]:ring-1 data-[nest-hot]:ring-ring data-[drop-hot]:bg-accent data-[drop-hot]:ring-1 data-[drop-hot]:ring-ring', itself && 'z-30')}
       style={glide.style}
     >
       {/* That a row can be carried, said quietly: a grip in the margin by its left edge, as soon as the pointer is on it, as Today's lines show theirs. */}
@@ -546,13 +578,14 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
       {room && (
         // One hint per drop: a soft band the size of the room, the line through its middle. Drawn anew at each new place.
         // It waits for the rows to make way, so it never shows over one sliding past.
+        // Carried as itself, the rows that part are the room: the line alone marks it, no band.
         <Fragment key={place}>
-          <span aria-hidden data-drop-room={(carry?.along.size ?? 0) + 1} className={ROOM} style={{ top: -inset, height: span - 2, animation: wait }} />
+          {!itself && <span aria-hidden data-drop-room={(carry?.along.size ?? 0) + 1} className={ROOM} style={{ top: -inset, height: span - 2, animation: wait }} />}
           {!aim.make && <DropLine how={aim.how} style={{ left: (aim.indent ?? (aim.into ? INDENT : 0)) + 12, top: span / 2 - inset, animation: wait }} />}
         </Fragment>
       )}
       {/* Its own place, while nothing else is open for it: the same quiet room, never a faded copy of it. */}
-      {isDragging && !room && !aim?.make && <OwnRoom />}
+      {isDragging && !itself && !room && !aim?.make && <OwnRoom />}
       <AnimatePresence>
         {forming && (
           <motion.div
@@ -572,7 +605,10 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
         )}
       </AnimatePresence>
       <div
-        className="transition-[scale,translate,opacity] duration-200 motion-reduce:transition-none"
+        ref={self}
+        // In the hand as itself: lifted off the page in the float material, opaque over the rows and the line it passes.
+        data-carried-self={itself || undefined}
+        className={cn('transition-[scale,translate,opacity] duration-200 motion-reduce:transition-none', itself && 'relative z-10 rounded-md bg-popover shadow-(--mf-shadow-lift) ring-1 ring-foreground/10')}
         style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(fade === undefined ? {} : { opacity: fade }) }}
       >
         {children}
@@ -616,7 +652,7 @@ function slideOf(from: number, gap: number, span: number, rect: (index: number) 
  * bottom its last row, and a group the carried row would land in takes the
  * room in too. So the panel lights exactly the group named, on its own edges.
  */
-export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: mid, snap, blocks, footRoom = true, within, children }: { aim: Aim | null; keys: string[]; hand: string | null; home?: string | null; many: string[]; span: number; inset: number; row: number; snap: boolean; blocks: { id: string; rows: string[] }[]; /** Its panels have air under their last rows, to draw in over. */ footRoom?: boolean; /** The list's own part of the page, where two lists on it hold the same rows (two panes): rows are read there alone. */ within?: ParentNode | null; children: ReactNode }): React.JSX.Element {
+export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: mid, snap, blocks, footRoom = true, within, grab = null, children }: { aim: Aim | null; keys: string[]; hand: string | null; home?: string | null; many: string[]; span: number; inset: number; row: number; snap: boolean; blocks: { id: string; rows: string[] }[]; /** Its panels have air under their last rows, to draw in over. */ footRoom?: boolean; /** The list's own part of the page, where two lists on it hold the same rows (two panes): rows are read there alone. */ within?: ParentNode | null; /** The row in hand carried as itself, held this far down (Carry's `grab`). */ grab?: number | null; children: ReactNode }): React.JSX.Element {
   const { droppableRects } = useDndContext()
   const gap = aim?.gap ?? null
   const shapes = new Map<string, Shape>()
@@ -717,9 +753,11 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   const signature = [...shapes].map(([id, one]) => `${id}:${one.top}:${one.bottom}`).join() + [...ys].map(([id, y]) => `${id}=${Math.round(y)}`).join()
   const along = many.filter((one) => one !== hand).join()
   // A new value only when something drawn changes: every row reads it.
-  const value = useMemo<Carry>(() => ({ aim, height: mid, span: span + (aim?.fit ?? 0) - (aim?.air ?? 0), along: new Set(along ? along.split(',') : []), hand, shapes, ys, snap, inset: isGroup(hand ?? '') ? inset + (aim?.lift ?? 0) - (aim?.air ?? 0) : 0, home, give: give.current }), [aim, mid, span, inset, along, hand, signature, snap, home, give.current]) // eslint-disable-line react-hooks/exhaustive-deps
-  return <Carrying.Provider value={value}>{children}</Carrying.Provider>
+  const value = useMemo<Carry>(() => ({ aim, height: mid, span: span + (aim?.fit ?? 0) - (aim?.air ?? 0), along: new Set(along ? along.split(',') : []), hand, shapes, ys, snap, inset: isGroup(hand ?? '') ? inset + (aim?.lift ?? 0) - (aim?.air ?? 0) : 0, home, give: give.current, grab }), [aim, mid, span, inset, along, hand, signature, snap, home, give.current, grab]) // eslint-disable-line react-hooks/exhaustive-deps
+  return <Carrying.Provider value={value}><InHand.Provider value={hand}>{children}</InHand.Provider></Carrying.Provider>
 }
+/** The row in hand alone, which changes only at the lift and the drop: a long list keeps it drawn (ui.tsx VirtualList). */
+export const InHand = createContext<string | null>(null)
 
 /**
  * A group's panel in three parts, a rounded top, a straight middle and a
