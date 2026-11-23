@@ -192,7 +192,10 @@ export async function moveFolders(copy: (to: string) => Promise<void> = (to) => 
   const db = database()
   type Row = { id: string; list: string; name: string; parent: string | null; icon: string | null; color: string | null; folded: number; made: string; folder: number }
   const all = () => db.prepare('select id, list, name, parent_id as parent, icon, color, folded, created_at as made, folder from note_groups').all() as Row[]
-  if (!all().some((one) => one.folder && one.list !== LIST)) return { moved: false, why: 'nothing to move' }
+  // Only Writing's and Gems' old folders: a project (Tasks, also kept as a folder-shaped group) is never one of them. Taken
+  // for one, every project became a folder at the next start, its tasks with it (the user, 23 Nov: "No projects yet").
+  const oldOne = (one: { folder: unknown; list: string }): boolean => !!one.folder && (one.list === 'article' || one.list === 'nugget')
+  if (!all().some(oldOne)) return { moved: false, why: 'nothing to move' }
   // Put back by the person ("Put the old folders back"): left so until they ask for the move again.
   if (setting<{ undone?: string } | null>('folderMove', null)?.undone) return { moved: false, why: 'nothing to move' }
   const dir = join(backupDir(), 'database')
@@ -209,10 +212,10 @@ export async function moveFolders(copy: (to: string) => Promise<void> = (to) => 
   atomically(() => {
     const rows = all()
     // Read again inside the transaction: another start could have moved them while the copy ran.
-    const old = rows.filter((one) => one.folder && one.list !== LIST)
+    const old = rows.filter(oldOne)
     if (!old.length) return
     const byId = new Map(rows.map((one) => [one.id, one]))
-    const isOldFolder = (id: string | null): boolean => !!id && !!byId.get(id)?.folder && byId.get(id)!.list !== LIST
+    const isOldFolder = (id: string | null): boolean => !!id && !!byId.get(id) && oldOne(byId.get(id)!)
     const record = db.prepare('insert into folder_move (thing, what, was) values (?, ?, ?)')
     // The old order of Writing's and Gems' lists, whole: the move drops the folders' keys from them.
     const orders = db.prepare("select list, id, position from note_order where list in ('article', 'nugget')").all()

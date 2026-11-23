@@ -31,6 +31,13 @@ export function projectColumns(): void {
   db.exec('create index if not exists tasks_by_project on tasks(project_id)')
   // Each task the one-time move took out of a folder: where it was, and the project it went to (made: 1 when the move made it).
   db.exec('create table if not exists project_move (task text not null, folder text, project text not null, made integer not null default 0)')
+  // A project the old folder move took for a folder (folders.ts, before 23 Nov) is a project again: tasks only ever live
+  // in projects, so a group that tasks belong to is one. Its folder's sidebar place goes with it.
+  const taken = db.prepare(`select distinct g.id from note_groups g join tasks t on t.project_id = g.id where g.list = 'folders'`).all() as { id: string }[]
+  for (const one of taken) {
+    db.prepare(`update note_groups set list = '${LIST}' where id = ?`).run(one.id)
+    db.prepare("delete from note_order where list = 'folders' and id = ?").run('g:' + one.id)
+  }
 }
 
 export function listProjects(): Project[] {
