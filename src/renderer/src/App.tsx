@@ -41,7 +41,7 @@ import { ReviewView } from './components/haligtree/review-view'
 import { SessionFooter } from './components/haligtree/session-footer'
 import { afterPaint, shownName, unloaded, useAppearance, useInboxDays, useLive, warmLive } from './lib/haligtree'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/haligtree/ui'
+import { BackToTop, Empty, Island, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/haligtree/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { cn } from '@/lib/cn'
 import { Count, Rolling, Toaster, Typed, refuse, sayNow, toast, whyFailed } from './components/haligtree/ui'
@@ -3113,10 +3113,12 @@ function DetailsDrawer({ open, id, captures, onOpenChange, onOpen }: {
         </SheetHeader>
         <div>
           <CaptureProps capture={capture} onOpen={onOpen} className="w-full border-l-0 p-2 pt-3" />
+          {/* An island under its heading, as the details' own groups are above it. */}
           {original !== null && original !== undefined && (
-            <div className="mx-4 mt-3 border-t pt-3">
-              <p className="mb-1 text-meta text-muted-foreground">As first written</p>
-              <p className="whitespace-pre-wrap text-muted-foreground">{textOf(original as JSONContent)}</p>
+            <div className="px-2 pb-3">
+              <Island compact title="As first written">
+                <p className="px-2 py-1.5 whitespace-pre-wrap text-control text-foreground">{textOf(original as JSONContent)}</p>
+              </Island>
             </div>
           )}
         </div>
@@ -3166,29 +3168,26 @@ const SourceDrawer = ({
       {/* What the note uses, before what it is: its tags, and the files a
           backup has to carry with it. */}
       {doc && (tagsOf(doc).length > 0 || assetsOf(doc).length > 0) && (
-        <div className="space-y-3 border-b p-4 text-xs">
+        <div className="border-b p-2 pb-3">
           {tagsOf(doc).length > 0 && (
-            <div>
-              <p className="mb-1 text-muted-foreground">Tags</p>
-              <p>{tagsOf(doc).map((tag) => `#${tag.value}${tag.count > 1 ? ` ×${tag.count}` : ''}`).join('  ')}</p>
-            </div>
+            <Island compact title="Tags">
+              <p className="px-2 py-1.5 text-control text-foreground">{tagsOf(doc).map((tag) => `#${tag.value}${tag.count > 1 ? ` ×${tag.count}` : ''}`).join('  ')}</p>
+            </Island>
           )}
           {assetsOf(doc).length > 0 && (
-            <div>
-              {/* What the note holds besides words, as you would know them: a
-                  picture by its look, a file by its name. The store names
-                  them by a hash of their bytes, which means nothing to read. */}
-              <p className="mb-1 text-muted-foreground">Pictures and files</p>
-              <ul className="flex flex-wrap gap-2">
+            // What the note holds besides words, as you would know them: a picture by its look, a file by its name. The
+            // store names them by a hash of their bytes, which means nothing to read.
+            <Island compact title="Pictures and files">
+              <ul className="flex flex-wrap gap-2 p-2">
                 {assetsOf(doc).map((asset) => (
                   <li key={asset.src} className="flex min-w-0 items-center gap-2">
                     {asset.kind === 'image'
                       ? <img src={asset.src} alt="" className="size-12 rounded-md border object-cover" />
-                      : <span className="max-w-48 truncate rounded-md border px-2 py-1">{asset.name ?? 'File'}</span>}
+                      : <span className="max-w-48 truncate rounded-md border px-2 py-1 text-control">{asset.name ?? 'File'}</span>}
                   </li>
                 ))}
               </ul>
-            </div>
+            </Island>
           )}
         </div>
       )}
