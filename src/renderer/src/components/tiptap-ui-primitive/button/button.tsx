@@ -109,6 +109,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     if (!tooltip || !showTooltip) {
       return (
         <button
+          // A button, never a form's submit: inside a form (the add-a-task box's description), a picture's "S" sent the
+          // task off half written (the user, 23 Nov). A caller's own type still wins.
+          type="button"
           data-slot="tiptap-button"
           className={cn("tiptap-button", className)}
           ref={ref}
@@ -127,6 +130,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Tooltip delay={200}>
         <TooltipTrigger
+          type="button"
           data-slot="tiptap-button"
           className={cn("tiptap-button", className)}
           ref={ref}
