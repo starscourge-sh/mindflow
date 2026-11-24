@@ -422,7 +422,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         {/* No card Silk: night aurora read as Spotify smoke (07-gems-smoke). Texture is Settings › Grain only. */}
         <div className="relative z-[2] min-h-0 flex-1" onPointerDown={(event) => void (pressedAt.current = event.clientX)} onClick={(event) => {
           // Collage (photos, slips, stamps, page leaf) never turns the card; only empty story ground and chrome do.
-          if (Math.abs(event.clientX - pressedAt.current) > 6 || (event.target as HTMLElement).closest('button, a, [data-wrap-flow], [data-wrap-collage], [data-wrap-folder], [data-wrap-cover], [data-picture-row]')) return
+          // Scraps and prints stay look-only; empty journal ground still turns the card (notes used to block the whole page).
+          if (Math.abs(event.clientX - pressedAt.current) > 6 || (event.target as HTMLElement).closest('button, a, [data-wrap-flow], [data-wrap-collage], [data-wrap-cover], [data-picture-row], [data-wrap-hand-scrap], [data-wrap-tipped], [data-wrap-date], [data-wrap-stamp], [data-wrap-margin]')) return
           const box = event.currentTarget.getBoundingClientRect()
           go(event.clientX - box.left > box.width / 3 ? at + 1 : at - 1)
         }}>
@@ -662,8 +663,10 @@ function wrapSays(f: Facts): WrapPage[] {
   const page = (kind: Kind, says: string, leans: Lean = null, names: string[] = []): void => void pages.push({ page: kind, says, lean: leans, names, span: f.period })
   const caught = lean(f.captures, f.before.captures)
   const focused = lean(f.minutes, f.before.minutes)
+  // Focus “down” stays soft: quieter hours, never a guilt “less than” peak on the focus card.
+  const focusSaid = focused === 'down' ? `Focus hours were quieter than ${last}.` : `You focused ${moved[focused!]} ${last}.`
   if (f.captures) page('intro', `You caught ${moved[caught!]} ${last}.`, caught)
-  else if (f.minutes >= 1) page('intro', `You focused ${moved[focused!]} ${last}.`, focused)
+  else if (f.minutes >= 1) page('intro', focusSaid, focused)
   if (f.tags.length) {
     const top = f.tags[0].name
     const had = f.before.tags.find((one) => one.name === top)?.n ?? 0
@@ -671,7 +674,7 @@ function wrapSays(f: Facts): WrapPage[] {
     else if (f.tags[0].n > had * 1.3) page('tags', `#${top} came up more than ${last}.`, 'up', [top])
     else page('tags', `#${top} came up most this ${f.period}.`, null, [top])
   } else if (f.captures) page('tags', 'None of it was tagged.')
-  if (f.minutes >= 1) page('focus', `You focused ${moved[focused!]} ${last}.`, focused)
+  if (f.minutes >= 1) page('focus', focusSaid, focused)
   if (f.busiest) {
     const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
     const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
@@ -746,7 +749,12 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
   const top = f.tags.slice(0, 5)
   const night = world === 'night'
   const kicker = lead ? <In at={0.05} from={e}><p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty" style={{ color: p.ink }}>{lead}</p></In> : null
-  const split = (a: ReactNode, b: ReactNode): ReactElement => <Split a={<>{kicker}{a}</>} b={b} flip={flip} />
+  const split = (a: ReactNode, b: ReactNode): ReactElement => (
+    <div className="relative h-full">
+      {!night && <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="pointer-events-none absolute inset-[4%] -z-10 opacity-95" />}
+      <Split a={<>{kicker}{a}</>} b={b} flip={flip} />
+    </div>
+  )
   const caption = (own: ReactNode): ReactElement => <p className={CAPTION}>{own}</p>
   /** Headlines on a cream journal page: graphite ink, never the night palette's pale wash. */
   const pageHead = (own: ReactNode, className = BIG): ReactElement => <h2 className={className} style={{ color: STAGE.paperInk }}>{own}</h2>
@@ -755,13 +763,17 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
   /** One thing to say, alone in the middle of the card: the lead-in, the heading, then its sentence under it. */
   const alone = (head: ReactNode, said: ReactNode, more?: ReactNode): ReactElement => (
     <Centre>
-      {/* Quiet blotter behind a lone number so the card is still a desk, not empty air. No KEPT badge. */}
-      <div aria-hidden data-wrap-collage className="pointer-events-none absolute inset-[8%] -z-10 opacity-60" style={{
-        background: `color-mix(in srgb, ${p.accent} 10%, ${p.soft})`,
-        backgroundImage: 'var(--wrap-paper-grain)',
-        backgroundSize: '120px',
-        clipPath: 'polygon(0.5% 1.2%, 99% 0.3%, 100% 98.5%, 1% 99.2%)'
-      }} />
+      {/* Same desk language as journal cards: cream gets a JournalField; night keeps a soft blotter. */}
+      {!night ? (
+        <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="pointer-events-none absolute inset-[6%] -z-10" />
+      ) : (
+        <div aria-hidden data-wrap-collage className="pointer-events-none absolute inset-[8%] -z-10 opacity-60" style={{
+          background: `color-mix(in srgb, ${p.accent} 10%, ${p.soft})`,
+          backgroundImage: 'var(--wrap-paper-grain)',
+          backgroundSize: '120px',
+          clipPath: 'polygon(0.5% 1.2%, 99% 0.3%, 100% 98.5%, 1% 99.2%)'
+        }} />
+      )}
       <LampWash ink={p.ink} accent={p.accent} className="pointer-events-none -z-10 opacity-70" />
       {kicker}<In at={0.18} from={e} pace="linger">{head}</In><In at={0.58} pace="linger"><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.78} from="lift" pace="snap" className="w-full">{more}</In>}
     </Centre>
@@ -892,10 +904,16 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
           <Rows p={p} wide={wide} rows={f.sites.slice(0, 5).map((one) => ({ key: one.site, name: one.site, said: timesSaid(one.count), n: one.count }))} />)
       }
       case 'reading': {
-        // Finished means its end reached with half its reading time spent on it: said under the number, so it is never a guess.
+        // Rule lives in the Tip; the card says the finish count and what is left, never a lecture.
         const { total, finished, left } = f.reads
-        const head = <h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2>
-        const said = `Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up${left.length < LIST ? `: ${and(left.map((one) => quoted(one.title, 50)))}` : ''}.` : ''}`
+        const head = (
+          <Tip label="Finished means its end reached with at least half its reading time spent">
+            <h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2>
+          </Tip>
+        )
+        const said = left.length
+          ? `${num(left.length)} left part way, to pick back up${left.length < LIST ? `: ${and(left.map((one) => quoted(one.title, 50)))}` : ''}.`
+          : 'A solid stack of finishes.'
         if (left.length < LIST) return alone(head, said)
         return split(<><In at={0.12}>{head}</In><In at={0.45}>{caption(said)}</In></>,
           <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} />)
@@ -965,20 +983,23 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
             {more > 0 ? ` · and ${more} more kept` : ''}
           </>
         )
+        const showScrap = !!(tip || lead)
         return (
-          <div className="absolute inset-0" data-wrap-folder>
+          <div className="absolute inset-0">
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0">
               {/* Hard brand strip: nothing from the page may enter the bottom ~3.5rem where HALIGTREE sits. */}
               <div className="absolute inset-0 overflow-hidden px-[12%] pt-12 pr-6 pb-[3.5rem] text-left">
                 <p aria-hidden className="pointer-events-none absolute top-[18%] left-[1.5%] m-0 font-heading text-[clamp(16px,2.8cqi,24px)] font-semibold tracking-[0.14em] uppercase"
                   style={{ color: marginInk, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Gems</p>
-                <InkStamp label={String(Math.max(f.gems, lines.length) || 1)} color={p.accent} seed={seed + 17} heavy className="absolute top-[10%] right-[4%] z-10" />
-                <div className="mb-2 flex items-start justify-between gap-3 pr-[10%]">
+                <div className="mb-2 flex items-start justify-between gap-3 pr-[6%]">
                   <div className="min-w-0">
                     {pageLead}
                     <In at={0.08}>{pageHead(fill(look.folder, f.name, f.period), 'font-heading text-[clamp(22px,4cqi,32px)] leading-[1.05] font-semibold tracking-[-0.02em] text-balance')}{pageCap(said)}</In>
                   </div>
-                  <DateStamp label={stamp} color={p.accent} seed={19} className="mt-1 shrink-0" />
+                  <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
+                    <DateStamp label={stamp} color={p.accent} seed={19} />
+                    <InkStamp label={String(Math.max(f.gems, lines.length) || 1)} color={p.accent} seed={seed + 17} heavy />
+                  </div>
                 </div>
                 <div className="relative min-h-0 overflow-hidden" style={{ height: 'calc(100% - 4rem)' }}>
                   <div className="absolute top-0 right-0 z-[2] flex max-h-[70%] w-[44%] max-w-[260px] flex-col items-stretch gap-2 overflow-hidden">
@@ -1003,14 +1024,14 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                         </div>
                       </In>
                     ) : null}
-                    <MarginNote text={quoted(rest[0] ?? f.notesLabel, 36)} ink={STAGE.paperInk} paper={STAGE.paper} seed={11}
-                      className="ml-auto max-w-[85%] text-[13px]" />
+                    {/* One scrap only: margin note when there is no tip/hand block. */}
+                    {!showScrap && (
+                      <MarginNote text={quoted(rest[0] ?? f.notesLabel, 36)} ink={STAGE.paperInk} paper={STAGE.paper} seed={11}
+                        className="ml-auto max-w-[85%] text-[13px]" />
+                    )}
                     <In at={0.65} className="flex flex-wrap justify-end gap-1.5">
-                      {f.tags.slice(0, 4).map((tag, i) => (
+                      {f.tags.slice(0, 2).map((tag, i) => (
                         <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 12)} color={p.accent} seed={seed + 40 + i} />
-                      ))}
-                      {f.pages.slice(0, 2).map((page, i) => (
-                        <DateStamp key={page} label={quoted(page, 14).toUpperCase()} color={p.accent} seed={seed + 50 + i} />
                       ))}
                     </In>
                   </div>
