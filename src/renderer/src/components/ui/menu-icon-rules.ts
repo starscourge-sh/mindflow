@@ -26,6 +26,8 @@ const RULES: [RegExp, LucideIcon][] = [
   // Projects, where tasks live (side-projects.tsx, projects-view.tsx): a project wears the group's stack, as its row does.
   [/^all projects/i, Layers],
   [/^new project/i, FolderPlus],
+  // A task grown into a goal (tasks-view.tsx): the goal's own flag.
+  [/^turn into a goal/i, Flag],
   [/^move (?:[0-9,]+ )?to project/i, FolderInput],
   [/^archive project$/i, Archive],
   [/^bring back from the archive$/i, ArchiveRestore],

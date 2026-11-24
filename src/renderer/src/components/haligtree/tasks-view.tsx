@@ -38,6 +38,7 @@ import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, PANEL_FIELD, PanelRow, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
+import { startGoal } from './goals-view'
 import { ThreeMark, keptThree, saveThree, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
 import { type AtLink } from './at-notes'
@@ -463,6 +464,14 @@ export const carried = (task: Pick<Task, 'rollovers' | 'reschedules'>): number =
 /** Skipped this many times in a row, a routine asks whether it is still wanted. */
 const SKIP_ASK = 3
 
+/** A task grown into a goal: the New goal sheet with its name, then the task out of Tasks; one Undo takes both back. */
+async function turnIntoGoal(task: Task): Promise<void> {
+  const id = await startGoal((type, which) => window.api.openInHome(type, which), splitTags(task.title).text || task.title)
+  if (!id) return
+  await haligtree.saveTask(task.id, { status: 'dropped' })
+  toast('Now a goal: the task left Tasks', () => void Promise.all([haligtree.dropGoal(id), haligtree.saveTask(task.id, { status: 'open' })]))
+}
+
 /** The way into Someday, with no count left over to ask again; Undo puts the day and the counts back. */
 const toSomeday = (task: Task): void => {
   const was = { due: task.dueAt, plan: task.planFor, rollovers: task.rollovers ?? 0, reschedules: task.reschedules }
@@ -649,7 +658,10 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     thought && { label: 'Add a thought…', keys: ';', run: thought },
     // Tasks live in projects, never in folders (lib/projects.ts).
     { label: 'Move to project…', keys: '⇧⌘M', run: () => askProject([task.id]) },
-    !!task.projectId && { label: 'Take out of its project', hint: 'Stays in Tasks', run: () => void moveToProject([task.id], null) }
+    !!task.projectId && { label: 'Take out of its project', hint: 'Stays in Tasks', run: () => void moveToProject([task.id], null) },
+    // Bigger than a task: a goal, with a day or none (Someday), its name brought along; the task leaves Tasks with Undo
+    // (the owner, 24 Nov: "what to do when a task becomes a long term goal or someday").
+    open_ && { label: 'Turn into a goal…', hint: 'With a day, or Someday; it leaves Tasks', run: () => void turnIntoGoal(task) }
   ]
   const leaving: RowItem[] = [
     copyLinkItem(`task:${task.id}`, splitTags(task.title).text || task.title),
