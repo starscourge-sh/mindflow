@@ -58,6 +58,38 @@ try {
   for (let i = 0; i < 14; i++) {
     const kind = await h.locator('[data-wrap-card]').getAttribute('data-wrap-card')
     kinds.push(kind)
+    if (kind === 'notes') {
+      // Brand (HALIGTREE) and any “more” line must not share pixels on the notes card.
+      const clear = await h.evaluate(() => {
+        const card = document.querySelector('[data-wrap-card]')
+        const brand = card?.querySelector('[data-wrap-brand]')
+        if (!card || !brand) return { ok: false, why: 'missing brand or card' }
+        const b = brand.getBoundingClientRect()
+        const hits = []
+        const moreLines = []
+        const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = (node.textContent || '').replace(/\s+/g, ' ').trim()
+          if (!text || !/\bmore\b/i.test(text)) continue
+          if (node.parentElement?.closest('[data-wrap-brand], [aria-hidden="true"]')) continue
+          const range = document.createRange()
+          range.selectNodeContents(node)
+          for (const r of [...range.getClientRects()].filter((box) => box.width > 0.5 && box.height > 0.5)) {
+            moreLines.push({ text: text.slice(0, 72), top: Math.round(r.top), bottom: Math.round(r.bottom) })
+            if (r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top) {
+              hits.push(text.slice(0, 72))
+            }
+          }
+        }
+        return {
+          ok: hits.length === 0,
+          hits,
+          moreLines,
+          brand: { top: Math.round(b.top), bottom: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right) }
+        }
+      })
+      check('notes brand and “more” line share no pixels', clear.ok, JSON.stringify(clear))
+    }
     if (SHOTS) {
       await wait(kind === 'intro' || kind === 'notes' || kind === 'well' || kind === 'report' ? 700 : 280)
       const box = await h.locator('[data-wrap-card]').boundingBox()

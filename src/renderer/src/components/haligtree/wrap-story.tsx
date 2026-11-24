@@ -949,24 +949,31 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         const rule = (w: string, strong = false): ReactElement => (
           <span aria-hidden className="mt-2 block h-px" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: w, opacity: strong ? 0.35 : 0.18 }} />
         )
+        // “N more” lives under the head — never on the brand row (HALIGTREE is bottom-5 left-5 on the card).
+        const said = (
+          <>
+            {f.notesLabel}
+            {f.gems > 0 ? ` · ${plural(f.gems, 'gem')} this ${f.period}` : ''}
+            {more > 0 ? ` · and ${more} more below` : ''}
+          </>
+        )
         return (
           <div className="absolute inset-0" data-wrap-folder>
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0">
-              {/* pb clears HALIGTREE (card bottom-5 left-5); overflow clips any tipped scrap. */}
-              <div className="absolute inset-0 overflow-hidden px-[12%] pt-12 pr-6 pb-16 text-left">
+              {/* Hard brand strip: nothing from the page may enter the bottom ~3.5rem where HALIGTREE sits. */}
+              <div className="absolute inset-0 overflow-hidden px-[12%] pt-12 pr-6 pb-[3.5rem] text-left">
                 <p aria-hidden className="pointer-events-none absolute top-[18%] left-[1.5%] m-0 font-heading text-[clamp(16px,2.8cqi,24px)] font-semibold tracking-[0.14em] uppercase"
                   style={{ color: marginInk, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Gems</p>
                 <InkStamp label={String(Math.max(f.gems, lines.length) || 1)} color={p.accent} seed={seed + 17} heavy className="absolute top-[10%] right-[4%] z-10" />
                 <div className="mb-2 flex items-start justify-between gap-3 pr-[10%]">
                   <div className="min-w-0">
                     {pageLead}
-                    <In at={0.08}>{pageHead(fill(look.folder, f.name, f.period), 'font-heading text-[clamp(22px,4cqi,32px)] leading-[1.05] font-semibold tracking-[-0.02em] text-balance')}{pageCap(<>{f.notesLabel}{f.gems > 0 ? ` · ${plural(f.gems, 'gem')} this ${f.period}` : ''}</>)}</In>
+                    <In at={0.08}>{pageHead(fill(look.folder, f.name, f.period), 'font-heading text-[clamp(22px,4cqi,32px)] leading-[1.05] font-semibold tracking-[-0.02em] text-balance')}{pageCap(said)}</In>
                   </div>
                   <DateStamp label={stamp} color={p.accent} seed={19} className="mt-1 shrink-0" />
                 </div>
-                <div className="relative min-h-0 overflow-hidden" style={{ height: 'calc(100% - 4.25rem)' }}>
-                  {/* Right mass: tip or hand block, then margin scrap tucked under it — never the brand corner. */}
-                  <div className="absolute top-0 right-0 z-[2] flex max-h-[72%] w-[44%] max-w-[260px] flex-col items-stretch gap-2 overflow-hidden">
+                <div className="relative min-h-0 overflow-hidden" style={{ height: 'calc(100% - 4rem)' }}>
+                  <div className="absolute top-0 right-0 z-[2] flex max-h-[70%] w-[44%] max-w-[260px] flex-col items-stretch gap-2 overflow-hidden">
                     {tip ? (
                       <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} at={0.16}
                         className="h-44 w-full shrink-0" />
@@ -988,7 +995,6 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                         </div>
                       </In>
                     ) : null}
-                    {/* Keep scrap on the right half — MarginNote’s tilt must not reach HALIGTREE. */}
                     <MarginNote text={quoted(rest[0] ?? f.notesLabel, 36)} ink={STAGE.paperInk} paper={STAGE.paper} seed={11}
                       className="ml-auto max-w-[85%] text-[13px]" />
                     <In at={0.65} className="flex flex-wrap justify-end gap-1.5">
@@ -1000,9 +1006,9 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                       ))}
                     </In>
                   </div>
-                  {/* Left: packed ink only — brand corner stays empty. */}
-                  <div className={`relative z-[1] flex h-full min-h-0 flex-col overflow-hidden ${tip || lead ? 'w-[50%] max-w-[32ch] pr-1' : 'w-full'}`}>
-                    <ol className="relative m-0 flex min-h-0 list-none flex-col gap-2.5 overflow-hidden p-0">
+                  {/* Left list only, height follows content — never stretched into the brand strip. */}
+                  <div className={`relative z-[1] flex max-h-full flex-col overflow-hidden ${tip || lead ? 'w-[50%] max-w-[32ch] pr-1' : 'w-full'}`}>
+                    <ol className="relative m-0 flex list-none flex-col gap-2.5 overflow-hidden p-0">
                       {lines.map((note, i) => (
                         <In key={note + i} at={0.2 + i * 0.06} from="lift" pace={i === 0 ? 'linger' : 'snap'}>
                           <li className="flex min-w-0 gap-2" dir="auto">
@@ -1015,16 +1021,10 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                         </In>
                       ))}
                     </ol>
-                    {more > 0 && (
-                      <In at={0.55} className="mt-3 shrink-0">
-                        <p className="m-0 text-[13px] font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>and {plural(more, 'more gem')} kept this {f.period}</p>
-                        {rule('70%')}
-                      </In>
-                    )}
                     {sparse && (
-                      <div aria-hidden className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-4 overflow-hidden opacity-35">
+                      <div aria-hidden className="mt-3 flex flex-col gap-4 opacity-35">
                         {[0, 1].map((i) => (
-                          <span key={i} className="block h-px shrink-0" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${78 - i * 9}%` }} />
+                          <span key={i} className="block h-px" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${78 - i * 9}%` }} />
                         ))}
                       </div>
                     )}
