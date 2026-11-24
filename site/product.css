@@ -1,0 +1,299 @@
+/* Haligtree, set the way a Mac product page is set: one idea, then the real window. */
+
+:root {
+  color-scheme: light;
+  --ink: #1d1d1f;
+  --studio: #f5f5f7;
+  --paper: #fff;
+  --night: #000;
+  --day: #f5f5f7;
+  --hair: rgb(0 0 0 / 0.08);
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-color: #c7c7cc transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--studio);
+  color: var(--ink);
+  font: 17px/1.47 var(--sans);
+  letter-spacing: -0.016em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--day);
+}
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+img { max-width: 100%; display: block; }
+p { margin: 0; }
+
+.skip {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  z-index: 20;
+  padding: 0.4rem 0.7rem;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.skip:focus { top: 0.6rem; }
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  height: 48px;
+  padding: 0 max(22px, calc((100% - 1120px) / 2));
+  background: rgb(251 251 253 / 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+html.scrolled .nav { box-shadow: inset 0 -1px 0 var(--hair); }
+
+html.on-ink .nav {
+  background: rgb(0 0 0 / 0.72);
+  box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.14);
+}
+html.on-ink .mark,
+html.on-ink .nav nav a { color: var(--day); }
+
+.mark {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.nav nav {
+  display: flex;
+  gap: 1.6rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav nav::-webkit-scrollbar { display: none; }
+
+.nav a {
+  color: var(--ink);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav nav a { opacity: 0.88; }
+.nav nav a:hover { opacity: 1; }
+
+.hero, .stage {
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+.hero {
+  padding-top: 4.5rem;
+  padding-bottom: 1rem;
+  text-align: center;
+}
+
+h1, h2 {
+  margin: 0 auto;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+h1 { font-size: clamp(3.25rem, 7.4vw, 6rem); max-width: 12ch; }
+h2 { font-size: clamp(2.6rem, 5.4vw, 4.5rem); max-width: 18em; }
+
+.dek, .stage p {
+  max-width: 34rem;
+  margin: 1.15rem auto 0;
+  font-size: clamp(1.15rem, 2vw, 1.35rem);
+  line-height: 1.4;
+  letter-spacing: -0.018em;
+  text-wrap: pretty;
+}
+
+.cta { margin-top: 1.7rem; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 980px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 17px;
+  letter-spacing: -0.012em;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { background: #333336; }
+.btn:active { transform: scale(0.97); }
+
+.window {
+  width: min(1120px, 100%);
+  margin: clamp(2.75rem, 6vh, 4.25rem) auto 0;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: #eceae6;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.04),
+    0 22px 50px -24px rgb(0 0 0 / 0.38);
+  overflow: hidden;
+}
+
+.chrome {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+}
+
+.lights { display: flex; gap: 7px; position: relative; z-index: 1; }
+.lights i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: block;
+}
+.lights i:nth-child(1) { background: #ff5f57; }
+.lights i:nth-child(2) { background: #febc2e; }
+.lights i:nth-child(3) { background: #28c840; }
+
+.wtitle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: #6e6e73;
+  pointer-events: none;
+}
+
+.screen { overflow: hidden; background: #f6f3ec; }
+.screen img { width: 100%; height: auto; }
+
+/* Crops hide the sandbox strip and the book name in the corner. */
+.crop-review { aspect-ratio: 1600 / 760; }
+.crop-review img { margin-top: -15.2%; }
+
+.crop-page { aspect-ratio: 1600 / 500; }
+.crop-page img { margin-top: -8.4%; }
+
+.crop-year { aspect-ratio: 1600 / 600; }
+.crop-year img { margin-top: -33%; }
+
+.stage {
+  padding-top: clamp(6.5rem, 14vh, 10.5rem);
+  padding-bottom: clamp(6.5rem, 14vh, 10.5rem);
+  text-align: center;
+  scroll-margin-top: 4.5rem;
+}
+
+.stage-paper { background: var(--paper); }
+.stage-studio { background: var(--studio); }
+.stage-ink {
+  background: var(--night);
+  color: var(--day);
+}
+.stage-ink :focus-visible { outline-color: var(--day); }
+
+kbd {
+  font-family: inherit;
+  font-weight: 590;
+  font-size: 0.92em;
+  letter-spacing: 0;
+}
+
+.stage-ink kbd {
+  display: inline-block;
+  padding: 0.02em 0.38em 0.06em;
+  border-radius: 6px;
+  background: #2a2a2c;
+  color: var(--day);
+}
+
+.panel {
+  width: min(860px, 100%);
+  margin: clamp(3rem, 7vh, 4.5rem) auto 0;
+  border-radius: 22px;
+  overflow: hidden;
+  aspect-ratio: 1600 / 372;
+  box-shadow: 0 28px 70px -20px rgb(0 0 0 / 0.65);
+}
+.panel img { width: 100%; height: auto; }
+
+.close { padding-bottom: clamp(8rem, 18vh, 13rem); }
+.close p + p { margin-top: 0.85rem; }
+
+footer {
+  padding: 1.5rem 22px 2.4rem;
+  background: var(--studio);
+  color: #6e6e73;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+footer p { margin: 0; }
+
+@keyframes rise {
+  from { transform: translateY(18px); }
+  to { transform: none; }
+}
+
+.hero .window { animation: rise 1.05s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@supports (animation-timeline: view()) {
+  .panel img {
+    animation: drift linear both;
+    animation-timeline: view();
+    animation-range: cover 10% cover 90%;
+  }
+  @keyframes drift {
+    from { transform: translateY(22px); }
+    to { transform: translateY(-22px); }
+  }
+}
+
+@media (max-width: 720px) {
+  .nav { padding-inline: 16px; }
+  .hero, .stage { padding-inline: 16px; }
+  .nav nav { gap: 1rem; }
+  h1 { font-size: clamp(2.7rem, 12vw, 3.4rem); }
+  .window { border-radius: 10px; }
+  .chrome { height: 34px; }
+  .lights i { width: 10px; height: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .hero .window,
+  .panel img { animation: none; }
+}

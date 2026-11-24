@@ -4,51 +4,83 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Haligtree</title>
-<link rel="stylesheet" href="style.css">
+<meta name="description" content="A commonplace book for the Mac. What you keep comes back.">
+<link rel="stylesheet" href="product.css">
 </head>
 <body>
-<header class="wrap top"><a class="mark" href="index.html">Haligtree</a><nav><a href="index.html#features">Features</a><a href="index.html#for">Who it is for</a></nav></header>
+<a class="skip" href="#writing">Skip to the book</a>
+<header class="nav">
+  <a class="mark" href="index.html">Haligtree</a>
+  <nav aria-label="On this page">
+    <a href="#writing">Writing</a>
+    <a href="#capture">Capture</a>
+    <a href="#questions">Questions</a>
+    <a href="#year">Year</a>
+  </nav>
+</header>
 <main>
-<div class="wrap hero">
-<h1>A commonplace book that hands your notes back.</h1>
-<p class="lede"><strong>Catch a thought in two keys, work on long notes for weeks, and keep what matters.</strong> What you keep comes back in Review just before you would forget it.</p>
-<figure class="shot"><img src="img/home.webp" alt="Haligtree Home in the Paper theme: goals counting down, a reading queue and a grid of notes" loading="lazy"></figure>
-</div>
+  <section class="hero" aria-labelledby="promise">
+    <h1 id="promise">What you keep<br>comes back.</h1>
+    <p class="dek">A commonplace book for the Mac. Notes, books and cards in one place.</p>
+    <p class="cta"><a class="btn" href="#on-your-mac">For your Mac</a></p>
+    <figure class="window">
+      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
+      <div class="screen crop-review">
+        <img src="img/review.webp" width="1600" height="1066" alt="Review, with the question about Neo’s choice, the answer from The Matrix, and the grades Again, Hard, Good and Easy.">
+      </div>
+    </figure>
+  </section>
 
-<section><div class="wrap">
-<h2 class="mix"><b>Most notes are written once</b> and never read again.</h2>
-<p class="gap-intro">Notion and Obsidian keep pages well, then leave them where you put them. Anki remembers for you, but only cards you write by hand, away from your notes. Todoist keeps the task and loses why you wrote it. Haligtree puts quick captures and long notes in one book, and brings the ones you choose back to you.</p>
-<div class="tools">
-<div class="tool"><h3>Notion</h3><p class="does">Pages, tables and wikis.</p><p class="lacks">Nothing comes back to be remembered.</p></div>
-<div class="tool"><h3>Obsidian</h3><p class="does">Linked Markdown notes in a folder.</p><p class="lacks">Notes wait to be opened again.</p></div>
-<div class="tool"><h3>Anki</h3><p class="does">Flashcards on a spaced schedule.</p><p class="lacks">Cards live apart from your notes.</p></div>
-<div class="tool"><h3>Todoist</h3><p class="does">Tasks with dates, in plain words.</p><p class="lacks">The note behind a task stays elsewhere.</p></div>
-<div class="tool ours"><h3>Haligtree</h3><p class="does">Captures, long notes, tasks and Review in one book.</p><p class="lacks">What you keep comes back to you.</p></div>
-</div>
-</div></section>
+  <section class="stage stage-paper" id="writing">
+    <h2>A page for every day.</h2>
+    <p>Write on today’s page, then step back to the week and the month in a few lines each.</p>
+    <figure class="window">
+      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
+      <div class="screen crop-page">
+        <img src="img/editor.webp" width="1600" height="1057" alt="Today’s page, with the day, week, month and year along the top, two goals, and a line of the day’s writing.">
+      </div>
+    </figure>
+  </section>
 
-<section><div class="wrap split">
-<div><h2>Catch it, keep it, see it again.</h2>
-<p class="lead-in"><strong>Catch.</strong> Press <kbd>⌘</kbd> <kbd>.</kbd> in any app, write the thought, send it with <kbd>⌘</kbd> <kbd>↵</kbd>. It waits in your Inbox.</p>
-<p class="lead-in"><strong>Keep.</strong> Tidy the Inbox once a day. A thought worth keeping becomes a gem, in your own words.</p>
-<p class="lead-in"><strong>See it again.</strong> Give a gem the question it answers, and Review asks it just before you would forget.</p></div>
-<figure class="shot"><img src="img/review.webp" alt="A Review card asking a question, with the four grades under it" loading="lazy"></figure>
-</div></section>
+  <section class="stage stage-ink" id="capture">
+    <h2>One key, from any app.</h2>
+    <p>Press <kbd>⌘.</kbd> over whatever you are doing. <kbd>⌘↵</kbd> puts it away. It waits in your Inbox.</p>
+    <figure class="panel">
+      <img src="img/capture.webp" width="1600" height="887" alt="Quick capture, open over the desktop, with a note ready to send.">
+    </figure>
+  </section>
 
-<section id="features"><div class="wrap">
-<h2>One page for each part.</h2>
-<div class="cards"><a class="card" href="features/capture.html"><h3>Quick capture</h3><p>Catch a thought from any app in two keys.</p><span class="go">Read more</span></a><a class="card" href="features/review.html"><h3>Review and gems</h3><p>What you keep comes back before you forget it.</p><span class="go">Read more</span></a><a class="card" href="features/editor.html"><h3>Long notes</h3><p>A real editor for pages you work on for weeks.</p><span class="go">Read more</span></a><a class="card" href="features/map.html"><h3>The Map</h3><p>See which notes lean on which.</p><span class="go">Read more</span></a><a class="card" href="features/year.html"><h3>Your year</h3><p>Days add up to weeks, months and seasons.</p><span class="go">Read more</span></a><a class="card" href="features/sessions.html"><h3>Sessions</h3><p>One task, one timer, then close the day.</p><span class="go">Read more</span></a><a class="card" href="features/stickies.html"><h3>Sticky notes</h3><p>A note on your desktop, like paper.</p><span class="go">Read more</span></a><a class="card" href="features/books.html"><h3>Books and the sandbox</h3><p>Separate notebooks, and a peek into someone else's.</p><span class="go">Read more</span></a></div>
-</div></section>
+  <section class="stage stage-studio" id="questions">
+    <h2>Hold a question open.</h2>
+    <p>Clues gather under it for weeks, until you can answer it.</p>
+    <figure class="window">
+      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
+      <div class="screen">
+        <img src="img/reading.webp" width="1600" height="1050" alt="The question “Is Paul the hero of Dune?”, with three clues dated underneath and a field to add another.">
+      </div>
+    </figure>
+  </section>
 
-<section id="for"><div class="wrap">
-<h2>Who it is for.</h2>
-<p class="gap-intro">Anyone who reads and writes to think. Three kinds of people get the most from it.</p>
-<div class="cards"><a class="card" href="for/students.html"><h3>Students</h3><p>Turn lecture notes into cards that come back before the exam.</p><span class="go">Read more</span></a><a class="card" href="for/researchers.html"><h3>Researchers</h3><p>Hold questions open for weeks while the clues pile up.</p><span class="go">Read more</span></a><a class="card" href="for/writers-and-readers.html"><h3>Writers and readers</h3><p>Keep what you read, and write from what you kept.</p><span class="go">Read more</span></a></div>
-</div></section>
+  <section class="stage stage-paper" id="year">
+    <h2>Your year, in seasons.</h2>
+    <p>Name each month’s season of life, and see the year as the story it was.</p>
+    <figure class="window">
+      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
+      <div class="screen crop-year">
+        <img src="img/year.webp" width="1600" height="1066" alt="The year 2026, a line of months, and each month named: the month of Frankenstein, the Austen books, the Hamlet course.">
+      </div>
+    </figure>
+  </section>
+
+  <section class="stage stage-studio close" id="on-your-mac">
+    <h2>You do the thinking.</h2>
+    <p>Haligtree does the remembering and the timing.</p>
+    <p>It runs on your Mac. Your notes stay on your Mac.</p>
+  </section>
 </main>
-<footer class="wrap">
-<p><strong>Haligtree is a commonplace book for the Mac.</strong> Your notes live in one file on your Mac, copied to iCloud Drive each day when you have it.</p>
-<p>This site has no cookies, no tracking and no scripts.</p>
+<footer>
+  <p>Haligtree. A commonplace book for the Mac.</p>
 </footer>
+<script src="product.js"></script>
 </body>
 </html>

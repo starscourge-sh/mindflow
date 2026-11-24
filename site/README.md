@@ -1,26 +1,23 @@
 # Haligtree's site
 
-A small static site about Haligtree: plain HTML and one stylesheet, no framework,
-no scripts, no tracking. It is not deployed or published anywhere.
+A static product page for Haligtree. Plain HTML, one stylesheet, one small
+script for the bar at the top. It is not deployed or published anywhere.
 
 ## Open it
 
-Double-click `index.html`, or from the repo root:
+From the repo root:
 
-    open site/index.html
+    python3 -m http.server -d site 8742 --bind 127.0.0.1
 
-Every link is relative, so it works straight from the folder. To serve it
-instead, run `python3 -m http.server -d site 8000` and visit
-http://localhost:8000.
+Then open http://127.0.0.1:8742
 
 ## What is in it
 
-- `index.html`: Haligtree as a commonplace book, and what Notion, Obsidian, Anki
-  and Todoist each leave out.
-- `for/`: students, researchers, writers and readers.
-- `features/`: one page per part of the app, each with one job.
-- `img/`: screenshots of the app's sandbox, as compressed WebP.
-- `fonts/`: Fraunces, under the SIL Open Font License (`fonts/OFL.txt`).
+- `index.html`: the product page. One idea at a time, with the app itself in the frame.
+- `product.css`, `product.js`: that page only.
+- `for/` and `features/`: shorter pages from earlier, still on `style.css`.
+- `img/`: screenshots of the app. The product page crops the sandbox strip off the top.
+- `fonts/`: Fraunces, under the SIL Open Font License (`fonts/OFL.txt`), used by the shorter pages.
 
-Every claim on these pages is something the app does today. Check the app
-before adding one.
+Every claim on the product page is something the app does today. The lines come
+from What Haligtree can do.
