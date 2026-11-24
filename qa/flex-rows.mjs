@@ -155,18 +155,22 @@ try {
   // (Media's "Recent pictures" row is gone: Files keeps pictures by month, checked in qa/files-piles.mjs.)
   for (let n = 1; n <= 12; n++) await make([para(`Picture note ${n}`), { type: 'image', attrs: { src: await picture(n) } }])
 
-  // --- The Wrapped story: the month's pictures and gems as one flowing row.
+  // --- The Wrapped story: the month's pictures as tipped prints on a journal page (never a carousel).
   await go('home'); await wait(800)
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: `month:${new Date().toISOString().slice(0, 7)}` })))
   await wait(2500)
   let flow = null
   for (let i = 0; i < 9 && !flow; i++) {
-    flow = await h.evaluate(() => { const box = document.querySelector('[data-wrap-flow] [data-picture-row]'); return box && { h: Math.round(box.getBoundingClientRect().height) } })
+    flow = await h.evaluate(() => {
+      const box = document.querySelector('[data-wrap-prints]')
+      if (!box) return null
+      const tips = box.querySelectorAll('[data-wrap-tipped], img').length
+      return { h: Math.round(box.getBoundingClientRect().height), tips, carousel: !!document.querySelector('[data-picture-row]') }
+    })
     if (!flow) (await h.keyboard.press('ArrowRight'), await wait(1200))
   }
   await wait(3000)
-  const wrapRow = await row('[data-wrap-flow]')
-  check('Wrapped: one card is the month\'s pictures and gems as a flowing row', wrapRow?.canvas && wrapRow.height === 300 && wrapRow.words.length === 2, JSON.stringify(wrapRow))
+  check('Wrapped: pictures card shows tipped prints, never a carousel', !!flow && flow.tips >= 1 && !flow.carousel && flow.h > 80, JSON.stringify(flow))
   await shot('wrapped-flow')
   await h.keyboard.press('Escape'); await wait(800)
 

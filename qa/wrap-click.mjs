@@ -78,7 +78,7 @@ try {
   const pictures = await goTo('pictures')
   if (pictures === 'pictures') {
     const before = await h.locator('[data-wrap-card]').getAttribute('data-wrap-card')
-    const pic = h.locator('[data-wrap-flow] [data-picture-row] button, [data-wrap-flow] [data-still-picture], [data-wrap-flow] img').first()
+    const pic = h.locator('[data-wrap-prints] [data-wrap-tipped], [data-wrap-prints] img, [data-wrap-flow] img').first()
     if (await pic.count()) {
       await pic.click({ force: true })
       await wait(500)

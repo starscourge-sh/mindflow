@@ -118,7 +118,12 @@ const walk = async (name, extra) => {
     if (kinds.includes(kind)) break
     kinds.push(kind)
     await wait(kind === 'intro' || kind === 'outro' ? 3400 : kind === 'pictures' ? 4500 : 1700)
-    if (kind === 'pictures') shown.push(await h.evaluate(() => { const row = document.querySelector('[data-wrap-flow] [data-picture-row]'); return row ? `${row.dataset.pictureRow} ${row.getBoundingClientRect().height}px ${row.dataset.pictureRow === 'still' || !!row.querySelector('[data-picture-row-shown]') ? 'drawn' : 'empty'}` : 'none' }))
+    if (kind === 'pictures') shown.push(await h.evaluate(() => {
+      const prints = document.querySelector('[data-wrap-prints]')
+      const tips = prints?.querySelectorAll('[data-wrap-tipped], img')?.length ?? 0
+      const carousel = !!document.querySelector('[data-wrap-flow] [data-picture-row]')
+      return carousel ? 'carousel' : prints ? `prints ${tips} drawn` : 'none'
+    }))
     boxes.add(await chrome())
     // The card alone, so its words can be read on the sheet.
     files.push(`${OUT}/${name}-${String(i).padStart(2, '0')}-${kind}.png`)
@@ -158,7 +163,11 @@ try {
           let hourCard = null
           const { kinds, still, cuts, shown } = await walk(`${world}-${look}-${size}`, async (kind, i) => {
             if (kind === 'sites') said = await h.locator('[data-wrap-card] h2').first().innerText()
-            if (kind === 'hours') hourCard = `${(await h.locator('[data-wrap-card] h2').first().innerText()).replace(/\s+/g, ' ')} | ${await h.locator('[data-wrap-hours] [data-wrap-peak]').innerText()} | ${await h.locator('[data-wrap-hours] > div:first-child > div').count()} bars`
+            if (kind === 'hours') {
+              const title = (await h.locator('[data-wrap-card] h2').first().innerText()).replace(/\s+/g, ' ')
+              const ink = ((await h.locator('[data-wrap-hours]').innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim()
+              hourCard = `${title} | ${ink}`
+            }
             if (first && i === 2) {
               // A click on the left third turns back, with motion; then on again by key, still.
               const card = await h.locator('[data-wrap-card]').boundingBox()
@@ -170,8 +179,8 @@ try {
           const tag = `${world} ${look} ${size}`
           check(`${tag}: intro first, report last, the sites card among them`, kinds[0] === 'intro' && kinds.at(-1) === 'report' && kinds.includes('sites'), kinds.join(' '))
           check(`${tag}: the sites card says "Kept you off ${site} ${times(count)} this month"`, said?.replace(/\s+/g, ' ') === `Kept you off ${site} ${times(count)} this month`, said)
-          if (peak) check(`${tag}: the hours card says “Ideas came most around ${peak[1]}:00” over 24 bars, ${peak[0]} lit`, hourCard === `Ideas came most around ${peak[1]}:00 | ${peak[0]} | 24 bars` || (!hourCard && kinds.length === 12), hourCard ?? `left out of a full story: ${kinds.join(' ')}`)
-          check(`${tag}: the pictures card shows its row of pictures and gems`, shown.length === 1 && shown[0].endsWith('drawn'), shown.join(' '))
+          if (peak) check(`${tag}: the hours card says “Ideas came most around ${peak[1]}:00” as ink (no bar chart)`, !!hourCard && hourCard.startsWith(`Ideas came most around ${peak[1]}:00`) && !/bars/i.test(hourCard) || (!hourCard && kinds.length === 12), hourCard ?? `left out of a full story: ${kinds.join(' ')}`)
+          check(`${tag}: the pictures card shows tipped prints, never a carousel`, shown.length === 1 && shown[0].startsWith('prints') && shown[0].endsWith('drawn'), shown.join(' '))
           check(`${tag}: no word cut, over another or under the foot, on any card`, !cuts.length, cuts.join('; '))
           check(`${tag}: the bars and the close never move as cards turn`, still)
           check(`${tag}: "Copy as image" on the last card`, await h.locator('[data-wrap-copy]').isVisible())

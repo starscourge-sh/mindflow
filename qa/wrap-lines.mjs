@@ -53,7 +53,7 @@ try {
     check('pages show the rephrasings written on this Mac (the stand-in\'s)', Object.values(second).filter((one) => one.lead?.includes('(stand-in)')).length >= 2, JSON.stringify(second).slice(0, 600))
     check('the stand-in\'s rephrasing with numbers in it is dropped: the opening shows its plain statement, and no lead-in holds a digit', /^You (caught|focused) (more than|less than|as much as) last month\.$/.test(second.intro?.lead ?? '') && [...Object.values(first), ...Object.values(second)].every((one) => !one.lead || !/\d/.test(one.lead)) && !JSON.stringify([first, second]).includes('the stand-in counted'), JSON.stringify(second.intro ?? {}))
     check('every page that has a statement shows a lead-in, never a blank', ['intro', 'tags', 'busiest', 'outro'].filter((card) => second[card]).every((card) => second[card].lead), JSON.stringify(Object.fromEntries(Object.entries(second).map(([card, one]) => [card, one.lead]))))
-    check('the pages\' own sentences stand as they were, numbers and all', Object.values(first).every((one) => !one.rest.includes('stand-in')) && (!first.tags || /came up most: \d/.test(first.tags.rest) || /\d+ things? caught/.test(first.tags.rest)), JSON.stringify(first.tags ?? {}).slice(0, 300))
+    check('the pages\' own sentences stand as they were, numbers and all', Object.values(first).every((one) => !one.rest.includes('stand-in')) && (!first.tags || /showed in \d/.test(first.tags.rest) || /\d+ things? caught/.test(first.tags.rest)), JSON.stringify(first.tags ?? {}).slice(0, 300))
     const kept = JSON.parse(readFileSync(join(await electron.evaluate(({ app }) => app.getPath('userData')), 'wrap-leads.json'), 'utf8'))[month]
     const voices = Object.values(kept.leads)
     check('the lead-ins are kept by voice, each free of digits, and the statements too', voices.length >= 1 && voices.every((one) => Object.keys(one).length >= 2 && Object.values(one).every((line) => !/\d/.test(line))) && !/\d/.test(kept.facts.replace(/“[^”]*”|#\S+/g, '')), JSON.stringify(kept.leads).slice(0, 400))
@@ -63,7 +63,7 @@ try {
     // The plain statements are the app's own, so every Mac has them, but only where they compare with last time:
     // the opening and focus ("more than last month") and a tag new or up; never the tag, busiest day, hour or closing
     // page's lead-in, which would say again what the page's own sentence says.
-    const against = /^(You (caught|focused) (more than|less than|as much as) last (week|month)\.|#\S+ (was new this (week|month)|came up more than last (week|month))\.)$/
+    const against = /^(You (caught|focused) (more than|less than|as much as) last (week|month)\.|#\S+ (was new this (week|month)|showed more than last (week|month))\.)$/
     check('without Apple Intelligence a page has a lead-in only to compare with last time, never the stand-in\'s', Object.keys(first).length >= 3 && leads.every(([card, one]) => ['intro', 'tags', 'focus'].includes(card) && against.test(one.lead)) && !JSON.stringify(first).includes('stand-in'), JSON.stringify(leads).slice(0, 600))
     check('without it, the opening still says how it went against last time', !first.intro || against.test(first.intro.lead ?? ''), JSON.stringify(first.intro ?? {}).slice(0, 300))
   }

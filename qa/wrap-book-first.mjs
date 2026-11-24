@@ -15,7 +15,13 @@ const { h, close } = c
 
 const WORST = {
   captures: 48,
-  tags: [{ name: 'reading', n: 12 }, { name: 'quotes', n: 7 }],
+  tags: [
+    { name: 'reading', n: 12 },
+    { name: 'quotes', n: 7 },
+    { name: 'history', n: 5 },
+    { name: 'book', n: 4 },
+    { name: 'physics', n: 3 }
+  ],
   notes: [
     'Meditations — the bit about the view from above',
     'Commonplace leaves from the walk home',
@@ -27,22 +33,24 @@ const WORST = {
   reads: { total: 6, finished: 4, left: [{ title: 'Half a chapter', minutes: 8, needs: 20 }] },
   minutes: 240,
   sessions: 8,
-  focusTasks: [{ name: 'Essay draft', minutes: 90 }],
+  focusTasks: [{ name: 'Essay draft', minutes: 90 }, { name: 'Latin drills', minutes: 45 }, { name: 'Walk notes', minutes: 30 }],
   planned: 90,
   did: 40,
   planRows: [{ name: 'Essay draft', planned: 90, did: 40 }],
-  sites: [{ site: 'x.com', count: 4 }],
+  sites: [{ site: 'x.com', count: 4 }, { site: 'reddit.com', count: 2 }],
   gems: 8,
   run: 5,
   busiest: { label: 'Tuesday', day: '2026-11-17', n: 9 },
+  days: { '2026-11-16': 2, '2026-11-17': 9, '2026-11-18': 3, '2026-11-19': 4, '2026-11-20': 3, '2026-11-21': 6, '2026-11-22': 4 },
+  hours: Array.from({ length: 24 }, (_, h) => (h === 14 ? 11 : h === 15 ? 4 : h === 9 ? 3 : 1)),
+  hour: 14,
   well: [
     'Kept a page of quotes from the walk.',
     'Physics deck begun; Dorian Gray finished.',
     'Small steps on the big things: the oxygenator, the wall, Book 9.'
   ],
-  thin: false,
-  pictures: [],
-  heroes: []
+  thin: false
+  // pictures / heroes: leave the sandbox's own, so tipped prints show real drawings — never force a carousel.
 }
 
 try {
@@ -121,6 +129,19 @@ try {
       return { ok: hits.length === 0, hits, chromeBottom: +(ch.bottom - cr.top).toFixed(1), stageTop: +(st.top - cr.top).toFixed(1), stageLeft: +(st.left - cr.left).toFixed(1), chromeGap: +gap.toFixed(1) }
     })
     check(`${kind} chrome clears the page`, clear.ok, JSON.stringify(clear))
+    // Journal pages: never grade talk, carousel chrome, or dashboard bar charts (user shots 12–15).
+    const deck = await h.evaluate((cardKind) => {
+      const card = document.querySelector('[data-wrap-card]')
+      const text = (card?.innerText || '').replace(/\s+/g, ' ')
+      return {
+        grade: /\b(nothing to grade|nothing here is a score|heaviest load)\b/i.test(text),
+        carousel: !!card?.querySelector('[data-picture-row], [data-flex-carousel]'),
+        bars: !!card?.querySelector('[data-wrap-days] .origin-bottom, [data-wrap-hours] .origin-bottom') || /24 bars/i.test(text),
+        ranked: cardKind === 'tags' && /^\s*\d+\s+#/m.test(text) && !!card?.querySelector('ol'),
+        sample: text.slice(0, 160)
+      }
+    }, kind)
+    check(`${kind} is a journal page, not a Spotify deck`, !deck.grade && !deck.carousel && !deck.bars && !deck.ranked, JSON.stringify(deck))
     if (kind === 'notes') {
       // Brand (HALIGTREE) and any “more” line must not share pixels on the notes card.
       const clear = await h.evaluate(() => {
