@@ -47,6 +47,7 @@ import { daysBetween, daysLeft, farOff, journey, leftSaid, percent, wayThrough, 
 import { leftLoud, loud } from '@/lib/loud'
 import { clip, quoted } from '../../../../main/clip'
 import { Check, EyeOff, X } from '@/components/ui/icons'
+import { ScrubField } from '../pdf/scrub-field'
 
 /**
  * Goals: a day you are working toward, kept in front of you until it comes.
@@ -81,8 +82,11 @@ export const someday = (goal: Pick<Item, 'goalAt'>): boolean => !goal.goalAt
 /** The open someday goals, the newest first. */
 const somedayOnes = (all: Item[]): Item[] =>
   all.filter((one) => !one.closedAt && !one.archivedAt && someday(one)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-/** A goal's logs on its row: how many, and how long since the last; or that there are none. */
-const loggedSaid = (item: Pick<Item, 'clues' | 'lastLog'>): string => item.clues ? `${logsSaid(item.clues)}, last ${ago(item.lastLog ?? '')}` : 'nothing logged'
+/** A day written out in full on a goal's row: "Fri 1 Jan 2028". */
+const dayFull = (day: string): string => noon(day).format('ddd D MMM YYYY')
+/** The goal whose log field is to take the keys as its page opens: its row's “log progress”. */
+let logWanted: string | null = null
+const LOG_WANTED = 'haligtree:goal-log'
 /** The goal just crossed off, so its page presses the stamp once, with its thud; every later visit finds it already there. */
 let crossing: string | null = null
 
@@ -381,7 +385,7 @@ export function GoalAsker(): React.JSX.Element | null {
 }
 
 /** A goal as any list draws it: its name, then its days left, how far along, and its logs. */
-const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
+const goalEntry = (item: Item, today: string, menu?: MenuItem[], onLog?: (id: string) => void): Entry => {
   // Paused: its mark, "On ice since 1 Nov" said plainly, and its name in a cool, faded ink. A someday one keeps its telescope.
   if (onIce(item)) return {
     id: item.id,
@@ -413,6 +417,7 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
     menu
   }
   const left = daysLeft(item.goalAt ?? today, today)
+  const way = wayThrough(item.goalFrom ?? today, item.goalAt ?? today)
   return {
     id: item.id,
     type: 'goal',
@@ -422,11 +427,17 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
     tint: item.closedAt ? undefined : warmth(left),
     sub: item.closedAt
       ? <span data-goal-mark="dated">{settledSaid(item)} · {logsSaid(item.clues)}</span>
-      // The days left lead, in the goal's own warmth and bold: the one thing a glance down the list is for. Then its logs.
-      : <span data-goal-mark="dated"><span {...loud(leftLoud(left), 'font-semibold')} style={{ color: left > 30 ? 'var(--foreground)' : undefined }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : left === 0 ? 'Today' : plural(left, 'day')}</span> · {loggedSaid(item)}</span>,
+      // The days left lead, in the goal's own warmth and bold: the one thing a glance down the list is for, dragged
+      // sideways to move the day. Then the day itself, picked from the calendar, and its last log or a way to log one.
+      : <GoalDue item={item} today={today} onLog={onLog} />,
     marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
-    // A thin line of the time gone, plain whatever Settings draws bars as, warming as the day comes.
-    bar: item.closedAt ? undefined : <GoalBar left={left} way={wayThrough(item.goalFrom ?? today, item.goalAt ?? today)} />,
+    // A thin line of the time gone, plain whatever Settings draws bars as, warming as the day comes; said as time, not progress.
+    bar: item.closedAt ? undefined : (
+      <span data-goal-time-gone className="flex items-center gap-2">
+        <GoalBar left={left} way={way} className="min-w-0 flex-1" />
+        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{percent(way)} of the time gone</span>
+      </span>
+    ),
     dim: !!item.closedAt,
     private: !!item.private,
     bare: true,
@@ -631,7 +642,13 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     return many ? [...(folding.menu(several.chosen) as MenuItem[]), 'separator', ...many]
       : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id)]
   }
-  const entryOf = (one: Item): Entry => goalEntry(one, today, menuFor(one))
+  // “log progress” on a row: the goal opens with its log field taking the keys (Logs listens for it).
+  const logOn = (id: string): void => {
+    logWanted = id
+    pick(id)
+    window.dispatchEvent(new CustomEvent(LOG_WANTED, { detail: id }))
+  }
+  const entryOf = (one: Item): Entry => goalEntry(one, today, menuFor(one), logOn)
   const entries = !listShown ? [] : items.map(entryOf)
   // ⌘G groups the picked goals (or the one under the cursor), ⇧⌘G lets their group go; ⌘K's "Group" too.
   const keyed = useRef<(ungroup: boolean) => void>(() => undefined)
@@ -1377,6 +1394,18 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
   // The newest few, then more a press at a time, as a task's log has them: a goal kept for years
   // has thousands, and drawing every one held the window for seconds as the goal opened.
   const few = useShowMore(logs, LOG_FEW, `${item.id} ${picked?.day ?? ''}`)
+  // Asked for from its row's “log progress”: the field takes the keys, as the page opens or when it is open already.
+  useEffect(() => {
+    const take = (id: string): void => {
+      if (id !== item.id || item.closedAt) return
+      logWanted = null
+      logField.current?.focus()
+    }
+    if (logWanted) take(logWanted)
+    const onWanted = (event: Event): void => take((event as CustomEvent<string>).detail)
+    window.addEventListener(LOG_WANTED, onWanted)
+    return () => window.removeEventListener(LOG_WANTED, onWanted)
+  }, [item.id, item.closedAt])
   const keep = (): void => {
     const text = words.trim()
     if (!text) return
@@ -1492,6 +1521,88 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
 const LOG_FEW = 50
 
 /** A goal's road as a bar, one look on Home and the Goals page, in the style Settings picks: its warmth in the last month, plain before. */
+/** Held to itself, as a task row's chips are: a press here never opens the row or starts its drag. */
+const HELD = {
+  onClick: (event: React.SyntheticEvent): void => event.stopPropagation(),
+  onPointerDown: (event: React.SyntheticEvent): void => event.stopPropagation(),
+  onDoubleClick: (event: React.SyntheticEvent): void => event.stopPropagation(),
+  onKeyDown: (event: React.SyntheticEvent): void => event.stopPropagation()
+}
+/** The days chip on a goal's row: the days left, bold, in the goal's warmth, a field you drag (Figma's number fields). */
+const DAYS_CHIP = 'h-5 w-full rounded border border-transparent bg-transparent px-1 text-left text-xs font-semibold tabular-nums outline-none transition-colors hover:border-input hover:bg-input/20 focus:cursor-text focus:border-foreground/25 focus:bg-input/20'
+const daysSaid = (n: number): string => (n === 0 ? 'Today' : plural(n, 'day'))
+/** A number typed in the days chip: "30", "30 days"; else null, and the words are worked out as a sum ("+7"). */
+const daysTyped = (typed: string): number | null => (/^\s*[\d,]+\s*(days?)?\s*$/i.test(typed) ? Number(typed.replace(/\D/g, '')) : null)
+
+/**
+ * A goal's day on its row, as the owner asked (24 Nov): the days left as a chip
+ * that drags left or right a day a step (⇧ a week), ticking and tapping the
+ * trackpad each step, or takes a typed number; beside it the date it lands on,
+ * moving as you drag, itself a chip that opens the calendar. One save as the
+ * drag is let go, with Undo (the toast, ⌘Z). Then the goal's last log, or a way
+ * to write its first. A goal past its day asks how it went instead of counting.
+ */
+function GoalDue({ item, today, onLog }: { item: Item; today: string; onLog?: (id: string) => void }): React.JSX.Element {
+  const target = item.goalAt ?? today
+  const left = daysLeft(target, today)
+  // The days while a drag is under way, before anything is saved; back to the goal's own once its new day comes in.
+  const [draft, setDraft] = useState<number | null>(null)
+  const next = useRef<number | null>(null)
+  useEffect(() => void ((next.current = null), setDraft(null)), [target])
+  const days = draft ?? left
+  const day = draft === null ? target : dayKey(noon(today).add(draft, 'day').toDate())
+  // The chip never narrows while it is dragged, so what follows it never slides back under the pointer.
+  const widest = useRef(0)
+  widest.current = draft === null ? daysSaid(days).length : Math.max(widest.current, daysSaid(days).length)
+  const save = (to: string): void => {
+    const was = { target, from: item.goalFrom ?? undefined }
+    if (to === target) return void ((next.current = null), setDraft(null))
+    void haligtree.goalDates(item.id, { target: to }).then((ok) => {
+      if (!ok) return void (setDraft(null), chime('nope'), toast('Could not move its day: the goal was not found', undefined, 'error'))
+      chime('tap')
+      toast(`Now for ${dayFull(to)}, in ${daysSaid(daysLeft(to, today)).toLowerCase()}`, () => void haligtree.goalDates(item.id, was))
+    })
+  }
+  const logs = item.clues
+    ? <span data-goal-last-log>last log {ago(item.lastLog ?? '')}</span>
+    : <span data-goal-last-log>No log yet{onLog && <> · <span role="button" tabIndex={0} data-goal-log-now {...HELD}
+        onClick={(event) => (event.stopPropagation(), chime('open'), onLog(item.id))}
+        onKeyDown={(event) => (event.stopPropagation(), (event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), chime('open'), onLog(item.id)))}
+        className="cursor-pointer text-foreground underline decoration-foreground/25 underline-offset-2 transition-colors hover:decoration-foreground">log progress</span></>}</span>
+  // Past its day: it asks how it went, and its date stays changeable.
+  if (left < 0 || !onLog) return (
+    <span data-goal-mark="dated" className="inline-flex items-center gap-1.5">
+      <span {...loud(leftLoud(left), 'font-semibold')} style={{ color: left > 30 ? 'var(--foreground)' : undefined }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : daysSaid(left)}</span>
+      <span>·</span>
+      {onLog ? <GoalDayChip day={target} onPick={save} /> : <span>{dayFull(target)}</span>}
+      <span>·</span>
+      {logs}
+    </span>
+  )
+  return (
+    <span data-goal-mark="dated" className="inline-flex items-center gap-1.5">
+      <span data-goal-days {...HELD} {...loud(leftLoud(days), '-ml-1 inline-flex shrink-0 font-semibold')}
+        style={{ color: days > 30 ? 'var(--foreground)' : undefined, width: `calc(${widest.current}ch + 0.75rem)` }}>
+        <ScrubField label="Days to go: drag to move the day" min={0} max={9999} value={days} show={daysSaid} read={daysTyped} shiftBy={7} className={DAYS_CHIP}
+          onChange={(n) => ((next.current = n), setDraft(n))}
+          onSettle={() => next.current !== null && save(dayKey(noon(today).add(next.current, 'day').toDate()))} />
+      </span>
+      <GoalDayChip day={day} onPick={save} />
+      <span>·</span>
+      {logs}
+    </span>
+  )
+}
+
+/** The date a goal is for on its row, "Fri 1 Jan 2028": pressed, the calendar, as a task's date chip opens it. */
+function GoalDayChip({ day, onPick }: { day: string; onPick: (day: string) => void }): React.JSX.Element {
+  return (
+    <DatePicker chip value={`${day}T12:00`} onChange={(iso) => iso && onPick(dayKey(iso))} suggest={['in 1 month', 'in 3 months', 'in 1 year']} tip="Change the day">
+      <span data-goal-day className="tabular-nums">{dayFull(day)}</span>
+    </DatePicker>
+  )
+}
+
 export function GoalBar({ left, way, className = '' }: { left: number; way: number; className?: string }): React.JSX.Element {
   const warm = left <= 30 ? warmth(Math.max(left, 0)) : null
   const ink = warm ? `color-mix(in oklab, ${warm} 55%, transparent)` : LINE_INK

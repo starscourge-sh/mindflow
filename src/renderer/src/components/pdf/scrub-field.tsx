@@ -37,9 +37,12 @@ export async function typedSum(typed: string, value: number): Promise<number | n
  * Two fingers (or a mouse wheel) over it step it too, either way, ⇧ by ten,
  * and the page behind stays put. Each step taps the trackpad lightly; the
  * first and last, any of `marks` (a chapter's start), and the value it
- * showed as you came to it, firmly.
+ * showed as you came to it, firmly. `shiftBy` is what ⇧ steps by (a week
+ * of days is 7), and a ⇧-drag lands on whole steps of it from where it was
+ * pressed. `onSettle` is told once a change is let go of (the drag ends, the
+ * typed number is kept, the field is left), for a caller that saves once.
  */
-export function ScrubField({ value, max, onChange, label = "Page", min = 1, className = "pdf-reader-page-field", marks, show, read }: {
+export function ScrubField({ value, max, onChange, label = "Page", min = 1, className = "pdf-reader-page-field", marks, show, read, shiftBy = 10, onSettle }: {
   value: number
   max: number
   onChange: (n: number) => void
@@ -51,6 +54,10 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
   show?: (n: number) => string
   /** A value from what was typed (a printed page), else null, and the typed words are worked out as a sum. */
   read?: (typed: string) => number | null
+  /** What ⇧ steps by: ten by default, seven for days (a week). */
+  shiftBy?: number
+  /** Told once a run of changes is let go of: the drag ended, Enter kept a number, the field was left. */
+  onSettle?: () => void
 }): React.JSX.Element {
   const shown = (n: number): string => (show ? show(n) : String(n))
   const field = useRef<HTMLInputElement>(null)
@@ -59,10 +66,21 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
   const origin = useRef(value)
   const press = useRef<{ x: number; last: number; from: number; at: number; moved: boolean; tickAt: number } | null>(null)
   const to = (n: number): number => Math.min(Math.max(min, Math.round(n)), Math.max(min, max))
+  // A change not yet let go of: settled once, when the drag ends, Enter keeps it, or the field is left.
+  const owed = useRef(false)
+  const change = (n: number): void => {
+    owed.current = true
+    onChange(n)
+  }
+  const settle = (): void => {
+    if (!owed.current) return
+    owed.current = false
+    onSettle?.()
+  }
   const land = (n: number, tick: { tickAt: number } | null): void => {
     const next = to(n)
     if (next === value) return
-    onChange(next)
+    change(next)
     stepTap(next, min, Math.max(min, max), next === origin.current ? new Set([next]) : marks)
     if (!tick || performance.now() - tick.tickAt > TICK_GAP) {
       chime("tick")
@@ -70,9 +88,10 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
     }
   }
   // The wheel a step at a time; the one listener reads this render's value and landing through a ref.
-  const wheel = useRef({ land, value, rest: 0 })
+  const wheel = useRef({ land, value, rest: 0, shiftBy })
   wheel.current.land = land
   wheel.current.value = value
+  wheel.current.shiftBy = shiftBy
   useEffect(() => {
     const el = field.current
     if (!el) return
@@ -88,7 +107,7 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
       one.rest += by
       const steps = Math.trunc(one.rest / WHEEL_STEP)
       one.rest -= steps * WHEEL_STEP
-      if (steps) one.land(one.value + steps * (event.shiftKey ? 10 : 1), null)
+      if (steps) one.land(one.value + steps * (event.shiftKey ? one.shiftBy : 1), null)
     }
     el.addEventListener("wheel", onWheel, { passive: false })
     return () => el.removeEventListener("wheel", onWheel)
@@ -96,6 +115,7 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
   const done = (): void => {
     press.current = null
     delete document.documentElement.dataset.scrubbing
+    settle()
   }
   return (
     <input
@@ -121,11 +141,11 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
         if (!one.moved && Math.abs(event.clientX - one.x) < 3) return
         if (!one.moved) document.documentElement.dataset.scrubbing = ""
         one.moved = true
-        // A page every 8px near where it was pressed, quickening with the distance; ⇧ ten times, ⌥ a quarter.
-        const rate = (1 + Math.abs(event.clientX - one.x) / 60) * (event.shiftKey ? 10 : 1) * (event.altKey ? 0.25 : 1)
+        // A page every 8px near where it was pressed, quickening with the distance; ⇧ `shiftBy` times, on whole steps of it, ⌥ a quarter.
+        const rate = (1 + Math.abs(event.clientX - one.x) / 60) * (event.shiftKey ? shiftBy : 1) * (event.altKey ? 0.25 : 1)
         one.at = Math.min(Math.max(min, one.at + ((event.clientX - one.last) / 8) * rate), Math.max(min, max))
         one.last = event.clientX
-        land(one.at, one)
+        land(event.shiftKey ? one.from + Math.round((one.at - one.from) / shiftBy) * shiftBy : one.at, one)
       }}
       onPointerUp={(event) => {
         const one = press.current
@@ -139,24 +159,26 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
       onPointerCancel={done}
       onLostPointerCapture={() => press.current && done()}
       onPointerEnter={() => (origin.current = value)}
+      // Stepped by two fingers and the pointer moved on: that run of steps is let go of.
+      onPointerLeave={() => !press.current && settle()}
       onFocus={(event) => (setTyped(shown(value)), event.currentTarget.select())}
       onChange={(event) => setTyped(read ? event.target.value.slice(0, 16) : event.target.value.replace(/[^\d.+\-*/×÷() ]/g, ""))}
-      onBlur={() => setTyped(null)}
+      onBlur={() => (setTyped(null), settle())}
       onKeyDown={(event) => {
         if (event.key === "ArrowUp" || event.key === "ArrowDown") {
           event.preventDefault()
           // From what the field shows: a second press lands before the saved value comes back.
           const from = typed === null ? value : read ? (read(typed) ?? value) : /^\d+$/.test(typed) ? Number(typed) : value
-          const next = to(from + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1))
+          const next = to(from + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? shiftBy : 1))
           land(next, null)
           setTyped(shown(next))
           requestAnimationFrame(() => field.current?.select())
         } else if (event.key === "Enter") {
           const box = event.currentTarget
           const own = read?.(typed ?? "")
-          if (own != null) return void (onChange(to(own)), box.blur())
+          if (own != null) return void (change(to(own)), box.blur())
           void typedSum(typed ?? "", value).then((n) => {
-            if (n !== null) onChange(to(n))
+            if (n !== null) change(to(n))
             box.blur()
           })
         } else if (event.key === "Escape") event.currentTarget.blur()

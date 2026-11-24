@@ -56,15 +56,16 @@ try {
     tiles: row.querySelectorAll('[data-row-mark]').length,
     dino: row.querySelectorAll('.pb-runner').length,
     bar: row.querySelector('[role="progressbar"]')?.getAttribute('aria-label') ?? null,
-    text: row.innerText.replace(/\s+/g, ' ').trim()
+    // The days chip is a field (drag it to move the day): its words are its value, not its text.
+    text: `${row.querySelector('[data-goal-days] input')?.value ?? ''} ${row.innerText}`.replace(/\s+/g, ' ').trim()
   })))
   const row = (id) => rows.find((one) => one.id === id) ?? { text: '', tiles: -1, dino: -1, bar: null }
   check('every dated goal row is on the Goals tab, the someday one is not', [short, year, logged, past, twinA, twinB].every((id) => rows.some((one) => one.id === id)) && !rows.some((one) => one.id === life), rows.length)
   check('no goal row has a flag tile', rows.every((one) => one.tiles === 0), rows.map((one) => one.tiles).join(','))
   // Since ea6191c2b every bar in the book is drawn the way Settings says, the Goals page's rows too: with dinosaur bars on, the dinosaur.
   check('every goal row wears the book\'s own bar: the dinosaur, with dinosaur bars on', rows.length > 0 && rows.every((one) => one.dino === 1), rows.map((one) => one.dino).join(','))
-  check('a goal with no logs: "N days · nothing logged"', /Pack for Lisbon 9 days · nothing logged$/.test(row(short).text), row(short).text)
-  check('a goal with logs: "4 logs, last today"', /Finish chapter three 45 days · 4 logs, last today$/.test(row(logged).text), row(logged).text)
+  check('a goal with no logs: "N days, its date · No log yet · log progress"', /^9 days Pack for Lisbon \w{3} \d{1,2} \w{3} \d{4} · No log yet · log progress/.test(row(short).text), row(short).text)
+  check('a goal with logs: "last log today"', /^45 days Finish chapter three \w{3} \d{1,2} \w{3} \d{4} · last log today/.test(row(logged).text), row(logged).text)
   check('a goal past its day asks how it went', /3 days past: did you make it\?/.test(row(past).text), row(past).text)
   check('each dated row has a bar of the time gone', [short, year, logged, twinA].every((id) => /of the time gone$/.test(row(id).bar ?? '')), [short, year, logged, twinA].map((id) => row(id).bar).join(' | '))
 
