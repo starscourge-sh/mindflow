@@ -93,9 +93,10 @@ try {
   const read = () => all.evaluate(() => ({
     lanes: [...document.querySelectorAll('[data-goals-lane]')].map((one) => ({ id: one.getAttribute('data-goals-lane'), color: one.getAttribute('data-color'), opacity: Number(getComputedStyle(one).opacity), aside: one.hasAttribute('data-set-aside'), road: Number(getComputedStyle(one.querySelector('[data-goals-road]')).opacity), ink: getComputedStyle(one.querySelector('[data-goals-road]')).backgroundColor, name: one.querySelector('[data-goals-name]')?.textContent ?? '' })),
     today: [...document.querySelectorAll('[data-goals-today]')].map((one) => ({ lane: one.closest('[data-goals-lane]')?.getAttribute('data-goals-lane'), top: one.getBoundingClientRect().top, name: one.closest('[data-goals-lane]')?.querySelector('[data-goals-name]').getBoundingClientRect().bottom })),
-    items: [...document.querySelectorAll('[data-goals-item]')].map((one) => ({ goal: one.getAttribute('data-goals-item'), mark: one.getAttribute('data-goals-item-mark'), ink: getComputedStyle(one.querySelector('span')).borderTopColor })),
+    items: [...document.querySelectorAll('[data-goals-item]')].map((one) => ({ goal: one.getAttribute('data-goals-item'), mark: one.getAttribute('data-goals-item-mark'), ink: getComputedStyle(one.querySelector('span')).borderTopColor, opacity: Number(getComputedStyle(one).opacity) })),
     marks: [...document.querySelectorAll('[data-goals-mark]')].map((one) => one.getAttribute('data-goals-mark')),
-    focus: document.querySelector('[data-goals-focus]')?.getAttribute('data-goals-focus') ?? null
+    // The nearest goal always owns data-goals-focus; resting on a lane marks it with data-rested (goal-beacon.tsx).
+    focus: document.querySelector('[data-goals-focus][data-rested]')?.getAttribute('data-goals-focus') ?? null
   }))
   let seen = await read()
   const ids = goals.map((g) => g.id).sort().join()
@@ -122,7 +123,8 @@ try {
   await all.locator(`[data-goals-lane="${dune.id}"]`).hover({ timeout: 8000 }); await wait(600)
   seen = await read()
   check('resting on a lane brings that goal forward and sets the rest aside: their words in Faded Ink, their roads dimmed, nothing see-through', seen.focus === dune.id && seen.lanes.every((l) => l.opacity === 1 && (l.id === dune.id ? !l.aside && l.road === 1 : l.aside && l.road < 0.3)), JSON.stringify(seen.lanes.map((l) => [l.id.slice(0, 4), l.opacity, l.aside, l.road])))
-  check('focused, what comes next is that goal’s alone', seen.items.length >= 1 && seen.items.every((i) => i.goal === dune.id), JSON.stringify(seen.items))
+  // The list itself stays (goal-beacon.tsx); the focused goal’s lines are full, the others fade to Faded Ink.
+  check('focused, what comes next is that goal’s alone', seen.items.some((i) => i.goal === dune.id && i.opacity >= 0.9) && seen.items.filter((i) => i.goal !== dune.id).every((i) => i.opacity > 0 && i.opacity < 0.5), JSON.stringify(seen.items))
   for (const theme of ['light', 'dark']) {
     await all.evaluate((t) => { localStorage.setItem('theme', t); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
     await wait(700)

@@ -92,25 +92,44 @@ try {
   check('⌃⌥⌘H folds every card into its pill', (await folded()).every((one) => one === 'folded' || one === 'more'), JSON.stringify(await folded()))
   check('⌃⌥⌘H: each pill is there at once, no slide', tabFrames.length > 3 && tabFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(tabFrames)].slice(0, 4)))
 
-  // Pointed at, the card grows out of its pill from where the pill stands, and only comes in.
+  // Pointed at, the card grows down out of its pill (clipPath bottom inset), sides fixed (desk-pill.tsx).
   await h.waitForTimeout(500)
-  const body = sample(pages[0], '#root')
+  const body = pages[0].evaluate(() => new Promise((resolve) => {
+    const seen = []
+    const at = performance.now()
+    const tick = () => {
+      const clip = document.getElementById('root')?.style.clipPath ?? ''
+      const m = clip.match(/inset\(\s*([\d.]+)px\s+([\d.]+)px\s+([\d.]+)px/)
+      seen.push(m ? Number(m[3]) : 0)
+      if (performance.now() - at < 600) requestAnimationFrame(tick)
+      else resolve(seen)
+    }
+    tick()
+  }))
   await pages[0].evaluate(() => window.api.holdBeacon(true))
-  const xs = (await body).map((one) => (one.startsWith('matrix') ? Number(one.slice(7, -1).split(',')[4]) : 0))
-  const far = Math.max(...xs.map(Math.abs))
-  const away = xs.map(Math.abs)
-  check('pointed at, the card starts at its pill: more than 100 points from where it lands', far > 100, `${far} ${JSON.stringify(xs.slice(0, 12).map(Math.round))}`)
-  check('the slide only comes in, never back out, and lands at 0', away.slice(away.indexOf(far)).every((x, i, all) => i === 0 || x <= all[i - 1] + 0.5) && Math.abs(xs.at(-1)) < 1, JSON.stringify(xs.map(Math.round)))
+  const bottoms = await body
+  const far = Math.max(...bottoms)
+  // Open spring only: a virtual pointer can fold it back inside the sample window (QA_AWAY).
+  const fromPeak = bottoms.slice(bottoms.indexOf(far))
+  const landAt = fromPeak.findIndex((x) => x < 2)
+  const descent = landAt < 0 ? fromPeak : fromPeak.slice(0, landAt + 1)
+  check('pointed at, the card starts at its pill: more than 100 points from where it lands', far > 100, `${far} ${JSON.stringify(bottoms.slice(0, 12).map(Math.round))}`)
+  check('the slide only comes in, never back out, and lands at 0', descent.length > 1 && descent.every((x, i, all) => i === 0 || x <= all[i - 1] + 0.5) && descent.at(-1) < 2, JSON.stringify(bottoms.map(Math.round)))
   await pages[0].evaluate(() => window.api.holdBeacon(false))
   await h.waitForTimeout(1500)
 
-  // ⌃⌥⌘H again: back out at once.
+  // ⌃⌥⌘H again: back out at once. A stack pill that was already pill-sized may stay folded; every open card is open.
   const back = sample(pages[0], '#root')
   await press('⌃⌥⌘H')
   const backFrames = await back
   const placesAfter = (await stickies()).map((one) => `${one.id}:${one.x},${one.y},${one.width},${one.height}`).sort().join(' ')
   check('⌃⌥⌘H again: each card is back exactly where it was', placesAfter === placesBefore, `${placesBefore} | ${placesAfter}`)
-  check('⌃⌥⌘H opens the cards it folded, no slide', (await folded()).every((one) => one === null) && backFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(backFrames)].slice(0, 4)))
+  const opened = await Promise.all((await stickies()).filter((one) => one.shown).map(async (one) => {
+    const page = electron.windows().find((w) => w.url() === one.url)
+    const attr = page ? await page.evaluate(() => document.querySelector('[data-desk-pill]')?.getAttribute('data-desk-pill') ?? null) : 'gone'
+    return { h: one.height, attr }
+  }))
+  check('⌃⌥⌘H opens the cards it folded, no slide', opened.every((one) => one.h <= 40 || one.attr === null || one.attr === 'open') && backFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify({ opened, frames: [...new Set(backFrames)].slice(0, 4) }))
 
   // Motion off: the card's growth out of its pill is gone too.
   await press('⌃⌥⌘H')
