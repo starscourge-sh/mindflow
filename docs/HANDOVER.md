@@ -12,7 +12,7 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 ## State on 24 Nov 2026
 
 - Branch: everything is on `main`. The newest build is `dist/Haligtree-0.4.0-beta.219.dmg`; the next build is beta.220 (bump `package.json` first, keep only the newest `dist/Haligtree-*`).
-- Wrapped Midori → F49 → F51 → F53: cream cards no longer paint blank. Cause was `JournalField` forcing `relative` over callers' `absolute`, so Split ink sat below the card clip; also opacity-0 `In`/Typed and an AI `ready` wait. Shots under the store `break-shots/wrapped-full-walk/`. Grainient stays; no card smoke. Probe `wrap-book-first` green. **Not WOW yet**.
+- Wrapped Midori → F49 → F51 → F53/F53b: cream cards paint again; chrome lanes (`data-wrap-stage`) keep progress / X / brand off the page (10-progress-on-card, 11-left-clip). Shots under the store `break-shots/wrapped-full-walk/`. Grainient stays; no card smoke. Probe `wrap-book-first` 30/30. **Not WOW yet**.
 - The owner runs `npm run dev` from this folder and reports bugs with screenshots. Fix on `main`, commit each fix on its own with a plain message saying what the user now sees and why.
 
 ## Known failures (not caused by the newest work)

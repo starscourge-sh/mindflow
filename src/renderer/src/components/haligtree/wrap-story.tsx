@@ -449,8 +449,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
             )}
           </AnimatePresence>
         </div>
-        {/* Progress + close: real top breathing room on cream and ink alike (never flush to the card edge). */}
-        <div data-wrap-chrome className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-5 pt-7">
+        {/* Progress + close live in the top chrome lane (above data-wrap-stage). Never over page ink. */}
+        <div data-wrap-chrome className="absolute inset-x-0 top-0 z-20 flex h-14 items-center gap-3 px-8 pt-4">
           <Tip label="Next → · Back ←">
             <div className="flex flex-1 gap-1.5">
               {/* One card has nowhere to turn: no bars for it. */}
@@ -462,7 +462,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
           </Tip>
           <Tip label="Close  Esc"><button type="button" aria-label="Close" onClick={onClose} className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full transition-opacity hover:opacity-70" style={{ color: p.ink }}><X className="size-4" /></button></Tip>
         </div>
-        <div data-wrap-keep className="absolute right-4 bottom-4 z-20 flex h-8 items-center gap-2">
+        <div data-wrap-keep className="absolute right-8 bottom-6 z-20 flex h-8 items-center gap-2">
           <AnimatePresence>
             {/* The report card is the one to keep; the quiet card is nothing to share. */}
             {at === last && kinds[last] === 'report' && (
@@ -473,7 +473,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
             )}
           </AnimatePresence>
         </div>
-        {at !== last && <span data-wrap-brand className="pointer-events-none absolute bottom-5 left-5 z-20 text-[11px] font-bold tracking-[0.08em] uppercase"
+        {/* Brand sits in the bottom chrome lane, clear of the stage and the card’s left edge. */}
+        {at !== last && <span data-wrap-brand className="pointer-events-none absolute bottom-6 left-10 z-20 text-[11px] font-bold tracking-[0.08em] uppercase"
           style={{ color: kind === 'notes' || kind === 'well' || kind === 'pictures' ? STAGE.paperInk : 'var(--wrap-quiet)' }}>{APP_NAME}</span>}
       </motion.div>
     </motion.div>
@@ -529,8 +530,9 @@ const LIST = 3
 
 /** Two halves on a wide card, one above the other on a narrow one; a seeded variant flips them. */
 function Split({ a, b, flip }: { a: ReactNode; b: ReactNode; flip: boolean }): React.JSX.Element {
+  // Stage already clears chrome; keep a modest inner gap so columns do not kiss the stage edge.
   return (
-    <div className="relative grid h-full grid-rows-[auto_1fr] gap-5 px-7 pt-16 pb-14 @2xl:grid-cols-2 @2xl:grid-rows-1 @2xl:items-center @2xl:gap-8 @2xl:px-12">
+    <div className="relative grid h-full grid-rows-[auto_1fr] gap-5 px-3 pt-2 pb-2 @2xl:grid-cols-2 @2xl:grid-rows-1 @2xl:items-center @2xl:gap-8 @2xl:px-5">
       <div className={`min-w-0 ${flip ? '@2xl:order-2' : ''}`}>{a}</div>
       <div className="relative min-h-0 min-w-0 self-stretch">{b}</div>
     </div>
@@ -539,7 +541,7 @@ function Split({ a, b, flip }: { a: ReactNode; b: ReactNode; flip: boolean }): R
 
 /** One centred line or two, for the first and last cards where there is nothing to chart. */
 function Centre({ children }: { children: ReactNode }): React.JSX.Element {
-  return <div className="relative grid h-full content-center justify-items-center gap-4 px-8 pt-16 pb-14 text-center @2xl:px-20">{children}</div>
+  return <div className="relative grid h-full content-center justify-items-center gap-4 px-4 pt-2 pb-2 text-center @2xl:px-12">{children}</div>
 }
 
 /** A few lines ranked, the way the report card lists them. */
@@ -753,7 +755,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
   const kicker = lead ? <In at={0.05} from={e}><p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty" style={{ color: p.ink }}>{lead}</p></In> : null
   const split = (a: ReactNode, b: ReactNode): ReactElement => (
     <div className="relative h-full">
-      {!night && <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="pointer-events-none absolute inset-[4%] -z-10 opacity-95" />}
+      {!night && <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="pointer-events-none absolute inset-x-[3%] top-[2%] bottom-[3%] -z-10 opacity-95" />}
       <Split a={<>{kicker}{a}</>} b={b} flip={flip} />
     </div>
   )
@@ -786,11 +788,11 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
    * stamp, margin scrap, worn tapes — layered density, never one lonely motif.
    */
   const cover = (picture: Picture | undefined): ReactElement => (
-    <div data-wrap-cover data-wrap-collage className="absolute inset-0 [container-type:size]"
+    // Fill the Split column only — stage already clears card chrome. Ink starts past the margin rule.
+    <div data-wrap-cover data-wrap-collage className="absolute inset-0 overflow-hidden [container-type:size]"
       onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-      {/* Page stock paints at once — never gated behind opacity 0 while the card looks empty. */}
       <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
-        <div className="absolute inset-0 flex flex-col px-[12%] pt-5 pb-6 pr-5 text-left">
+        <div className="absolute inset-0 flex flex-col pl-[18%] pr-5 pt-4 pb-5 text-left">
           <div className="mb-2 flex items-start justify-between gap-2">
             <p className="m-0 text-[11px] font-semibold tracking-[0.08em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 72%, ${STAGE.paper})` }}>subject</p>
             <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={seed + 7} />
@@ -819,7 +821,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
             </div>
           )}
           <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, ${STAGE.paper})`}
-            className="absolute bottom-[10%] left-[14%] w-[36%] rotate-[-5deg]" />
+            className="absolute bottom-[10%] left-[18%] w-[36%] rotate-[-5deg]" />
         </div>
       </JournalField>
     </div>
@@ -946,7 +948,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
           <div data-wrap-flow data-wrap-collage className="absolute inset-0"
             onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
-              <div className="absolute inset-0 grid grid-rows-[auto_1fr] gap-4 px-[12%] pt-16 pb-10 pr-8 text-left">
+              <div className="absolute inset-0 grid grid-rows-[auto_1fr] gap-4 px-[12%] pt-4 pb-6 pr-6 text-left">
                 <div>
                   {pageLead}
                   <In at={0.1} pace="linger">{pageHead(f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw')}{pageCap(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
@@ -976,7 +978,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         const rule = (w: string, strong = false): ReactElement => (
           <span aria-hidden className="mt-2 block h-px" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: w, opacity: strong ? 0.35 : 0.18 }} />
         )
-        // “N more” lives under the head — never on the brand row (HALIGTREE is bottom-5 left-5 on the card).
+        // “N more” lives under the head — never in the brand chrome lane (stage clears HALIGTREE).
         const said = (
           <>
             {f.notesLabel}
@@ -988,9 +990,8 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return (
           <div className="absolute inset-0">
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0">
-              {/* Hard brand strip: nothing from the page may enter the bottom ~3.5rem where HALIGTREE sits. */}
-              <div className="absolute inset-0 overflow-hidden px-[12%] pt-12 pr-6 pb-[3.5rem] text-left">
-                <p aria-hidden className="pointer-events-none absolute top-[18%] left-[1.5%] m-0 font-heading text-[clamp(16px,2.8cqi,24px)] font-semibold tracking-[0.14em] uppercase"
+              <div className="absolute inset-0 overflow-hidden px-[12%] pt-3 pr-5 pb-4 text-left">
+                <p aria-hidden className="pointer-events-none absolute top-[18%] left-[2%] m-0 font-heading text-[clamp(16px,2.8cqi,24px)] font-semibold tracking-[0.14em] uppercase"
                   style={{ color: marginInk, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Gems</p>
                 <div className="mb-2 flex items-start justify-between gap-3 pr-[6%]">
                   <div className="min-w-0">
@@ -1073,7 +1074,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return (
           <div className="absolute inset-0">
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
-              <div className="absolute inset-0 flex flex-col px-[12%] pt-16 pb-10 pr-8 text-left">
+              <div className="absolute inset-0 flex flex-col px-[12%] pt-3 pb-5 pr-6 text-left">
                 {/* Graphite on cream always — night accent is too pale on JournalField (wrap-contrast). */}
                 <p aria-hidden className="pointer-events-none absolute top-[22%] left-[2%] m-0 font-heading text-[clamp(18px,3.2cqi,28px)] font-semibold tracking-[0.12em] uppercase"
                   style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 55%, ${p.accent})`, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Well</p>
@@ -1131,7 +1132,9 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return <Report f={f} look={look} />
     }
   })()
-  return <div className="absolute inset-0 overflow-hidden">{body}</div>
+  // Safe stage: progress / X / brand / keep sit in chrome lanes outside this box.
+  // Top clears the dashes by a full rem (not 8px); sides keep journal pages off the card edge.
+  return <div data-wrap-stage className="absolute inset-x-10 top-24 bottom-20 overflow-hidden">{body}</div>
 }
 
 /** The card to keep: one journal page with a tipped print, date stamp, lists — no KEPT badge. */
@@ -1151,12 +1154,12 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
     f.kind !== 'Quiet' && <div key="kind" className="min-w-0"><p className="font-heading text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-semibold" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">what this {f.period} held</p></div>
   ].filter(Boolean)
   return (
-    <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-16 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report data-wrap-collage
+    <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-3 pt-2 pb-2 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-4" data-wrap-report data-wrap-collage
       onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
       <In from="scale" className="relative min-h-[64px] overflow-hidden">
         <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0" />
         {/* Month as a vertical margin title, like ref subject labels. */}
-        <div className="absolute inset-y-[8%] left-[3%] z-[2] grid w-[14%] place-items-center overflow-hidden [container-type:size]">
+        <div className="absolute inset-y-[8%] left-[4%] z-[2] grid w-[14%] place-items-center overflow-hidden [container-type:size]">
           <span data-wrap-month className="font-heading font-semibold whitespace-nowrap tracking-[-0.02em]" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: `min(48px, calc(88cqh / ${(0.66 * month.length).toFixed(2)}), 70cqw)` }}>{month}</span>
         </div>
         {picture
