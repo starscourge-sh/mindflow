@@ -157,8 +157,11 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   // The frog, picked last night to do first, leads; the rest in Today's own order (late first, then your order), so a
   // task stands in the same place here as on Today's page, and today's three are the same three (the user, 23 Nov).
   const frog = frogOn(settings, today)
-  const todos = frogFirst([...byId.values()].sort(dayOrder), frog)
   const three = dayThree(tasks)
+  // Today's three first, in their numbered order (1, 2, 3, as Tasks shows them), then the rest in Today's order: sorted
+  // by date alone, the numbers came 1, 3, 2 with done ones between them (the owner, 24 Nov).
+  const rank = (task: Task): number => (three.includes(task.id) ? three.indexOf(task.id) : 3)
+  const todos = frogFirst([...byId.values()].sort((a, b) => rank(a) - rank(b) || dayOrder(a, b)), frog)
   const struck = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
   // With events on the calendar today, the tasks with a time go in one line with them, by the hour.
   const inLine = lined ? todos.filter((task) => task.dueAt && !task.allDay && dayKey(task.dueAt) === today) : []
