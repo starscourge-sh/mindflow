@@ -17,5 +17,8 @@ export const ROW_PAD = 'py-1.5 min-h-[calc(1.25rem+0.125rem+1rem+0.75rem)]'
 /** The square an icon or picture sits in at a row's start. */
 export const ROW_TILE = 'relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md'
 export const tileTint = (tint?: string | null): CSSProperties => ({
-  background: tint ? `color-mix(in srgb, ${tint} 9%, var(--accent))` : 'var(--accent)'
+  background: tint ? `color-mix(in srgb, ${tint} 9%, var(--accent))` : 'var(--accent)',
+  // A fine edge of its own, so it keeps its shape on a row lit in the same fill (the owner, 24 Nov: on a picked row the
+  // question's tile melted into the highlight).
+  boxShadow: 'inset 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent)'
 })

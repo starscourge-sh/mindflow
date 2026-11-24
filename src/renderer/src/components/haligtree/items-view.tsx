@@ -334,7 +334,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
   }, [all, shelf, opened, inFolder, folderOfItem])
-  const { groups: arranged, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly, !!inFolder && inFolder.id !== 'unfiled')
+  const { groups: arranged, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -1788,7 +1788,7 @@ const propOf = (one: Item): { status?: string; rating?: number } => {
 /** Questions › Words' Display, kept apart from Open's and Answered's. */
 const WORDS = 'question:words'
 
-export function useItemDisplay(name: string, every: Item[], withGroups = false, /** In a folder of your own: what is put away shows too, quiet. */ keepAway = false): {
+export function useItemDisplay(name: string, every: Item[], withGroups = false): {
   groups: [string, Item[]][]
   display: React.JSX.Element
   /** The orders the list can take, as Display's "Sort" offers them: the list's own right-click offers the same. */
@@ -1818,9 +1818,9 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false, 
   // Words, as Looked up: A to Z under their letters (a list of its own, so Open and Answered keep theirs).
   const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'date' })
   // Archived ones are out of sight until Display's Marked asks for them.
-  // In a folder of your own, put away ones stay on show where they are kept: put away means out of the Feed, Home and
-  // Review, never out of its folder (the user, 24 Nov: a folder of 40 put-away pages showed none).
-  const all = keepAway && !view.filter.flags?.includes('archived') ? every : every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
+  // Archived ones (and what Start fresh put away) are out of sight everywhere until brought back, or until Display's
+  // Marked asks for them (the owner, 24 Nov: "they do not appear anywhere until I have explicitly chosen to resurrect them").
+  const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
   const folderOf = useFolderOf()
   const own = useOwnOrder(name)
   // Moving a row is choosing your own order: the list switches to it.

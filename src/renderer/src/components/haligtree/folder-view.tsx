@@ -72,7 +72,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace, group, onGroup 
   const path = top ? [] : pathOf(all, id)
   const inside = all.filter((one) => (one.parent ?? null) === (top ? null : id) && !one.archived)
   const name = top ? 'Writing' : folder?.name ?? 'Folder'
-  const shown = (items ?? []).filter((one) => one.type !== 'task')
+  const shown = (items ?? []).filter((one) => !one.archived && one.type !== 'task')
   const counted = KIND_TABS.map((kind) => ({ ...kind, n: shown.filter((one) => kind.types.includes(one.type)).length }))
   // Only the kinds it holds are tabs ("Pages 0" offered nothing); holding nothing, its list is Pages', where "New page"
   // is. Writing's top level always has Recent last: every page and gem, wherever it is kept.

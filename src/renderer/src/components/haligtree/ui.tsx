@@ -1955,12 +1955,12 @@ export function Toaster(): React.JSX.Element | null {
     <MilestoneAsker />
     <RestoreAsker />
     <Beam />
-    {wait && !wait.job && !shown && <div style={style} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+    {wait && !wait.job && !shown && <div style={style} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,20px)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
       <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
         leaves the way it came, and a new one takes its place at once. */}
-    <div ref={lane} style={style} className="pointer-events-none fixed top-[var(--toast-top,auto)] right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2 transition-[bottom] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none">
+    <div ref={lane} style={style} className="pointer-events-none fixed top-[var(--toast-top,auto)] right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,20px)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2 transition-[bottom] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none">
     {/* Words not saved yet: one line above the toasts, up until they are in. */}
     <SaveTroubleLine />
     <ImportProgress />
