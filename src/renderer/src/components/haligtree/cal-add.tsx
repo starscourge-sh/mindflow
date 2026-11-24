@@ -70,6 +70,10 @@ const sideFor = (at: DOMRect): Side => {
   const need = WIDE + 7 + 6 + ROOM.right
   if (window.innerWidth - at.right >= need) return 'right'
   if (at.left >= need) return 'left'
+  // A short window has no room to grow a card above or under its draft: the form
+  // was cut off inside the card’s scroller (24 Nov walk, 560×400 Month). Prefer
+  // beside anyway; collision padding keeps the card in the window.
+  if (window.innerHeight < 520) return window.innerWidth - at.right >= at.left ? 'right' : 'left'
   return window.innerHeight - at.bottom >= at.top - ROOM.top ? 'bottom' : 'top'
 }
 
@@ -374,7 +378,10 @@ function Shell({ kind, label, side, opened, head, children, tied, onEscape, onKe
       // A field in it that lets go of the keys (↵ in the place, a tag kept) hands them to the popover itself, never to the
       // page under it: there, the next ↵ started a new event on the day picked.
       onBlurCapture={(event) => void (opened && !event.relatedTarget && event.currentTarget.focus({ preventScroll: true }))} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
-      style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)]"
+      // One width when the window has room; on a short narrow window (560×400 Month) neither
+      // side fits 320px beside the draft, so Radix's available width caps it — still beside,
+      // whole in the window, never over its draft (24 Nov walk).
+      style={{ width: WIDE, maxWidth: 'var(--radix-popper-available-width, 100vw)' }}
       onOpenAutoFocus={(event) => event.preventDefault()}
       // Esc in a "which times" asked over it answers the ask alone: the popover stays, with its words.
       onEscapeKeyDown={(event) => (event.preventDefault(), !leaving && !document.querySelector('[data-scope-ask]') && onEscape())}

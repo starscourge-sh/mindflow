@@ -601,6 +601,10 @@ try {
     const free = await h.evaluate((keys) => keys.find((key) => { const el = document.querySelector(`[data-cal-level] [data-day="${key}"]`); return el && !el.querySelector('[data-plan-task], [data-cal-event-chip], [data-plan-more], [data-plan-more-events], [data-mark-flag]') }) ?? keys[0], [1, 2, 3, 4, 5, 6, 7, 8, 9].map(dayKeyOf))
     console.log(`NOTE  the event and the task are made on ${free}`)
     thingsDay = free
+    // A free day near the month's end can sit below the fold; double-clicking its
+    // corner off-screen opens nothing (24 Nov walk, load flake on `open`).
+    await h.evaluate((key) => document.querySelector(`[data-cal-level] [data-day="${key}"]`)?.scrollIntoView({ block: 'center' }), free)
+    await wait(400)
     for (const [kind, words] of [['event', 'Opens here 2pm'], ['task', 'Opened task 4pm']]) {
       await dbl(...corner(await cell(free)))
       if (kind === 'task') { await h.click('[data-cal-add] [data-day-side-kind="task"]'); await wait(300) }
