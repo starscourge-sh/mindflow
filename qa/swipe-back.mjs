@@ -243,5 +243,13 @@ check('split: the list opens at its own pane\'s edge on the swipe\'s side, by th
 await h.keyboard.press('Escape'); await pause(300)
 
 console.log(`\n${results.filter(Boolean).length}/${results.length} passed`)
+// A task open beside its list, reached with no page behind it: a swipe Back closes the task, never a dead swipe (24 Nov).
+await h.keyboard.press('Escape'); await pause(300)
+await h.locator('aside [data-side-row]', { hasText: /^Tasks/ }).first().click(); await pause(1500)
+await h.locator('[data-page] [data-task-row] [data-row]').first().click(); await pause(1200)
+const openBefore = await h.locator('[data-close-beside]').count()
+await swipe(14); await lift(); await pause(900)
+check('a swipe Back closes a task open beside its list', openBefore === 1 && (await h.locator('[data-close-beside]').count()) === 0, `open before ${openBefore}`)
+
 await c.close()
 process.exit(results.every(Boolean) ? 0 : 1)

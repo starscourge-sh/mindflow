@@ -118,15 +118,17 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       move()
       draw()
     }
-    const goBy = (key: string, to: number): void => {
+    // `back`: the swipe went Back. `to` is the trail's place to go to (its index, not a direction: read as one, the open
+    // item never closed first).
+    const goBy = (key: string, to: number, back = false): void => {
       // Back out one layer at a time, as Esc does: a task (or any item) open beside its list closes first, back to that
       // list, before the page itself is left (the user, 24 Nov: a swipe from an open task went on to the Journal).
-      if (to < 0) {
+      if (back) {
         const pane = document.querySelector(`[data-pane="${CSS.escape(key)}"]`) ?? document
         const shut = pane.querySelector<HTMLElement>('[data-close-beside]')
         if (shut) return void shut.click()
       }
-      props.current.go(key, to)
+      if (to >= 0) props.current.go(key, to)
     }
     const openList = (): void => {
       if (!g || (phases && !touching)) return
@@ -146,7 +148,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       const open = listRef.current
       if (open) {
         // Let go after choosing with the fingers: go there. Opened and not moved, it stays open to be answered.
-        if (open.moved) (setList(null), goBy(open.key, open.rows[open.pick].index))
+        if (open.moved) (setList(null), goBy(open.key, open.rows[open.pick].index, open.way === -1))
         spent = true
         return
       }
@@ -157,7 +159,8 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       end(armed ? `go: ${why}` : `cancel: ${why} short of the tap`)
       // To the nearest place that looks different from this one: a step that only changed a tab's scroll is not a place.
       const to = trail && placesFrom(trail, way, props.current.nameOf)[0]
-      if (armed && to) goBy(key, to.index)
+      if (armed && to) goBy(key, to.index, way === -1)
+      else if (armed && way === -1) goBy(key, -1, true)
     }
     const startable = (event: WheelEvent): G | null => {
       const target = event.target instanceof Element ? event.target : null
@@ -173,7 +176,10 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       const trail = props.current.trailOf(key)
       // Fingers to the right: Back.
       const way: -1 | 1 = fingersX(event) > 0 ? -1 : 1
-      if (!trail || !placesFrom(trail, way, props.current.nameOf).length) return null
+      // An item open beside its list is one step back on its own, history or not (the owner, 24 Nov: a task opened
+      // from a project's list could only be closed with Esc).
+      const shut = way === -1 && !!(paneEl ?? document).querySelector('[data-close-beside]')
+      if (!shut && (!trail || !placesFrom(trail, way, props.current.nameOf).length)) return null
       // The page's card, not the pane around it (which takes in the gap beside it): the arrow and the list sit inside the page.
       const rect = (paneEl?.querySelector('[data-pane-card]') ?? paneEl ?? document.querySelector('[data-pane]') ?? document.body).getBoundingClientRect()
       return { key, way, pull: 0, armed: false, steps: [], rect }
