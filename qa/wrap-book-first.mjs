@@ -29,7 +29,11 @@ const WORST = {
   gems: 8,
   run: 5,
   busiest: { label: 'Tuesday', day: '2026-11-17', n: 9 },
-  well: ['Kept a page of quotes from the walk.'],
+  well: [
+    'Kept a page of quotes from the walk.',
+    'Physics deck begun; Dorian Gray finished.',
+    'Small steps on the big things: the oxygenator, the wall, Book 9.'
+  ],
   thin: false,
   pictures: [],
   heroes: []

@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
 import { num } from '../../../../main/dates'
 import { seeded } from './wrap-worlds'
 
 /**
- * The drawn pieces the wrap cards are made of: deckled paper, worn kraft and
- * washi, ink stamps, a scribble, and a silk of light for Night. Midori desk
- * collage, never clean vector stickers.
+ * The drawn pieces the wrap cards are made of. North star: real journal
+ * spreads (page-as-field, handwriting, photos tipped into writing, sparse
+ * washi). Never a sticker kit of KEPT badges and matching kraft on empty cream.
  */
 
 /** Warm fibre baked into paper stock (same recipe as Review's paper finish). */
@@ -38,52 +38,177 @@ export function In({ at = 0, children, className, style, from = 'up' }: { at?: n
 
 /** Soft hand-torn ends: big uneven bites that read at card size, never a pinked zig-zag. */
 const TORN = {
-  kraft: 'polygon(0% 18%, 4% 0%, 12% 8%, 22% 1%, 38% 6%, 52% 0%, 68% 5%, 82% 1%, 94% 7%, 100% 2%, 98% 28%, 100% 48%, 96% 62%, 100% 78%, 97% 100%, 84% 94%, 70% 100%, 52% 93%, 36% 100%, 20% 94%, 8% 100%, 0% 82%, 3% 58%, 0% 38%)',
-  washi: 'polygon(0% 12%, 6% 0%, 18% 6%, 34% 0%, 50% 8%, 66% 1%, 80% 7%, 94% 0%, 100% 16%, 97% 40%, 100% 60%, 95% 78%, 100% 100%, 78% 94%, 58% 100%, 40% 92%, 22% 100%, 6% 94%, 0% 72%, 4% 48%, 0% 28%)',
-  short: 'polygon(0% 20%, 8% 0%, 28% 10%, 48% 0%, 72% 8%, 92% 0%, 100% 22%, 96% 55%, 100% 100%, 70% 92%, 42% 100%, 18% 90%, 0% 100%, 4% 60%)'
+  kraft: 'polygon(0% 22%, 3% 0%, 11% 11%, 19% 0%, 31% 9%, 42% 1%, 55% 8%, 67% 0%, 79% 10%, 88% 2%, 96% 12%, 100% 4%, 99% 31%, 100% 52%, 96% 68%, 100% 84%, 97% 100%, 81% 93%, 68% 100%, 51% 91%, 36% 100%, 21% 92%, 9% 100%, 0% 86%, 3% 64%, 0% 42%)',
+  washi: 'polygon(0% 14%, 5% 0%, 16% 9%, 29% 0%, 44% 11%, 58% 1%, 71% 9%, 84% 0%, 95% 8%, 100% 18%, 97% 41%, 100% 61%, 94% 79%, 100% 100%, 76% 93%, 58% 100%, 39% 91%, 21% 100%, 5% 93%, 0% 74%, 4% 49%, 0% 28%)',
+  short: 'polygon(0% 24%, 7% 0%, 26% 13%, 45% 0%, 68% 11%, 89% 0%, 100% 26%, 95% 58%, 100% 100%, 69% 90%, 41% 100%, 16% 88%, 0% 100%, 5% 62%)',
+  corner: 'polygon(0% 30%, 8% 0%, 28% 18%, 48% 0%, 72% 16%, 92% 2%, 100% 28%, 96% 70%, 100% 100%, 62% 88%, 28% 100%, 0% 78%, 4% 48%)',
+  thin: 'polygon(0% 35%, 6% 0%, 22% 28%, 40% 0%, 58% 30%, 76% 0%, 94% 22%, 100% 40%, 98% 100%, 70% 78%, 42% 100%, 18% 72%, 0% 100%, 2% 62%)'
 } as const
+
+export type TapeKind = keyof typeof TORN
+
+const TAPE_TINTS = ['#c9b896', '#b8a888', '#d4c4a0', '#a89878', '#cfc0a4', '#b5a07e'] as const
 
 /**
  * Worn kraft or washi: matte, a little see-through, fibre in the stock, soft
- * torn ends. Never a hatched rectangle or pinked sticker.
+ * torn ends. Seed picks end shape, tint and wear so no two strips match.
  */
-export function KraftTape({ className = '', tint = '#c9b896', kind = 'kraft' }: { className?: string; tint?: string; kind?: 'kraft' | 'washi' | 'short' }): React.JSX.Element {
-  const tall = kind === 'short' ? 'h-3' : 'h-4'
+export function KraftTape({
+  className = '', tint, kind = 'kraft', seed = 1, wear = 0
+}: {
+  className?: string
+  tint?: string
+  kind?: TapeKind
+  seed?: number
+  /** 0..1 extra fade / crook so stacks do not share one recipe. */
+  wear?: number
+}): React.JSX.Element {
+  const rand = seeded(seed * 9973 + kind.length * 17)
+  const pick = (tint ?? TAPE_TINTS[Math.floor(rand() * TAPE_TINTS.length)]) as string
+  const tall = kind === 'short' || kind === 'corner' || kind === 'thin' ? 'h-2.5' : kind === 'washi' ? 'h-3.5' : 'h-4'
+  const fade = kind === 'washi' ? 0.62 + wear * 0.18 : 0.78 + wear * 0.14
+  const crook = (rand() - 0.5) * 4
   return (
     <span aria-hidden data-wrap-tape={kind} className={`pointer-events-none block overflow-hidden ${tall} ${className}`}
       style={{
-        opacity: kind === 'washi' ? 0.72 : 0.88,
+        opacity: fade,
         background:
-          kind === 'washi'
-            ? `linear-gradient(180deg, rgb(255 255 255 / 0.4), rgb(255 255 255 / 0.08) 45%, rgb(0 0 0 / 0.08)), ${FIBER}, ${tint}`
-            : `linear-gradient(105deg, rgb(255 255 255 / 0.28), transparent 40%, rgb(0 0 0 / 0.1) 82%), linear-gradient(180deg, rgb(255 255 255 / 0.22), transparent 50%, rgb(0 0 0 / 0.12)), ${FIBER}, ${tint}`,
-        backgroundSize: kind === 'washi' ? 'auto, 70px, auto' : 'auto, auto, 70px, auto',
-        boxShadow: '0 1px 3px rgb(0 0 0 / 0.22), inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 -1px 1px rgb(0 0 0 / 0.1)',
+          kind === 'washi' || kind === 'thin'
+            ? `linear-gradient(${98 + crook}deg, rgb(255 255 255 / 0.42), rgb(255 255 255 / 0.06) 42%, rgb(0 0 0 / 0.1)), ${FIBER}, ${pick}`
+            : `linear-gradient(${105 + crook}deg, rgb(255 255 255 / 0.3), transparent 38%, rgb(0 0 0 / 0.12) 84%), linear-gradient(180deg, rgb(255 255 255 / 0.2), transparent 52%, rgb(0 0 0 / 0.14)), ${FIBER}, ${pick}`,
+        backgroundSize: kind === 'washi' || kind === 'thin' ? 'auto, 70px, auto' : 'auto, auto, 70px, auto',
+        boxShadow: '0 1px 3px rgb(0 0 0 / 0.2), inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 -1px 1px rgb(0 0 0 / 0.12)',
         clipPath: TORN[kind],
-        mixBlendMode: kind === 'washi' ? 'multiply' : 'normal',
-        filter: 'contrast(1.05) saturate(0.92)'
+        mixBlendMode: kind === 'washi' || kind === 'thin' ? 'multiply' : 'normal',
+        filter: `contrast(${1.02 + wear * 0.06}) saturate(${0.88 + wear * 0.1})`
       }} />
   )
 }
 
-/** Hand-torn edge: a few uneven bites with irregular spacing — never dense pinking-shear teeth. */
+/**
+ * Hand-torn edge: few uneven bites, irregular spacing, each variant a different
+ * hand — never dense pinking-shear teeth and never the same path twice in a row.
+ */
 const DECKLE = [
-  'polygon(0.8% 2%, 8% 0.4%, 19% 2.2%, 31% 0%, 44% 1.8%, 58% 0.3%, 71% 2%, 84% 0.5%, 96% 1.6%, 99.4% 9%, 98.2% 22%, 99.6% 38%, 97.8% 54%, 99.5% 70%, 98% 86%, 99.2% 97%, 90% 99.4%, 76% 97.8%, 61% 99.5%, 46% 98%, 32% 99.6%, 17% 97.9%, 4% 99.2%, 0.4% 88%, 1.8% 72%, 0.3% 55%, 1.6% 38%, 0.4% 22%, 1.5% 10%)',
-  'polygon(0.5% 1%, 11% 2%, 23% 0.2%, 37% 1.8%, 51% 0%, 66% 2.1%, 79% 0.4%, 91% 1.5%, 99.2% 4%, 98.5% 18%, 99.7% 34%, 97.9% 49%, 99.4% 65%, 98.1% 81%, 99.5% 94%, 93% 99.2%, 78% 98%, 63% 99.5%, 48% 97.8%, 33% 99.4%, 19% 98.1%, 6% 99.3%, 0.3% 91%, 1.7% 74%, 0.2% 58%, 1.5% 41%, 0.4% 25%, 1.6% 11%)'
+  'polygon(0.6% 3.2%, 7% 0.2%, 15% 2.8%, 24% 0%, 36% 2.4%, 47% 0.6%, 59% 3%, 71% 0.2%, 82% 2.6%, 93% 0.4%, 99.2% 7%, 97.6% 19%, 99.6% 33%, 97.2% 48%, 99.4% 62%, 96.8% 76%, 99% 89%, 98.6% 97.5%, 88% 99.6%, 74% 97.2%, 61% 99.4%, 47% 97%, 33% 99.6%, 19% 97.4%, 6% 99.2%, 0.3% 90%, 2.2% 74%, 0.2% 58%, 1.9% 41%, 0.3% 26%, 1.8% 12%)',
+  'polygon(0.4% 1.4%, 9% 2.6%, 18% 0%, 30% 2.2%, 42% 0.4%, 55% 2.8%, 68% 0.2%, 80% 2%, 92% 0.6%, 99.4% 5%, 98.2% 17%, 99.8% 31%, 97.4% 46%, 99.2% 60%, 97.6% 74%, 99.6% 88%, 94% 99.4%, 80% 97.6%, 66% 99.5%, 52% 97.2%, 38% 99.4%, 24% 97.8%, 10% 99.2%, 0.2% 92%, 1.6% 76%, 0.4% 60%, 2% 44%, 0.3% 28%, 1.7% 14%)',
+  'polygon(1% 0.8%, 12% 2.4%, 25% 0.2%, 39% 2%, 52% 0%, 66% 2.6%, 79% 0.4%, 91% 2.2%, 99% 6%, 98.8% 21%, 99.5% 37%, 97% 52%, 99.3% 68%, 96.5% 82%, 99.2% 95%, 91% 99%, 76% 97.4%, 62% 99.6%, 48% 96.8%, 34% 99.2%, 20% 97%, 7% 99.4%, 0.5% 86%, 2.4% 70%, 0.2% 54%, 1.8% 38%, 0.5% 22%, 2% 9%)',
+  'polygon(0.2% 4%, 6% 0%, 14% 3.4%, 27% 0.6%, 40% 3%, 53% 0%, 65% 2.8%, 78% 0.4%, 90% 3.2%, 99.5% 1.5%, 98% 16%, 99.7% 32%, 96.8% 47%, 99.5% 63%, 97.2% 78%, 99.4% 92%, 96% 99.2%, 84% 97%, 70% 99.5%, 55% 96.6%, 41% 99.4%, 26% 97.2%, 12% 99%, 0.4% 94%, 1.5% 78%, 0.2% 62%, 2.2% 46%, 0.4% 30%, 1.6% 15%)'
 ] as const
+
+/** Soft lamp wash: uneven desk light, never a flat cream field. */
+export function LampWash({ ink, accent, className = '' }: { ink: string; accent: string; className?: string }): React.JSX.Element {
+  return (
+    <div aria-hidden data-wrap-lamp className={`pointer-events-none absolute inset-0 ${className}`}
+      style={{
+        background: [
+          `radial-gradient(ellipse 70% 55% at 18% 12%, rgb(255 248 230 / 0.55), transparent 62%)`,
+          `radial-gradient(ellipse 55% 48% at 82% 78%, color-mix(in srgb, ${accent} 18%, transparent), transparent 70%)`,
+          `radial-gradient(ellipse 90% 70% at 50% 110%, color-mix(in srgb, ${ink} 16%, transparent), transparent 55%)`,
+          `linear-gradient(118deg, color-mix(in srgb, ${ink} 5%, transparent), transparent 42%, color-mix(in srgb, ${accent} 7%, transparent) 100%)`
+        ].join(', '),
+        mixBlendMode: 'multiply',
+        opacity: 0.85
+      }} />
+  )
+}
+
+/**
+ * The open notebook page as the field: cream stock, faint grid or dots, a
+ * margin rule, fibre, uneven lamp. Content lives IN the page — never a card
+ * floating on empty cream.
+ */
+export function JournalField({
+  ink, paper, accent, children, className = '', grid = 'dot'
+}: {
+  ink: string
+  paper: string
+  accent: string
+  children?: ReactNode
+  className?: string
+  grid?: 'dot' | 'quad'
+}): React.JSX.Element {
+  const field = grid === 'quad'
+    ? `linear-gradient(color-mix(in srgb, ${ink} 9%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, ${ink} 9%, transparent) 1px, transparent 1px)`
+    : `radial-gradient(circle, color-mix(in srgb, ${ink} 14%, transparent) 0.85px, transparent 1px)`
+  const size = grid === 'quad' ? '16px 16px, 16px 16px' : '13px 13px'
+  return (
+    <div data-wrap-journal data-wrap-collage className={`relative size-full overflow-hidden ${className}`}
+      onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}
+      style={{
+        background: `${FIBER}, ${paper}`,
+        backgroundSize: '120px, auto',
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 6%, transparent)`
+      }}>
+      <div aria-hidden className="absolute inset-0" style={{ backgroundImage: field, backgroundSize: size, backgroundPosition: '10px 8px', opacity: 0.7 }} />
+      {/* Margin rule like a traveler's notebook. */}
+      <div aria-hidden className="absolute inset-y-0 left-[11%]" style={{ width: 1, background: `color-mix(in srgb, ${accent} 45%, ${ink})`, opacity: 0.35 }} />
+      <LampWash ink={ink} accent={accent} />
+      <div className="relative z-[1] size-full">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * A rubber date stamp (SEP 03 / NOV 24): inked rectangle, not a circular
+ * KEPT product badge.
+ */
+export function DateStamp({ label, color, className = '', seed = 5 }: { label: string; color: string; className?: string; seed?: number }): React.JSX.Element {
+  const rand = seeded(seed * 1301 + label.length)
+  const rot = -6 + rand() * 12
+  return (
+    <span aria-hidden data-wrap-date className={`inline-grid place-items-center px-1.5 py-0.5 text-[10px] font-bold tracking-[0.18em] uppercase ${className}`}
+      style={{
+        color,
+        border: `1.5px solid color-mix(in srgb, ${color} 75%, transparent)`,
+        boxShadow: `inset 0 0 0 0.5px color-mix(in srgb, ${color} 35%, transparent), 0 0 1.5px color-mix(in srgb, ${color} 40%, transparent)`,
+        borderRadius: `${2 + rand()}px ${3 + rand()}px ${2 + rand()}px ${4 + rand()}px`,
+        background: `radial-gradient(ellipse at ${30 + rand() * 40}% ${40 + rand() * 30}%, color-mix(in srgb, ${color} 12%, transparent), transparent 70%)`,
+        opacity: 0.72 + rand() * 0.18,
+        transform: `rotate(${rot.toFixed(1)}deg)`,
+        mixBlendMode: 'multiply',
+        filter: `blur(${0.12 + rand() * 0.2}px) contrast(1.1)`,
+        textShadow: `0.35px 0.25px 0.5px color-mix(in srgb, ${color} 50%, transparent)`
+      }}>{label}</span>
+  )
+}
+
+/** A photo tipped into the page: thin cream margin, slight tip, no rounded UI card. */
+export function TippedPrint({
+  src, alt, ink, paper, className = ''
+}: {
+  src: string
+  alt: string
+  ink: string
+  paper: string
+  className?: string
+}): React.JSX.Element {
+  return (
+    <div data-wrap-tipped className={`relative overflow-hidden ${className}`}
+      style={{
+        background: `${FIBER}, ${paper}`,
+        backgroundSize: '80px, auto',
+        padding: 5,
+        boxShadow: `0 1px 0 color-mix(in srgb, ${ink} 12%, transparent), 0 8px 18px -8px rgb(0 0 0 / 0.4)`,
+        rotate: '-1.8deg'
+      }}>
+      <img data-wrap-hero src={src} alt={alt} draggable={false} className="pointer-events-none size-full object-cover" />
+    </div>
+  )
+}
 
 /**
  * Ruled scrapbook paper with fibre in the stock and a deckled edge: cream
  * under a lamp, never a sharp vector square.
  */
-export function PaperMat({ ink, paper, className, ruled = true, variant = 0 }: { ink: string; paper: string; className?: string; ruled?: boolean; variant?: 0 | 1 }): React.JSX.Element {
+export function PaperMat({ ink, paper, className, ruled = true, variant = 0 }: { ink: string; paper: string; className?: string; ruled?: boolean; variant?: 0 | 1 | 2 | 3 }): React.JSX.Element {
   const line = `color-mix(in srgb, ${ink} 13%, ${paper})`
   return (
     <div aria-hidden data-wrap-paper-mat className={`absolute inset-0 overflow-hidden ${className ?? ''}`}
       style={{
         background: `${FIBER}, ${paper}`,
         backgroundSize: '120px, auto',
-        clipPath: DECKLE[variant],
+        clipPath: DECKLE[variant % DECKLE.length],
         boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 8%, transparent), 0 8px 20px -10px rgb(0 0 0 / 0.35)`
       }}>
       {ruled && (
@@ -92,41 +217,89 @@ export function PaperMat({ ink, paper, className, ruled = true, variant = 0 }: {
           opacity: 0.85
         }} />
       )}
-      <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 20%, rgb(255 255 255 / 0.2), transparent 55%), linear-gradient(155deg, transparent 50%, color-mix(in srgb, ${ink} 7%, transparent))` }} />
+      <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 28% 18%, rgb(255 255 255 / 0.22), transparent 55%), linear-gradient(155deg, transparent 48%, color-mix(in srgb, ${ink} 8%, transparent))` }} />
     </div>
   )
 }
 
-/** A date-stamp ring: irregular ink, not a UI pill. */
-export function InkStamp({ label, color, className = '' }: { label: string; color: string; className?: string }): React.JSX.Element {
+/**
+ * A date-stamp impression: irregular ring, soft bleed, uneven fill — ink on
+ * paper, never a UI badge or product pill.
+ */
+export function InkStamp({
+  label, color, className = '', seed = 3, heavy = false
+}: {
+  label: string
+  color: string
+  className?: string
+  seed?: number
+  heavy?: boolean
+}): React.JSX.Element {
+  const rand = seeded(seed * 7919 + label.length * 13)
+  const rot = -14 + rand() * 28
+  const wobble = 42 + rand() * 10
+  const bleed = 0.55 + rand() * 0.3
   return (
-    <span aria-hidden data-wrap-stamp className={`grid place-items-center text-[9px] font-bold tracking-[0.14em] uppercase ${className}`}
+    <span aria-hidden data-wrap-stamp className={`relative grid place-items-center text-[8.5px] font-bold tracking-[0.16em] uppercase ${className}`}
       style={{
         color,
-        width: 46,
-        height: 46,
-        borderRadius: '46% 54% 48% 52% / 52% 46% 54% 48%',
-        boxShadow: `inset 0 0 0 1.6px color-mix(in srgb, ${color} 80%, transparent), inset 0 0 0 4px color-mix(in srgb, ${color} 12%, transparent)`,
-        background: `radial-gradient(circle at 35% 30%, color-mix(in srgb, ${color} 10%, transparent), transparent 60%)`,
-        opacity: 0.82,
-        transform: 'rotate(9deg)'
-      }}>{label}</span>
+        width: wobble,
+        height: wobble + rand() * 4,
+        borderRadius: `${44 + rand() * 12}% ${52 + rand() * 10}% ${48 + rand() * 12}% ${50 + rand() * 10}% / ${50 + rand() * 10}% ${46 + rand() * 12}% ${54 + rand() * 8}% ${48 + rand() * 10}%`,
+        boxShadow: [
+          `inset 0 0 0 ${1.2 + rand()}px color-mix(in srgb, ${color} ${68 + rand() * 20}%, transparent)`,
+          `inset 0 0 0 ${3.2 + rand() * 1.4}px color-mix(in srgb, ${color} ${10 + rand() * 10}%, transparent)`,
+          `0 0 ${2 + rand() * 2}px color-mix(in srgb, ${color} 35%, transparent)`
+        ].join(', '),
+        background: [
+          `radial-gradient(circle at ${30 + rand() * 30}% ${25 + rand() * 30}%, color-mix(in srgb, ${color} ${heavy ? 22 : 12}%, transparent), transparent 58%)`,
+          `radial-gradient(circle at ${60 + rand() * 25}% ${70 + rand() * 20}%, color-mix(in srgb, ${color} 8%, transparent), transparent 45%)`
+        ].join(', '),
+        opacity: bleed,
+        transform: `rotate(${rot.toFixed(1)}deg)`,
+        mixBlendMode: 'multiply',
+        filter: `blur(${0.15 + rand() * 0.25}px) contrast(1.08)`,
+        textShadow: `0.4px 0.3px 0.6px color-mix(in srgb, ${color} 55%, transparent), -0.3px 0.4px 0.7px color-mix(in srgb, ${color} 35%, transparent)`
+      }}>
+      <span style={{ opacity: 0.88 + rand() * 0.1, letterSpacing: `${0.12 + rand() * 0.08}em` }}>{label}</span>
+      {/* Soft ink flecks outside the ring. */}
+      <span className="absolute -top-0.5 right-1 size-1 rounded-full opacity-40" style={{ background: color, filter: 'blur(0.6px)' }} />
+      <span className="absolute bottom-0.5 -left-0.5 size-1.5 rounded-full opacity-25" style={{ background: color, filter: 'blur(0.9px)' }} />
+    </span>
+  )
+}
+
+/** Serif line with a soft ink bloom so type sits in the fibre, not on a sticker. */
+export function InkLine({ children, className = '', style }: { children: ReactNode; className?: string; style?: CSSProperties }): React.JSX.Element {
+  return (
+    <p data-wrap-ink className={`m-0 font-heading leading-snug font-semibold text-pretty ${className}`}
+      style={{
+        ...style,
+        textShadow: '0.35px 0.25px 0.55px color-mix(in srgb, currentColor 45%, transparent), -0.25px 0.35px 0.6px color-mix(in srgb, currentColor 28%, transparent)',
+        filter: 'contrast(1.04)'
+      }}>
+      {children}
+    </p>
   )
 }
 
 /** A margin scrap in the Signature hand: one kept line, tipped. */
-export function MarginNote({ text, ink, paper, className = '' }: { text: string; ink: string; paper: string; className?: string }): React.JSX.Element {
+export function MarginNote({ text, ink, paper, className = '', seed = 2 }: { text: string; ink: string; paper: string; className?: string; seed?: number }): React.JSX.Element {
+  const rand = seeded(seed * 421)
+  const rot = -9 + rand() * 8
   return (
     <div aria-hidden data-wrap-margin className={`pointer-events-none px-2.5 py-1.5 ${className}`}
       style={{
         background: `${FIBER}, ${paper}`,
         backgroundSize: '90px, auto',
         color: ink,
-        clipPath: 'polygon(1% 2%, 98% 0%, 100% 96%, 2% 100%, 0% 40%)',
-        boxShadow: '0 2px 8px -3px rgb(0 0 0 / 0.28)',
-        transform: 'rotate(-6deg)'
+        clipPath: DECKLE[Math.floor(rand() * DECKLE.length)],
+        boxShadow: '0 2px 8px -3px rgb(0 0 0 / 0.3)',
+        transform: `rotate(${rot.toFixed(1)}deg)`,
+        opacity: 0.92
       }}>
-      <p className="m-0 max-w-[14ch] text-[15px] leading-tight [font-family:'Haligtree_Signature',cursive]">{text}</p>
+      <p className="m-0 max-w-[14ch] text-[15px] leading-tight [font-family:'Haligtree_Signature',cursive]"
+        style={{ textShadow: '0.3px 0.2px 0.4px color-mix(in srgb, currentColor 40%, transparent)' }}>{text}</p>
     </div>
   )
 }
@@ -154,11 +327,15 @@ export function Scribble({ seed, color, className, delay = 0.2, width = 1.6 }: {
 }
 
 /**
- * Desk collage frame: blotter, corner tip, stamp, margin scrap, tapes — density
- * of an open Midori, not one lonely motif in the middle.
+ * Desk collage frame: blotter, corner tips, stamp, margin scrap, tapes, lamp —
+ * density of an open Midori, not one lonely motif in the middle.
+ */
+/**
+ * Cover collage: blotter + tipped print area + one kraft + one washi + margin
+ * hand. Sparse glue, not a tape sample card or KEPT badge kit.
  */
 export function DeskCollage({
-  children, ink, paper, accent, seed, note, stamp = 'kept', className = ''
+  children, ink, paper, accent, seed, note, className = ''
 }: {
   children: ReactNode
   ink: string
@@ -166,107 +343,71 @@ export function DeskCollage({
   accent: string
   seed: number
   note?: string
-  stamp?: string
   className?: string
 }): React.JSX.Element {
+  const rand = seeded(seed)
   return (
-    <div data-wrap-desk className={`relative size-full ${className}`}>
-      {/* Leather / oak blotter under everything. */}
-      <div aria-hidden className="absolute inset-[4%]" style={{
-        background: `color-mix(in srgb, ${accent} 16%, ${paper})`,
-        backgroundImage: `${FIBER}, repeating-linear-gradient(0deg, transparent 0 28px, color-mix(in srgb, ${ink} 5%, transparent) 28px 29px)`,
-        backgroundSize: '110px, auto',
-        clipPath: DECKLE[1],
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 12%, transparent), 0 10px 28px -12px rgb(0 0 0 / 0.4)`
-      }} />
-      {/* Corner tip of another page peeking out. */}
-      <div aria-hidden className="absolute top-[8%] left-[6%] z-[1] h-[28%] w-[34%] rotate-[-11deg]"
-        style={{
-          background: `${FIBER}, color-mix(in srgb, ${paper} 88%, ${ink})`,
-          backgroundSize: '90px, auto',
-          clipPath: 'polygon(2% 1%, 98% 3%, 100% 100%, 0% 96%)',
-          boxShadow: '0 3px 10px -4px rgb(0 0 0 / 0.3)'
-        }} />
-      <div aria-hidden className="absolute right-[7%] bottom-[10%] z-[1] h-[22%] w-[30%] rotate-[8deg]"
-        style={{
-          background: `${FIBER}, color-mix(in srgb, ${accent} 8%, ${paper})`,
-          backgroundSize: '80px, auto',
-          clipPath: DECKLE[0],
-          boxShadow: '0 3px 10px -4px rgb(0 0 0 / 0.28)',
-          opacity: 0.9
-        }} />
+    <div data-wrap-desk data-wrap-collage className={`relative size-full ${className}`}
+      onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+      <JournalField ink={ink} paper={paper} accent={accent} grid="dot" className="absolute inset-[3%]" />
       <div className="absolute inset-0 z-[2]">{children}</div>
-      <InkStamp label={stamp} color={accent} className="absolute top-[12%] right-[14%] z-20" />
-      {note && <MarginNote text={note} ink={ink} paper={paper} className="absolute bottom-[14%] left-[8%] z-20 max-w-[40%]" />}
-      <KraftTape className="absolute top-[18%] left-[22%] z-30 w-[42%] rotate-[-8deg]" />
-      <KraftTape kind="washi" tint={`color-mix(in srgb, ${accent} 35%, #d4c4a0)`} className="absolute top-[28%] right-[12%] z-30 w-[22%] rotate-[16deg]" />
-      <KraftTape kind="short" tint="#b8a888" className="absolute bottom-[24%] right-[28%] z-30 w-[18%] rotate-[-18deg]" />
-      <Scribble seed={seed} color={accent} width={1.4} className="pointer-events-none absolute top-[6%] left-0 z-10 w-full opacity-65" delay={0.3} />
+      {note && <MarginNote text={note} ink={ink} paper={paper} seed={seed + 3} className="absolute bottom-[11%] left-[5%] z-20 max-w-[42%]" />}
+      <KraftTape seed={seed + 1} wear={0.35 + rand() * 0.3} className="absolute top-[16%] left-[18%] z-30 w-[44%] rotate-[-9deg]" />
+      <KraftTape kind="washi" seed={seed + 2} wear={0.5 + rand() * 0.2} tint={`color-mix(in srgb, ${accent} 28%, #d4c4a0)`} className="absolute bottom-[22%] right-[10%] z-30 w-[20%] rotate-[17deg]" />
+      <Scribble seed={seed} color={accent} width={1.25} className="pointer-events-none absolute top-[4%] left-0 z-10 w-full opacity-40" delay={0.3} />
     </div>
   )
 }
 
 /**
- * Kept lines as a stack of deckled slips on a blotter: Midori traveler's
- * notebook open on a desk, not a cartoon envelope.
+ * Gems / sources as ink on an open journal page (refs 01–06): titles written
+ * down the field, optional tipped print nested in the writing, one date stamp,
+ * at most one washi. Never a sticker stack, never KEPT.
  */
-export function Folder({ titles, color, paper, ink }: { titles: string[]; color: string; paper: string; ink: string }): React.JSX.Element {
-  const [open, setOpen] = useState(still())
-  useEffect(() => {
-    if (still()) return
-    const timer = requestAnimationFrame(() => setOpen(true))
-    return () => cancelAnimationFrame(timer)
-  }, [])
-  const shown = titles.slice(0, 3)
-  const lean = shown.length === 1 ? [0] : shown.length === 2 ? [-5.5, 4.5] : [-6.5, 0.8, 5.5]
-  const edges = [DECKLE[0], DECKLE[1], DECKLE[0]]
+export function Folder({
+  titles, color, paper, ink, date, tip
+}: {
+  titles: string[]
+  color: string
+  paper: string
+  ink: string
+  /** Rubber-stamp date, e.g. "NOV 24". */
+  date?: string
+  tip?: { src: string; alt: string }
+}): React.JSX.Element {
+  const shown = titles.slice(0, tip ? 4 : 6)
   return (
-    <div className="relative mx-auto mt-[4%] aspect-[4/3] max-h-[82%] w-[min(92%,360px)]" data-wrap-folder data-wrap-papers="">
-      {/* Desk blotter. */}
-      <div className="absolute inset-[3%]" style={{
-        background: `color-mix(in srgb, ${color} 14%, ${paper})`,
-        backgroundImage: `${FIBER}, repeating-linear-gradient(0deg, transparent 0 26px, color-mix(in srgb, ${ink} 5%, transparent) 26px 27px)`,
-        backgroundSize: '110px, auto',
-        clipPath: DECKLE[1],
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 12%, transparent), 0 8px 22px -10px rgb(0 0 0 / 0.38)`
-      }} />
-      {/* Peek of a third scrap under the stack. */}
-      <div aria-hidden className="absolute top-[14%] right-[8%] z-[1] h-[40%] w-[36%] rotate-[12deg]"
-        style={{
-          background: `${FIBER}, color-mix(in srgb, ${color} 10%, ${paper})`,
-          backgroundSize: '85px, auto',
-          clipPath: 'polygon(1% 2%, 99% 0%, 100% 98%, 0% 100%)',
-          boxShadow: '0 2px 8px -3px rgb(0 0 0 / 0.25)'
-        }} />
-      {shown.map((title, i) => (
-        <motion.div key={title + i}
-          className="absolute bottom-[12%] left-[9%] flex h-[62%] w-[80%] flex-col justify-start overflow-hidden px-3.5 pt-3.5 pb-2.5 text-left"
-          style={{
-            background: `${FIBER}, ${paper}`,
-            backgroundSize: '100px, auto',
-            color: ink,
-            transformOrigin: '50% 100%',
-            clipPath: edges[i],
-            boxShadow: '0 5px 16px -4px rgb(0 0 0 / 0.34), 0 1px 0 rgb(0 0 0 / 0.06)',
-            zIndex: shown.length - i + 2
-          }}
-          initial={false}
-          animate={open
-            ? { y: -28 - (shown.length - 1 - i) * 26, x: lean[i] * 3.4, rotate: lean[i] }
-            : { y: (shown.length - 1 - i) * 5, x: lean[i] * 0.4, rotate: lean[i] * 0.3 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 26, delay: still() ? 0 : 0.28 + i * 0.07 }}>
-          <div className="absolute inset-0 opacity-80" style={{
-            backgroundImage: `repeating-linear-gradient(0deg, transparent 0 22px, color-mix(in srgb, ${ink} 11%, ${paper}) 22px 23px)`
-          }} />
-          <span className="relative font-heading text-[15px] leading-snug font-semibold tracking-[-0.01em]" style={{ color: ink }}>{title}</span>
-          <span className="relative mt-auto text-[10px] font-medium tracking-[0.08em] uppercase" style={{ color: `color-mix(in srgb, ${ink} 45%, ${paper})` }}>kept</span>
-        </motion.div>
-      ))}
-      <InkStamp label="kept" color={color} className="absolute top-[10%] right-[10%] z-30" />
-      <KraftTape className="absolute top-[16%] left-1/2 z-30 w-36 -translate-x-1/2 rotate-[-7deg]" />
-      <KraftTape kind="washi" tint={`color-mix(in srgb, ${color} 40%, #d4c4a0)`} className="absolute right-[8%] bottom-[18%] z-30 w-16 rotate-[18deg]" />
-      <KraftTape kind="short" tint="#b8a888" className="absolute left-[12%] bottom-[28%] z-30 w-12 rotate-[-22deg]" />
-      <MarginNote text="from the drawer" ink={ink} paper={paper} className="absolute bottom-[8%] left-[4%] z-30" />
+    <div className="relative h-full min-h-[220px] w-full" data-wrap-folder data-wrap-papers="">
+      <JournalField ink={ink} paper={paper} accent={color} grid="quad" className="absolute inset-0">
+        <div className="absolute inset-0 flex flex-col px-[13%] pt-4 pb-5 pr-4 text-left">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <p className="m-0 text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: `color-mix(in srgb, ${ink} 45%, ${paper})` }}>subject</p>
+            {date && <DateStamp label={date} color={color} seed={19} />}
+          </div>
+          {tip && (
+            <TippedPrint src={tip.src} alt={tip.alt} ink={ink} paper={paper}
+              className="mb-2 h-[42%] w-[78%] max-w-[260px] shrink-0 self-end" />
+          )}
+          <ol className="relative m-0 flex min-h-0 flex-1 list-none flex-col justify-start gap-2 overflow-hidden p-0 pt-1">
+            {shown.map((title, i) => (
+              <motion.li key={title + i} className="min-w-0"
+                initial={still() ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: still() ? 0 : 0.28 + i * 0.07, duration: 0.32, ease: EASE }}>
+                <InkLine className="text-[clamp(14px,2.2cqi,18px)] tracking-[-0.01em]" style={{ color: ink }}>
+                  <span className="mr-2 inline-block opacity-40" style={{ color }}>•</span>
+                  {title}
+                </InkLine>
+              </motion.li>
+            ))}
+          </ol>
+          {/* One washi only — glue, not decoration. */}
+          <KraftTape kind="washi" seed={23} wear={0.6} tint={`color-mix(in srgb, ${color} 18%, #d8c9a8)`}
+            className="absolute bottom-[8%] left-[14%] z-10 w-[30%] rotate-[-4deg]" />
+          <p className="pointer-events-none absolute bottom-[9%] right-[10%] m-0 max-w-[12ch] text-right text-[14px] leading-tight [font-family:'Haligtree_Signature',cursive]"
+            style={{ color: `color-mix(in srgb, ${ink} 55%, ${paper})`, rotate: '4deg' }}>{titles.length} kept</p>
+        </div>
+      </JournalField>
     </div>
   )
 }

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
-import { DeskCollage, Folder, In, InkStamp, KraftTape, MarginNote, PaperMat, Roll, Silk } from './wrap-art'
+import { DateStamp, In, InkLine, JournalField, KraftTape, LampWash, Roll, Silk, TippedPrint } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
@@ -388,8 +388,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     chime('copy')
     toast('Copied as an image: paste it anywhere')
   }
-  // A picture or gem opened from the flowing row: the story steps aside for it, with the open's own sound only.
-  const open = (type: string, id: string): void => (chime('open'), onLeave(), window.api.openInHome(type, id))
+  // Collage is look-only inside Wrapped: never open a note, never step the story aside.
+  void onLeave
 
   const { p, world } = look
   const kind = kinds[at]
@@ -416,8 +416,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         {world === 'night' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={0.5} scale={0.35} />}
         {world === 'files' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={light(p.bg) ? 0.05 : 0.08} scale={0.35} />}
         <div className="relative z-[2] min-h-0 flex-1" onPointerDown={(event) => void (pressedAt.current = event.clientX)} onClick={(event) => {
-          // A drag (the row of pictures) let go is not a turn.
-          if (Math.abs(event.clientX - pressedAt.current) > 6 || (event.target as HTMLElement).closest('button, a, [data-wrap-flow]')) return
+          // Collage (photos, slips, stamps, page leaf) never turns the card; only empty story ground and chrome do.
+          if (Math.abs(event.clientX - pressedAt.current) > 6 || (event.target as HTMLElement).closest('button, a, [data-wrap-flow], [data-wrap-collage], [data-wrap-folder], [data-wrap-cover], [data-picture-row]')) return
           const box = event.currentTarget.getBoundingClientRect()
           go(event.clientX - box.left > box.width / 3 ? at + 1 : at - 1)
         }}>
@@ -426,14 +426,14 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
               <motion.div key={at} className="absolute inset-0"
                 initial={byKey || still() ? false : { opacity: 0, transform: shift(`translateX(${24 * dir}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.24, ease: EASE } }}
                 custom={dir} variants={{ gone: (to: number) => ({ opacity: 0, transform: shift(`translateX(${-12 * to}px)`), transition: { duration: byKey ? 0 : 0.12, ease: EASE } }) }} exit="gone">
-                <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} wide={wide} open={open} lead={leadFor(kind)} />
+                <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} wide={wide} lead={leadFor(kind)} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-        {/* Where you are, as bars that fill, over the card; the close beside them. */}
-        <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-4 pt-3">
-          <div className="flex flex-1 gap-1">
+        {/* Progress + close: real top breathing room on cream and ink alike (never flush to the card edge). */}
+        <div data-wrap-chrome className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-5 pt-7">
+          <div className="flex flex-1 gap-1.5">
             {/* One card has nowhere to turn: no bars for it. */}
             {kinds.length > 1 && kinds.map((one, index) => (
               <button key={one} type="button" aria-label={`Card ${num(index + 1)} of ${num(kinds.length)}`} aria-current={index === at || undefined} onClick={() => go(index)}
@@ -508,7 +508,7 @@ const LIST = 3
 /** Two halves on a wide card, one above the other on a narrow one; a seeded variant flips them. */
 function Split({ a, b, flip }: { a: ReactNode; b: ReactNode; flip: boolean }): React.JSX.Element {
   return (
-    <div className="relative grid h-full grid-rows-[auto_1fr] gap-5 px-7 pt-12 pb-14 @2xl:grid-cols-2 @2xl:grid-rows-1 @2xl:items-center @2xl:gap-8 @2xl:px-12">
+    <div className="relative grid h-full grid-rows-[auto_1fr] gap-5 px-7 pt-16 pb-14 @2xl:grid-cols-2 @2xl:grid-rows-1 @2xl:items-center @2xl:gap-8 @2xl:px-12">
       <div className={`min-w-0 ${flip ? '@2xl:order-2' : ''}`}>{a}</div>
       <div className="relative min-h-0 min-w-0 self-stretch">{b}</div>
     </div>
@@ -517,7 +517,7 @@ function Split({ a, b, flip }: { a: ReactNode; b: ReactNode; flip: boolean }): R
 
 /** One centred line or two, for the first and last cards where there is nothing to chart. */
 function Centre({ children }: { children: ReactNode }): React.JSX.Element {
-  return <div className="relative grid h-full content-center justify-items-center gap-4 px-8 pt-12 pb-14 text-center @2xl:px-20">{children}</div>
+  return <div className="relative grid h-full content-center justify-items-center gap-4 px-8 pt-16 pb-14 text-center @2xl:px-20">{children}</div>
 }
 
 /** A few lines ranked, the way the report card lists them. */
@@ -698,7 +698,7 @@ function Bars({ p, mark, values, lit, ticks, under }: { p: Palette; mark: string
 /** One card: its words in front, its own chart or your own pictures beside them, laid out for the width it has. */
 // `lead`: a few words written on this Mac from the page's facts (wrapFacts), over its words; the page's own sentence
 // under it says every number.
-function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; f: Facts; look: Look; variant: number; seed: number; wide: boolean; open: (type: string, id: string) => void; lead?: string }): React.JSX.Element {
+function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Facts; look: Look; variant: number; seed: number; wide: boolean; lead?: string }): React.JSX.Element {
   const { p, world } = look
   const e = look.entrance
   const flip = variant === 1
@@ -710,14 +710,14 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
   /** One thing to say, alone in the middle of the card: the lead-in, the heading, then its sentence under it. */
   const alone = (head: ReactNode, said: ReactNode, more?: ReactNode): ReactElement => (
     <Centre>
-      {/* Quiet blotter behind a lone number so the card is still a desk, not empty air. */}
-      <div aria-hidden className="pointer-events-none absolute inset-[12%] -z-10 opacity-50" style={{
-        background: `color-mix(in srgb, ${p.accent} 8%, ${p.soft})`,
+      {/* Quiet blotter behind a lone number so the card is still a desk, not empty air. No KEPT badge. */}
+      <div aria-hidden data-wrap-collage className="pointer-events-none absolute inset-[8%] -z-10 opacity-60" style={{
+        background: `color-mix(in srgb, ${p.accent} 10%, ${p.soft})`,
         backgroundImage: 'var(--wrap-paper-grain)',
         backgroundSize: '120px',
         clipPath: 'polygon(0.5% 1.2%, 99% 0.3%, 100% 98.5%, 1% 99.2%)'
       }} />
-      <InkStamp label="kept" color={p.accent} className="pointer-events-none absolute top-[14%] right-[12%] opacity-70" />
+      <LampWash ink={p.ink} accent={p.accent} className="pointer-events-none -z-10 opacity-70" />
       {kicker}<In at={0.12} from={e}>{head}</In><In at={0.45}><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.6} className="w-full">{more}</In>}
     </Centre>
   )
@@ -727,37 +727,26 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
    * stamp, margin scrap, worn tapes — layered density, never one lonely motif.
    */
   const cover = (picture: Picture | undefined): ReactElement => (
-    <div data-wrap-cover className="absolute inset-0 grid place-items-center [container-type:size]">
-      <In at={0.1} from="scale" className="relative size-[min(100cqw,100cqh)]">
-        <DeskCollage ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} seed={seed} note={f.period === 'month' ? f.name : 'this week'} stamp="kept">
-          <PaperMat ink={p.ink} paper={p.soft} className="!absolute inset-[10%] !z-[1]" />
-          {picture
-            ? (
-              <div className="absolute inset-[18%] left-[20%] z-[3] rotate-[-2deg]"
-                style={{
-                  background: STAGE.paper,
-                  backgroundImage: 'var(--wrap-paper-grain)',
-                  backgroundSize: '100px',
-                  padding: 7,
-                  boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 26px -10px rgb(0 0 0 / 0.45)`,
-                  clipPath: 'polygon(0.8% 1.2%, 99% 0.4%, 100% 98.5%, 1% 99.5%, 0.2% 55%)'
-                }}>
-                <img data-wrap-hero src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${STAGE.paperInk} 8%, transparent)` }} />
-              </div>
-              )
-            : (
-              <div data-wrap-motif className="absolute inset-[18%] left-[18%] z-[3] flex flex-col justify-between p-5 rotate-[-1.5deg]"
-                style={{
-                  backgroundImage: `var(--wrap-paper-grain), repeating-linear-gradient(0deg, transparent 0 24px, color-mix(in srgb, ${STAGE.paperInk} 11%, ${STAGE.paper}) 24px 25px)`,
-                  backgroundColor: STAGE.paper,
-                  backgroundSize: '100px, auto',
-                  boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 24px -10px rgb(0 0 0 / 0.42)`,
-                  clipPath: 'polygon(0.6% 1.4%, 98.8% 0.3%, 99.5% 98%, 1.2% 99.4%, 0.3% 48%)'
-                }}>
-                <span className="font-heading text-[clamp(18px,4cqi,28px)] leading-tight font-semibold" style={{ color: STAGE.paperInk }}>{f.name}</span>
-              </div>
-              )}
-        </DeskCollage>
+    <div data-wrap-cover data-wrap-collage className="absolute inset-0 [container-type:size]"
+      onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+      <In at={0.1} from="scale" className="absolute inset-0">
+        <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
+          <div className="absolute inset-0 px-[14%] pt-5 pb-6 pr-5 text-left">
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <p className="m-0 text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 42%, ${STAGE.paper})` }}>subject</p>
+              <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={seed + 7} />
+            </div>
+            {picture
+              ? <TippedPrint src={picture.stored ?? picture.src} alt={picture.title} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[48%] w-[88%] max-w-[300px]" />
+              : null}
+            <InkLine className="text-[clamp(18px,3.4cqi,26px)]" style={{ color: STAGE.paperInk }}>{f.name}</InkLine>
+            <p className="mt-2 text-[14px] leading-snug font-medium" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 55%, ${STAGE.paper})` }}>
+              {f.period === 'month' ? f.name : `the week of ${dayjs(f.from).format('D MMMM')}`}
+            </p>
+            <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, #d8c9a8)`}
+              className="absolute bottom-[14%] left-[16%] w-[32%] rotate-[-5deg]" />
+          </div>
+        </JournalField>
       </In>
     </div>
   )
@@ -851,59 +840,77 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
       }
       case 'pictures':
         return (
-          // The row sits inside the card's margins: no picture is ever cut by the card's edge.
-          <div data-wrap-flow className="relative grid h-full grid-rows-[auto_1fr] [align-content:safe_center] gap-5 px-7 pt-12 pb-14 @2xl:px-12">
+          // Look-only: collage never opens a note or ends Wrapped.
+          <div data-wrap-flow data-wrap-collage className="relative grid h-full grid-rows-[auto_1fr] [align-content:safe_center] gap-5 px-7 pt-16 pb-14 @2xl:px-12"
+            onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
             <In at={0.12}>{lead && <p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p>}<h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
-            <In at={0.3} className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 280 : 170} label="Pictures and gems" onOpen={(index) => f.pictures[index] && open(f.pictures[index].type, f.pictures[index].id)} /></In>
+            <In at={0.3} className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 280 : 170} label="Pictures and gems" onOpen={() => undefined} /></In>
           </div>
         )
-      case 'notes':
-        if (!night && wide) return split(<In><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
-        if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{fill(look.folder, f.name, f.period)}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
-        return split(<><In at={0.12}><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
-      case 'well': {
-        // Journal lines as deckled slips on a blotter, with stamp and tapes — a desk, not floating quotes.
-        const slip = (line: string, i: number): ReactElement => (
-          <In key={line} at={0.28 + i * 0.12} className="relative mx-auto w-full max-w-[38ch]">
-            <div className="relative px-4 py-3.5 text-left"
-              style={{
-                background: `var(--wrap-paper-grain), ${STAGE.paper}`,
-                backgroundSize: '100px, auto',
-                color: STAGE.paperInk,
-                rotate: `${(i % 2 ? 1.4 : -1.6) + i * 0.35}deg`,
-                clipPath: i % 2
-                  ? 'polygon(0% 3%, 4% 0%, 12% 2%, 22% 0%, 34% 2.5%, 48% 0%, 62% 2%, 76% 0.5%, 88% 2%, 100% 0%, 99% 14%, 100% 30%, 98% 48%, 100% 66%, 98% 84%, 100% 100%, 86% 97%, 72% 100%, 56% 97%, 40% 100%, 24% 97%, 10% 100%, 0% 96%, 2% 78%, 0% 58%, 2% 38%, 0% 18%)'
-                  : 'polygon(0% 1%, 6% 2.5%, 16% 0%, 28% 2%, 40% 0%, 54% 2.5%, 68% 0%, 82% 2%, 94% 0%, 100% 3%, 98% 20%, 100% 40%, 97% 60%, 100% 80%, 98% 100%, 84% 97%, 68% 100%, 52% 97%, 36% 100%, 20% 97%, 6% 100%, 0% 90%, 2% 70%, 0% 50%, 2% 30%, 0% 12%)',
-                backgroundImage: `var(--wrap-paper-grain), repeating-linear-gradient(0deg, transparent 0 22px, color-mix(in srgb, ${STAGE.paperInk} 10%, ${STAGE.paper}) 22px 23px), ${STAGE.paper}`,
-                boxShadow: '0 4px 14px -4px rgb(0 0 0 / 0.32)'
-              }}>
-              <p className="font-heading text-[clamp(16px,2.8cqi,22px)] leading-snug font-semibold text-pretty" dir="auto">{quoted(line, 120)}</p>
-              <KraftTape kind="washi" className="absolute -top-1.5 right-5 w-14 rotate-[8deg]" tint={`color-mix(in srgb, ${p.accent} 32%, #d4c4a0)`} />
-              {i === 0 && <InkStamp label="well" color={p.accent} className="absolute -bottom-3 -left-2 scale-75" />}
-            </div>
-          </In>
-        )
-        if (f.well.length < LIST) {
-          return (
-            <Centre>
-              {kicker}
-              <In at={0.12}><p className={CAPTION}>What went well, from your weekly notes</p></In>
-              <div className="relative mt-2 w-full max-w-[420px]">
-                <div aria-hidden className="absolute inset-[-8%] -z-10" style={{
-                  background: `color-mix(in srgb, ${p.accent} 10%, ${p.soft})`,
-                  backgroundImage: 'var(--wrap-paper-grain)',
-                  backgroundSize: '110px',
-                  clipPath: 'polygon(0.5% 1%, 99% 0.4%, 100% 98.5%, 1% 99%)',
-                  opacity: 0.7
-                }} />
-                {f.well.map((line, i) => slip(line, i))}
-                <MarginNote text="from the week" ink={STAGE.paperInk} paper={STAGE.paper} className="absolute -right-2 top-0" />
-              </div>
-            </Centre>
-          )
+      case 'notes': {
+        // Whole card is the journal page (refs): headline + gems live IN the field.
+        if (night) {
+          if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{fill(look.folder, f.name, f.period)}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
+          return split(<><In at={0.12}><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
         }
-        return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well, from your weekly notes</p></In></>,
-          <div className="grid h-full content-center gap-4">{f.well.slice(0, wide ? 3 : 2).map((line, i) => slip(line, i))}</div>)
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
+        const tip = f.heroes[0] ? { src: f.heroes[0].stored ?? f.heroes[0].src, alt: f.heroes[0].title } : undefined
+        const shown = f.notes.slice(0, tip ? 4 : 6)
+        return (
+          <div className="absolute inset-0" data-wrap-folder>
+            <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0">
+              <div className="absolute inset-0 flex flex-col px-[12%] pt-16 pb-10 pr-8 text-left @2xl:flex-row @2xl:gap-8">
+                <div className="mb-4 min-w-0 @2xl:mb-0 @2xl:w-[42%] @2xl:shrink-0">
+                  {kicker}
+                  <In><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2><p className={CAPTION}>{f.notesLabel}</p></In>
+                  <DateStamp label={stamp} color={p.accent} seed={19} className="mt-4" />
+                </div>
+                <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+                  {tip && <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[36%] w-[90%] max-w-[280px] self-end" />}
+                  <ol className="relative m-0 flex list-none flex-col gap-2.5 p-0">
+                    {shown.map((note, i) => (
+                      <In key={note + i} at={0.28 + i * 0.07}>
+                        <li className="min-w-0"><InkLine className="text-[clamp(15px,2.3cqi,19px)]" style={{ color: STAGE.paperInk }}><span className="mr-2 opacity-40" style={{ color: p.accent }}>•</span>{quoted(note, 60)}</InkLine></li>
+                      </In>
+                    ))}
+                  </ol>
+                  <KraftTape kind="washi" seed={23} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 18%, #d8c9a8)`}
+                    className="absolute bottom-0 left-0 w-[28%] rotate-[-4deg]" />
+                </div>
+              </div>
+            </JournalField>
+          </div>
+        )
+      }
+      case 'well': {
+        // Full-bleed journal page: handwriting in the field, date stamp, one washi — never floating slips.
+        const lines = f.well.slice(0, wide ? 5 : 3)
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
+        return (
+          <div className="absolute inset-0">
+            <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
+              <div className="absolute inset-0 flex flex-col px-[12%] pt-16 pb-10 pr-8 text-left">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    {kicker}
+                    <In at={0.1}><h2 className={BIG}>What went well</h2><p className={CAPTION}>From your weekly notes</p></In>
+                  </div>
+                  <DateStamp label={stamp} color={p.accent} seed={31} className="mt-1 shrink-0" />
+                </div>
+                <div className="relative flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
+                  {lines.map((line, i) => (
+                    <In key={line} at={0.22 + i * 0.09}>
+                      <div dir="auto"><InkLine className="text-[clamp(16px,2.6cqi,22px)]" style={{ color: STAGE.paperInk }}>{quoted(line, 160)}</InkLine></div>
+                      <span aria-hidden className="mt-1.5 block h-px opacity-20" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${82 - i * 9}%` }} />
+                    </In>
+                  ))}
+                </div>
+                <KraftTape kind="washi" seed={44} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, #d8c9a8)`}
+                  className="absolute bottom-[12%] right-[10%] w-[22%] rotate-[8deg]" />
+              </div>
+            </JournalField>
+          </div>
+        )
       }
       case 'run': {
         const said = <>days in a row with something caught or focused on, {dayjs(f.runFrom).format('D MMMM')} to {dayjs(f.runTo).format('D MMMM')}. Not a streak to keep: just how it went.</>
@@ -935,14 +942,12 @@ function Card({ kind, f, look, variant, seed, wide, open, lead }: { kind: Kind; 
   return <div className="absolute inset-0 overflow-hidden">{body}</div>
 }
 
-/** The card to keep: scrapbook page with a taped photo print, month on the spine, ranked lists and a stamp word. */
+/** The card to keep: one journal page with a tipped print, date stamp, lists — no KEPT badge. */
 function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
   const { p, world } = look
-  const frame = world === 'files'
-    ? <PaperMat ink={p.ink} paper={p.soft} className="!absolute inset-0" />
-    : <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} />
   const picture = f.heroes[0]
   const month = f.period === 'month' ? f.name.split(' ')[0] : 'Week'
+  const stamp = dayjs(f.to).format('MMM D').toUpperCase()
   // A tile with nothing in it is not drawn: never "None yet", a 0 or "Quiet" set large as if it were news.
   const list = (title: string, rows: string[]): ReactElement | null => rows.length ? (
     <div className="min-w-0"><p className="text-[11px] font-semibold tracking-[0.04em] uppercase text-(--wrap-quiet)">{title}</p>
@@ -954,38 +959,28 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
     f.kind !== 'Quiet' && <div key="kind" className="min-w-0"><p className="font-heading text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-semibold" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">your kind of {f.period}</p></div>
   ].filter(Boolean)
   return (
-    <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-11 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report>
+    <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-16 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report data-wrap-collage
+      onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
       <In from="scale" className="relative min-h-[64px] overflow-hidden">
-        <div className="absolute inset-0">{frame}</div>
-        {/* Peek of a second scrap under the print. */}
-        <div aria-hidden className="absolute inset-[16%] left-[28%] rotate-[4deg]"
-          style={{
-            background: `var(--wrap-paper-grain), color-mix(in srgb, ${p.accent} 8%, ${STAGE.paper})`,
-            backgroundSize: '90px, auto',
-            clipPath: 'polygon(1% 1%, 99% 0%, 100% 99%, 0% 98%)',
-            boxShadow: '0 3px 10px -4px rgb(0 0 0 / 0.28)'
-          }} />
-        {/* Photo print tipped on the page, cream margin, worn kraft: scrapbook, not a rounded inset. */}
-        <div className="absolute inset-[12%] left-[26%] rotate-[-2deg]"
-          style={{
-            background: `var(--wrap-paper-grain), ${STAGE.paper}`,
-            backgroundSize: '100px, auto',
-            padding: 6,
-            boxShadow: `0 1px 0 color-mix(in srgb, ${p.ink} 10%, transparent), 0 10px 24px -10px rgb(0 0 0 / 0.45)`,
-            clipPath: 'polygon(0.6% 1%, 99% 0.4%, 100% 98.5%, 1% 99.4%)'
-          }}>
-          {picture
-            ? <img src={picture.stored ?? picture.src} alt={picture.title} className="size-full object-cover" />
-            : <div className="grid size-full place-items-center p-4 text-center font-heading text-[20px] font-semibold break-words" style={{ color: STAGE.paperInk }}>{f.tags[0] ? `#${f.tags[0].name}` : f.name}</div>}
-          <KraftTape className="absolute top-[-5%] left-1/2 z-10 w-28 -translate-x-1/2 rotate-[-4deg]" />
-          <KraftTape kind="washi" tint={`color-mix(in srgb, ${p.accent} 35%, #d4c4a0)`} className="absolute bottom-[8%] -right-1 z-10 w-12 rotate-[22deg]" />
-          <InkStamp label="kept" color={p.accent} className="absolute -bottom-2 -left-2 z-10 scale-75" />
+        {world === 'files'
+          ? <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0" />
+          : <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} />}
+        {/* Month as a vertical margin title, like ref subject labels. */}
+        <div className="absolute inset-y-[8%] left-[3%] z-[2] grid w-[14%] place-items-center overflow-hidden [container-type:size]">
+          <span data-wrap-month className="font-heading font-semibold whitespace-nowrap tracking-[-0.02em]" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: `min(48px, calc(88cqh / ${(0.66 * month.length).toFixed(2)}), 70cqw)` }}>{month}</span>
         </div>
-        {/* The month set on its side as large as its strip lets it, never cut: by the strip's height for its letters, and its width. */}
-        <div className="absolute inset-y-0 left-0 grid w-[22%] place-items-center overflow-hidden [container-type:size]"
-          style={{ background: `var(--wrap-paper-grain), color-mix(in srgb, ${p.bg} 90%, ${p.ink})`, backgroundSize: '100px, auto' }}>
-          <span data-wrap-month className="font-heading font-semibold whitespace-nowrap tracking-[-0.02em]" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: `min(54px, calc(92cqh / ${(0.66 * month.length).toFixed(2)}), 78cqw)` }}>{month}</span>
-        </div>
+        {picture
+          ? <TippedPrint src={picture.stored ?? picture.src} alt={picture.title} ink={STAGE.paperInk} paper={STAGE.paper}
+            className="absolute inset-[14%_10%_18%_22%] z-[3]" />
+          : (
+            <div className="absolute inset-[18%_12%_22%_24%] z-[3] grid place-items-center p-4 text-center font-heading text-[20px] font-semibold break-words"
+              style={{ background: STAGE.paper, color: STAGE.paperInk, boxShadow: '0 8px 20px -10px rgb(0 0 0 / 0.35)', rotate: '-1.5deg' }}>
+              {f.tags[0] ? `#${f.tags[0].name}` : f.name}
+            </div>
+            )}
+        <DateStamp label={stamp} color={p.accent} seed={55} className="absolute top-[10%] right-[8%] z-10" />
+        <KraftTape kind="washi" seed={61} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 22%, #d8c9a8)`}
+          className="absolute top-[12%] left-[30%] z-10 w-[28%] rotate-[-6deg]" />
       </In>
       <div className="grid min-w-0 [align-content:safe_center] gap-3 @2xl:gap-5">
         {lists.length > 0 && <In at={0.2} className="grid grid-cols-2 gap-x-4">{lists}</In>}
