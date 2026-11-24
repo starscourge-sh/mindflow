@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
-import { DateStamp, In, InkLine, JournalField, KraftTape, LampWash, MarginNote, Roll, TippedPrint } from './wrap-art'
+import { DateStamp, In, InkLine, InkStamp, JournalField, KraftTape, LampWash, MarginNote, Roll, TippedPrint } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
@@ -935,31 +935,99 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
           </div>
         )
       case 'notes': {
-        // Whole card is the journal page (refs) on cream for every world — never pale night ink on empty dark.
+        // Full journal page (refs): tip or a large handwriting block on the right; ink packed on the left; margin used. Never two lonely bullets in empty cream.
         const stamp = dayjs(f.to).format('MMM D').toUpperCase()
-        const tip = f.heroes[0] ? { src: f.heroes[0].stored ?? f.heroes[0].src, alt: f.heroes[0].title } : undefined
-        const shown = f.notes.slice(0, tip ? 4 : 6)
+        const tipPic = f.heroes[0] ?? f.pictures.find((one) => one.type !== 'gem') ?? f.pictures[0]
+        const tip = tipPic ? { src: tipPic.stored ?? tipPic.src, alt: tipPic.title } : undefined
+        const lines = f.notes.slice(0, tip ? 6 : 8)
+        const lead = lines[0]
+        const rest = lines.slice(1)
+        const sparse = lines.length <= 3
+        const more = Math.max(0, f.gems - lines.length)
+        const marginInk = `color-mix(in srgb, ${STAGE.paperInk} 55%, ${p.accent})`
+        const scrap = quoted(lead ?? f.notesLabel, 56)
+        const rule = (w: string, strong = false): ReactElement => (
+          <span aria-hidden className="mt-2 block h-px" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: w, opacity: strong ? 0.35 : 0.18 }} />
+        )
         return (
           <div className="absolute inset-0" data-wrap-folder>
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0">
-              <div className="absolute inset-0 flex flex-col px-[12%] pt-16 pb-10 pr-8 text-left @2xl:flex-row @2xl:gap-8">
-                <div className="mb-4 min-w-0 @2xl:mb-0 @2xl:w-[42%] @2xl:shrink-0">
-                  {pageLead}
-                  <In>{pageHead(fill(look.folder, f.name, f.period))}{pageCap(f.notesLabel)}</In>
-                  <DateStamp label={stamp} color={p.accent} seed={19} className="mt-4" />
+              <div className="absolute inset-0 px-[12%] pt-12 pb-8 pr-6 text-left">
+                <p aria-hidden className="pointer-events-none absolute top-[18%] left-[1.5%] m-0 font-heading text-[clamp(16px,2.8cqi,24px)] font-semibold tracking-[0.14em] uppercase"
+                  style={{ color: marginInk, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Gems</p>
+                <InkStamp label={String(Math.max(f.gems, lines.length) || 1)} color={p.accent} seed={seed + 17} heavy className="absolute top-[10%] right-[4%] z-10" />
+                <div className="mb-2 flex items-start justify-between gap-3 pr-[10%]">
+                  <div className="min-w-0">
+                    {pageLead}
+                    <In at={0.08}>{pageHead(fill(look.folder, f.name, f.period), 'font-heading text-[clamp(22px,4cqi,32px)] leading-[1.05] font-semibold tracking-[-0.02em] text-balance')}{pageCap(<>{f.notesLabel}{f.gems > 0 ? ` · ${plural(f.gems, 'gem')} this ${f.period}` : ''}</>)}</In>
+                  </div>
+                  <DateStamp label={stamp} color={p.accent} seed={19} className="mt-1 shrink-0" />
                 </div>
-                <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-                  {tip && <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} at={0.2} className="mb-3 h-[36%] w-[90%] max-w-[280px] self-end" />}
-                  <ol className="relative m-0 flex list-none flex-col gap-3 p-0">
-                    {shown.map((note, i) => (
-                      <In key={note + i} at={0.32 + i * 0.08} from="lift" pace="snap">
-                        <li className="min-w-0"><InkLine className={shown.length <= 3 ? 'text-[clamp(18px,2.8cqi,24px)]' : 'text-[clamp(15px,2.3cqi,19px)]'} style={{ color: STAGE.paperInk }}><span className="mr-2" style={{ color: p.accent }}>•</span>{quoted(note, 72)}</InkLine></li>
+                <div className="relative min-h-0" style={{ height: 'calc(100% - 4.75rem)' }}>
+                  {/* Right mass: tipped photo, else a tall handwriting block so the cream is not empty. */}
+                  {tip ? (
+                    <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} at={0.16}
+                      className="absolute top-0 right-0 z-[2] h-[58%] w-[48%] max-w-[280px]" />
+                  ) : lead ? (
+                    <In at={0.16} from="lift" pace="snap" className="absolute top-0 right-0 z-[2] h-[62%] w-[48%] max-w-[290px]">
+                      <div aria-hidden className="absolute inset-[6%] rotate-[4deg]" style={{ background: `color-mix(in srgb, ${STAGE.paper} 88%, ${STAGE.paperInk})`, boxShadow: '0 6px 16px -8px rgb(0 0 0 / 0.28)' }} />
+                      <div aria-hidden className="absolute inset-[3%] -rotate-[2deg]" style={{ background: STAGE.paper, boxShadow: '0 4px 12px -6px rgb(0 0 0 / 0.25)' }} />
+                      <div data-wrap-hand-scrap className="relative flex h-full flex-col px-4 py-4" style={{
+                        background: `color-mix(in srgb, ${STAGE.paper} 94%, ${p.accent})`,
+                        boxShadow: `0 1px 0 color-mix(in srgb, ${STAGE.paperInk} 12%, transparent), 0 12px 24px -10px rgb(0 0 0 / 0.4)`,
+                        transform: 'rotate(1.6deg)',
+                        clipPath: 'polygon(0.8% 1.5%, 99% 0.4%, 100% 98.2%, 0.4% 99.4%)'
+                      }}>
+                        <KraftTape kind="washi" seed={seed + 31} wear={0.45} tint={`color-mix(in srgb, ${p.accent} 22%, #d8c9a8)`}
+                          className="absolute -top-2.5 left-[16%] w-[46%] rotate-[-9deg]" />
+                        <p className="m-0 flex-1 text-[clamp(20px,3.2cqi,28px)] leading-[1.25] [font-family:'Haligtree_Signature',cursive]"
+                          style={{ color: STAGE.paperInk, textShadow: '0.3px 0.2px 0.45px color-mix(in srgb, currentColor 40%, transparent)' }}>{scrap}</p>
+                        <p className="mt-3 m-0 text-[10px] font-bold tracking-[0.16em] uppercase" style={{ color: marginInk }}>{stamp} · kept</p>
+                      </div>
+                    </In>
+                  ) : null}
+                  {/* Left: packed ink column beside the tip/hand — no even gaps that read as empty cream. */}
+                  <div className={`relative z-[1] flex h-full flex-col ${tip || lead ? 'w-[50%] max-w-[32ch] pr-1' : 'w-full'}`}>
+                    <ol className="relative m-0 flex list-none flex-col gap-2.5 p-0">
+                      {lines.map((note, i) => (
+                        <In key={note + i} at={0.2 + i * 0.06} from="lift" pace={i === 0 ? 'linger' : 'snap'}>
+                          <li className="flex min-w-0 gap-2" dir="auto">
+                            <span aria-hidden className="mt-[0.55em] w-4 shrink-0 text-[12px] font-bold tabular-nums" style={{ color: p.accent }}>{i + 1}.</span>
+                            <div className="min-w-0 flex-1">
+                              <InkLine className={sparse ? 'text-[clamp(18px,2.9cqi,25px)]' : 'text-[clamp(15px,2.3cqi,19px)]'} style={{ color: STAGE.paperInk }}>{quoted(note, sparse ? 120 : 88)}</InkLine>
+                              {rule(`${92 - i * 7}%`, i === 0)}
+                            </div>
+                          </li>
+                        </In>
+                      ))}
+                    </ol>
+                    {more > 0 && (
+                      <In at={0.55} className="mt-3">
+                        <p className="m-0 text-[13px] font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>and {plural(more, 'more gem')} kept this {f.period}</p>
+                        {rule('70%')}
                       </In>
-                    ))}
-                  </ol>
-                  {shown.length <= 3 && <MarginNote text={f.notesLabel} ink={STAGE.paperInk} paper={STAGE.paper} seed={29} className="absolute bottom-[18%] right-[4%] max-w-[40%] text-[13px]" />}
+                    )}
+                    {/* Ghost rules fill the remaining field so short lists still read as a written page. */}
+                    {sparse && (
+                      <div aria-hidden className="mt-4 flex flex-1 flex-col justify-start gap-5 opacity-40">
+                        {[0, 1, 2, 3].map((i) => (
+                          <span key={i} className="block h-px" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${78 - i * 9}%`, opacity: 0.35 }} />
+                        ))}
+                      </div>
+                    )}
+                    <In at={0.7} className="mt-auto flex flex-wrap gap-1.5 pt-3">
+                      {f.tags.slice(0, 4).map((tag, i) => (
+                        <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 12)} color={p.accent} seed={seed + 40 + i} />
+                      ))}
+                      {f.pages.slice(0, 2).map((page, i) => (
+                        <DateStamp key={page} label={quoted(page, 14).toUpperCase()} color={p.accent} seed={seed + 50 + i} />
+                      ))}
+                    </In>
+                  </div>
+                  <MarginNote text={quoted(rest[0] ?? f.notesLabel, 42)} ink={STAGE.paperInk} paper={STAGE.paper} seed={29}
+                    className={`absolute z-[3] max-w-[38%] text-[14px] ${tip || lead ? 'bottom-[8%] left-[1%]' : 'right-[3%] bottom-[12%]'}`} />
                   <KraftTape kind="washi" seed={23} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 18%, #d8c9a8)`}
-                    className="absolute bottom-0 left-0 w-[28%] rotate-[-4deg]" />
+                    className="absolute bottom-[1%] right-[8%] w-[28%] rotate-[6deg]" />
                 </div>
               </div>
             </JournalField>

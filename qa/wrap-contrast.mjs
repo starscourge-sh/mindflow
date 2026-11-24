@@ -13,7 +13,13 @@ const { h, close } = c
 const WORST = {
   captures: 48,
   tags: [{ name: 'reading', n: 12 }, { name: 'quotes', n: 7 }],
-  notes: ['Meditations', 'Commonplace leaves', 'Giorgio Vasari', 'Oscar Wilde'],
+  notes: [
+    'Meditations — the bit about the view from above',
+    'Commonplace leaves from the walk home',
+    'Giorgio Vasari on disegno',
+    'Oscar Wilde, kept for the essay',
+    'A line that will not leave'
+  ],
   notesLabel: 'Top sources',
   reads: { total: 6, finished: 4, left: [{ title: 'Half a chapter', minutes: 8, needs: 20 }] },
   minutes: 240,
