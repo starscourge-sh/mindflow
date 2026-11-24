@@ -212,9 +212,9 @@ const KIND_LABEL: Record<Kind, string> = {
   focus: 'Focus', sites: 'Blocked sites', plan: 'Planned and did', outro: 'Closing', report: 'Report'
 }
 
-/** What the month most was, in a word: the report card's "Top kind". */
+/** What the span held most, in book words — never a productivity nickname (Gem keeper, Deep worker, …). */
 const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number; reads: number }): string =>
-  f.gems >= 5 ? 'Gem keeper' : f.captures >= 40 ? 'Collector' : f.reads >= 5 ? 'Reader' : f.minutes >= 600 ? 'Deep worker' : f.planned ? 'Planner' : f.captures ? 'Noticer' : 'Quiet'
+  f.gems >= 5 ? 'Gems' : f.reads >= 5 ? 'Reading' : f.captures >= 40 ? 'Captures' : f.captures ? 'Notes' : 'Quiet'
 
 const ENTRANCES = ['up', 'left', 'scale', 'lift'] as const
 /** The card is wide over the dimmed app from this size; under it, the whole window (main.css .wrap-card). */
@@ -685,8 +685,8 @@ function wrapSays(f: Facts): WrapPage[] {
     const time = f.hour >= 5 && f.hour < 12 ? 'morning' : f.hour >= 12 && f.hour < 17 ? 'afternoon' : f.hour >= 17 && f.hour < 22 ? 'evening' : 'night'
     page('hours', `Your ideas came in the ${time}.`, null, [time])
   }
-  const kind = f.kind.toLowerCase()
-  page('outro', `This ${f.period}, you were ${kind === 'quiet' ? 'quiet' : `a ${kind}`}.`, null, kind === 'quiet' ? [] : [kind])
+  const held = f.kind === 'Quiet' ? null : f.kind.toLowerCase()
+  page('outro', held ? `This ${f.period} held mostly ${held}.` : `This ${f.period}, you were quiet.`, null, held ? [held] : [])
   return pages
 }
 
@@ -1147,7 +1147,7 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
   const lists = [list('Top tags', f.tags.map((t) => `#${t.name}`)), list(f.notesLabel, f.notes)].filter(Boolean)
   const figures = [
     f.minutes > 0 && <div key="minutes"><p className="font-heading text-[clamp(26px,5cqi,40px)] leading-none font-semibold"><Roll n={f.minutes} delay={0.5} /></p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">{f.minutes === 1 ? 'minute' : 'minutes'} focused</p></div>,
-    f.kind !== 'Quiet' && <div key="kind" className="min-w-0"><p className="font-heading text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-semibold" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">your kind of {f.period}</p></div>
+    f.kind !== 'Quiet' && <div key="kind" className="min-w-0"><p className="font-heading text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-semibold" style={{ color: p.accent }}>{f.kind}</p><p className="mt-1 text-[11px] font-semibold text-(--wrap-quiet)">what this {f.period} held</p></div>
   ].filter(Boolean)
   return (
     <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-16 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report data-wrap-collage
