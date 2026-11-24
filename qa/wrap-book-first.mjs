@@ -54,10 +54,38 @@ try {
   await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 })
   // Let the typed line and paper springs settle before a proof shot.
   if (SHOTS) await wait(900)
+  // First card must already have copy — never chrome-only cream (AI-lead wait used to blank the body).
+  const painted = async () => h.evaluate(() => {
+    const card = document.querySelector('[data-wrap-card]')
+    if (!card) return { ok: false, kind: null, words: 0, visible: 0, sample: '' }
+    const kind = card.getAttribute('data-wrap-card')
+    const text = (card.innerText || '').replace(/\s+/g, ' ').trim()
+    const body = text.replace(/\bHALIGTREE\b/gi, '').replace(/\bClose\b/gi, '').replace(/\s+/g, ' ').trim()
+    // Count ink that is actually painted (opacity > 0.2), not only present in the DOM.
+    let visible = 0
+    for (const el of card.querySelectorAll('h2, p, li, [data-wrap-date], [data-wrap-stamp], [data-wrap-days], [data-wrap-hours], [data-wrap-journal]')) {
+      const style = getComputedStyle(el)
+      if (style.visibility === 'hidden' || style.display === 'none') continue
+      let opacity = Number(style.opacity)
+      for (let node = el.parentElement; node && node !== card; node = node.parentElement) {
+        opacity *= Number(getComputedStyle(node).opacity)
+      }
+      if (opacity < 0.2) continue
+      const words = (el.innerText || '').replace(/\s+/g, ' ').trim()
+      if (words.length >= 2) visible += words.length
+      else if (el.hasAttribute('data-wrap-date') || el.hasAttribute('data-wrap-stamp') || el.hasAttribute('data-wrap-days') || el.hasAttribute('data-wrap-hours') || el.hasAttribute('data-wrap-journal')) visible += 8
+    }
+    return { ok: body.length >= 40 && visible >= 24 && !/loading/i.test(kind || ''), kind, words: body.length, visible, sample: body.slice(0, 120) }
+  })
+  const firstBody = await painted()
+  check('first card is not blank cream', firstBody.ok && firstBody.kind !== 'loading', JSON.stringify(firstBody))
   const kinds = []
   for (let i = 0; i < 14; i++) {
     const kind = await h.locator('[data-wrap-card]').getAttribute('data-wrap-card')
     kinds.push(kind)
+    // Every story card keeps visible painted copy (not chrome-only, not opacity-0 DOM).
+    const body = await painted()
+    check(`${kind} card has copy`, (body.words ?? 0) >= 24 && (body.visible ?? 0) >= 20, JSON.stringify(body))
     if (kind === 'notes') {
       // Brand (HALIGTREE) and any “more” line must not share pixels on the notes card.
       const clear = await h.evaluate(() => {
@@ -91,13 +119,14 @@ try {
       check('notes brand and “more” line share no pixels', clear.ok, JSON.stringify(clear))
     }
     if (SHOTS) {
-      await wait(kind === 'intro' || kind === 'notes' || kind === 'well' || kind === 'report' ? 700 : 280)
+      // Settle springs and typed lines before a visual proof shot.
+      await wait(kind === 'intro' || kind === 'outro' || kind === 'notes' || kind === 'well' || kind === 'report' || kind === 'busiest' || kind === 'hours' ? 900 : 500)
       const box = await h.locator('[data-wrap-card]').boundingBox()
       await h.screenshot({ type: 'jpeg', quality: 90, path: join(SHOTS, `wrap-${String(i).padStart(2, '0')}-${kind}.jpg`), ...(box ? { clip: box } : {}) })
     }
     if (kind === 'report' || kind === 'quiet') break
     await h.keyboard.press('ArrowRight')
-    await wait(350)
+    await wait(450)
   }
   const middle = kinds.filter((k) => k && !['intro', 'outro', 'report', 'quiet', 'loading'].includes(k))
   const ix = (name) => middle.indexOf(name)

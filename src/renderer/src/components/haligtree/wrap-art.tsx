@@ -15,11 +15,12 @@ const FIBER = 'var(--mf-wrap-fiber, var(--wrap-paper-grain))'
 
 /** A number that rolls up to itself once. */
 export function Roll({ n, delay = 0.15 }: { n: number; delay?: number }): React.JSX.Element {
-  const value = useMotionValue(still() ? n : 0)
+  // Start near the end value so a metric card never paints as a blank or a lonely 0.
+  const value = useMotionValue(still() ? n : Math.max(1, Math.round(n * 0.55)))
   const shown = useTransform(value, (at) => num(Math.round(at)))
   useEffect(() => {
     if (still()) return
-    const run = animate(value, n, { duration: Math.min(1.4, 0.5 + Math.log10(n + 1) * 0.25), delay, ease: EASE })
+    const run = animate(value, n, { duration: Math.min(1.0, 0.4 + Math.log10(n + 1) * 0.2), delay, ease: EASE })
     return () => run.stop()
   }, [n, value, delay])
   return <motion.span aria-label={num(n)} className="tabular-nums">{shown}</motion.span>
@@ -51,11 +52,13 @@ export function In({
   const spring = from === 'lift' || from === 'pop' || pace === 'snap'
     ? { type: 'spring' as const, stiffness: pace === 'snap' ? 380 : 240, damping: pace === 'snap' ? 22 : 20, delay: at }
     : { delay: at, duration: pace === 'linger' ? 0.55 : 0.36, ease: EASE }
+  // Ink stays visible from the first frame: travel and settle only. Opacity 0
+  // left cream cards looking empty (chrome + grain, no headline) while motion ran.
   return (
     <motion.div className={className} style={style}
-      initial={{ opacity: 0, ...off }}
+      initial={quiet ? false : { opacity: 1, ...off }}
       animate={{ opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 }}
-      transition={quiet ? { duration: 0.12 } : spring}>
+      transition={quiet ? { duration: 0 } : spring}>
       {children}
     </motion.div>
   )
@@ -170,8 +173,13 @@ export function JournalField({
   const size = grid === 'quad' ? '16px 16px, 16px 16px' : '13px 13px'
   // Cream stock always gets graphite ink for reading — never the night card's pale ink washed onto the page.
   const quiet = `color-mix(in srgb, ${ink} 82%, ${paper})`
+  // Callers pass `absolute inset-…` for a page under the copy. Do not also force
+  // `relative`: Tailwind's `relative` was winning, the field stayed in flow at
+  // full height, and Split/Centre ink painted below the card's overflow clip
+  // (intro/busiest/hours/outro read as empty cream with only chrome).
+  const placed = /\babsolute\b/.test(className)
   return (
-    <div data-wrap-journal data-wrap-collage className={`relative size-full overflow-hidden ${className}`}
+    <div data-wrap-journal data-wrap-collage className={`${placed ? '' : 'relative '}size-full overflow-hidden ${className}`}
       onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}
       style={{
         background: `${FIBER}, ${paper}`,

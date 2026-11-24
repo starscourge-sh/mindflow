@@ -17,7 +17,7 @@ import { PictureRow } from './picture-row'
 import { DateStamp, In, InkLine, InkStamp, JournalField, KraftTape, LampWash, MarginNote, Roll, TippedPrint } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
-import { Tip, Typed, refuse, sayNow, toast } from './ui'
+import { Tip, refuse, sayNow, toast } from './ui'
 import { plannedVsDid } from './planned-did'
 import { bySite, sentAwaySince, timesSaid } from './site-block-field'
 import { dayjs, dayKey, dayName, howLong, noon, num, plural } from '../../../../main/dates'
@@ -288,9 +288,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
 
   // On a Mac with Apple Intelligence, a few words over each page: the page's plain statement, written here from its
   // facts (wrapSays), said again by the model in the voice of the story's look (main/wrap-lines.ts); the page's own
-  // sentence under it keeps every number. Lead-ins already written come at once and the first card waits for that answer
-  // only; new ones come while the cards turn. A page shows the plain statement until its own is in, and keeps whatever it
-  // showed first, so nothing changes under the reader.
+  // sentence under it keeps every number. Cards paint at once with the plain statement; AI may refine a lead later
+  // only before that page has been shown, so nothing swaps under the reader and cream never sits empty waiting.
   const ai = useHas('ai') && !worst
   // The plain statements are the app's own, made by rules: every Mac has them. Apple Intelligence only says them again.
   const says = useMemo(() => (facts ? wrapSays(facts) : null), [facts])
@@ -316,7 +315,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     if (!shownLeads.current.has(one)) shownLeads.current.set(one, written.leads?.[one] ?? (page && (ai || againstLast(page)) ? page.says : undefined))
     return shownLeads.current.get(one)
   }
-  const ready = !!facts && (!asked || written.done)
+  // Facts are enough to draw: never hold the card blank for AI. Leads refine in place via leadFor's first-shown lock.
+  const ready = !!facts
 
   const kinds = useMemo<Kind[]>(() => {
     if (!facts) return []
@@ -415,7 +415,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       {/* A wide card over the dimmed app; on a small window, the whole window, as on a phone. The app's own pieces inside
           (the flowing row of pictures, the week's paragraph) read the card's ink and paper through the theme's names. */}
       <motion.div ref={shown} data-wrap-card={kind ?? 'loading'} data-wrap-grain={grainOn ? '' : undefined} data-wrap-paper={light(p.bg) ? '' : undefined}
-        initial={still() ? false : { opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
+        initial={still() ? false : { opacity: 1, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         className="wrap-card @container relative flex flex-col overflow-hidden"
         style={{ background: p.bg, color: p.ink, boxShadow: STAGE.shadow, perspective: '1400px', '--wrap-quiet': quiet, '--wrap-bg': p.bg, '--foreground': p.ink, '--muted-foreground': quiet, '--mf-muted-strong': quiet, '--background': p.bg } as React.CSSProperties}>
@@ -432,7 +432,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
             {facts && ready && kind && (
               <motion.div key={at} className="absolute inset-0 origin-center"
                 style={{ transformStyle: 'preserve-3d' }}
-                initial={byKey || still() ? false : { opacity: 0, transform: shift(dir > 0 ? 'scale(0.88) translateZ(-72px)' : 'scale(1.06) translateZ(36px)') }}
+                // Keep ink painted while the page travels: opacity 0 made cream cards read blank mid-turn.
+                initial={byKey || still() ? false : { opacity: 1, transform: shift(dir > 0 ? 'scale(0.88) translateZ(-72px)' : 'scale(1.06) translateZ(36px)') }}
                 animate={{ opacity: 1, transform: shift('scale(1) translateZ(0px)'), transition: still() ? { duration: 0.12 } : { type: 'spring', stiffness: 240, damping: 26 } }}
                 custom={dir}
                 variants={{
@@ -567,14 +568,15 @@ function CorrectedTyped({ text }: { text: string }): React.JSX.Element {
   const slip = first.length >= 4
     ? `${first.slice(0, 1)}${first[2]}${first[1]}${first.slice(3)}`
     : first.length ? `${first}e` : ''
-  if (still() || !slip || slip === first) return <Typed story text={text} />
+  // Written at once: Typed's mf-typed starts at opacity 0 and left intro/outro as empty cream.
+  if (still() || !slip || slip === first) return <span>{text}</span>
   return (
     <span className="relative inline">
       <motion.span aria-hidden className="pointer-events-none absolute left-0 top-0 font-hand text-[0.95em] line-through decoration-[1.5px]"
         style={{ color: 'color-mix(in srgb, currentColor 55%, transparent)' }}
         initial={{ opacity: 0.7, y: 0 }} animate={{ opacity: 0, y: -3 }}
-        transition={{ delay: 0.32, duration: 0.22, ease: EASE }}>{slip}</motion.span>
-      <Typed story text={text} delay={780} />
+        transition={{ delay: 0.18, duration: 0.22, ease: EASE }}>{slip}</motion.span>
+      <span>{text}</span>
     </span>
   )
 }
@@ -591,7 +593,7 @@ function Rows({ rows: all, p, wide, small = 3 }: { rows: { name: ReactNode; key:
         <In key={row.key} at={0.3 + i * 0.07} from="left" className="min-w-0">
           <p className="flex items-baseline gap-3 text-[15px] font-semibold"><span className="min-w-0 flex-1 truncate" dir="auto">{row.name}</span><span className="shrink-0 tabular-nums">{row.said}</span></p>
           <motion.div className="mt-1.5 h-2 origin-left rounded-none" style={{ width: `${Math.max(2, Math.min(1, row.n / (row.of ?? most)) * 100)}%`, background: i ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : p.accent }}
-            initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.4 + i * 0.07, duration: 0.28, ease: EASE }} />
+            initial={still() ? false : { scaleX: 0.28 }} animate={{ scaleX: 1 }} transition={{ delay: 0.12 + i * 0.05, duration: 0.28, ease: EASE }} />
         </In>
       ))}
     </div>
@@ -625,7 +627,7 @@ function Calendar({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
                     ? { background: `color-mix(in srgb, ${p.ink} 22%, ${p.bg})`, color: p.ink, clipPath: 'polygon(1% 3%, 100% 1%, 97% 100%, 0% 96%)' }
                     : { boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${p.ink} 18%, ${p.bg})`, color: 'var(--wrap-quiet)' })
               }}
-              initial={still() ? false : { opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + i * 0.012, type: 'spring', stiffness: 400, damping: 24 }}>
+              initial={still() ? false : { opacity: 1, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.08 + i * 0.01, type: 'spring', stiffness: 400, damping: 24 }}>
               {dayjs(day).date()}
             </motion.span>
           )
@@ -727,7 +729,7 @@ function Bars({ p, mark, values, lit, ticks, under }: { p: Palette; mark: string
             <div key={i} className="relative flex h-full flex-1 items-end justify-center">
               {(top || few) && <span data-wrap-peak={top || undefined} className="absolute left-1/2 -translate-x-1/2 text-[13px] font-black whitespace-nowrap tabular-nums" style={{ bottom: `calc(${(n / most) * 100}% + 5px)`, color: top ? p.accent : 'var(--wrap-quiet)' }}>{num(n)}</span>}
               <motion.div className={`w-full origin-bottom rounded-[2px] ${few ? 'max-w-[40px]' : 'max-w-2'}`} style={{ height: n ? `max(4px, ${(n / most) * 100}%)` : '2px', background: top ? p.accent : n ? `color-mix(in srgb, ${p.ink} 34%, ${p.bg})` : `color-mix(in srgb, ${p.ink} 16%, ${p.bg})` }}
-                initial={still() ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.3 + i * (few ? 0.04 : 0.012), duration: 0.28, ease: EASE }} />
+                initial={still() ? false : { scaleY: 0.28 }} animate={{ scaleY: 1 }} transition={{ delay: 0.12 + i * (few ? 0.03 : 0.01), duration: 0.28, ease: EASE }} />
             </div>
           )
         })}
@@ -786,41 +788,40 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
   const cover = (picture: Picture | undefined): ReactElement => (
     <div data-wrap-cover data-wrap-collage className="absolute inset-0 [container-type:size]"
       onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-      <In at={0.1} from="scale" className="absolute inset-0">
-        <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
-          <div className="absolute inset-0 flex flex-col px-[12%] pt-5 pb-6 pr-5 text-left">
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <p className="m-0 text-[11px] font-semibold tracking-[0.08em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 72%, ${STAGE.paper})` }}>subject</p>
-              <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={seed + 7} />
-            </div>
-            {picture
-              ? <TippedPrint src={picture.stored ?? picture.src} alt={picture.title} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[42%] w-[90%] max-w-[300px] self-end" />
-              : null}
-            <InkLine className="text-[clamp(20px,3.6cqi,28px)]" style={{ color: STAGE.paperInk }}>{f.name}</InkLine>
-            <p className="mt-1.5 text-[14px] leading-snug font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>
-              {f.period === 'month'
-                ? `${dayjs(f.from).format('D MMM')} – ${dayjs(f.to).format('D MMM YYYY')}`
-                : `${dayjs(f.from).format('D')}–${dayjs(f.to).format('D MMM')} · ${plural(f.captures, 'capture')}`}
-            </p>
-            {/* Densify empty cream: counts and tags as ink on the page, never one lonely washi. */}
-            <ul className="mt-4 m-0 list-none space-y-1.5 p-0 text-[13px] font-semibold" style={{ color: STAGE.paperInk }}>
-              {f.gems > 0 && <li><span style={{ color: p.accent }}>·</span> {plural(f.gems, 'gem')} kept</li>}
-              {f.reads.finished > 0 && <li><span style={{ color: p.accent }}>·</span> {plural(f.reads.finished, 'article')} finished</li>}
-              {f.minutes >= 1 && <li><span style={{ color: p.accent }}>·</span> {howLong(f.minutes)} focused</li>}
-              {f.captures > 0 && !picture && <li><span style={{ color: p.accent }}>·</span> {plural(f.captures, 'thing')} caught</li>}
-            </ul>
-            {f.tags.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {f.tags.slice(0, 4).map((tag, i) => (
-                  <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 14)} color={p.accent} seed={seed + 11 + i} />
-                ))}
-              </div>
-            )}
-            <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, ${STAGE.paper})`}
-              className="absolute bottom-[10%] left-[14%] w-[36%] rotate-[-5deg]" />
+      {/* Page stock paints at once — never gated behind opacity 0 while the card looks empty. */}
+      <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
+        <div className="absolute inset-0 flex flex-col px-[12%] pt-5 pb-6 pr-5 text-left">
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <p className="m-0 text-[11px] font-semibold tracking-[0.08em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 72%, ${STAGE.paper})` }}>subject</p>
+            <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={seed + 7} />
           </div>
-        </JournalField>
-      </In>
+          {picture
+            ? <TippedPrint src={picture.stored ?? picture.src} alt={picture.title} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[42%] w-[90%] max-w-[300px] self-end" />
+            : null}
+          <InkLine className="text-[clamp(20px,3.6cqi,28px)]" style={{ color: STAGE.paperInk }}>{f.name}</InkLine>
+          <p className="mt-1.5 text-[14px] leading-snug font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>
+            {f.period === 'month'
+              ? `${dayjs(f.from).format('D MMM')} – ${dayjs(f.to).format('D MMM YYYY')}`
+              : `${dayjs(f.from).format('D')}–${dayjs(f.to).format('D MMM')} · ${plural(f.captures, 'capture')}`}
+          </p>
+          {/* Densify empty cream: counts and tags as ink on the page, never one lonely washi. */}
+          <ul className="mt-4 m-0 list-none space-y-1.5 p-0 text-[13px] font-semibold" style={{ color: STAGE.paperInk }}>
+            {f.gems > 0 && <li><span style={{ color: p.accent }}>·</span> {plural(f.gems, 'gem')} kept</li>}
+            {f.reads.finished > 0 && <li><span style={{ color: p.accent }}>·</span> {plural(f.reads.finished, 'article')} finished</li>}
+            {f.minutes >= 1 && <li><span style={{ color: p.accent }}>·</span> {howLong(f.minutes)} focused</li>}
+            {f.captures > 0 && !picture && <li><span style={{ color: p.accent }}>·</span> {plural(f.captures, 'thing')} caught</li>}
+          </ul>
+          {f.tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {f.tags.slice(0, 4).map((tag, i) => (
+                <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 14)} color={p.accent} seed={seed + 11 + i} />
+              ))}
+            </div>
+          )}
+          <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, ${STAGE.paper})`}
+            className="absolute bottom-[10%] left-[14%] w-[36%] rotate-[-5deg]" />
+        </div>
+      </JournalField>
     </div>
   )
 
@@ -848,11 +849,11 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
       }
       case 'intro': {
         const stamps = (
-          <In at={0.85} pace="linger" className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-6 flex flex-wrap gap-2">
             {f.captures > 0 && <DateStamp label={`${num(f.captures)} CAUGHT`} color={p.accent} seed={seed + 2} />}
             {f.gems > 0 && <DateStamp label={`${num(f.gems)} GEMS`} color={p.accent} seed={seed + 3} />}
             {f.reads.finished > 0 && <DateStamp label={`${num(f.reads.finished)} READ`} color={p.accent} seed={seed + 4} />}
-          </In>
+          </div>
         )
         if (night) return <Centre>{kicker}<In at={0.16} from={e} pace="linger"><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.55} from={e} pace="linger"><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In>{stamps}</Centre>
         return split(<>
@@ -929,7 +930,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
               <p className="truncate text-[15px] font-semibold" dir="auto">{row.name}</p>
               {/* The time planned as the track, what was done filling it: the words say both. */}
               <div className="relative mt-1.5 h-2 rounded-none" style={{ background: `color-mix(in srgb, ${p.ink} 18%, ${p.bg})`, width: `${(row.planned / most) * 100}%` }}>
-                <motion.div className="absolute inset-y-0 left-0 origin-left rounded-none" style={{ background: p.accent, width: `${(row.did / Math.max(1, row.planned)) * 100}%` }} initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.45 + i * 0.07, duration: 0.28, ease: EASE }} />
+                <motion.div className="absolute inset-y-0 left-0 origin-left rounded-none" style={{ background: p.accent, width: `${(row.did / Math.max(1, row.planned)) * 100}%` }} initial={still() ? false : { scaleX: 0.28 }} animate={{ scaleX: 1 }} transition={{ delay: 0.12 + i * 0.05, duration: 0.28, ease: EASE }} />
               </div>
               <p className="mt-1 text-[13px] font-semibold text-(--wrap-quiet)">{row.did ? `did ${howLong(row.did)} of ${howLong(row.planned)} planned` : `${howLong(row.planned)} planned, none done yet`}</p>
             </In>
