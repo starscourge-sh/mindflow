@@ -70,7 +70,7 @@ const STARTS = SECTIONS.map((_, group) =>
 const drawn = (emoji: string): string => (emoji.length === 1 ? `${emoji}️` : emoji)
 
 /** Kept in step with `grid-template-columns` on `.tiptap-icon-picker-grid`. */
-const COLUMNS = 9
+const COLUMNS = 10
 
 /**
  * Pick the icon and the colour of a callout.
@@ -186,7 +186,7 @@ export function IconPicker({
         }}
       />
 
-      <div className="tiptap-icon-picker-scroll">
+      <div className="tiptap-icon-picker-scroll mf-more">
         {found ? (
           <div className="tiptap-icon-picker-grid">{found.map(cell)}</div>
         ) : (

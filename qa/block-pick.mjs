@@ -156,7 +156,7 @@ if (PART === 'pick') {
     const callout = kinds.boxes.find((one) => one.words.includes('A callout'))
     const table = kinds.boxes.find((one) => one.words.startsWith('Cell one'))
     // The callout's own corner is 0.5rem: 8px at the plain text size, a little more where the app is grown.
-    check(`${look}: a picked callout's box keeps the callout's own corner (8px, 0.5rem)`, !!callout && callout.radius === callout.own && parseFloat(callout.radius) >= 8, JSON.stringify(callout))
+    check(`${look}: a picked callout's box keeps the callout's own square corner`, !!callout && callout.radius === callout.own, JSON.stringify(callout))
     check(`${look}: a picked table's box stays square, its cells wearing the wash`, table?.radius === '0px' && table?.cell, JSON.stringify(table))
     await page.keyboard.press('Escape')
   }

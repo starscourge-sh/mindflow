@@ -3787,18 +3787,18 @@ body > div[dir] > .tableWrapper {
   // A margin note, as a commonplace book sets one: no box, no tint, a fine rule in the margin in the callout's colour
   // and the words in the page's own ink and type (the user, 24 Nov: the tinted, bordered box with a blue title and an
   // emoji read as a template). The rule is drawn, not a border, so it has square ends.
-  padding: 0.125rem 0 0.125rem 2.375rem;
-  // Unseen, but a picked callout's wash keeps this corner, as every picked block does.
-  border-radius: 0.5rem;
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0.5rem;
-    bottom: 0.5rem;
-    left: 0;
-    width: 2px;
-    background: color-mix(in srgb, var(--callout-accent) 55%, transparent);
-  }
+  // A slip of the readers' squared paper (the Calendar's all-day lane, the reader's desk), tinted faintly by its colour,
+  // its words in the page's own ink (the user, 24 Nov). No coloured side line: on a rounded box that reads as a template.
+  padding: 0.5rem 0.875rem 0.5rem 2.375rem;
+  // Square, as a slip of paper is (the user, 24 Nov).
+  border-radius: 0;
+  background-color: color-mix(in srgb, var(--callout-accent) 5%, transparent);
+  background-image:
+    var(--reader-desk-grain),
+    linear-gradient(var(--reader-desk-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--reader-desk-line) 1px, transparent 1px);
+  background-size: 160px, 24px 24px, 24px 24px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--callout-accent) 14%, transparent);
 
   // A one line callout should be one line tall.
   > .tiptap-callout-body > :first-child {
@@ -3888,8 +3888,8 @@ body > div[dir] > .tableWrapper {
   // Level with the first line of text, not with the box: the top edge is the
   // callout's own padding, and the button is one line tall, so the two centre
   // on each other. A fixed rem height sat a few pixels high of it.
-  top: 0.125rem;
-  left: 0.625rem;
+  top: 0.5rem;
+  left: 0.5rem;
   height: 1.6em;
   width: 1.6em;
   border-radius: 0.25rem;
@@ -3915,53 +3915,52 @@ body > div[dir] > .tableWrapper {
 .tiptap-icon-picker {
   display: flex;
   flex-direction: column;
-  // Nine columns rather than Linear's thirteen: this opens beside a note's
-  // title in a window half the width of theirs, and a picker that reaches both
-  // edges of it reads as a takeover rather than a menu.
-  width: 19.5rem;
+  // Compact, as the app's own popovers are (the user, 24 Nov: "feels like a first draft"): ten columns of smaller
+  // cells, the search a field of its own, the colours as the app's square swatches.
+  width: 17.25rem;
   max-width: calc(100vw - 2rem);
+  padding: 0.375rem;
+  gap: 0.375rem;
 
-  // Borderless and full width, with a rule under it rather than a box around
-  // it: the panel is the box.
   input {
-    padding: 0.625rem 0.875rem;
-    border: 0;
-    border-bottom: 1px solid var(--tt-border-color);
+    margin: 0;
+    padding: 0.3125rem 0.5rem;
+    border: 1px solid var(--tt-border-color);
+    border-radius: 0.375rem;
     background-color: transparent;
     color: inherit;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
 
     &:focus {
       outline: none;
+      border-color: var(--ring);
     }
   }
 
   h3 {
     margin: 0;
-    padding: 0.625rem 0.875rem 0.25rem;
-    color: var(--mf-muted);
-    font-size: 0.8125rem;
-    font-weight: 400;
+    padding: 0.375rem 0.25rem 0.125rem;
+    color: var(--mf-muted-strong);
+    font-size: 0.75rem;
+    font-weight: 500;
   }
 }
 
-// The colours the callout can take. Linear keeps these on its Icons tab, which
-// this has no need of - an emoji brings its own colour - so they sit above the
-// search where they are the first thing offered.
+// The colours, as the app's swatches everywhere: small squares in one row.
 .tiptap-icon-picker-colors {
   display: flex;
-  gap: 0.375rem;
-  padding: 0.625rem 0.875rem;
-  border-bottom: 1px solid var(--tt-border-color);
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
 
   button {
-    width: 1.375rem;
-    height: 1.375rem;
-    border-radius: 999px;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
 
     &[data-active] {
-      outline: 2px solid var(--tt-brand-color-500);
-      outline-offset: 2px;
+      outline: 1.5px solid var(--foreground);
+      outline-offset: 1.5px;
     }
   }
 
@@ -3972,9 +3971,9 @@ body > div[dir] > .tableWrapper {
   }
 }
 
+// Faded at the edge it runs on past, as every list that scrolls is (.mf-more).
 .tiptap-icon-picker-scroll {
-  height: 13rem;
-  padding-bottom: 0.5rem;
+  height: 11.5rem;
   overflow-y: auto;
 }
 
@@ -3983,27 +3982,26 @@ body > div[dir] > .tableWrapper {
 // button in it came out eleven rems across.
 .tiptap-icon-picker-grid {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  grid-auto-rows: 1.75rem;
+  grid-template-columns: repeat(10, 1fr);
+  grid-auto-rows: 1.5rem;
   align-content: start;
-  padding: 0 0.875rem;
+  padding: 0 0.125rem;
 
   button {
     border-radius: 0.25rem;
-    font-size: 1.125rem;
+    font-size: 1rem;
     line-height: 1;
+    cursor: pointer;
 
-    // `data-active` is the icon already chosen; `data-selected` is where the
-    // keys are. Two different questions, so the second gets the outline the
-    // rest of the menus use rather than a second shade of the same grey.
+    // `data-active` is the icon already chosen; `data-selected` is where the keys are.
     &:hover,
     &[data-active] {
       background-color: var(--tt-gray-dark-a-200);
     }
 
     &[data-selected] {
-      outline: 2px solid var(--tt-brand-color-500);
-      outline-offset: -2px;
+      outline: 1.5px solid var(--ring);
+      outline-offset: -1.5px;
     }
   }
 }
@@ -4804,7 +4802,7 @@ html[data-block-carry] .mf-lines {
 
   // A callout is drawn by its own view, whose holder takes the mark.
   .node-callout.mf-picked {
-    border-radius: 0.5rem;
+    border-radius: 0;
   }
 
   // A rule among picked blocks is also a node caught in the selection (extensions/selected-nodes.ts), whose own wash
