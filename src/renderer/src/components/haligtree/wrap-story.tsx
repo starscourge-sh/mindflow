@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
-import { DateStamp, In, InkLine, JournalField, KraftTape, LampWash, MarginNote, Roll, Silk, TippedPrint } from './wrap-art'
+import { DateStamp, In, InkLine, JournalField, KraftTape, LampWash, MarginNote, Roll, TippedPrint } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
@@ -484,10 +484,11 @@ const light = (hex: string): boolean => parseInt(hex.slice(1, 3), 16) > 128
  * a little on each card; a vignette at the edges. The light alone moves, on the GPU, at a quarter of the pixels; it
  * stops while the window is hidden and is one still frame with Motion off or Reduce motion.
  */
-function Backdrop({ p, hue }: { p: Palette; hue: number }): React.JSX.Element {
+function Backdrop({ p, hue: _hue }: { p: Palette; hue: number }): React.JSX.Element {
+  // No Silk aurora behind the card — it read as smoke (07-gems-smoke). Dim + vignette only.
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden>
-      <Silk clear base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={hue} strength={0.62} className="absolute inset-0 size-full opacity-80" />
+      <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse 70% 55% at 50% 40%, color-mix(in srgb, ${p.glow[0]} 12%, transparent), transparent 70%)` }} />
       <div className="absolute inset-0" style={{ background: STAGE.vignette }} />
     </div>
   )
@@ -767,20 +768,36 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
       onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
       <In at={0.1} from="scale" className="absolute inset-0">
         <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
-          <div className="absolute inset-0 px-[14%] pt-5 pb-6 pr-5 text-left">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <p className="m-0 text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 72%, ${STAGE.paper})` }}>subject</p>
+          <div className="absolute inset-0 flex flex-col px-[12%] pt-5 pb-6 pr-5 text-left">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <p className="m-0 text-[11px] font-semibold tracking-[0.08em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 72%, ${STAGE.paper})` }}>subject</p>
               <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={seed + 7} />
             </div>
             {picture
-              ? <TippedPrint src={picture.stored ?? picture.src} alt={picture.title} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[48%] w-[88%] max-w-[300px]" />
+              ? <TippedPrint src={picture.stored ?? picture.src} alt={picture.title} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[42%] w-[90%] max-w-[300px] self-end" />
               : null}
-            <InkLine className="text-[clamp(18px,3.4cqi,26px)]" style={{ color: STAGE.paperInk }}>{f.name}</InkLine>
-            <p className="mt-2 text-[14px] leading-snug font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>
-              {f.period === 'month' ? f.name : `the week of ${dayjs(f.from).format('D MMMM')}`}
+            <InkLine className="text-[clamp(20px,3.6cqi,28px)]" style={{ color: STAGE.paperInk }}>{f.name}</InkLine>
+            <p className="mt-1.5 text-[14px] leading-snug font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>
+              {f.period === 'month'
+                ? `${dayjs(f.from).format('D MMM')} – ${dayjs(f.to).format('D MMM YYYY')}`
+                : `${dayjs(f.from).format('D')}–${dayjs(f.to).format('D MMM')} · ${plural(f.captures, 'capture')}`}
             </p>
+            {/* Densify empty cream: counts and tags as ink on the page, never one lonely washi. */}
+            <ul className="mt-4 m-0 list-none space-y-1.5 p-0 text-[13px] font-semibold" style={{ color: STAGE.paperInk }}>
+              {f.gems > 0 && <li><span style={{ color: p.accent }}>·</span> {plural(f.gems, 'gem')} kept</li>}
+              {f.reads.finished > 0 && <li><span style={{ color: p.accent }}>·</span> {plural(f.reads.finished, 'article')} finished</li>}
+              {f.minutes >= 1 && <li><span style={{ color: p.accent }}>·</span> {howLong(f.minutes)} focused</li>}
+              {f.captures > 0 && !picture && <li><span style={{ color: p.accent }}>·</span> {plural(f.captures, 'thing')} caught</li>}
+            </ul>
+            {f.tags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {f.tags.slice(0, 4).map((tag, i) => (
+                  <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 14)} color={p.accent} seed={seed + 11 + i} />
+                ))}
+              </div>
+            )}
             <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, #d8c9a8)`}
-              className="absolute bottom-[14%] left-[16%] w-[32%] rotate-[-5deg]" />
+              className="absolute bottom-[10%] left-[14%] w-[36%] rotate-[-5deg]" />
           </div>
         </JournalField>
       </In>
@@ -809,17 +826,39 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
           </Centre>
         )
       }
-      case 'intro':
-        if (night) return <Centre>{kicker}<In at={0.16} from={e} pace="linger"><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.55} from={e} pace="linger"><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In></Centre>
+      case 'intro': {
+        const stamps = (
+          <In at={0.85} pace="linger" className="mt-6 flex flex-wrap gap-2">
+            {f.captures > 0 && <DateStamp label={`${num(f.captures)} CAUGHT`} color={p.accent} seed={seed + 2} />}
+            {f.gems > 0 && <DateStamp label={`${num(f.gems)} GEMS`} color={p.accent} seed={seed + 3} />}
+            {f.reads.finished > 0 && <DateStamp label={`${num(f.reads.finished)} READ`} color={p.accent} seed={seed + 4} />}
+          </In>
+        )
+        if (night) return <Centre>{kicker}<In at={0.16} from={e} pace="linger"><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.55} from={e} pace="linger"><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In>{stamps}</Centre>
         return split(<>
           <In at={0.16} from={e} pace="linger"><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
           <In at={0.55} from={e} pace="linger"><p className="mt-4 text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In>
+          {stamps}
         </>, cover(f.heroes[0]))
+      }
       case 'tags': {
         if (!top.length) return alone(<div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div>, <>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)
         const lead = `#${top[0].name}`
         const most = <>came up most: {plural(top[0].n, 'capture')} of the {num(f.captures)} {f.captures === 1 ? 'thing' : 'things'} you caught</>
-        if (top.length < LIST) return alone(<h2 className={solo(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2>, <>{most}{top[1] ? <>, then <span dir="auto">#{top[1].name}</span> with {plural(top[1].n, 'capture')}</> : null}.</>)
+        // Few tags: still a journal desk, not a lone hashtag in empty cream.
+        if (top.length < LIST) {
+          return alone(
+            <h2 className={solo(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2>,
+            <>{most}{top[1] ? <>, then <span dir="auto">#{top[1].name}</span> with {plural(top[1].n, 'capture')}</> : null}.</>,
+            <div className="mx-auto mt-4 flex max-w-[420px] flex-wrap justify-center gap-2">
+              {top.map((tag, i) => (
+                <In key={tag.name} at={0.2 + i * 0.06} from="pop" pace="snap">
+                  <DateStamp label={`#${tag.name}`.toUpperCase()} color={p.accent} seed={seed + 20 + i} />
+                </In>
+              ))}
+            </div>
+          )
+        }
         return split(<><In at={0.12}><h2 className={fit(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2></In><In at={0.45}>{caption(most)}</In></>, <Ranked rows={top} accent={p.accent} />)
       }
       case 'focus': {
@@ -928,30 +967,39 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         )
       }
       case 'well': {
-        // Full-bleed journal page: handwriting in the field, date stamp, one washi — never floating slips.
-        const lines = f.well.slice(0, wide ? 5 : 3)
+        // Full-bleed journal page denser toward refs: margin title, ink lines fill the field.
+        const lines = f.well.slice(0, wide ? 6 : 4)
         const stamp = dayjs(f.to).format('MMM D').toUpperCase()
+        const tall = lines.length <= 3
         return (
           <div className="absolute inset-0">
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
               <div className="absolute inset-0 flex flex-col px-[12%] pt-16 pb-10 pr-8 text-left">
-                <div className="mb-4 flex items-start justify-between gap-3">
+                {/* Graphite on cream always — night accent is too pale on JournalField (wrap-contrast). */}
+                <p aria-hidden className="pointer-events-none absolute top-[22%] left-[2%] m-0 font-heading text-[clamp(18px,3.2cqi,28px)] font-semibold tracking-[0.12em] uppercase"
+                  style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 55%, ${p.accent})`, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Well</p>
+                <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     {pageLead}
                     <In at={0.1}>{pageHead('What went well')}{pageCap('From your weekly notes')}</In>
                   </div>
                   <DateStamp label={stamp} color={p.accent} seed={31} className="mt-1 shrink-0" />
                 </div>
-                <div className="relative flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
+                <div className={`relative flex min-h-0 flex-1 flex-col overflow-hidden ${tall ? 'justify-evenly gap-3' : 'gap-4'}`}>
                   {lines.map((line, i) => (
-                    <In key={line} at={0.28 + i * 0.11} from="lift" pace={i === 0 ? 'linger' : 'snap'}>
-                      <div dir="auto"><InkLine className="text-[clamp(16px,2.6cqi,22px)]" style={{ color: STAGE.paperInk }}>{quoted(line, 160)}</InkLine></div>
-                      <span aria-hidden className="mt-1.5 block h-px opacity-20" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${82 - i * 9}%` }} />
+                    <In key={line} at={0.22 + i * 0.09} from="lift" pace={i === 0 ? 'linger' : 'snap'}>
+                      <div className="flex gap-2.5" dir="auto">
+                        <span aria-hidden className="mt-2 size-2 shrink-0 rounded-full" style={{ background: p.accent }} />
+                        <div className="min-w-0 flex-1">
+                          <InkLine className={tall ? 'text-[clamp(18px,2.9cqi,24px)]' : 'text-[clamp(16px,2.6cqi,22px)]'} style={{ color: STAGE.paperInk }}>{quoted(line, 160)}</InkLine>
+                          <span aria-hidden className="mt-2 block h-px opacity-25" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${88 - i * 8}%` }} />
+                        </div>
+                      </div>
                     </In>
                   ))}
                 </div>
                 <KraftTape kind="washi" seed={44} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, #d8c9a8)`}
-                  className="absolute bottom-[12%] right-[10%] w-[22%] rotate-[8deg]" />
+                  className="absolute bottom-[10%] right-[10%] w-[24%] rotate-[8deg]" />
               </div>
             </JournalField>
           </div>
