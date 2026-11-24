@@ -952,7 +952,8 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return (
           <div className="absolute inset-0" data-wrap-folder>
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0">
-              <div className="absolute inset-0 px-[12%] pt-12 pb-8 pr-6 text-left">
+              {/* pb clears HALIGTREE (card bottom-5 left-5); overflow clips any tipped scrap. */}
+              <div className="absolute inset-0 overflow-hidden px-[12%] pt-12 pr-6 pb-16 text-left">
                 <p aria-hidden className="pointer-events-none absolute top-[18%] left-[1.5%] m-0 font-heading text-[clamp(16px,2.8cqi,24px)] font-semibold tracking-[0.14em] uppercase"
                   style={{ color: marginInk, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Gems</p>
                 <InkStamp label={String(Math.max(f.gems, lines.length) || 1)} color={p.accent} seed={seed + 17} heavy className="absolute top-[10%] right-[4%] z-10" />
@@ -963,32 +964,45 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                   </div>
                   <DateStamp label={stamp} color={p.accent} seed={19} className="mt-1 shrink-0" />
                 </div>
-                <div className="relative min-h-0" style={{ height: 'calc(100% - 4.75rem)' }}>
-                  {/* Right mass: tipped photo, else a tall handwriting block so the cream is not empty. */}
-                  {tip ? (
-                    <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} at={0.16}
-                      className="absolute top-0 right-0 z-[2] h-[58%] w-[48%] max-w-[280px]" />
-                  ) : lead ? (
-                    <In at={0.16} from="lift" pace="snap" className="absolute top-0 right-0 z-[2] h-[62%] w-[48%] max-w-[290px]">
-                      <div aria-hidden className="absolute inset-[6%] rotate-[4deg]" style={{ background: `color-mix(in srgb, ${STAGE.paper} 88%, ${STAGE.paperInk})`, boxShadow: '0 6px 16px -8px rgb(0 0 0 / 0.28)' }} />
-                      <div aria-hidden className="absolute inset-[3%] -rotate-[2deg]" style={{ background: STAGE.paper, boxShadow: '0 4px 12px -6px rgb(0 0 0 / 0.25)' }} />
-                      <div data-wrap-hand-scrap className="relative flex h-full flex-col px-4 py-4" style={{
-                        background: `color-mix(in srgb, ${STAGE.paper} 94%, ${p.accent})`,
-                        boxShadow: `0 1px 0 color-mix(in srgb, ${STAGE.paperInk} 12%, transparent), 0 12px 24px -10px rgb(0 0 0 / 0.4)`,
-                        transform: 'rotate(1.6deg)',
-                        clipPath: 'polygon(0.8% 1.5%, 99% 0.4%, 100% 98.2%, 0.4% 99.4%)'
-                      }}>
-                        <KraftTape kind="washi" seed={seed + 31} wear={0.45} tint={`color-mix(in srgb, ${p.accent} 22%, #d8c9a8)`}
-                          className="absolute -top-2.5 left-[16%] w-[46%] rotate-[-9deg]" />
-                        <p className="m-0 flex-1 text-[clamp(20px,3.2cqi,28px)] leading-[1.25] [font-family:'Haligtree_Signature',cursive]"
-                          style={{ color: STAGE.paperInk, textShadow: '0.3px 0.2px 0.45px color-mix(in srgb, currentColor 40%, transparent)' }}>{scrap}</p>
-                        <p className="mt-3 m-0 text-[10px] font-bold tracking-[0.16em] uppercase" style={{ color: marginInk }}>{stamp} · kept</p>
-                      </div>
+                <div className="relative min-h-0 overflow-hidden" style={{ height: 'calc(100% - 4.25rem)' }}>
+                  {/* Right mass: tip or hand block, then margin scrap tucked under it — never the brand corner. */}
+                  <div className="absolute top-0 right-0 z-[2] flex max-h-[72%] w-[44%] max-w-[260px] flex-col items-stretch gap-2 overflow-hidden">
+                    {tip ? (
+                      <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} at={0.16}
+                        className="h-44 w-full shrink-0" />
+                    ) : lead ? (
+                      <In at={0.16} from="lift" pace="snap" className="relative w-full shrink-0">
+                        <div aria-hidden className="absolute inset-[6%] rotate-[4deg]" style={{ background: `color-mix(in srgb, ${STAGE.paper} 88%, ${STAGE.paperInk})`, boxShadow: '0 6px 16px -8px rgb(0 0 0 / 0.28)' }} />
+                        <div aria-hidden className="absolute inset-[3%] -rotate-[2deg]" style={{ background: STAGE.paper, boxShadow: '0 4px 12px -6px rgb(0 0 0 / 0.25)' }} />
+                        <div data-wrap-hand-scrap className="relative flex min-h-[8.5rem] flex-col px-4 py-3.5" style={{
+                          background: `color-mix(in srgb, ${STAGE.paper} 94%, ${p.accent})`,
+                          boxShadow: `0 1px 0 color-mix(in srgb, ${STAGE.paperInk} 12%, transparent), 0 12px 24px -10px rgb(0 0 0 / 0.4)`,
+                          transform: 'rotate(1.2deg)',
+                          clipPath: 'polygon(0.8% 1.5%, 99% 0.4%, 100% 98.2%, 0.4% 99.4%)'
+                        }}>
+                          <KraftTape kind="washi" seed={seed + 31} wear={0.45} tint={`color-mix(in srgb, ${p.accent} 22%, #d8c9a8)`}
+                            className="absolute -top-2.5 left-[16%] w-[46%] rotate-[-9deg]" />
+                          <p className="m-0 text-[clamp(17px,2.7cqi,24px)] leading-[1.25]"
+                            style={{ color: STAGE.paperInk, fontFamily: "'Haligtree_Signature', cursive", textShadow: '0.3px 0.2px 0.45px color-mix(in srgb, currentColor 40%, transparent)' }}>{scrap}</p>
+                          <p className="mt-2.5 m-0 text-[10px] font-bold tracking-[0.16em] uppercase" style={{ color: marginInk }}>{stamp} · kept</p>
+                        </div>
+                      </In>
+                    ) : null}
+                    {/* Keep scrap on the right half — MarginNote’s tilt must not reach HALIGTREE. */}
+                    <MarginNote text={quoted(rest[0] ?? f.notesLabel, 36)} ink={STAGE.paperInk} paper={STAGE.paper} seed={11}
+                      className="ml-auto max-w-[85%] text-[13px]" />
+                    <In at={0.65} className="flex flex-wrap justify-end gap-1.5">
+                      {f.tags.slice(0, 4).map((tag, i) => (
+                        <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 12)} color={p.accent} seed={seed + 40 + i} />
+                      ))}
+                      {f.pages.slice(0, 2).map((page, i) => (
+                        <DateStamp key={page} label={quoted(page, 14).toUpperCase()} color={p.accent} seed={seed + 50 + i} />
+                      ))}
                     </In>
-                  ) : null}
-                  {/* Left: packed ink column beside the tip/hand — no even gaps that read as empty cream. */}
-                  <div className={`relative z-[1] flex h-full flex-col ${tip || lead ? 'w-[50%] max-w-[32ch] pr-1' : 'w-full'}`}>
-                    <ol className="relative m-0 flex list-none flex-col gap-2.5 p-0">
+                  </div>
+                  {/* Left: packed ink only — brand corner stays empty. */}
+                  <div className={`relative z-[1] flex h-full min-h-0 flex-col overflow-hidden ${tip || lead ? 'w-[50%] max-w-[32ch] pr-1' : 'w-full'}`}>
+                    <ol className="relative m-0 flex min-h-0 list-none flex-col gap-2.5 overflow-hidden p-0">
                       {lines.map((note, i) => (
                         <In key={note + i} at={0.2 + i * 0.06} from="lift" pace={i === 0 ? 'linger' : 'snap'}>
                           <li className="flex min-w-0 gap-2" dir="auto">
@@ -1002,32 +1016,19 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                       ))}
                     </ol>
                     {more > 0 && (
-                      <In at={0.55} className="mt-3">
+                      <In at={0.55} className="mt-3 shrink-0">
                         <p className="m-0 text-[13px] font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>and {plural(more, 'more gem')} kept this {f.period}</p>
                         {rule('70%')}
                       </In>
                     )}
-                    {/* Ghost rules fill the remaining field so short lists still read as a written page. */}
                     {sparse && (
-                      <div aria-hidden className="mt-4 flex flex-1 flex-col justify-start gap-5 opacity-40">
-                        {[0, 1, 2, 3].map((i) => (
-                          <span key={i} className="block h-px" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${78 - i * 9}%`, opacity: 0.35 }} />
+                      <div aria-hidden className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-4 overflow-hidden opacity-35">
+                        {[0, 1].map((i) => (
+                          <span key={i} className="block h-px shrink-0" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${78 - i * 9}%` }} />
                         ))}
                       </div>
                     )}
-                    <In at={0.7} className="mt-auto flex flex-wrap gap-1.5 pt-3">
-                      {f.tags.slice(0, 4).map((tag, i) => (
-                        <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 12)} color={p.accent} seed={seed + 40 + i} />
-                      ))}
-                      {f.pages.slice(0, 2).map((page, i) => (
-                        <DateStamp key={page} label={quoted(page, 14).toUpperCase()} color={p.accent} seed={seed + 50 + i} />
-                      ))}
-                    </In>
                   </div>
-                  <MarginNote text={quoted(rest[0] ?? f.notesLabel, 42)} ink={STAGE.paperInk} paper={STAGE.paper} seed={29}
-                    className={`absolute z-[3] max-w-[38%] text-[14px] ${tip || lead ? 'bottom-[8%] left-[1%]' : 'right-[3%] bottom-[12%]'}`} />
-                  <KraftTape kind="washi" seed={23} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 18%, #d8c9a8)`}
-                    className="absolute bottom-[1%] right-[8%] w-[28%] rotate-[6deg]" />
                 </div>
               </div>
             </JournalField>
