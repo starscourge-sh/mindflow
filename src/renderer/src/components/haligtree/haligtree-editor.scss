@@ -3788,11 +3788,13 @@ body > div[dir] > .tableWrapper {
   // and the words in the page's own ink and type (the user, 24 Nov: the tinted, bordered box with a blue title and an
   // emoji read as a template). The rule is drawn, not a border, so it has square ends.
   padding: 0.125rem 0 0.125rem 2.375rem;
+  // Unseen, but a picked callout's wash keeps this corner, as every picked block does.
+  border-radius: 0.5rem;
   &::before {
     content: "";
     position: absolute;
-    top: 0.25rem;
-    bottom: 0.25rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
     left: 0;
     width: 2px;
     background: color-mix(in srgb, var(--callout-accent) 55%, transparent);
