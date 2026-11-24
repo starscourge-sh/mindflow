@@ -41,7 +41,7 @@ try {
   await h.click('[data-fresh-open]'); await wait(1200)
   const shown = await h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-fresh-line]')].map((one) => [one.getAttribute('data-fresh-line'), Number(one.getAttribute('data-n'))])))
   await check('the plan says the book’s own counts: folders, pages, gems, open tasks, highlights',
-    shown.folders === before.folders && shown.gems === before.gems && shown.pages === before.pages && shown.tasks === before.tasks && shown.highlights === before.highlights, JSON.stringify({ shown, before }))
+    (shown.folders ?? 0) === before.folders && shown.gems === before.gems && shown.pages === before.pages && shown.tasks === before.tasks && shown.highlights === before.highlights, JSON.stringify({ shown, before }))
   await check('it says where the copy goes before anything happens', /before start fresh/.test(await h.locator('[data-fresh-backup]').textContent()))
   // A first-timer clicks the hold button instead of holding it: nothing happens.
   // The plan is long: its button brought into view first, as a person scrolls to it (raw pointer moves never scroll).
