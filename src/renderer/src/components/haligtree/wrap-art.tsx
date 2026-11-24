@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from '
 import { animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
 import { num } from '../../../../main/dates'
-import { seeded } from './wrap-worlds'
+import { STAGE, seeded } from './wrap-worlds'
 
 /**
  * The drawn pieces the wrap cards are made of. North star: real journal
@@ -81,7 +81,9 @@ const TORN = {
 
 export type TapeKind = keyof typeof TORN
 
-const TAPE_TINTS = ['#c9b896', '#b8a888', '#d4c4a0', '#a89878', '#cfc0a4', '#b5a07e'] as const
+/** Warm tape stock from STAGE paper + ink — no free kraft hexes. */
+const tapeTint = (rand: () => number): string =>
+  `color-mix(in srgb, ${STAGE.paperInk} ${10 + Math.floor(rand() * 22)}%, ${STAGE.paper})`
 
 /**
  * Worn kraft or washi: matte, a little see-through, fibre in the stock, soft
@@ -98,7 +100,7 @@ export function KraftTape({
   wear?: number
 }): React.JSX.Element {
   const rand = seeded(seed * 9973 + kind.length * 17)
-  const pick = (tint ?? TAPE_TINTS[Math.floor(rand() * TAPE_TINTS.length)]) as string
+  const pick = tint ?? tapeTint(rand)
   const tall = kind === 'short' || kind === 'corner' || kind === 'thin' ? 'h-2.5' : kind === 'washi' ? 'h-3.5' : 'h-4'
   const fade = kind === 'washi' ? 0.62 + wear * 0.18 : 0.78 + wear * 0.14
   const crook = (rand() - 0.5) * 4
@@ -198,7 +200,7 @@ export function DateStamp({ label, color, className = '', seed = 5 }: { label: s
   const rand = seeded(seed * 1301 + label.length)
   const rot = -6 + rand() * 12
   return (
-    <span aria-hidden data-wrap-date className={`inline-grid place-items-center px-1.5 py-0.5 text-[10px] font-bold tracking-[0.18em] uppercase ${className}`}
+    <span aria-hidden data-wrap-date className={`inline-grid place-items-center px-1.5 py-0.5 text-[11px] font-bold tracking-[0.18em] uppercase ${className}`}
       style={{
         color,
         border: `1.5px solid color-mix(in srgb, ${color} 75%, transparent)`,
@@ -284,7 +286,7 @@ export function InkStamp({
   const wobble = 42 + rand() * 10
   const bleed = 0.55 + rand() * 0.3
   return (
-    <span aria-hidden data-wrap-stamp className={`relative grid place-items-center text-[8.5px] font-bold tracking-[0.16em] uppercase ${className}`}
+    <span aria-hidden data-wrap-stamp className={`relative grid place-items-center text-[11px] font-bold tracking-[0.16em] uppercase ${className}`}
       style={{
         color,
         width: wobble,
@@ -342,7 +344,7 @@ export function MarginNote({ text, ink, paper, className = '', seed = 2 }: { tex
         transform: `rotate(${rot.toFixed(1)}deg)`,
         opacity: 0.92
       }}>
-      <p className="m-0 max-w-[14ch] text-[15px] leading-tight [font-family:'Haligtree_Signature',cursive]"
+      <p className="mf-signature m-0 max-w-[14ch] text-[15px] leading-tight"
         style={{ textShadow: '0.3px 0.2px 0.4px color-mix(in srgb, currentColor 40%, transparent)' }}>{text}</p>
     </div>
   )
@@ -397,7 +399,7 @@ export function DeskCollage({
       <div className="absolute inset-0 z-[2]">{children}</div>
       {note && <MarginNote text={note} ink={ink} paper={paper} seed={seed + 3} className="absolute bottom-[11%] left-[5%] z-20 max-w-[42%]" />}
       <KraftTape seed={seed + 1} wear={0.35 + rand() * 0.3} className="absolute top-[16%] left-[18%] z-30 w-[44%] rotate-[-9deg]" />
-      <KraftTape kind="washi" seed={seed + 2} wear={0.5 + rand() * 0.2} tint={`color-mix(in srgb, ${accent} 28%, #d4c4a0)`} className="absolute bottom-[22%] right-[10%] z-30 w-[20%] rotate-[17deg]" />
+      <KraftTape kind="washi" seed={seed + 2} wear={0.5 + rand() * 0.2} tint={`color-mix(in srgb, ${accent} 28%, ${STAGE.paper})`} className="absolute bottom-[22%] right-[10%] z-30 w-[20%] rotate-[17deg]" />
       <Scribble seed={seed} color={accent} width={1.25} className="pointer-events-none absolute top-[4%] left-0 z-10 w-full opacity-40" delay={0.3} />
     </div>
   )
@@ -446,9 +448,9 @@ export function Folder({
             ))}
           </ol>
           {/* One washi only — glue, not decoration. */}
-          <KraftTape kind="washi" seed={23} wear={0.6} tint={`color-mix(in srgb, ${color} 18%, #d8c9a8)`}
+          <KraftTape kind="washi" seed={23} wear={0.6} tint={`color-mix(in srgb, ${color} 18%, ${STAGE.paper})`}
             className="absolute bottom-[8%] left-[14%] z-10 w-[30%] rotate-[-4deg]" />
-          <p className="pointer-events-none absolute bottom-[9%] right-[10%] m-0 max-w-[12ch] text-right text-[14px] leading-tight [font-family:'Haligtree_Signature',cursive]"
+          <p className="mf-signature pointer-events-none absolute bottom-[9%] right-[10%] m-0 max-w-[12ch] text-right text-[14px] leading-tight"
             style={{ color: `color-mix(in srgb, ${ink} 55%, ${paper})`, rotate: '4deg' }}>{titles.length} kept</p>
         </div>
       </JournalField>

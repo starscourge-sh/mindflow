@@ -205,6 +205,12 @@ type Facts = {
   pages: string[]
 }
 type Kind = 'quiet' | 'intro' | 'tags' | 'focus' | 'sites' | 'reading' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
+/** Spoken names for progress tips and aria (never raw kind ids). */
+const KIND_LABEL: Record<Kind, string> = {
+  quiet: 'Quiet week', intro: 'Cover', tags: 'Tags', notes: 'Gems', reading: 'Reading', pictures: 'Pictures',
+  well: 'What went well', run: 'Longest run', busiest: 'Busiest day', hours: 'Thinking hour',
+  focus: 'Focus', sites: 'Blocked sites', plan: 'Planned and did', outro: 'Closing', report: 'Report'
+}
 
 /** What the month most was, in a word: the report card's "Top kind". */
 const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number; reads: number }): string =>
@@ -443,20 +449,22 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         </div>
         {/* Progress + close: real top breathing room on cream and ink alike (never flush to the card edge). */}
         <div data-wrap-chrome className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-5 pt-7">
-          <div className="flex flex-1 gap-1.5">
-            {/* One card has nowhere to turn: no bars for it. */}
-            {kinds.length > 1 && kinds.map((one, index) => (
-              <button key={one} type="button" aria-label={`Card ${num(index + 1)} of ${num(kinds.length)}`} aria-current={index === at || undefined} onClick={() => go(index)}
-                className="h-1 flex-1 cursor-pointer rounded-[2px] transition-opacity duration-200" style={{ background: p.ink, opacity: index <= at ? 0.9 : 0.25 }} />
-            ))}
-          </div>
+          <Tip label="Next → · Back ←">
+            <div className="flex flex-1 gap-1.5">
+              {/* One card has nowhere to turn: no bars for it. */}
+              {kinds.length > 1 && kinds.map((one, index) => (
+                <button key={one} type="button" aria-label={`${KIND_LABEL[one]}, card ${num(index + 1)} of ${num(kinds.length)}`} aria-current={index === at || undefined} onClick={() => go(index)}
+                  className="h-1 flex-1 cursor-pointer rounded-[2px] transition-opacity duration-200" style={{ background: p.ink, opacity: index <= at ? 0.9 : 0.25 }} />
+              ))}
+            </div>
+          </Tip>
           <Tip label="Close  Esc"><button type="button" aria-label="Close" onClick={onClose} className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full transition-opacity hover:opacity-70" style={{ color: p.ink }}><X className="size-4" /></button></Tip>
         </div>
         <div data-wrap-keep className="absolute right-4 bottom-4 z-20 flex h-8 items-center gap-2">
           <AnimatePresence>
             {/* The report card is the one to keep; the quiet card is nothing to share. */}
             {at === last && kinds[last] === 'report' && (
-              <motion.div key="keep" className="flex items-center gap-2" initial={still() ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.3, delay: 0.7 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+              <motion.div key="keep" className="flex items-center gap-2" initial={still() ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.22, delay: still() ? 0 : 0.12 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
                 <button type="button" data-wrap-copy onClick={() => void keep(false)} className="h-8 cursor-pointer rounded-full px-3.5 text-[13px] font-semibold active:scale-[0.97]" style={{ background: p.ink, color: p.bg }}>Copy as image</button>
                 <button type="button" data-wrap-save onClick={() => void keep(true)} className="h-8 cursor-pointer rounded-full px-3.5 text-[13px] font-semibold active:scale-[0.97]" style={{ boxShadow: `inset 0 0 0 1.5px ${p.ink}`, color: p.ink }}>Save as image…</button>
               </motion.div>
@@ -602,7 +610,7 @@ function Calendar({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   return (
     <div data-wrap-calendar className="grid h-full place-items-center">
       <div className="grid grid-cols-7 gap-[clamp(4px,0.7cqi,6px)] p-2" style={{ background: `color-mix(in srgb, ${p.ink} 4%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${p.ink} 10%, transparent)` }}>
-        {Array.from({ length: 7 }, (_, i) => <span key={`d${i}`} className={`${size} grid place-items-center text-[10px] font-semibold uppercase tracking-[0.08em] text-(--wrap-quiet)`}>{first.add(i, 'day').format('dd')[0]}</span>)}
+        {Array.from({ length: 7 }, (_, i) => <span key={`d${i}`} className={`${size} grid place-items-center text-[11px] font-semibold uppercase tracking-[0.08em] text-(--wrap-quiet)`}>{first.add(i, 'day').format('dd')[0]}</span>)}
         {cells.map((day, i) => {
           if (!day) return <span key={i} className={size} />
           const inRun = day >= f.runFrom && day <= f.runTo
@@ -796,7 +804,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                 ))}
               </div>
             )}
-            <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, #d8c9a8)`}
+            <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, ${STAGE.paper})`}
               className="absolute bottom-[10%] left-[14%] w-[36%] rotate-[-5deg]" />
           </div>
         </JournalField>
@@ -821,7 +829,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return (
           <Centre>
             <In at={0.2} from={e} pace="linger"><h2 data-wrap-quiet-head className={`${BIG} text-balance`}>{head}</h2></In>
-            {there.length > 0 && <In at={0.48} pace="linger"><ul data-wrap-quiet-has className="mt-4 space-y-1 text-[19px] leading-snug font-bold">{there.map((line) => <li key={line} dir="auto">{line}</li>)}</ul></In>}
+            {there.length > 0 && <In at={0.48} pace="linger"><ul data-wrap-quiet-has className="mt-4 space-y-1 text-[17px] leading-snug font-bold">{there.map((line) => <li key={line} dir="auto">{line}</li>)}</ul></In>}
             <In at={0.68} pace="linger"><p className={SOLO_CAPTION}>{there.length ? 'Once a few more things are caught, kept or focused on, this becomes a few cards.' : 'Nothing caught, kept or focused on yet. Once a few things are, this becomes a few cards.'}</p></In>
           </Centre>
         )
@@ -928,7 +936,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                 <In at={0.28} from="lift" pace="snap" className="min-h-0 min-w-0 self-stretch">
                   <PictureRow items={f.pictures} height={wide ? 300 : 190} label="Pictures and gems" onOpen={() => undefined} />
                 </In>
-                <KraftTape kind="washi" seed={47} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 18%, #d8c9a8)`}
+                <KraftTape kind="washi" seed={47} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 18%, ${STAGE.paper})`}
                   className="absolute bottom-[10%] right-[12%] w-[22%] rotate-[7deg]" />
               </div>
             </JournalField>
@@ -954,7 +962,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
           <>
             {f.notesLabel}
             {f.gems > 0 ? ` · ${plural(f.gems, 'gem')} this ${f.period}` : ''}
-            {more > 0 ? ` · and ${more} more below` : ''}
+            {more > 0 ? ` · and ${more} more kept` : ''}
           </>
         )
         return (
@@ -987,11 +995,11 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                           transform: 'rotate(1.2deg)',
                           clipPath: 'polygon(0.8% 1.5%, 99% 0.4%, 100% 98.2%, 0.4% 99.4%)'
                         }}>
-                          <KraftTape kind="washi" seed={seed + 31} wear={0.45} tint={`color-mix(in srgb, ${p.accent} 22%, #d8c9a8)`}
+                          <KraftTape kind="washi" seed={seed + 31} wear={0.45} tint={`color-mix(in srgb, ${p.accent} 22%, ${STAGE.paper})`}
                             className="absolute -top-2.5 left-[16%] w-[46%] rotate-[-9deg]" />
-                          <p className="m-0 text-[clamp(17px,2.7cqi,24px)] leading-[1.25]"
-                            style={{ color: STAGE.paperInk, fontFamily: "'Haligtree_Signature', cursive", textShadow: '0.3px 0.2px 0.45px color-mix(in srgb, currentColor 40%, transparent)' }}>{scrap}</p>
-                          <p className="mt-2.5 m-0 text-[10px] font-bold tracking-[0.16em] uppercase" style={{ color: marginInk }}>{stamp} · kept</p>
+                          <p className="mf-signature m-0 text-[clamp(17px,2.7cqi,24px)] leading-[1.25]"
+                            style={{ color: STAGE.paperInk, textShadow: '0.3px 0.2px 0.45px color-mix(in srgb, currentColor 40%, transparent)' }}>{scrap}</p>
+                          <p className="mt-2.5 m-0 text-[11px] font-bold tracking-[0.16em] uppercase" style={{ color: marginInk }}>{stamp} · kept</p>
                         </div>
                       </In>
                     ) : null}
@@ -1067,7 +1075,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                     </In>
                   ))}
                 </div>
-                <KraftTape kind="washi" seed={44} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, #d8c9a8)`}
+                <KraftTape kind="washi" seed={44} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, ${STAGE.paper})`}
                   className="absolute bottom-[10%] right-[10%] w-[24%] rotate-[8deg]" />
               </div>
             </JournalField>
@@ -1139,7 +1147,7 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
             </div>
             )}
         <DateStamp label={stamp} color={p.accent} seed={55} className="absolute top-[10%] right-[8%] z-10" />
-        <KraftTape kind="washi" seed={61} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 22%, #d8c9a8)`}
+        <KraftTape kind="washi" seed={61} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 22%, ${STAGE.paper})`}
           className="absolute top-[12%] left-[30%] z-10 w-[28%] rotate-[-6deg]" />
       </In>
       <div className="grid min-w-0 [align-content:safe_center] gap-3 @2xl:gap-5">
