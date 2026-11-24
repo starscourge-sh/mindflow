@@ -11,7 +11,7 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
 import { begin, end as endJob } from './jobs'
 import type { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
-import { basename, join } from 'path'
+import { basename, dirname, join } from 'path'
 import { homedir } from 'os'
 import { reviewsADay } from './review-cost'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
@@ -31,6 +31,7 @@ import { retireKinds, tagged as hasTag } from './kinds'
 import { cardWords, plain } from './card-words'
 import { noteTags } from './book-tags'
 import { TAGS_KEY, cleanTag, keptWith, tagsKept } from './property-tags'
+import { layoutBook, type ExportPreview } from './premium-export'
 import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
@@ -5251,6 +5252,15 @@ export function registerHaligtree(): void {
   // The copy brought up to date as the app starts, for changes made while it was kept elsewhere.
   if (settings().markdownCopy) setTimeout(() => void keepCopy(), 5000).unref()
 
+  // The readable copy: folders, gems, decks, highlights, a readme. The JSON beside it is the whole book.
+  const bookCopy = (): { files: Map<string, string>; preview: ExportPreview } => layoutBook(db, (body, nameOf, assets) => {
+    let doc = body
+    if (typeof body === 'string') {
+      try { doc = JSON.parse(body) } catch { /* Markdown, as it is. */ }
+    }
+    return markdown(doc, nameOf).replace(/haligtree:\/\/assets\//g, assets).replace(/mindflow:\/\/assets\//g, assets)
+  })
+  handle('export:preview', () => bookCopy().preview)
   // --- export: everything as plain text and JSON, in a folder you choose
   handle('export', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Export everything to…', properties: ['openDirectory', 'createDirectory'] })
@@ -5263,7 +5273,7 @@ export function registerHaligtree(): void {
       const named = join(filePaths[0], SANDBOX ? `${APP_NAME} sandbox export ${dayKey()}` : `${APP_NAME.toLowerCase()}-${dayKey()}`)
       let folder = named
       for (let k = 2; await readdir(folder).then(() => true, () => false); k++) folder = `${named} ${k}`
-      await mkdir(join(folder, 'markdown'), { recursive: true })
+      await mkdir(folder, { recursive: true })
       const stopped = async (): Promise<{ stopped: true }> => {
         await rm(folder, { recursive: true, force: true }).catch(() => undefined)
         return { stopped: true }
@@ -5272,9 +5282,11 @@ export function registerHaligtree(): void {
       const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
       const data = Object.fromEntries(tables.map((table) => [table, db.prepare(`select * from ${table}`).all()]))
       await writeFile(join(folder, 'haligtree.json'), JSON.stringify(data, null, 2))
-      for (const [name, text] of notesAsMarkdown(db, '../assets/')) {
+      for (const [name, text] of bookCopy().files) {
         if (signal.aborted) return stopped()
-        await writeFile(join(folder, 'markdown', name), text)
+        const at = join(folder, name)
+        await mkdir(dirname(at), { recursive: true })
+        await writeFile(at, text)
       }
       // The pictures and files the notes point at, one by one, so “Stop” ends it between two.
       // None kept yet is not a failure; any other is said, not dropped.

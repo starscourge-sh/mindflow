@@ -26,7 +26,8 @@ Split 23 Nov, so another agent can carry on. "Any agent" means a general-purpose
 **Any agent** (clear, self-contained, checked against the handbook):
 
 - **[done 24 Nov]** Tags added in Properties stay out of the note's words; the Tags row ends in "+".
-- Premium export (the spec in part 2); WordNet offline; the opt-in MCP server.
+- **[done 24 Nov]** Premium export (the spec in part 2).
+- WordNet offline; the opt-in MCP server.
 - Snapshots you can open and restore; deleted books: bring back and clear.
 - The chip-to-sticky growth, smoother; sticky tape cut off while growing.
 - Part 3: last tab wins, the apps-you-capture-from stat, dim all but the current line, two-page PDF zoom, Read mode's kept thoughts.
@@ -45,7 +46,7 @@ You said "yes to all". These are the biggest; they change how the app is organis
 ## 2. Your new list: to action
 
 1. **A pass over every menu, context menu and popover**: is each line relevant and up to date, one action one home, no sparse menus, no stale words.
-2. **Export that feels premium.** Leaving should feel like a gift, good enough that people try the export in Obsidian just to see it. Markdown with front matter, folders as folders, links and backlinks kept, pictures and files beside the notes, gems and their source notes linked both ways, highlights kept with their source. Review cards: one file per deck, each card a collapsible callout (question visible, answer folded), or one long file of them. A readme at the top explaining the export. A preview of the export before saving.
+2. **[done 24 Nov] Export that feels premium.** Leaving should feel like a gift, good enough that people try the export in Obsidian just to see it. Markdown with front matter, folders as folders, links and backlinks kept, pictures and files beside the notes, gems and their source notes linked both ways, highlights kept with their source. Review cards: one file per deck, each card a collapsible callout (question visible, answer folded). A readme at the top explaining the export. A preview of the export before saving. The JSON beside it is still the whole book. The live "Markdown copies" setting is unchanged: one file a note, kept up to date.
 3. **The chip-to-sticky expansion, smoother.** One surface, springs, no step in the size.
 4. **The sandbox's Wrapped becomes the standard Wrapped**, then:
    - a choreography pass on every card so it reads made by hand, not generated;

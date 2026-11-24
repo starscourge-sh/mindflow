@@ -1379,7 +1379,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <MarkdownDefault />
           <MarkdownCopy />
-          <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose." more="Yours to read without this app.">
+          <Setting title="Export everything" note="A look at the copy first, then a folder of Markdown: your folders, gems, decks and highlights, and a readme." more="Yours to read without this app. The JSON beside it is the whole book.">
             <ExportButton />
           </Setting>
           <Setting title="Unused pictures and files" note="Pictures and files no note points at any more and not added to Files, to move to the Bin." more="Nor any old version or page. You see them first and keep any you like; the rest go to the Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
@@ -2409,15 +2409,60 @@ export const exportEverything = (inPlace = false): Promise<void> => (inPlace ? h
 
 /** Export, an orb saying so in its place for as long as it takes. */
 function ExportButton(): React.JSX.Element {
-  const [busy, setBusy] = useState(false)
-  if (busy) return <Orb label="Exporting…" stop={() => stopJob('export')} />
   return (
-    <Button variant="outline" size="sm" onClick={() => {
-      setBusy(true)
-      void exportEverything(true).finally(() => setBusy(false))
-    }}>
+    <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new Event('haligtree:export-preview'))}>
       <AliveIcon icon={DownloadIcon} size={16} /> Export
     </Button>
+  )
+}
+
+/** The copy, shown before it is saved: what it holds, and the start of the readme. */
+export function ExportPreview(): React.JSX.Element | null {
+  const [on, setOn] = useState(false)
+  const [plan, setPlan] = useState<Awaited<ReturnType<typeof haligtree.exportPreview>> | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    const open = (): void => {
+      setOn(true)
+      setPlan(null)
+      setBusy(false)
+      void haligtree.exportPreview().then((next) => setPlan(next))
+    }
+    window.addEventListener('haligtree:export-preview', open)
+    return () => window.removeEventListener('haligtree:export-preview', open)
+  }, [])
+  useEffect(() => {
+    if (!on) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOn(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [on])
+  if (!on) return null
+  const readme = plan?.sample.find((one) => one.path === 'README.md')
+  return (
+    <div data-export-preview className="fixed bottom-8 left-1/2 z-[70] w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-border bg-popover p-4 text-control shadow-(--mf-panel-shadow)">
+      <h2 className="text-title">Export your book</h2>
+      {!plan ? <p className="mt-2 text-muted-foreground">Reading the book…</p> : (
+        <>
+          <p className="mt-2">{plan.pages} pages, {plan.gems} gems, {plan.notes} notes, {plan.decks} decks, {plan.highlights} sources with highlights. {plan.files} files.</p>
+          <ul className="mt-2 max-h-24 overflow-auto text-meta text-muted-foreground">
+            {plan.sample.map((one) => <li key={one.path}>{one.path}</li>)}
+          </ul>
+          {readme && <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-foreground/[0.04] p-3 text-meta">{readme.text}</pre>}
+        </>
+      )}
+      <div className="mt-3 flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" data-export-cancel onClick={() => setOn(false)}>Not now</Button>
+        {busy ? <Orb label="Exporting…" stop={() => stopJob('export')} /> : (
+          <Button type="button" size="sm" data-export-save disabled={!plan} onClick={() => {
+            setBusy(true)
+            void exportEverything(true).finally(() => (setBusy(false), setOn(false)))
+          }}>Save to a folder…</Button>
+        )}
+      </div>
+    </div>
   )
 }
 

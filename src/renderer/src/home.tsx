@@ -47,7 +47,7 @@ import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
 import { ReviewArea, reviewPlaceName } from './components/haligtree/review-area'
 import { SHELVES } from './components/haligtree/files-shelves'
-import { SettingsView, exportEverything } from './components/haligtree/settings-view'
+import { ExportPreview, SettingsView } from './components/haligtree/settings-view'
 import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
 import { usePracticeActions } from '@/lib/practices'
@@ -1684,7 +1684,7 @@ export function Home(): React.JSX.Element {
   // The menu bar's File > New page and Export everything…, and View's sidebar (app-menu.ts): each as its button or key here does it.
   useEffect(() => {
     const onNewPage = (): void => void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
-    const onExport = (): void => void exportEverything()
+    const onExport = (): void => void window.dispatchEvent(new Event('haligtree:export-preview'))
     const onSidebar = (): void => (chime('tap'), setSidebar(!sidebar))
     // View > Split the Page, or Open in a split to the right (asking), clicked: the new pane eases in, as anything a pointer opens.
     const onSplitRight = (event: Event): void => (byPointer(), splitRight((event as CustomEvent<boolean | undefined>).detail === true))
@@ -2012,6 +2012,7 @@ export function Home(): React.JSX.Element {
     <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} data-frame-grain={settings?.frameGrain === false ? undefined : ''} style={{ '--mf-frame-depth': settings?.frameDepth ?? 75 } as CSSProperties} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div data-toast-lane className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
+      <ExportPreview />
       <FolderPicker onFolders={() => setView({ id: 'articles' })} onProjects={() => setView({ id: 'projects' })} />
       <PracticeAsked onHome={split.panes.some((one) => onShow(one).id === 'home')} />
       <PickDays />

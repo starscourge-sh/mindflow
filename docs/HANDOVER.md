@@ -39,6 +39,7 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 - Folder and project menus open on a row of colour swatches.
 - Reminder cards: what it is about first, why under it in quiet ink, the app's own buttons, never a coloured badge or pill.
 - A tag added from the Properties row, or with "Add a tag…" on one note or a selection, stays on the note (`fields._tags`) and is not written into its words. The row ends in a quiet "+". Undo puts the tag list back.
+- Export everything shows a preview first (pages, gems, notes, decks, highlights, the readme), then saves a folder: Writing, Gems, Notes, Decks, Library, assets, and haligtree.json. The Markdown copies setting still writes one file a note.
 - Deleting a book: any book but your last; the open one opens another first.
 - Start fresh puts things away (never deletes notes); "Bring it back" or dragging out of "On hold" returns a task.
 
