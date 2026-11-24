@@ -540,8 +540,10 @@ function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: st
   const things = useLive(() => folders.items(folder.id), null as FolderItem[] | null, [folder.id], undefined, `folders:items:${folder.id}`)
   if (!things) return null
   // Writing's kinds: a task kept in a folder stays in Tasks, not here.
-  const shown = things.filter((one) => !one.archived && one.type !== 'task')
-  if (!shown.length) return <p data-folder-empty-row="" className="py-1 pr-2 pl-8 text-control text-muted-foreground">Nothing in it yet</p>
+  // Put away by Start fresh is still kept here (out of the Feed, Home and Review, never out of its folder), and a folder
+  // with nothing in it shows nothing under it: a bare "Nothing in it yet" with no icon read as one more thing (24 Nov).
+  const shown = things.filter((one) => one.type !== 'task')
+  if (!shown.length) return null
   return (
     <>
       {pagesShown(shown, lit).map((one) => <ThingRow key={one.id} thing={one} lit={lit === one.id} onOpen={onOpen} from={folder.name} />)}

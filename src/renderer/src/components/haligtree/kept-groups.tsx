@@ -674,17 +674,6 @@ function PanelTile({ group, onIcon, ...rest }: { group: GroupView; onIcon?: () =
   )
 }
 
-/** A folder's colours, worked from its ink: the back a little deeper than the front, the front lighter at its top. */
-const MARK_BACK = 'color-mix(in oklab, var(--ink) var(--mark-back), var(--background))'
-const MARK_FRONT = 'color-mix(in oklab, var(--ink) var(--mark-front), var(--background))'
-const MARK_LIT = `color-mix(in oklab, ${MARK_FRONT} 78%, white)`
-const MARK_EDGE = 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)'
-/** The back, with a soft rounded tab on its top-left, as Finder draws a folder. */
-const BACK = 'M1 4.2a2 2 0 0 1 2-2h6.1c.9 0 1.5.35 2 1l.55.7c.4.5.9.8 1.6.8H25a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z'
-/** The front, a little shorter than the back, so the back's top edge shows over it. */
-const FRONT = 'M1 8.6a2 2 0 0 1 2-2h22a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z'
-/** The front fallen open toward you: its top edge lower and a touch wider, its foot where it was. */
-const FALLEN = 'M.6 12.6c-.1-.75.4-1.3 1.15-1.3h24.5c.75 0 1.25.55 1.15 1.3l-.9 6.6A2 2 0 0 1 24.5 21h-21a2 2 0 0 1-2-1.8Z'
 
 /**
  * A folder drawn small, for a row, in Finder's shape: a back with a soft tab on its top-left, a front a little shorter
@@ -694,7 +683,10 @@ const FALLEN = 'M.6 12.6c-.1-.75.4-1.3 1.15-1.3h24.5c.75 0 1.25.55 1.15 1.3l-.9 
  * (the carried card's icon, sortable.tsx `carriedOf`) draws the same, never a black square.
  */
 export function FolderMark({ icon, color, className, empty = false }: { icon: string | null; color: string | null; className?: string; /** Nothing in it: its front fallen open toward you, the inside in shadow, so an empty folder reads as empty at a glance. */ empty?: boolean }): React.JSX.Element {
-  const ink = color ? `var(--tt-color-text-${color})` : 'var(--foreground)'
+  // As Finder draws a folder (the owner's reference, 24 Nov): no outlines; the back a deeper shade with a soft tab at its
+  // top-left; a sheet of paper peeking over the front; the front large and lighter, a gentle fall of light down it and a
+  // fine highlight along its top edge. A folder with no colour of its own is the theme's grey.
+  const ink = `var(--tt-color-text-${color ?? 'gray'})`
   const id = `folder-front-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const own = { '--ink': ink } as CSSProperties
   return (
@@ -702,30 +694,25 @@ export function FolderMark({ icon, color, className, empty = false }: { icon: st
       <svg data-folder-mark="" viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible" style={own}>
         <defs>
           <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" style={{ stopColor: MARK_LIT }} />
-            <stop offset="1" style={{ stopColor: MARK_FRONT }} />
+            <stop offset="0" style={{ stopColor: 'color-mix(in oklab, var(--ink) 72%, white)' }} />
+            <stop offset="1" style={{ stopColor: 'color-mix(in oklab, var(--ink) 92%, white)' }} />
           </linearGradient>
         </defs>
-        <path d={BACK} style={{ fill: MARK_BACK, stroke: MARK_EDGE, strokeWidth: 0.6 }} />
-        {empty ? (
-          <>
-            {/* Its inside, in shadow. */}
-            <path d="M2.6 6.4h22.8v12.4H2.6Z" style={{ fill: 'color-mix(in oklab, black 24%, transparent)' }} />
-            <path d={FALLEN} style={{ fill: `url(#${id})`, stroke: MARK_EDGE, strokeWidth: 0.6 }} />
-            <path d="M1.9 11.95h24.2" style={{ fill: 'none', stroke: 'color-mix(in oklab, white 55%, transparent)', strokeWidth: 0.6, strokeLinecap: 'round' }} />
-          </>
-        ) : (
-          <>
-            {/* The front's soft shadow on the back, just over its top edge. */}
-            <path d="M2.4 6.1h23.2" style={{ fill: 'none', stroke: 'color-mix(in oklab, black 14%, transparent)', strokeWidth: 0.8, strokeLinecap: 'round' }} />
-            <path d={FRONT} style={{ fill: `url(#${id})`, stroke: MARK_EDGE, strokeWidth: 0.6 }} />
-            <path d="M2.6 7.25h22.8" style={{ fill: 'none', stroke: 'color-mix(in oklab, white 60%, transparent)', strokeWidth: 0.6, strokeLinecap: 'round' }} />
-          </>
+        {/* The back, its tab at the top-left. */}
+        <path d="M1.2 4a2.2 2.2 0 0 1 2.2-2.2h5.7c.75 0 1.3.3 1.75.85l.6.75c.35.45.85.7 1.45.7h11.7a2.2 2.2 0 0 1 2.2 2.2v13.5a2.2 2.2 0 0 1-2.2 2.2H3.4a2.2 2.2 0 0 1-2.2-2.2Z"
+          style={{ fill: 'color-mix(in oklab, var(--ink) 82%, black)' }} />
+        {!empty && (
+          // The sheet of paper inside, just over the front.
+          <rect x="2.4" y="4.7" width="23.2" height="3.2" rx="0.8" style={{ fill: 'color-mix(in oklab, white 92%, var(--ink))' }} />
         )}
+        {/* The front: lighter, rounded, a fine highlight along its top. */}
+        <path d={empty ? 'M1.2 9.4a1.6 1.6 0 0 1 1.6-1.6h22.4a1.6 1.6 0 0 1 1.6 1.6v9.4a2.2 2.2 0 0 1-2.2 2.2H3.4a2.2 2.2 0 0 1-2.2-2.2Z' : 'M1.2 7.6a1.6 1.6 0 0 1 1.6-1.6h22.4a1.6 1.6 0 0 1 1.6 1.6v11.2a2.2 2.2 0 0 1-2.2 2.2H3.4a2.2 2.2 0 0 1-2.2-2.2Z'}
+          style={{ fill: `url(#${id})`, opacity: empty ? 0.85 : 1 }} />
+        <path d={empty ? 'M2.6 8.25h22.8' : 'M2.6 6.45h22.8'} style={{ fill: 'none', stroke: 'color-mix(in oklab, white 70%, transparent)', strokeWidth: 0.5, strokeLinecap: 'round' }} />
       </svg>
       {/* Its icon on the front, sized by the front (cqh), so it grows with the drawing. */}
       {icon && (
-        <span className={cn('absolute inset-x-[4%] bottom-[6%] flex items-center justify-center [&_img]:size-[62cqh] [&_svg]:size-[62cqh] [&>span]:text-[58cqh]', empty ? 'top-[52%]' : 'top-[32%]')} style={{ containerType: 'size' }}>
+        <span className={cn('absolute inset-x-[4%] bottom-[3%] flex items-center justify-center [&_img]:size-[86cqh] [&_svg]:size-[80cqh] [&>span]:text-[82cqh] [&>span]:leading-none', empty ? 'top-[40%]' : 'top-[30%]')} style={{ containerType: 'size' }}>
           <GroupIcon icon={icon} color={color} className="size-3" />
         </span>
       )}
