@@ -37,12 +37,14 @@ const LINGER_BLOCKED = 10_000
 const LINGER_FAILED = 12_000
 const keyOf = (nudge: Nudge): string => (nudge.kind === 'review' ? 'review' : `${nudge.kind}:${nudge.id}`)
 
-const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12.5px] font-semibold mf-on-accent transition-[filter] hover:brightness-110'
+// The app's own buttons, never a coloured pill of their own (the user, 24 Nov: a blue pill and blue words read as
+// another app's notification): the main answer filled in the theme's ink, the others quiet words, each with the hand.
+const PRIMARY = 'flex h-7 shrink-0 cursor-pointer items-center rounded-md bg-primary px-3 text-control font-medium text-primary-foreground transition-colors hover:bg-primary/85 active:scale-[0.97]'
 /** Every card's sheet: the one float fill, opaque, with a ring and a lift small enough for the window's 10px margin. */
-const SHEET = 'relative overflow-hidden rounded-[18px] border bg-[var(--mf-float)] shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]'
+const SHEET = 'relative overflow-hidden rounded-[14px] border bg-[var(--mf-float)] shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]'
 /** How long an answer with Undo stays up before the card goes. */
 const LINGER_SAID = 6_000
-const WORD = 'flex h-7 shrink-0 items-center rounded-full px-2.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+const WORD = 'flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2.5 text-control font-medium text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]'
 
 /**
  * Haligtree's own nudge, in a window of its own at the top right: a task due now
@@ -114,6 +116,8 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   const [failed, setFailed] = useState<string | null>(null)
   // Answered with something that can be taken back (Done, Not tonight, In 30 min): the card says so, with Undo, then goes.
   const [said, setSaid] = useState<{ words: string; undo: () => Promise<unknown> } | null>(null)
+  const [due, setDue] = useState<string | null>(null)
+  useEffect(() => void (nudge.kind === 'task' && haligtree.task(nudge.id).then((task) => setDue(task?.dueAt && !task.allDay ? task.dueAt : null), () => undefined)), [nudge])
   // Asked again (an Undo brings an offer back): the card asks, rather than still saying the answer.
   useEffect(() => setSaid(null), [nudge])
   // `checked`: the answer says whether it worked; when it did not, it is said, never cheered.
@@ -137,7 +141,8 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
       </Head>
     </div>
   )
-  const lead = nudge.kind === 'sticky' ? 'Sticky hidden' : nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
+  // When it was due, said: "Still due" alone left you guessing since when.
+  const lead = nudge.kind === 'sticky' ? 'Sticky hidden' : nudge.kind === 'task' ? (due ? (nudge.again ? `Still due · it was ${clock(due)}` : `Due now · ${clock(due)}`) : nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
   const icon = nudge.kind === 'sticky' ? EyeOffIcon : nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
   const words = nudge.kind === 'sticky' ? `${quoted(taskName(nudge.title).text, 80)} is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? sleptSaid({ ...nudge, kind: nudge.breakOf ? 'break' : null }).join(', ') : `At ${clock(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: ${quoted(taskName(nudge.goal).text, 80)}`}`
   const seen = (): void => act(() => (nudge.kind === 'sticky' ? Promise.resolve() : nudge.kind === 'task' ? haligtree.alertSeen(nudge.id) : nudge.kind === 'review' ? haligtree.reviewSeen() : Promise.resolve()), 'fold')
@@ -198,11 +203,11 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
   return (
     <div {...wait} className={`${SHEET} px-3.5 pt-3 pb-3`}>
       <div className="flex items-start gap-2.5">
-        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--mf-float))] text-[var(--tt-brand-color-400)]">
+        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-foreground/[0.06] text-(--mf-muted-strong)">
           <AliveIcon icon={LockIcon} size={15} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{allowed ? `Let through for ${nudge.allowMinutes} minutes` : 'Website blocked'}</span>
+          <span className="block text-control text-(--mf-muted-strong)">{allowed ? `Let through for ${nudge.allowMinutes} minutes` : 'Website blocked'}</span>
           <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
         </span>
         <Tip label="Got it"><button type="button" aria-label="Got it" onClick={() => act(() => Promise.resolve(), 'fold')}
@@ -222,19 +227,21 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
 
 /** The head every card shares: its icon in a soft disc, what it is, and what it is about. `mark`: a quiet fact of its own at the end of the first line (a practice's “5 min”). */
 function Head({ icon, lead, words, mark, children }: { icon: Parameters<typeof AliveIcon>[0]['icon']; lead: string; words: string; mark?: string; children?: React.ReactNode }): React.JSX.Element {
+  // As a Mac notification reads: what it is about first, in the ink; why it is here under it, quiet; the icon in the
+  // theme's ink on a plain disc, never a coloured badge (the user, 24 Nov).
   return (
     <div className="flex items-start gap-2.5">
-      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--mf-float))] text-[var(--tt-brand-color-400)]">
+      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-foreground/[0.06] text-(--mf-muted-strong)">
         <AliveIcon icon={icon} size={15} play />
       </span>
       <span className="min-w-0 flex-1">
+        <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
         {mark ? (
-          <span className="flex items-center gap-2">
-            <span data-nudge-lead className="min-w-0 flex-1 text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>
+          <span className="mt-0.5 flex items-center gap-2">
+            <span data-nudge-lead className="min-w-0 flex-1 text-control text-(--mf-muted-strong)">{lead}</span>
             <LengthMark data-nudge-mark>{mark}</LengthMark>
           </span>
-        ) : <span data-nudge-lead className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>}
-        <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
+        ) : <span data-nudge-lead className="mt-0.5 block text-control text-(--mf-muted-strong)">{lead}</span>}
       </span>
       {children}
     </div>
@@ -288,7 +295,7 @@ function Said({ said, onDone }: { said: { words: string; undo: () => Promise<unk
   useEffect(() => offerUndo(said.words, said.undo, onDone), [said])
   return (
     <div {...wait} data-nudge-said role="status" className={`${SHEET} flex items-center gap-2.5 py-2.5 pr-2 pl-3.5`}>
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--mf-float))] text-[var(--tt-brand-color-400)]">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-foreground/[0.06] text-(--mf-muted-strong)">
         <AliveIcon icon={CheckIcon} size={15} play />
       </span>
       <span data-nudge-words className="min-w-0 flex-1 line-clamp-2 text-[13.5px] leading-[18px] font-semibold">{said.words}</span>
