@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { LABEL } from './book-words'
 import { cardWords, plain } from './card-words'
-import { tagsIn } from './tag-words'
+import { noteTags } from './book-tags'
 import { mentionsIn } from './links-in'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
@@ -76,7 +76,7 @@ export function bookInsights(db: DatabaseSync) {
     for (const row of rows) {
       const text = textOf(row.body).replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim()
       // Read from the words as written (a stored body is JSON: its "\n#tag" is no tag until read).
-      const tags = tagsIn(`${row.title} ${textOf(row.body)}`)
+      const tags = noteTags(row.title, row.body, row.fields)
       // #bits never come up, nor the app's own lessons (#learn-haligtree): they are not yours.
       if (tags.includes('bit') || tags.includes(LEARN_TAG)) continue
       // Nor work to do (#todo, #bug): a reminder brought back weeks late is noise, not something kept (the user, 22 Nov).

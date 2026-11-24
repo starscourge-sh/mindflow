@@ -308,7 +308,7 @@ export function registerSources(): void {
     }
     const words = db.prepare(`select n.id, coalesce(nullif(nullif(trim(n.title), 'Untitled'), ''), label('', n.body)) as label from nuggets n
       where n.tier = 'nugget' and n.kind = 'word' and n.binned_at is null and n.archived_at is null and not n.private and n.id != :id
-        and exists (select 1 from json_each(note_tags(n.title, n.body)) theirs join nuggets page on page.id = :id join json_each(note_tags(page.title, page.body)) ours on ours.value = theirs.value)
+        and exists (select 1 from (select value from json_each(note_tags(n.title, n.body)) union select value from json_each(kept_tags(n.fields))) theirs join nuggets page on page.id = :id join (select value from json_each(note_tags(page.title, page.body)) union select value from json_each(kept_tags(page.fields))) ours on ours.value = theirs.value)
       order by n.created_at desc limit 12`).all({ id }) as { id: string; label: string }[]
     return { people, words: words.filter((one) => shown({ ...one, private: 0 })).slice(0, 4) }
   })
@@ -319,8 +319,8 @@ export function registerSources(): void {
     const key = personKey(name)
     // A note's own tags, wherever they are in it: a #tag typed in its first line leaves its name (19dc0daf9), so the
     // name no longer shows them, and two people sharing one were never found "alongside" each other.
-    const tagged = new Map((db.prepare(`select id, note_tags('', body) as tags from captures where coalesce(trim(attribution), '') != ''
-      union all select id, note_tags(title, body) as tags from nuggets where coalesce(trim(attribution), '') != ''`).all() as { id: string; tags: string }[])
+    const tagged = new Map((db.prepare(`select id, (select json_group_array(value) from (select value from json_each(note_tags('', body)) union select value from json_each(kept_tags(fields)))) as tags from captures where coalesce(trim(attribution), '') != ''
+      union all select id, (select json_group_array(value) from (select value from json_each(note_tags(title, body)) union select value from json_each(kept_tags(fields)))) from nuggets where coalesce(trim(attribution), '') != ''`).all() as { id: string; tags: string }[])
       .map((row) => [row.id, row.tags]))
     const tagsOf = (id: string): string[] => {
       try {

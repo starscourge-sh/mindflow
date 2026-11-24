@@ -238,7 +238,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     if (!row) return false
     const fields = { ...(parse(row.fields) as Record<string, unknown> | null) }
     if (keep && value === '') fields[key] = ''
-    else if (value === null || value === '' || value === undefined) delete fields[key]
+    else if (value === null || value === '' || value === undefined || (Array.isArray(value) && !value.length)) delete fields[key]
     else fields[key] = value
     db.prepare(`update ${table(name)} set fields = ? where id = ?`).run(Object.keys(fields).length ? JSON.stringify(fields) : null, id)
     changed()
@@ -285,7 +285,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     if (names && Date.now() - names.at < 60_000) return names.list
     const typed = new Map((db.prepare('select name, type, options from properties').all() as { name: string; type: string; options: string | null }[]).map((row) => [row.name.toLowerCase(), row]))
     const used = db.prepare(`select distinct key from (select j.key from captures, json_each(captures.fields) j where json_valid(captures.fields)
-      union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key not in ('_kept', '_meaningRead')`).all() as { key: string }[]
+      union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key not in ('_kept', '_meaningRead', '_tags')`).all() as { key: string }[]
     const found = new Map<string, { name: string; type: string | null; options: string[] }>()
     for (const { key } of used) found.set(key.toLowerCase(), { name: key, type: typed.get(key.toLowerCase())?.type ?? null, options: [] })
     for (const row of typed.values()) found.set(row.name.toLowerCase(), { name: row.name, type: row.type, options: (parse(row.options) as string[] | null) ?? [] })

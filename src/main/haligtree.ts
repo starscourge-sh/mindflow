@@ -30,6 +30,7 @@ import { openOutside } from './app-folder'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { cardWords, plain } from './card-words'
 import { noteTags } from './book-tags'
+import { TAGS_KEY, tagsKept } from './property-tags'
 import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
@@ -126,10 +127,17 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
   for (const row of captureRows) names.set(row.id, unique(titled(labels.get(row.id) ?? '') || `${NOTE_KEY}-${row.number}`))
   for (const row of nuggetRows) names.set(row.id, unique(titled(row.title ?? '') || `${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
   const nameOf = (id: string): string | undefined => names.get(id)
+  // Tags added in Properties travel as the note's tags, not as a private list, and not written into the words again.
+  const carried = (fields: string | null, body: unknown): Record<string, unknown> => {
+    const props = properties(fields)
+    const tags = [...new Set([...tagsIn(plain(body)), ...tagsKept(props)])]
+    delete props[TAGS_KEY]
+    return { ...props, tags }
+  }
   for (const row of captureRows) {
     const body = JSON.parse(row.body ?? 'null')
     files.set(`${names.get(row.id)}.md`,
-      front({ id: `${NOTE_KEY}-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+      front({ id: `${NOTE_KEY}-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...carried(row.fields, body) }) + local(markdown(body, nameOf)))
   }
   for (const row of nuggetRows) {
     const body = JSON.parse(row.body ?? 'null')
@@ -137,7 +145,7 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
     // A heading of its own already names it; otherwise the title does.
     const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
     files.set(`${names.get(row.id)}.md`,
-      front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
+      front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...carried(row.fields, body) }) + heading + text)
   }
   return files
 }
@@ -2482,7 +2490,7 @@ export function registerHaligtree(): void {
   // An article from nuggets: their bodies in order, the first one's title, and
   // the derivation edge kept so the article knows what it was made from.
   handle('article', (ids: string[]) => {
-    const parts = ids.map((id) => db.prepare('select title, body, attribution from nuggets where id = ?').get(id) as { title: string; body: string; attribution: string | null })
+    const parts = ids.map((id) => db.prepare('select title, body, fields, attribution from nuggets where id = ?').get(id) as { title: string; body: string; fields: string | null; attribution: string | null })
     // Your glosses on each: the words already in your own voice are where a page starts.
     const glossed = (id: string): string[] =>
       (db.prepare("select body from glosses where item_id = ? and author = 'user' order by created_at").all(id) as { body: string }[]).map((row) => row.body)
@@ -2496,7 +2504,7 @@ export function registerHaligtree(): void {
       : parts.map((part, at) => [plain(JSON.parse(part.body)), ...glossed(ids[at])].join('\n\n')).join('\n\n')
     // Never the first gem's title over several, which made the page read as a copy of it:
     // the tag they all share, or "On" the first.
-    const tagsOf = (part: (typeof parts)[number]): string[] => (db.prepare('select value from json_each(note_tags(?, ?))').all(part.title, part.body) as { value: string }[]).map((row) => row.value)
+    const tagsOf = (part: (typeof parts)[number]): string[] => noteTags(part.title, part.body, part.fields)
     const shared = parts.length > 1 ? parts.slice(1).reduce((common, part) => common.filter((tag) => tagsOf(part).includes(tag)), tagsOf(parts[0]))[0] : undefined
     const title = parts.length > 1 ? (shared ? `On ${shared.replace(/[-_]/g, ' ')}` : `On ${parts[0].title}`) : (parts[0]?.title ?? 'Untitled')
     const id = randomUUID()
@@ -5286,6 +5294,7 @@ export function registerHaligtree(): void {
   // Read inside the write, as they were, every save of a long note rebuilt the whole note on main's one thread
   // to look for its tags, once any note's related ones had been asked for.
   db.function('note_tags', (title, body) => JSON.stringify(noteTags(title, body)))
+  db.function('kept_tags', (fields) => JSON.stringify(tagsKept(fields)))
   // Made in turns, the first time it is asked for: filling it reads every note's words (150 ms of main's one thread
   // on a book of 95 MB, every window waiting behind it). Its triggers come first, so a note written while it fills
   // is kept true by them; each turn then clears and fills forty notes, and lets the thread go once it has been
@@ -5294,7 +5303,7 @@ export function registerHaligtree(): void {
   const index = (): Promise<void> => (indexing ??= (async () => {
     // The tables these rules change are named without `temp.`: a rule of this connection's own finds them there
     // first, and SQLite as Node ships it (3.51) takes no schema name on a table changed inside a rule.
-    const fill = (type: string, row: string): string => `insert into note_tag select ${row}.id, ${type}, value from json_each(note_tags(${row}.title, ${row}.body))`
+    const fill = (type: string, row: string): string => `insert into note_tag select ${row}.id, ${type}, value from json_each(note_tags(${row}.title, ${row}.body)); insert into note_tag select ${row}.id, ${type}, value from json_each(kept_tags(${row}.fields)) where value not in (select value from json_each(note_tags(${row}.title, ${row}.body)))`
     // `at` tells one marking of a note from the next, so tags read for words since written over are not kept.
     const due = (type: string): string => `delete from note_tag where id = old.id; insert or replace into note_tag_due (id, type, at) values (new.id, ${type}, (select coalesce(max(at), 0) + 1 from temp.note_tag_due))`
     const out = 'delete from note_tag where id = old.id; delete from note_tag_due where id = old.id'
@@ -5303,20 +5312,21 @@ export function registerHaligtree(): void {
       create index temp.note_tag_by_id on note_tag(id);
       create temp table note_tag_due (id text primary key, type text not null, at integer not null);
       create temp trigger note_tag_capture_in after insert on main.captures begin ${fill("'capture'", 'new')}; end;
-      create temp trigger note_tag_capture_edit after update of title, body on main.captures begin ${due("'capture'")}; end;
+      create temp trigger note_tag_capture_edit after update of title, body, fields on main.captures begin ${due("'capture'")}; end;
       create temp trigger note_tag_capture_out after delete on main.captures begin ${out}; end;
       create temp trigger note_tag_nugget_in after insert on main.nuggets begin ${fill('new.tier', 'new')}; end;
-      create temp trigger note_tag_nugget_edit after update of title, body, tier on main.nuggets begin ${due('new.tier')}; end;
+      create temp trigger note_tag_nugget_edit after update of title, body, tier, fields on main.nuggets begin ${due('new.tier')}; end;
       create temp trigger note_tag_nugget_out after delete on main.nuggets begin ${out}; end;`)
     let since = performance.now()
     for (const [table, type] of [['captures', "'capture'"], ['nuggets', 't.tier']]) {
       const next = db.prepare(`select max(rowid) as upTo from (select rowid from ${table} where rowid > ? order by rowid limit 40)`)
       const clear = db.prepare(`delete from temp.note_tag where id in (select id from ${table} where rowid > ? and rowid <= ?)`)
       const add = db.prepare(`insert into temp.note_tag select t.id, ${type}, j.value from ${table} t, json_each(note_tags(t.title, t.body)) j where t.rowid > ? and t.rowid <= ?`)
+      const addKept = db.prepare(`insert into temp.note_tag select t.id, ${type}, j.value from ${table} t, json_each(kept_tags(t.fields)) j where t.rowid > ? and t.rowid <= ? and j.value not in (select value from json_each(note_tags(t.title, t.body)))`)
       for (let at = 0; ;) {
         const { upTo } = next.get(at) as { upTo: number | null }
         if (upTo === null) break
-        timed('related: forty notes indexed', () => (clear.run(at, upTo), add.run(at, upTo)))
+        timed('related: forty notes indexed', () => (clear.run(at, upTo), add.run(at, upTo), addKept.run(at, upTo)))
         at = upTo
         if (performance.now() - since < 8) continue
         await new Promise((done) => setImmediate(done))

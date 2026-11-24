@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { sortNamed } from './title-names'
+import { tagsKept } from './property-tags'
 import { tagsIn, withoutTags } from './tag-words'
 import { everyday } from './name-match'
 import { LABEL } from './book-words'
@@ -32,7 +33,7 @@ export type OffersNeeds = {
   named: <T>(name: string, run: () => T) => T
 }
 
-type Row = { key: string; title: string; text: string; stamp: string; group: string | null; list: string | null; kind: string | null }
+type Row = { key: string; title: string; text: string; stamp: string; group: string | null; list: string | null; kind: string | null; fields: string | null }
 type Kept = { stamp: string; lemmas: Lemmas; meaning: Float32Array | null }
 
 export type NoteOffers = {
@@ -123,10 +124,10 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
   // "already wrote" its own first draft, and "Open it" opened the gem itself.
   function rows(): Row[] {
     return db.prepare(
-      `select id as key, label(title, body, named) as title, words(id, body) as text, coalesce(edited_at, captured_at) as stamp, null as "group", null as list, kind
+      `select id as key, label(title, body, named) as title, words(id, body) as text, coalesce(edited_at, captured_at) as stamp, null as "group", null as list, kind, fields
          from captures where status not in ('discarded', 'promoted') and private = 0
        union all
-       select tier || ':' || id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), words(id, body), coalesce(updated_at, created_at), group_id, tier, kind
+       select tier || ':' || id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), words(id, body), coalesce(updated_at, created_at), group_id, tier, kind, fields
          from nuggets where tier in ('nugget', 'article', 'question') and private = 0 and binned_at is null and archived_at is null`
     ).all() as Row[]
   }
@@ -164,7 +165,7 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
     const tags = new Map<string, string[]>()
     named('offers: every note’s tags', () => {
       for (const row of all) {
-        const own = [...new Set(tagsIn(`${row.title ?? ''} ${row.text ?? ''}`).map((tag) => alias.get(tag) ?? tag))]
+        const own = [...new Set([...tagsIn(`${row.title ?? ''} ${row.text ?? ''}`), ...tagsKept(row.fields)].map((tag) => alias.get(tag) ?? tag))]
         if (own.length && !own.includes('bit')) tags.set(row.key, own)
       }
     })

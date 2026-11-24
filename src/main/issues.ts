@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { dayjs, num } from './dates'
-import { gate, plain } from './haligtree'
+import { gate } from './haligtree'
+import { noteTags } from './book-tags'
 
 /**
  * Weeks and months read back like issues of a magazine you wrote without
@@ -17,10 +18,6 @@ import { gate, plain } from './haligtree'
  */
 
 const now = (): string => new Date().toISOString()
-/** `#tags` in a text, lower-cased, once each: the same rule as the rest of the app. */
-import { tagsIn } from './tag-words'
-import { cut } from './clip'
-import { NOTE_KEY } from './name'
 const parse = <T>(text: string | null | undefined, fallback: T): T => {
   try {
     return (JSON.parse(text ?? 'null') as T) ?? fallback
@@ -28,6 +25,8 @@ const parse = <T>(text: string | null | undefined, fallback: T): T => {
     return fallback
   }
 }
+import { cut } from './clip'
+import { NOTE_KEY } from './name'
 
 export type { Repeat } from './book-repeats'
 
@@ -64,8 +63,8 @@ export function registerIssues(): void {
     const start = dayjs(`${month}-01`).startOf('month')
     const end = start.add(1, 'month')
     const [since, until] = [start.toISOString(), end.toISOString()]
-    const rows = db.prepare(`select ${LABEL} as title, body, status, private, attribution, captured_at as at from captures where captured_at >= ? and captured_at < ?`)
-      .all(since, until) as { title: string; body: string | null; status: string; private: number; attribution: string | null; at: string }[]
+    const rows = db.prepare(`select ${LABEL} as title, body, fields, status, private, attribution, captured_at as at from captures where captured_at >= ? and captured_at < ?`)
+      .all(since, until) as { title: string; body: string | null; fields: string | null; status: string; private: number; attribution: string | null; at: string }[]
     const shown = rows.filter((row) => !row.private)
     const count = <T extends string | number>(values: T[]): Map<T, number> => values.reduce((all, value) => all.set(value, (all.get(value) ?? 0) + 1), new Map<T, number>())
     const top = <T extends string | number>(map: Map<T, number>): [T, number] | null => [...map].sort((a, b) => b[1] - a[1])[0] ?? null
@@ -74,7 +73,7 @@ export function registerIssues(): void {
     for (const row of rows) days[dayjs(row.at).date() - 1]++
     const weekday = top(count(rows.map((row) => dayjs(row.at).day())))
     const hour = top(count(rows.map((row) => dayjs(row.at).hour())))
-    const tagCounts = count(shown.flatMap((row) => tagsIn(`${row.title} ${plain(parse(row.body, null))}`)))
+    const tagCounts = count(shown.flatMap((row) => noteTags(row.title, row.body, row.fields)))
     const sources = [...count(shown.map((row) => row.attribution ?? '').filter(Boolean))].sort((a, b) => b[1] - a[1]).slice(0, 3)
     const made = (tier: string): { title: string }[] =>
       db.prepare(`select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title from nuggets where tier = ? and private = 0 and created_at >= ? and created_at < ? order by created_at`).all(tier, since, until) as { title: string }[]

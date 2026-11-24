@@ -131,8 +131,8 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       'note:pdf': (_gone: Gone, id: string) => pdfIn((db.prepare('select body from captures where id = ?').get(id) as { body: string | null } | undefined)?.body ?? ''),
       /** One note's tags as it is kept now, every one its words carry, null when it is gone: for the notes related by tag, after a save of it (haligtree.ts `fresh`). */
       'related:tags': (_gone: Gone, table: string, id: string) => {
-        const row = db.prepare(`select title, body from ${table === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(id) as { title: string | null; body: string | null } | undefined
-        return row ? noteTags(row.title, row.body) : null
+        const row = db.prepare(`select title, body, fields from ${table === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(id) as { title: string | null; body: string | null; fields: string | null } | undefined
+        return row ? noteTags(row.title, row.body, row.fields) : null
       },
       /** The words a save gained (word-count.ts): the words as they were, and as they are, each as the bytes it is kept as. */
       'words:gained': (_gone: Gone, was: Uint8Array | string, now: Uint8Array | string) => gained(was, now)

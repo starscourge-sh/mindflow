@@ -1,10 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { LABEL } from './book-words'
-import { cardWords, plain } from './card-words'
+import { cardWords } from './card-words'
 import { cut } from './clip'
 import { dayKey, dayjs } from './dates'
 import { LEARN_TAG } from './name'
-import { tagsIn } from './tag-words'
+import { noteTags } from './book-tags'
 
 /**
  * Home, as a read of the book and nothing else (no Electron in it): what was
@@ -26,8 +26,8 @@ const ago = (days: number): string => dayjs().subtract(days, 'day').toISOString(
 
 export function bookHome(db: DatabaseSync) {
   // Every note in view, as a shelf shows it: newest change first.
-  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who, medium as "where", case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end as year from captures where status != 'discarded' and archived_at is null
-    union all select id, tier, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution, medium, case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')`
+  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who, medium as "where", case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end as year, fields from captures where status != 'discarded' and archived_at is null
+    union all select id, tier, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution, medium, case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end, fields from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')`
   // Who said it, only for a quote: its card signs it, with where it is from and its year, as the capture page does.
   const strip = ({ type, id, title, kind, private: hidden, at, who, where, year }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who, where, year } : {}) })
 
@@ -50,7 +50,7 @@ export function bookHome(db: DatabaseSync) {
   }
 
   const home = ({ blackout, hidePrivate, due: dueIds }: HomeAsk) => {
-    const every = db.prepare(NOTES).all() as (Shelved & { made: string; body: string | null })[]
+    const every = db.prepare(NOTES).all() as (Shelved & { made: string; body: string | null; fields: string | null })[]
     // A note saved as a gem shows once, as the gem: out of every list here, and opened, it stands for its gem.
     const ids = new Set(every.map((row) => row.id))
     const gemOf = new Map((db.prepare("select capture_id, id from nuggets where capture_id is not null and tier not in ('card', 'deck')").all() as { capture_id: string; id: string }[])
@@ -93,9 +93,7 @@ export function bookHome(db: DatabaseSync) {
     const lately = all.filter((row) => row.made >= ago(60) || row.at >= ago(60))
     const tagged = new Map<string, Shelved[]>()
     for (const row of lately) {
-      let text = row.body ?? ''
-      try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
-      for (const tag of tagsIn(`${row.title} ${text}`)) tagged.set(tag, [...(tagged.get(tag) ?? []), strip(row)])
+      for (const tag of noteTags(row.title, row.body, row.fields)) tagged.set(tag, [...(tagged.get(tag) ?? []), strip(row)])
     }
     const metaRows = db.prepare('select tag, color, home_hidden from tag_meta').all() as { tag: string; color: string | null; home_hidden: number }[]
     const colours = new Map(metaRows.map((row) => [row.tag, row.color]))

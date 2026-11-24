@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { LABEL } from './book-words'
 import { cardWords, plain } from './card-words'
-import { tagsIn } from './tag-words'
+import { noteTags } from './book-tags'
 import { linkedAmong } from './links-in'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
@@ -25,7 +25,7 @@ import type { FeedPost, FeedSide, Reaction } from './feed'
 
 /** Whether the Feed takes your Pages too (Settings, or the switch on the Feed itself). */
 export type Takes = { pages: boolean }
-export type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number; archive?: number | boolean; href?: string }
+export type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number; archive?: number | boolean; href?: string; fields?: string | null }
 /** One look at the Feed: the day, the day's kept set if it has one, and else the poll and quiz keys main picked for it. */
 export type FeedAsk = { today: string; takes: Takes; kept: string | undefined; asks: string[] }
 /** The Feed as read: the day's set (`picked` when it was picked just now, from `pooled` notes), each post in order
@@ -75,9 +75,9 @@ export function bookFeed(db: DatabaseSync) {
   const rowOf = (key: string): Row | undefined => {
     const type = key.slice(0, key.indexOf(':'))
     const id = key.slice(key.indexOf(':') + 1)
-    if (type === 'day') return db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, 1 as weight from day_pages where day = ?").get(id) as Row | undefined
-    if (type === 'capture') return db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive from captures where id = ? and private = 0 and status != 'discarded'`).get(id) as Row | undefined
-    if (type === 'nugget' || type === 'question' || type === 'article') return db.prepare(`select ? as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight from nuggets where id = ? and private = 0 and binned_at is null and superseded_by is null`).get(type, id) as Row | undefined
+    if (type === 'day') return db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, 1 as weight, null as fields from day_pages where day = ?").get(id) as Row | undefined
+    if (type === 'capture') return db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive, fields from captures where id = ? and private = 0 and status != 'discarded'`).get(id) as Row | undefined
+    if (type === 'nugget' || type === 'question' || type === 'article') return db.prepare(`select ? as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight, fields from nuggets where id = ? and private = 0 and binned_at is null and superseded_by is null`).get(type, id) as Row | undefined
     if (type === 'highlight') {
       const one = db.prepare('select * from pdf_highlights where id = ?').get(id) as { id: string; src: string; page: number; quote: string; note: string | null; created_at: string; surfacing_weight?: number | null } | undefined
       if (!one) return undefined
@@ -161,11 +161,7 @@ export function bookFeed(db: DatabaseSync) {
     return text.length > 600 ? `${text.slice(0, 600).replace(/\s+\S*$/, '')}…` : text
   }
 
-  const tagsOfRow = (row: { title: string; body: string | null }): string[] => {
-    let text = row.body ?? ''
-    try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
-    return tagsIn(`${row.title} ${text}`)
-  }
+  const tagsOfRow = (row: { title: string; body: string | null; fields?: string | null }): string[] => noteTags(row.title, row.body, row.fields)
 
   /**
    * Filing tags: words that sort notes rather than say what they are about, so never an interest.
@@ -353,8 +349,8 @@ export function bookFeed(db: DatabaseSync) {
     }
     // Every note of yours that may be shown, not only those the Feed picks from.
     const notes = [
-      ...db.prepare("select case when tier = 'question' then 'question' else 'nugget' end as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier in ('nugget', 'question', 'article')").all(),
-      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited from captures where private = 0 and status != 'discarded' and archived_at is null and kind != 'task' and id not in (select capture_id from nuggets where capture_id is not null)`).all()
+      ...db.prepare("select case when tier = 'question' then 'question' else 'nugget' end as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, fields from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier in ('nugget', 'question', 'article')").all(),
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, fields from captures where private = 0 and status != 'discarded' and archived_at is null and kind != 'task' and id not in (select capture_id from nuggets where capture_id is not null)`).all()
     ] as Row[]
     for (const row of notes) {
       if (/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`)) continue
@@ -374,9 +370,9 @@ export function bookFeed(db: DatabaseSync) {
     const since = dayjs().subtract(7, 'day').toISOString()
     const counts = new Map<string, number>()
     const recent = [
-      ...db.prepare("select title, body from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier not in ('card', 'deck') and created_at >= ?").all(since),
-      ...db.prepare(`select ${LABEL} as title, body from captures where private = 0 and status != 'discarded' and archived_at is null and captured_at >= ? and id not in (select capture_id from nuggets where capture_id is not null)`).all(since)
-    ] as { title: string; body: string | null }[]
+      ...db.prepare("select title, body, fields from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier not in ('card', 'deck') and created_at >= ?").all(since),
+      ...db.prepare(`select ${LABEL} as title, body, fields from captures where private = 0 and status != 'discarded' and archived_at is null and captured_at >= ? and id not in (select capture_id from nuggets where capture_id is not null)`).all(since)
+    ] as { title: string; body: string | null; fields: string | null }[]
     for (const row of recent) for (const tag of tagsOfRow(row)) counts.set(tag, (counts.get(tag) ?? 0) + 1)
     const week = [...counts].filter(([tag]) => tag !== 'bit' && tag !== LEARN_TAG && !filing.has(tag.toLowerCase())).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([tag, n]) => ({ tag, n }))
     return { quiet, week }

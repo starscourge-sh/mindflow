@@ -2,9 +2,8 @@ import { ipcMain } from 'electron'
 
 import { awayDays } from './away'
 import { database } from './captures'
-import { plain } from './haligtree'
 import { focusStats, streaks, taskFocus, type BreakRow, type FocusRow } from './focus-numbers'
-import { tagsIn } from './tag-words'
+import { noteTags } from './book-tags'
 
 /**
  * The numbers behind how sessions went: one task's (its panel) and all of
@@ -57,10 +56,8 @@ export function registerFocusStats(): void {
     const how = (said: string | null): number => goals.find((one) => one.how === said)?.n ?? 0
     // Each tag's captures, dealt with or still waiting in the Inbox. Private ones are left out: a tag can say as much as a title.
     const byTag = new Map<string, { dealt: number; waiting: number }>()
-    for (const row of db.prepare('select title, body, status from captures where private = 0').all() as { title: string | null; body: string | null; status: string }[]) {
-      let body: unknown = null
-      try { body = JSON.parse(row.body ?? 'null') } catch { /* a body that is not JSON has no tags to give */ }
-      for (const tag of new Set(tagsIn(`${row.title ?? ''} ${plain(body)}`))) {
+    for (const row of db.prepare('select title, body, fields, status from captures where private = 0').all() as { title: string | null; body: string | null; fields: string | null; status: string }[]) {
+      for (const tag of new Set(noteTags(row.title, row.body, row.fields))) {
         const was = byTag.get(tag) ?? { dealt: 0, waiting: 0 }
         byTag.set(tag, row.status === 'open' ? { ...was, waiting: was.waiting + 1 } : { ...was, dealt: was.dealt + 1 })
       }

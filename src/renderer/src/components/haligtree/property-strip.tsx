@@ -12,6 +12,7 @@ import { propSaid } from '@/lib/property-sorts'
 import { OLD_LABELS, SUPER_TAGS, type Field } from '../capture-kinds/kind-fields'
 import { PROP_TYPES, readValue, type PropType } from '../../../../main/property-words'
 import { dayMonth } from '../../../../main/dates'
+import { TAGS_KEY, cleanTag, tagsKept } from '../../../../main/property-tags'
 import { tagsIn } from '../../../../main/tag-words'
 import { Chips } from './display'
 import { DatePicker } from './date-picker'
@@ -36,7 +37,7 @@ const typeOf = (field: Field): Prop['type'] =>
   field.type === 'rating' ? 'rating' : field.type === 'long' ? 'long' : field.type === 'choice' ? 'choice' : field.type === 'date' ? 'date' : field.type === 'link' ? 'link' : 'text'
 
 /** Keys the app keeps for itself, never shown: when a thing was decided or answered, a deck card's own Anki fields. */
-const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', '_anki', '_meaningRead'])
+const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', '_anki', '_meaningRead', TAGS_KEY])
 
 /** A value, said short: "3 Nov", "Yes", "★★★★". */
 function said(prop: Prop): string {
@@ -192,6 +193,34 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
   const size = panel ? { h: 'h-8', minH: 'min-h-8', pad: 'px-2', icon: 'size-4' } : { h: 'h-7', minH: 'min-h-7', pad: 'px-1.5', icon: 'size-3.5' }
   if (read.of !== `${table}:${id}`) return <div data-property-strip data-in-panel={panel ? '' : undefined} ref={strip} className={size.minH} />
   // Nothing yet: only the quiet way to add one, in the place the block will open. The details keep their heading.
+  const kept = tagsKept(values)
+  // The Tags row is there whenever the note already has properties, or this is the details panel: it ends in "+", and a tag added there is kept on the note, not written into its words.
+  const showTags = panel || tags.length > 0 || shown.length > 0
+  const propCount = shown.length + (showTags ? 1 : 0)
+  const takeOff = (tag: string): void => {
+    const had = kept.includes(tag)
+    const editor = editorOf(strip.current)
+    const found = new RegExp(`(^|\\s)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}_/-])`, 'giu')
+    const cuts: { from: number; to: number }[] = []
+    editor?.state.doc.descendants((child, pos) => {
+      if (!child.isText || !child.text) return
+      for (const hit of child.text.matchAll(found)) cuts.push({ from: pos + (hit.index ?? 0) + hit[1].length, to: pos + (hit.index ?? 0) + hit[0].length })
+    })
+    if (!had && !cuts.length) return
+    const left = kept.filter((one) => one !== tag)
+    if (had) void notes.setField(table, id, TAGS_KEY, left)
+    if (cuts.length && editor) {
+      const tr = editor.state.tr
+      for (const cut of cuts.reverse()) tr.delete(cut.from, cut.to)
+      editor.view.dispatch(tr)
+    }
+    chime('off')
+    toast(`#${tag} taken off`, () => {
+      if (had) void notes.setField(table, id, TAGS_KEY, kept)
+      if (cuts.length && editor) editor.commands.undo()
+      chime('undo')
+    })
+  }
   const empty = !panel && !shown.length && !tags.length && open !== '+'
   const addButton = (
     <Tip side="bottom" label="Add property, or type Name:: value on a line of its own (⌥⌘P)">
@@ -247,23 +276,23 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                 className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 py-1 text-left text-foreground hover:bg-accent/60">
                 <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none group-hover/fold:text-foreground ${shut ? '' : 'rotate-90'}`} />
                 <h2 className="min-w-0 truncate text-meta font-semibold">Properties</h2>
-                {shut && <span className="ml-1 text-meta text-muted-foreground">{shown.length + (tags.length ? 1 : 0)}</span>}
+                {shut && <span className="ml-1 text-meta text-muted-foreground">{propCount}</span>}
               </button>
             </div>
           ) : (
           <button type="button" data-properties-head aria-expanded={!shut} onClick={() => (chime(shut ? 'open' : 'fold'), setShut(!shut))}
             className="inline-flex h-7 w-fit items-center gap-1 rounded-md px-1.5 font-medium text-foreground transition-colors hover:bg-accent">
             <ChevronRight className={`size-3.5 text-muted-foreground transition-transform duration-150 ${shut ? '' : 'rotate-90'}`} />Properties
-            {shut && <span className="ml-1 font-normal text-muted-foreground">{shown.length + (tags.length ? 1 : 0)}</span>}
+            {shut && <span className="ml-1 font-normal text-muted-foreground">{propCount}</span>}
           </button>
           )}
           {!shut && (
             <div className={panel ? 'mt-1 grid grid-cols-[fit-content(8rem)_minmax(0,1fr)] gap-x-1 gap-y-px' : 'flex flex-col'}>
-              {tags.length > 0 && (
+              {showTags && (
                 <div className={row} data-property="tags">
                   {nameCell(Tags, 'tags')}
-                  <TagChips tags={tags} strip={strip} className={`flex ${size.minH} flex-wrap items-center gap-1 py-0.5`}>
-                    <AddTag node={() => strip.current} />
+                  <TagChips tags={tags} onTake={takeOff} className={`flex ${size.minH} flex-wrap items-center gap-1 py-0.5`}>
+                    <AddTag table={table} id={id} tags={tags} kept={kept} />
                   </TagChips>
                 </div>
               )}
@@ -321,19 +350,11 @@ const stamp = (iso: string, short = false): string => {
 const editorOf = (node: HTMLElement | null): Editor | null =>
   (((node?.closest('.ProseMirror') ?? node?.closest('.mf-details')?.parentElement?.querySelector('.ProseMirror')) as (HTMLElement & { editor?: Editor }) | null | undefined)?.editor ?? null)
 
-/** A tag put on from the strip: written into the words (putTag), with its sound. */
-function retag(tag: string, node: HTMLElement | null): boolean {
-  const editor = editorOf(node)
-  if (!editor || !putTag(editor, tag)) return false
-  chime('on')
-  return true
-}
-
 /**
- * A tag put on a note, as the strip's chips are made and the offer under a note takes one: written into the words as
- * a #tag after the last one there, so the words and the strip never disagree. With none yet, on a line of its own at
- * the end, never in the note's name (its first line); `inWords`, quick capture's box, puts it where the caret rests,
- * and the box's send moves it off the name (main/tags-off-name.ts). One step ⌘Z takes back.
+ * A tag put into a note's words, as the offer under a note takes one and quick capture's box does: written as a #tag
+ * after the last one there. With none yet, on a line of its own at the end, never in the note's name (its first line);
+ * `inWords`, the box, puts it where the caret rests, and the box's send moves it off the name (main/tags-off-name.ts).
+ * One step ⌘Z takes back. The Properties row does not use this: a tag added there stays in Properties.
  */
 export function putTag(editor: Editor, tag: string | string[], inWords = false): boolean {
   // Several at once (an offer's ticked tags) go in together, one edit that one ⌘Z takes back.
@@ -367,7 +388,7 @@ export function putTag(editor: Editor, tag: string | string[], inWords = false):
  * opens the rest in place, and "Fewer" folds them back. 500 tags filled
  * the strip with about 167 rows before.
  */
-function TagChips({ tags, strip, className, children }: { tags: string[]; strip: React.RefObject<HTMLDivElement | null>; className: string; children: React.ReactNode }): React.JSX.Element {
+function TagChips({ tags, className, onTake, children }: { tags: string[]; className: string; onTake: (tag: string) => void; children: React.ReactNode }): React.JSX.Element {
   const [all, setAll] = useState(false)
   // How many chips fit in two rows with the "+N more" chip after them; null until measured.
   const [fit, setFit] = useState<number | null>(null)
@@ -413,8 +434,8 @@ function TagChips({ tags, strip, className, children }: { tags: string[]; strip:
   }, [fit, all, said])
   const shown = all || fit === null ? tags : tags.slice(0, fit)
   const left = tags.length - shown.length
-  // Until measured, held to two rows (3.5rem, measured to be the height the two rows settle at) so 500 tags never flash down the page and nothing below moves.
-  const held = !all && fit === null ? { maxHeight: '3.5rem', overflow: 'hidden' } : undefined
+  // Until measured, held to two rows (3.5rem, measured to be the height the two rows settle at) so 500 tags never flash down the page and nothing below moves. No chips yet: the "+" is the whole row, and nothing is clipped.
+  const held = !all && fit === null && tags.length ? { maxHeight: '3.5rem', overflow: 'hidden' } : undefined
   return (
     <div ref={box} className={className} style={held}>
       {shown.map((tag) => (
@@ -422,7 +443,7 @@ function TagChips({ tags, strip, className, children }: { tags: string[]; strip:
           {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
           <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="mf-hit relative rounded-sm hover:underline">{tag}</button>
           <Tip label={`Take #${tag} off this note`}>
-            <button type="button" aria-label={`Remove #${tag}`} className="mf-hit relative grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
+            <button type="button" aria-label={`Remove #${tag}`} className="mf-hit relative grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => onTake(tag)}><X className="size-3" /></button>
           </Tip>
         </span>
       ))}
@@ -441,12 +462,30 @@ function TagChips({ tags, strip, className, children }: { tags: string[]; strip:
   )
 }
 
-/** "+" after the tag chips: a tag typed there goes on the note (Enter, a comma or a space); Esc puts the field away. */
-function AddTag({ node }: { node: () => HTMLElement | null }): React.JSX.Element {
+/**
+ * "+" after the tag chips: quiet until clicked, then a field. Enter, a comma or a space keeps the tag on the note's
+ * properties (never written into its words). Esc puts the field away.
+ */
+function AddTag({ table, id, tags, kept }: { table: NoteTable; id: string; tags: string[]; kept: string[] }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  // Enter then blur would otherwise keep the same tag twice.
+  const sent = useRef(false)
   const put = (): void => {
-    if (text.trim() && retag(text, node())) setText('')
+    if (sent.current || !text.trim()) return
+    const name = cleanTag(text)
+    if (!name) return void chime('nope')
+    sent.current = true
+    setText('')
+    // Back to the quiet "+". Another tag is another click.
+    setOpen(false)
+    if (tags.includes(name)) return
+    const next = [...kept, name]
+    void notes.setField(table, id, TAGS_KEY, next).then((ok) => {
+      if (!ok) return
+      chime('on')
+      toast(`Tagged #${name}`, () => void notes.setField(table, id, TAGS_KEY, kept.length ? kept : null).then(() => chime('undo')))
+    })
   }
   if (!open) return (
     <Tip label="Add a tag">
@@ -456,7 +495,7 @@ function AddTag({ node }: { node: () => HTMLElement | null }): React.JSX.Element
   )
   return (
     <input data-tag-input autoFocus value={text} placeholder="tag" aria-label="New tag" spellCheck={false}
-      onChange={(event) => setText(event.target.value)}
+      onChange={(event) => { sent.current = false; setText(event.target.value) }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ',' || (event.key === ' ' && text.trim())) (event.preventDefault(), put())
         else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(''), setOpen(false))
@@ -464,24 +503,6 @@ function AddTag({ node }: { node: () => HTMLElement | null }): React.JSX.Element
       onBlur={() => (put(), setOpen(false))}
       className="h-6 w-24 rounded-full bg-foreground/[0.06] px-2.5 text-foreground outline-none placeholder:text-muted-foreground" />
   )
-}
-
-/** A tag taken off: every #tag in the words goes, in one step ⌘Z or the toast brings back. */
-function untag(tag: string, node: HTMLElement | null): void {
-  const editor = editorOf(node)
-  if (!editor) return
-  const found = new RegExp(`(^|\\s)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}_/-])`, 'giu')
-  const cuts: { from: number; to: number }[] = []
-  editor.state.doc.descendants((child, pos) => {
-    if (!child.isText || !child.text) return
-    for (const hit of child.text.matchAll(found)) cuts.push({ from: pos + (hit.index ?? 0) + hit[1].length, to: pos + (hit.index ?? 0) + hit[0].length })
-  })
-  if (!cuts.length) return
-  const tr = editor.state.tr
-  for (const cut of cuts.reverse()) tr.delete(cut.from, cut.to)
-  editor.view.dispatch(tr)
-  chime('off')
-  toast(`#${tag} taken off`, () => (editor.commands.undo(), chime('undo')))
 }
 
 /**

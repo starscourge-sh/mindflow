@@ -1,17 +1,23 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { KEPT_IN, LABEL } from './book-words'
 import { plain } from './card-words'
+import { tagsBeside } from './property-tags'
 import { tagsIn } from './tag-words'
 
-/** One note's tags, from its name and its words as kept: read the same way on main and on the reading thread. */
-export function noteTags(title: unknown, body: unknown): string[] {
+/**
+ * One note's tags, from its name and its words, then any added in Properties
+ * (property-tags.ts) that the words do not already say. Read the same way on
+ * main and on the reading thread. `fields` is the note's properties as kept,
+ * or the JSON they are stored as.
+ */
+export function noteTags(title: unknown, body: unknown, fields?: unknown): string[] {
   let words = ''
   try {
     words = plain(JSON.parse(String(body ?? 'null')))
   } catch {
     words = String(body ?? '')
   }
-  return tagsIn(`${title ?? ''} ${words}`)
+  return tagsBeside(tagsIn(`${title ?? ''} ${words}`), fields)
 }
 
 /**
@@ -31,7 +37,7 @@ export function bookTags(db: DatabaseSync) {
   const madeInto = (status: string): string => `exists (select 1 from tasks t where t.status ${status} and (t.origin_capture_id = captures.id or t.id in (select task_id from task_links where item_id = captures.id)))`
   const TAG_CAPTURES = `status != 'discarded' and archived_at is null and not (status = 'resolved' and ${madeInto("= 'dropped'")} and not ${madeInto("!= 'dropped'")})`
   const CAPTURE_LATER = `select status = 'resolved' and (kind = 'todo' or ${madeInto("!= 'dropped'")})`
-  let tagsOf = new Map<string, { title: string; body: string; tags: string[] }>()
+  let tagsOf = new Map<string, { title: string; body: string; fields: string | null; tags: string[] }>()
   type Tagged = { tag: string; id: string; type: string; title: string; private: boolean; later: boolean; at: string; fromNote?: string }
   // The whole list, kept until the book's stamp moves (captures.ts `bookStamp`): the sidebar, the Tags page and a
   // note's own tags each ask after every change, and all but the first are answered from here.
@@ -39,10 +45,10 @@ export function bookTags(db: DatabaseSync) {
   const tagged = (stamp: number): Tagged[] => {
     if (listed?.stamp === stamp) return listed.rows
     const rows = [
-      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private, (${CAPTURE_LATER}) as later, captured_at as at from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
-      ...(db.prepare("select id, tier as type, title, body, private, 0 as later, created_at as at, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all() as Record<string, string>[]),
-      // A task in the Bin is out of every tag, as a capture there is.
-      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private, status = 'done' as later, created_at as at from tasks where status != 'dropped'").all() as Record<string, string>[])
+      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, fields, private, (${CAPTURE_LATER}) as later, captured_at as at from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
+      ...(db.prepare("select id, tier as type, title, body, fields, private, 0 as later, created_at as at, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all() as Record<string, string>[]),
+      // A task in the Bin is out of every tag, as a capture there is. A task has no properties list.
+      ...(db.prepare("select id, 'task' as type, title, notes as body, null as fields, 0 as private, status = 'done' as later, created_at as at from tasks where status != 'dropped'").all() as Record<string, string>[])
     ]
     // An alias counts as the tag it stands for, without the words changing.
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
@@ -58,8 +64,8 @@ export function bookTags(db: DatabaseSync) {
     const all = once(rows.flatMap((row) => {
       const key = `${row.type}:${row.id}`
       let kept = was.get(key)
-      if (kept?.title !== row.title || kept.body !== row.body)
-        kept = { title: row.title, body: row.body, tags: tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`) }
+      if (kept?.title !== row.title || kept.body !== row.body || kept.fields !== (row.fields ?? null))
+        kept = { title: row.title, body: row.body, fields: row.fields ?? null, tags: noteTags(row.title, row.body, row.fields) }
       tagsOf.set(key, kept)
       return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private), later: !!Number(row.later), at: row.at, fromNote: row.fromNote || undefined }))
     }))
@@ -117,11 +123,13 @@ export function bookTags(db: DatabaseSync) {
 
   /** One note's own #tags, as its words have them. A tag kept as plain text when it was sent does nothing: not counted here. */
   const ofNote = (table: 'captures' | 'nuggets', id: string): string[] => {
-    const row = db.prepare(`select title, body${table === 'captures' ? ', plain_tags as kept' : ''} from ${table} where id = ?`).get(id) as { title: string | null; body: string | null; kept?: string | null } | undefined
+    const row = db.prepare(`select title, body, fields${table === 'captures' ? ', plain_tags as kept' : ''} from ${table} where id = ?`).get(id) as { title: string | null; body: string | null; fields: string | null; kept?: string | null } | undefined
     if (!row) return []
     const parse = (text: string | null | undefined): unknown => { try { return JSON.parse(text ?? 'null') } catch { return text } }
     const kept = (parse(row.kept ?? null) as string[] | null) ?? []
-    return tagsIn(`${row.title ?? ''} ${plain(parse(row.body))}`).filter((tag) => !kept.includes(tag))
+    // A tag kept as plain text when it was sent does nothing. One added in Properties still counts.
+    const fromWords = tagsIn(`${row.title ?? ''} ${plain(parse(row.body))}`).filter((tag) => !kept.includes(tag))
+    return tagsBeside(fromWords, row.fields)
   }
 
   return { tags, tag, read, ofNote }

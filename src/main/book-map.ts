@@ -1,9 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { LABEL } from './book-words'
-import { plain } from './card-words'
 import { fileLink } from './find-files'
 import { mentionsIn } from './links-in'
-import { tagsIn } from './tag-words'
+import { noteTags } from './book-tags'
 
 /**
  * The Map, as a read of the book and nothing else (no Electron in it): every
@@ -14,13 +13,6 @@ import { tagsIn } from './tag-words'
  */
 
 type Node = { type: string; id: string; title: string; private: number }
-const parse = (text: string | null | undefined): unknown => {
-  try {
-    return JSON.parse(text ?? 'null')
-  } catch {
-    return text
-  }
-}
 /** A stored picture's address. */
 const PICTURE = /haligtree:\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|avif|bmp|heic|svg)/
 
@@ -38,10 +30,10 @@ export function bookMap(db: DatabaseSync) {
   const map = () => {
     const rows = [
       // A note saved as a gem is on the map once, as the gem.
-      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body, captured_at as at from captures where status != 'discarded' and private = 0
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body, fields, captured_at as at from captures where status != 'discarded' and private = 0
         and not (status = 'promoted' and exists (select 1 from nuggets n where n.capture_id = captures.id and n.private = 0 and n.tier not in ('card', 'deck')))`).all(),
-      ...db.prepare("select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, body, coalesce((select captured_at from captures c where c.id = nuggets.capture_id), created_at) as at from nuggets where private = 0 and tier not in ('card', 'deck')").all()
-    ] as (Node & { kind: string; body: string | null; at: string })[]
+      ...db.prepare("select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, body, fields, coalesce((select captured_at from captures c where c.id = nuggets.capture_id), created_at) as at from nuggets where private = 0 and tier not in ('card', 'deck')").all()
+    ] as (Node & { kind: string; body: string | null; fields?: string | null; at: string })[]
     const known = new Set(rows.map((row) => row.id))
     // A PDF or a kept article linked from a note is on the map too, as a dot of its own, once.
     const files = new Map<string, ReturnType<typeof fileLink>>()
@@ -75,8 +67,8 @@ export function bookMap(db: DatabaseSync) {
     const colours = new Map((db.prepare('select tag, color from tag_meta').all() as { tag: string; color: string | null }[]).map((row) => [row.tag, row.color]))
     // Every note's tags, the ones with no links too (the Map can show them); counted over the linked ones, so the
     // colours stay the same whether or not those are shown.
-    const tagsOf = new Map(rows.map((row) => [row.id, remember(tagged, row.id, `${row.title}\n${row.body}`, () =>
-      tagsIn(`${row.title ?? ''} ${plain(parse(row.body))}`))]))
+    const tagsOf = new Map(rows.map((row) => [row.id, remember(tagged, row.id, `${row.title}\n${row.body}\n${row.fields ?? ''}`, () =>
+      noteTags(row.title, row.body, row.fields))]))
     const used = new Map<string, number>()
     for (const row of linked) for (const tag of tagsOf.get(row.id)!) used.set(tag, (used.get(tag) ?? 0) + 1)
     const main = (tags: string[]): string | undefined => [...tags].sort((a, b) => Number(!!colours.get(b)) - Number(!!colours.get(a)) || used.get(b)! - used.get(a)!)[0]
