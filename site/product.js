@@ -1,9 +1,23 @@
 const root = document.documentElement
-const capture = document.querySelector('#capture')
-const mark = () => {
-  root.classList.toggle('scrolled', window.scrollY > 8)
-  const box = capture.getBoundingClientRect()
-  root.classList.toggle('on-ink', box.top < 48 && box.bottom > 48)
+const bar = () => root.classList.toggle('scrolled', window.scrollY > 4)
+bar()
+addEventListener('scroll', bar, { passive: true })
+
+const links = [...document.querySelectorAll('.rail a')]
+const byId = new Map(links.map((link) => [link.getAttribute('href').slice(1), link]))
+const chapters = [...byId.keys()].map((id) => document.getElementById(id)).filter(Boolean)
+
+const mark = (id) => {
+  for (const link of links) {
+    const on = link.getAttribute('href') === '#' + id
+    if (on) link.setAttribute('aria-current', 'true')
+    else link.removeAttribute('aria-current')
+  }
 }
-mark()
-addEventListener('scroll', mark, { passive: true })
+
+const seen = new IntersectionObserver((entries) => {
+  const hit = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+  if (hit) mark(hit.target.id)
+}, { rootMargin: '-40% 0px -45% 0px', threshold: [0, 0.25, 0.6] })
+
+for (const chapter of chapters) seen.observe(chapter)

@@ -8,74 +8,86 @@
 <link rel="stylesheet" href="product.css">
 </head>
 <body>
-<a class="skip" href="#writing">Skip to the book</a>
-<header class="nav">
-  <a class="mark" href="index.html">Haligtree</a>
-  <nav aria-label="On this page">
-    <a href="#writing">Writing</a>
+<a class="skip" href="#promise">Skip to the page</a>
+<header class="bar">
+  <a class="mark" href="#page">Haligtree</a>
+  <nav class="rail" aria-label="Chapters">
+    <a href="#page">Page</a>
     <a href="#capture">Capture</a>
-    <a href="#questions">Questions</a>
+    <a href="#question">Question</a>
     <a href="#year">Year</a>
   </nav>
 </header>
 <main>
-  <section class="hero" aria-labelledby="promise">
-    <h1 id="promise">What you keep<br>comes back.</h1>
-    <p class="dek">A commonplace book for the Mac. Notes, books and cards in one place.</p>
-    <p class="cta"><a class="btn" href="#on-your-mac">For your Mac</a></p>
-    <figure class="window">
-      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
-      <div class="screen crop-review">
-        <img src="img/review.webp" width="1600" height="1066" alt="Review, with the question about Neo’s choice, the answer from The Matrix, and the grades Again, Hard, Good and Easy.">
-      </div>
-    </figure>
+  <section class="sheet" id="page" aria-labelledby="promise">
+    <div class="book">
+      <article class="leaf">
+        <header class="rule"><span>The Matrix</span><span>1999</span></header>
+        <div class="cols">
+          <p class="margin">Red pill or blue pill: which one does Neo take, and what does it cost him?</p>
+          <h1 class="passage" id="promise">The red. He wakes up in a pod, and the comfortable world he knew is gone for good.</h1>
+        </div>
+      </article>
+      <article class="leaf">
+        <header class="rule"><span>The Matrix</span><span>1999</span></header>
+        <p class="passage">Cypher later wants it back: ignorance is bliss.</p>
+        <p class="cite">The Matrix (1999)</p>
+        <p class="claim">Comes back.</p>
+      </article>
+    </div>
   </section>
 
-  <section class="stage stage-paper" id="writing">
-    <h2>A page for every day.</h2>
-    <p>Write on today’s page, then step back to the week and the month in a few lines each.</p>
-    <figure class="window">
-      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
-      <div class="screen crop-page">
-        <img src="img/editor.webp" width="1600" height="1057" alt="Today’s page, with the day, week, month and year along the top, two goals, and a line of the day’s writing.">
-      </div>
-    </figure>
+  <section class="sheet" id="capture" aria-labelledby="caught">
+    <article class="book one">
+      <header class="rule"><span>Caught</span><span>today</span></header>
+      <h2 class="passage" id="caught">Morning: three coffees, one idea.</h2>
+      <p class="follow">A page a day. What you catch, finish and review today gathers underneath it on its own.</p>
+      <p class="claim"><kbd>⌘.</kbd> from any app. <kbd>⌘↵</kbd> puts it away.</p>
+    </article>
   </section>
 
-  <section class="stage stage-ink" id="capture">
-    <h2>One key, from any app.</h2>
-    <p>Press <kbd>⌘.</kbd> over whatever you are doing. <kbd>⌘↵</kbd> puts it away. It waits in your Inbox.</p>
-    <figure class="panel">
-      <img src="img/capture.webp" width="1600" height="887" alt="Quick capture, open over the desktop, with a note ready to send.">
-    </figure>
+  <section class="sheet" id="question" aria-labelledby="held">
+    <div class="book">
+      <article class="leaf">
+        <header class="rule"><span>Dune</span><span>1 Oct</span></header>
+        <div class="cols">
+          <p class="margin" id="held">Is Paul the hero of Dune?</p>
+          <p class="passage">He sees the holy war coming, in every future, and walks toward it anyway.</p>
+        </div>
+        <p class="cite">2 Oct</p>
+      </article>
+      <article class="leaf">
+        <header class="rule"><span>Dune</span><span>Yesterday</span></header>
+        <p class="passage">Herbert said he wrote him as a warning about following a leader like that, not as a model.</p>
+      </article>
+    </div>
   </section>
 
-  <section class="stage stage-studio" id="questions">
-    <h2>Hold a question open.</h2>
-    <p>Clues gather under it for weeks, until you can answer it.</p>
-    <figure class="window">
-      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
-      <div class="screen">
-        <img src="img/reading.webp" width="1600" height="1050" alt="The question “Is Paul the hero of Dune?”, with three clues dated underneath and a field to add another.">
-      </div>
-    </figure>
+  <section class="sheet" id="year" aria-labelledby="seasons">
+    <div class="book">
+      <article class="leaf">
+        <header class="rule"><span id="seasons">The year</span><span>2026</span></header>
+        <ol class="entries">
+          <li><span>January</span>The month I read Frankenstein in two nights</li>
+          <li><span>February</span>Back to the Austen books</li>
+          <li><span>March</span>Waiting for spring, and for news</li>
+          <li><span>April</span>The Hamlet course</li>
+        </ol>
+      </article>
+      <article class="leaf">
+        <header class="rule"><span>The year</span><span>2026</span></header>
+        <ol class="entries">
+          <li><span>May</span>Learning to say no</li>
+          <li><span>June</span>Long evenings, short lists</li>
+          <li><span>July</span>The month of the walking tour</li>
+        </ol>
+      </article>
+    </div>
   </section>
 
-  <section class="stage stage-paper" id="year">
-    <h2>Your year, in seasons.</h2>
-    <p>Name each month’s season of life, and see the year as the story it was.</p>
-    <figure class="window">
-      <div class="chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="wtitle">Haligtree</span></div>
-      <div class="screen crop-year">
-        <img src="img/year.webp" width="1600" height="1066" alt="The year 2026, a line of months, and each month named: the month of Frankenstein, the Austen books, the Hamlet course.">
-      </div>
-    </figure>
-  </section>
-
-  <section class="stage stage-studio close" id="on-your-mac">
-    <h2>You do the thinking.</h2>
-    <p>Haligtree does the remembering and the timing.</p>
-    <p>It runs on your Mac. Your notes stay on your Mac.</p>
+  <section class="end" id="mac">
+    <p>On your Mac, you do the thinking.</p>
+    <p>Haligtree does the remembering and the timing. Your notes stay on your Mac.</p>
   </section>
 </main>
 <footer>

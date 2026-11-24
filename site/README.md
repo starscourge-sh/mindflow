@@ -13,10 +13,10 @@ Then open http://127.0.0.1:8742
 
 ## What is in it
 
-- `index.html`: the product page. One idea at a time, with the app itself in the frame.
+- `index.html`: the product page. The open page fills the frame: a passage, a margin, a date. Capture, a question, and the year follow.
 - `product.css`, `product.js`: that page only.
 - `for/` and `features/`: shorter pages from earlier, still on `style.css`.
-- `img/`: screenshots of the app. The product page crops the sandbox strip off the top.
+- `img/`: screenshots of the app, used by the shorter pages. The product page sets the moment itself.
 - `fonts/`: Fraunces, under the SIL Open Font License (`fonts/OFL.txt`), used by the shorter pages.
 
 Every claim on the product page is something the app does today. The lines come
