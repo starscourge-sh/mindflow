@@ -32,6 +32,7 @@ import { cardWords, plain } from './card-words'
 import { noteTags } from './book-tags'
 import { TAGS_KEY, cleanTag, keptWith, tagsKept } from './property-tags'
 import { defineWord } from './wordnet'
+import { startMcp, stopMcp } from './mcp-server'
 import { layoutBook, type ExportPreview } from './premium-export'
 import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
@@ -335,6 +336,8 @@ const DEFAULTS = {
   fullWidth: false,
   // The small sounds on complete, promote and grade.
   sounds: true,
+  // Other apps on this Mac may read this book. Off until it is switched on. Private notes are never read.
+  mcp: false,
   // A light tap on a Force Touch trackpad as a value steps or a page comes into place.
   haptics: true,
   // How loud they are, from silent to full.
@@ -1582,6 +1585,33 @@ export function registerHaligtree(): void {
     new Notification({ title: APP_NAME, body: 'A task’s alert looks like this, at its time.', silent: !settings().sounds }).show()
     return { sent: true, samples }
   })
+  db.exec('create table if not exists mcp_log (id integer primary key, at text not null, client text not null, what text not null)')
+  const mcpBook = {
+    search: (query: string) => {
+      const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`
+      return db.prepare(`select id, title from (
+        select id, coalesce(nullif(trim(title), ''), 'Note') as title from captures where private = 0 and status != 'discarded' and (coalesce(title, '') like ? escape '\\' or coalesce(body, '') like ? escape '\\')
+        union all
+        select id, coalesce(nullif(trim(title), ''), 'Page') from nuggets where private = 0 and binned_at is null and superseded_by is null and (coalesce(title, '') like ? escape '\\' or coalesce(body, '') like ? escape '\\')
+      ) limit 20`).all(like, like, like, like) as { id: string; title: string }[]
+    },
+    read: (id: string) => {
+      const cap = db.prepare('select title, body, private from captures where id = ?').get(id) as { title: string; body: string | null; private: number } | undefined
+      const nug = cap ? undefined : db.prepare('select title, body, private from nuggets where id = ?').get(id) as { title: string; body: string | null; private: number } | undefined
+      const row = cap ?? nug
+      if (!row) return 'missing' as const
+      if (row.private) return 'private' as const
+      let body: unknown = row.body
+      try { body = JSON.parse(row.body ?? 'null') } catch { /* as kept */ }
+      return { title: row.title?.trim() || 'Note', text: plain(body) }
+    },
+    note: (client: string, what: string) => {
+      db.prepare('insert into mcp_log (at, client, what) values (?, ?, ?)').run(new Date().toISOString(), client, what)
+      db.prepare('delete from mcp_log where id not in (select id from mcp_log order by id desc limit 40)').run()
+    }
+  }
+  if (settings().mcp) startMcp(mcpBook)
+  handle('mcp:log', () => db.prepare('select at, client, what from mcp_log order by id desc limit 20').all())
   handle('settings:set', (patch: Partial<Settings>) => {
     const wasSafe = settings().safeMode
     // A setting is in no list and no search: kept without moving the book's stamp (captures.ts).
@@ -1596,6 +1626,7 @@ export function registerHaligtree(): void {
     if (patch.keys) keysTold(patch.keys)
     // Spotlight's switch: notes put in or taken out now (spotlight.ts).
     if ('spotlight' in patch) app.emit('haligtree:spotlight')
+    if ('mcp' in patch) patch.mcp ? startMcp(mcpBook) : stopMcp()
     if ('stickiesShown' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()

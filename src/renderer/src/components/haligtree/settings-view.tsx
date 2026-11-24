@@ -1382,6 +1382,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Export everything" note="A look at the copy first, then a folder of Markdown: your folders, gems, decks and highlights, and a readme." more="Yours to read without this app. The JSON beside it is the whole book.">
             <ExportButton />
           </Setting>
+          <Setting title="Other apps" note="Off until you turn it on. An app on this Mac can then read this book. Private notes are never read." more={settings.mcp ? 'Listening on this Mac at 127.0.0.1:47321.' : 'Nothing is listening.'} keywords="mcp server apps connected read only private">
+            <Switch aria-label="Let other apps read this book" checked={!!settings.mcp} onCheckedChange={(mcp) => set({ mcp })} />
+          </Setting>
+          {settings.mcp && <McpReads />}
           <Setting title="Unused pictures and files" note="Pictures and files no note points at any more and not added to Files, to move to the Bin." more="Nor any old version or page. You see them first and keep any you like; the rest go to the Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('haligtree:unused'))}>Find them</Button>
           </Setting>
@@ -2406,6 +2410,17 @@ export const exportEverything = (inPlace = false): Promise<void> => (inPlace ? h
   chime('send')
   toast(`Exported to ${where}`)
 })
+
+/** Who has read this book since other apps were allowed, newest first. */
+function McpReads(): React.JSX.Element | null {
+  const rows = useLive(() => call<{ at: string; client: string; what: string }[]>('mcp:log'), [] as { at: string; client: string; what: string }[], [])
+  if (!rows.length) return <p data-mcp-log className="px-1 text-meta text-muted-foreground">No app has read this book yet.</p>
+  return (
+    <ul data-mcp-log className="flex flex-col gap-1 px-1 text-meta">
+      {rows.map((row, at) => <li key={`${row.at}-${at}`}>{row.client} {row.what}</li>)}
+    </ul>
+  )
+}
 
 /** Export, an orb saying so in its place for as long as it takes. */
 function ExportButton(): React.JSX.Element {
