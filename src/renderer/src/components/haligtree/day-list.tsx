@@ -44,7 +44,10 @@ export function keptThree(open: string[], tasks: Task[]): string[] {
     return open.includes(id)
   })
   for (const id of open) if (kept.length < 3 && !kept.includes(id)) kept.push(id)
-  if (kept.join() !== saved.join()) try { localStorage.setItem(threeKey(), JSON.stringify(kept)) } catch { /* kept for this look only */ }
+  // Written once, when the day's three are first picked: written on every look, two windows that see the list a little
+  // differently (Tasks' search, quick capture's Today) wrote over each other back and forth until one stopped with
+  // "Maximum update depth exceeded" (the user, 24 Nov). Later looks only read it.
+  if (!saved.length && kept.length) try { localStorage.setItem(threeKey(), JSON.stringify(kept)) } catch { /* kept for this look only */ }
   return kept
 }
 /** Your own reordering of today's list chooses the three again, from the top. */
