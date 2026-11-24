@@ -119,6 +119,13 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       draw()
     }
     const goBy = (key: string, to: number): void => {
+      // Back out one layer at a time, as Esc does: a task (or any item) open beside its list closes first, back to that
+      // list, before the page itself is left (the user, 24 Nov: a swipe from an open task went on to the Journal).
+      if (to < 0) {
+        const pane = document.querySelector(`[data-pane="${CSS.escape(key)}"]`) ?? document
+        const shut = pane.querySelector<HTMLElement>('[data-close-beside]')
+        if (shut) return void shut.click()
+      }
       props.current.go(key, to)
     }
     const openList = (): void => {

@@ -38,7 +38,7 @@ import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, PANEL_FIELD, PanelRow, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
-import { ThreeMark, takeWriteDay } from './day-list'
+import { ThreeMark, keptThree, pickThreeAgain, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
 import { type AtLink } from './at-notes'
 import { MatrixView } from './matrix-view'
@@ -906,6 +906,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   // and its tags, what its row shows. Every list (Today, Upcoming, All...) and the buttons act on what it leaves.
   const found = (task: Task): boolean => !typed.trim() || task.title.toLowerCase().includes(typed.trim().toLowerCase())
   const open_ = chosenTasks.filter((task) => task.status === 'open' && found(task))
+  // Today's three ticked off today stay on their band, struck and green-numbered, until the day ends: gone from the
+  // list, a ticked one read as lost (the user, 24 Nov: "i ticked one, where did it go?"). Ticked again, it is open again.
+  const savedThree = ((): string[] => { try { return JSON.parse(localStorage.getItem(`three:${dayKey()}`) ?? '[]') } catch { return [] } })()
+  const ticked3 = mode === 'today' && view.group === 'when' ? savedThree.map((id) => chosenTasks.find((task) => task.id === id && task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey())).filter((task): task is Task => !!task) : []
+  const overdueFirst = savedThree.some((id) => { const one = chosenTasks.find((each) => each.id === id && each.status === 'open'); return !!one && dayOf(one) < startOfDay() })
   const live = mode === 'alltasks' ? open_ : open_.filter((task) => !task.waitingOn && (homeOf(task) === home || (mode === 'today' && !!task.recurrence && dayOf(task) < startOfDay(1))))
   const waiting = mode === 'alltasks' ? [] : open_.filter((task) => task.waitingOn && homeOf(task) === home)
   // Late lives on Today alone: every other tab says it in one quiet line that leads there, never a red group of its own.
@@ -969,8 +974,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
       ? [
           // The frog, picked last night, above everything, late or not.
           ['One big thing', base.filter((task) => task.id === frog)],
-          ['Overdue', base.filter((task) => dayOf(task) < startOfDay() && task.id !== frog)],
-          ['Today', [...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog)],
+          ['Overdue', [...ticked3.filter(() => overdueFirst), ...base.filter((task) => dayOf(task) < startOfDay() && task.id !== frog)]],
+          ['Today', [...ticked3.filter(() => !overdueFirst), ...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog)],
           ['Waiting on someone', waiting]
         ]
       : [
@@ -1030,8 +1035,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     rows.splice(above >= 0 ? above : after >= 0 ? after + 1 : foot >= 0 ? foot : rows.length, 0, { writer: true })
   }
   // The day's three: the first three of today's tasks as the list shows them, numbered in the margin.
-  // Today's three wherever today's tasks stand under "Today": the All tab's "Today" too, so the same part never looks two ways (23 Nov).
-  const three = (mode === 'today' || mode === 'alltasks') && view.group === 'when' && !example ? shown.filter((task) => dayOf(task) < startOfDay(1) && !task.waitingOn && !task.heldAt).slice(0, 3).map((task) => task.id) : []
+  // Numbered in the order the list shows them. Today's three wherever today's tasks stand under "Today": the All tab's "Today" too, so the same part never looks two ways (23 Nov).
+  const three = (mode === 'today' || mode === 'alltasks') && view.group === 'when' && !example ? ((kept: string[]) => shown.map((task) => task.id).filter((id) => kept.includes(id)))(keptThree(shown.filter((task) => task.status === 'open' && dayOf(task) < startOfDay(1) && !task.waitingOn && !task.heldAt).map((task) => task.id), tasks)) : []
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
@@ -1247,6 +1252,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     const order = shown.map((task) => task.id).filter((one) => one !== id)
     order.splice(order.indexOf(target) + (after ? 1 : 0), 0, id)
     if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
+    pickThreeAgain()
     chime('shift')
     const saving = place(order)
     // Said, as a drop in Writing is (“Moved”), with its Undo.
@@ -1668,10 +1674,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                   </h2>
                 ) : row.heading ? (
                   // A row carried over this part's rows from another part: its heading lights, and the card says what letting go does.
-                  <h2 data-row-part={row.heading} {...loud(row.heading === 'Overdue' && mode === 'today' ? 'late' : undefined, `list-ink mt-6 mb-1 truncate border-b pb-1.5 text-meta font-medium ${DROP_LIT} data-[drop-hot]:rounded-md data-[drop-hot]:border-transparent`)}>
-                    {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
-                    {/* Every late one moved at once, with one Undo. */}
-                    {row.heading === 'Overdue' && mode === 'today' && <LateMenu tasks={base} className="float-right -my-1.5" />}
+                  <h2 data-row-part={row.heading} {...loud(row.heading === 'Overdue' && mode === 'today' ? 'late' : undefined, `list-ink mt-6 mb-1 flex items-center gap-1 border-b pb-1.5 text-meta font-medium ${DROP_LIT} data-[drop-hot]:rounded-md data-[drop-hot]:border-transparent`)}>
+                    <span className="min-w-0 truncate">{row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span></span>
+                    {/* Every late one moved at once, with one Undo. Beside the name, not floated in a cut-off heading: its hover
+                        fill was clipped at its edges (the user, 24 Nov). */}
+                    {row.heading === 'Overdue' && mode === 'today' && <LateMenu tasks={base} className="-my-1.5 ml-auto shrink-0" />}
                   </h2>
                 ) : <div className="h-3" />
               const task = row
@@ -1694,6 +1701,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                         data-open={task.id === (coming ?? open?.id) || undefined}
                         data-cursor={index === cursor || undefined}
                         data-set-aside={task.heldAt ? '' : undefined}
+                        data-done-today={task.status === 'done' ? '' : undefined}
                         className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) || fresh(task.id) >= 0 ? 'mf-arrive' : ''}`}
                         style={fresh(task.id) > 0 ? { animationDelay: `${Math.min(fresh(task.id), 8) * 30}ms` } : undefined}
                       >
@@ -1703,19 +1711,19 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                         <Tip label="Complete">
                         <button
                           type="button"
-                          onClick={() => complete(task)}
+                          onClick={() => (task.status === 'done' ? void haligtree.saveTask(task.id, { status: 'open' }).then(() => chime('unshelve')) : complete(task))}
                           // The tick shows only over the circle, never the row.
                           data-task-tick
                           className="group/tick relative mt-0.5 flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
-                          style={{ borderColor: dayTone(task.dueAt), background: leaving(task.id) ? 'var(--tt-color-text-green)' : undefined }}
+                          style={{ borderColor: task.status === 'done' ? 'var(--tt-color-text-green)' : dayTone(task.dueAt), background: leaving(task.id) || task.status === 'done' ? 'var(--tt-color-text-green)' : undefined }}
                         >
-                          <Check className={`size-3 transition-opacity ${leaving(task.id) ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
+                          <Check className={`size-3 transition-opacity ${leaving(task.id) || task.status === 'done' ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
                         </button>
                         </Tip>
                         {/* A focus session running on it: its dot stands in the same place instead, and nothing in the row moves (task-time.tsx). */}
                         {time.running?.taskId === task.id
                           ? <SessionDot id={task.id} time={time} className="flex h-4 items-center" />
-                          : three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="leading-4" />}
+                          : three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} done={task.status === 'done'} className="leading-4" />}
                         </span>
                         {/* Its own column beside the circle, so the title and the line under it start in one place. */}
                         {room && <span className="-mx-1 mt-[3px] flex shrink-0"><TaskPriority task={task} room className="size-3.5 shrink-0" /></span>}
@@ -1723,7 +1731,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}><AppNamed id={task.id} text={taskName(task.title).text} /></span>
+                            <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : task.status === 'done' ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}><AppNamed id={task.id} text={taskName(task.title).text} /></span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
                           </span>
@@ -2846,8 +2854,8 @@ function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
       {/* Why it looks like this, said where it is: the band is today's three, and how a task gets on it. */}
       {at[0] && (
         <Tip label="Your three for today: if you finish only these, it was a good day. They are the top three of your list; drag a task up here to swap it in." side="right">
-          <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" // Inside the band's top-right corner: outside it, the list grew wider than its pane and scrolled sideways (the user, 24 Nov).
-            style={{ top: at[0].top + 6, left: at[0].left + at[0].width - 26 }}>
+          <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" // Inside the band's bottom-right corner: outside it the list scrolled sideways, and at its top it sat on a row's note button (the user, 24 Nov).
+            style={{ top: at[0].top + at[0].height - 26, left: at[0].left + at[0].width - 26 }}>
             <Info className="size-3.5" />
           </button>
         </Tip>

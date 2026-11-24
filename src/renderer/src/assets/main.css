@@ -3398,6 +3398,8 @@ html[data-book-hue] [data-book-tint] {
 /* A task on hold since a fresh start is not now: its dates and its circle in quiet ink, never a red "Late" (the user,
    23 Nov), over the day colours drawn on them inline. */
 [data-set-aside] [data-task-meta], [data-set-aside] [data-task-meta] * { color: var(--muted-foreground) !important; }
+/* One of today's three, ticked today and kept on its band: done, so nothing on it is late or loud. */
+[data-done-today] [data-task-meta], [data-done-today] [data-task-meta] * { color: var(--muted-foreground) !important; }
 [data-set-aside] [data-task-tick] { border-color: color-mix(in oklab, var(--muted-foreground) 70%, transparent) !important; }
 /* Today's three in Tasks (tasks-view.tsx, ThreeBand): the same paper, tinted with the accent and edged faintly, so
    the three places read as one band of their own and not as the calendar's all-day lane. */

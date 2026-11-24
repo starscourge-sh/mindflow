@@ -1,6 +1,6 @@
 import { type Task } from '@/lib/haligtree'
 import { yourOrder, placed } from '@/lib/tasks'
-import { startOfDay } from '../../../../main/dates'
+import { dayKey, startOfDay } from '../../../../main/dates'
 import { Tip } from './ui'
 
 /**
@@ -18,10 +18,37 @@ export function writeOutDay(): void {
 /** Today takes the ask once it is drawn: true when one was waiting. */
 export const takeWriteDay = (): boolean => (pending ? ((pending = false), true) : false)
 
-/** Today's three: the first three of today's tasks in your order, numbered 1 2 3 in quick capture's Today as in Today's list. */
+/**
+ * Today's three, kept for the day: the first three in Today's order the first time the day is looked at, and the same
+ * three after. One ticked off stays one of them (its number with it); nothing moves up to take its place, so the three
+ * can be finished (the user, 24 Nov: "they are just replaced by new top three, which makes the list endless"). One moved
+ * off today (to tomorrow, on hold) gives its place to the next; your own reordering picks them afresh (`pickThreeAgain`).
+ */
 export const dayThree = (tasks: Task[]): string[] =>
-  // The same three as Today's page (tasks-view.tsx \`three\`): open, not waiting or on hold, for today or late.
-  tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.heldAt && (placed(task) ?? Infinity) < startOfDay(1)).sort(dayOrder).slice(0, 3).map((task) => task.id)
+  keptThree(tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.heldAt && (placed(task) ?? Infinity) < startOfDay(1)).sort(dayOrder).map((task) => task.id), tasks)
+
+const threeKey = (): string => `three:${dayKey()}`
+/** The day's three, from the open tasks for today in order (`open`) and every task (to know which were ticked today). */
+export function keptThree(open: string[], tasks: Task[]): string[] {
+  let saved: string[] = []
+  try {
+    saved = JSON.parse(localStorage.getItem(threeKey()) ?? '[]')
+  } catch {
+    // Unreadable: picked afresh.
+  }
+  const byId = new Map(tasks.map((task) => [task.id, task]))
+  const kept = saved.filter((id) => {
+    const task = byId.get(id)
+    if (!task) return false
+    if (task.status === 'done') return !!task.completedAt && dayKey(task.completedAt) === dayKey()
+    return open.includes(id)
+  })
+  for (const id of open) if (kept.length < 3 && !kept.includes(id)) kept.push(id)
+  if (kept.join() !== saved.join()) try { localStorage.setItem(threeKey(), JSON.stringify(kept)) } catch { /* kept for this look only */ }
+  return kept
+}
+/** Your own reordering of today's list chooses the three again, from the top. */
+export const pickThreeAgain = (): void => { try { localStorage.removeItem(threeKey()) } catch { /* nothing kept */ } }
 
 /** Today's order, as Today's page lists it: what is late first, then the rest, each in your own order. */
 export const dayOrder = (a: Task, b: Task): number => Number(!late(a)) - Number(!late(b)) || yourOrder(a, b)
