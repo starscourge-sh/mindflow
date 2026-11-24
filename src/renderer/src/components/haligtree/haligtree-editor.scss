@@ -3790,14 +3790,12 @@ body > div[dir] > .tableWrapper {
   // A slip of the readers' squared paper (the Calendar's all-day lane, the reader's desk), tinted faintly by its colour,
   // its words in the page's own ink (the user, 24 Nov). No coloured side line: on a rounded box that reads as a template.
   padding: 0.5rem 0.875rem 0.5rem 2.375rem;
-  // Square, as a slip of paper is (the user, 24 Nov).
-  border-radius: 0;
+  // The corner of the note's own panels (.mf-note-offer, "2 people are named here"), so the two read as one family
+  // (the user, 24 Nov). The paper's grain without its squares.
+  border-radius: 0.875rem;
   background-color: color-mix(in srgb, var(--callout-accent) 5%, transparent);
-  background-image:
-    var(--reader-desk-grain),
-    linear-gradient(var(--reader-desk-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--reader-desk-line) 1px, transparent 1px);
-  background-size: 160px, 24px 24px, 24px 24px;
+  background-image: var(--reader-desk-grain);
+  background-size: 160px;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--callout-accent) 14%, transparent);
 
   // A one line callout should be one line tall.
@@ -4802,7 +4800,7 @@ html[data-block-carry] .mf-lines {
 
   // A callout is drawn by its own view, whose holder takes the mark.
   .node-callout.mf-picked {
-    border-radius: 0;
+    border-radius: 0.875rem;
   }
 
   // A rule among picked blocks is also a node caught in the selection (extensions/selected-nodes.ts), whose own wash
