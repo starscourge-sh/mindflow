@@ -213,7 +213,8 @@ export async function startFresh(copy: (to: string) => Promise<void> = (to) => c
   return { done: true, away, gone, backup }
 }
 
-export type Kind = 'folder' | 'page' | 'gem' | 'deck' | 'card' | 'note' | 'task'
+/** `contents`: everything put away inside a folder, back in it, the folder left where it stands. */
+export type Kind = 'folder' | 'contents' | 'page' | 'gem' | 'deck' | 'card' | 'note' | 'task'
 export type Away = { kind: Kind; id: string; title: string; within: string | null }
 
 /** Everything Start fresh put away and not yet brought back, by kind, for the Bring back pass. A deck is one row. */
@@ -259,10 +260,10 @@ export function bringBack(kind: Kind, id: string): number {
       unarchive('nuggets', one)
       db.prepare(`update ${AWAY} set back_at = ? where kind = 'nugget' and id = ?`).run(at, one)
     }
-    if (kind === 'folder') {
+    if (kind === 'folder' || kind === 'contents') {
       // The folder to the top of Writing, and everything put away inside it, at any depth, back in sight.
       const inside = (db.prepare("with recursive t(id) as (select ? union all select g.id from note_groups g join t on g.parent_id = t.id) select id from t").all(id) as { id: string }[]).map((one) => one.id)
-      db.prepare('update note_groups set parent_id = null where id = ?').run(id)
+      if (kind === 'folder') db.prepare('update note_groups set parent_id = null where id = ?').run(id)
       db.prepare(`update ${AWAY} set back_at = ? where kind = 'folder' and id in (${inside.map(() => '?').join(', ')})`).run(at, ...inside)
       const marks = inside.map(() => '?').join(', ')
       for (const one of db.prepare(`select id from nuggets where folder_id in (${marks}) and archived_at is not null`).all(...inside) as { id: string }[]) nugget(one.id)
@@ -317,10 +318,10 @@ export function putBackAway(kind: Kind, id: string): void {
       away('nuggets', one)
       db.prepare(`update ${AWAY} set back_at = null where kind = 'nugget' and id = ?`).run(one)
     }
-    if (kind === 'folder') {
+    if (kind === 'folder' || kind === 'contents') {
       const inside = (db.prepare("with recursive t(id) as (select ? union all select g.id from note_groups g join t on g.parent_id = t.id) select id from t").all(id) as { id: string }[]).map((one) => one.id)
       const marks = inside.map(() => '?').join(', ')
-      if (settings?.folder) db.prepare('update note_groups set parent_id = ? where id = ?').run(settings.folder, id)
+      if (kind === 'folder' && settings?.folder) db.prepare('update note_groups set parent_id = ? where id = ?').run(settings.folder, id)
       db.prepare(`update ${AWAY} set back_at = null where kind = 'folder' and id in (${marks})`).run(...inside)
       for (const one of db.prepare(`select a.id from ${AWAY} a join nuggets n on n.id = a.id where a.kind = 'nugget' and n.folder_id in (${marks})`).all(...inside) as { id: string }[]) nugget(one.id)
       for (const one of db.prepare(`select a.id from ${AWAY} a join captures c on c.id = a.id where a.kind = 'capture' and c.folder_id in (${marks})`).all(...inside) as { id: string }[])
@@ -346,5 +347,18 @@ export function registerStartFresh(): void {
   handle('fresh:run', () => startFresh())
   handle('fresh:away', () => awayList())
   handle('fresh:back', (kind: Kind, id: string) => bringBack(kind, id))
+  // What a folder holds that Start fresh put away, at any depth: said on the folder's page, never an empty page.
+  handle('fresh:away-in', (id: string) => {
+    const db = database()
+    freshTable(db)
+    const inside = (db.prepare("with recursive t(id) as (select ? union all select g.id from note_groups g join t on g.parent_id = t.id) select id from t").all(String(id)) as { id: string }[]).map((one) => one.id)
+    const marks = inside.map(() => '?').join(', ')
+    const count = (sql: string): number => (db.prepare(sql).get(...inside) as { n: number }).n
+    return {
+      pages: count(`select count(*) as n from ${AWAY} a join nuggets n on n.id = a.id where a.kind = 'nugget' and a.back_at is null and n.archived_at is not null and n.tier = 'article' and n.folder_id in (${marks})`),
+      gems: count(`select count(*) as n from ${AWAY} a join nuggets n on n.id = a.id where a.kind = 'nugget' and a.back_at is null and n.archived_at is not null and n.tier != 'article' and n.folder_id in (${marks})`),
+      notes: count(`select count(*) as n from ${AWAY} a join captures c on c.id = a.id where a.kind = 'capture' and a.back_at is null and c.folder_id in (${marks})`)
+    }
+  })
   handle('fresh:unback', (kind: Kind, id: string) => putBackAway(kind, id))
 }
