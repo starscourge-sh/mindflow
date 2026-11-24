@@ -1,4 +1,5 @@
-// Welcome first frame is paper, not fog/grainient glitch.
+// Welcome opens with the grainient background the user prefers (restored after
+// F51c wrongly swapped to paper). Desktop fog scene must stay off.
 //   qa/run-one.sh out-gate welcome-open QA_SHOTS=/path
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -15,31 +16,27 @@ const { h, close } = c
 
 try {
   await h.waitForSelector('.mf-welcome', { timeout: 12000 })
-  // First paint while arrival still holds: must not be a fog canvas / grainient shader.
-  await wait(120)
-  if (SHOTS) await h.screenshot({ type: 'jpeg', quality: 88, path: join(SHOTS, 'welcome-open-before.jpg') })
+  await wait(200)
+  if (SHOTS) await h.screenshot({ type: 'jpeg', quality: 88, path: join(SHOTS, 'welcome-open-grainient.jpg') })
   const early = await h.evaluate(() => {
     const root = document.querySelector('.mf-welcome')
     return {
       scene: root?.getAttribute('data-scene') ?? null,
-      // Fog scene canvas only (welcome-scene). Paper leaves canvas is allowed.
       fogScene: !!document.querySelector('[data-scene="on"] canvas'),
-      grainient: !!document.querySelector('.mf-welcome [data-grainient], .mf-welcome .grainient'),
-      leaves: !!document.querySelector('[data-welcome-leaves]'),
+      grainient: !!document.querySelector('[data-welcome-bg="grainient"]'),
+      paper: !!document.querySelector('[data-welcome-bg="paper"], [data-welcome-leaves]'),
       intro: !!document.querySelector('[data-intro]')
     }
   })
   check('welcome is not a desktop fog scene', early.scene !== 'on' && !early.fogScene, JSON.stringify(early))
-  check('no grainient shader on first frame', !early.grainient, JSON.stringify(early))
-  check('paper leaves are the open mark', early.leaves, JSON.stringify(early))
-  // Rush the mist title if any, land on Why thesis (paper page).
+  check('grainient background is back', early.grainient, JSON.stringify(early))
+  check('paper leaves are not the open mark', !early.paper, JSON.stringify(early))
   await h.keyboard.press('Enter')
   await h.waitForSelector('[data-thesis="line"]', { timeout: 8000 })
-  await wait(400)
-  if (SHOTS) await h.screenshot({ type: 'jpeg', quality: 88, path: join(SHOTS, 'welcome-open-after.jpg') })
+  await wait(500)
+  if (SHOTS) await h.screenshot({ type: 'jpeg', quality: 88, path: join(SHOTS, 'welcome-open-grainient-why.jpg') })
   const after = await h.evaluate(() => {
     const root = document.querySelector('.mf-welcome')
-    const page = root?.getAttribute('data-page')
     const thesis = document.querySelector('[data-thesis="line"]')
     const color = thesis ? getComputedStyle(thesis).color : ''
     const bg = root ? getComputedStyle(root).backgroundColor : ''
@@ -55,17 +52,17 @@ try {
       return (hi + 0.05) / (lo + 0.05)
     }
     return {
-      page,
+      page: root?.getAttribute('data-page') ?? null,
       scene: root?.getAttribute('data-scene') ?? null,
       fogScene: !!document.querySelector('[data-scene="on"] canvas'),
-      grainient: !!document.querySelector('.mf-welcome [data-grainient], .mf-welcome .grainient'),
-      leaves: !!document.querySelector('[data-welcome-leaves]'),
+      grainient: !!document.querySelector('[data-welcome-bg="grainient"]'),
+      paper: !!document.querySelector('[data-welcome-leaves]'),
       thesis: thesis?.textContent?.slice(0, 40) ?? '',
       ratio: thesis && bg ? Math.round(ratio(color, bg) * 10) / 10 : 0
     }
   })
-  check('Why lands on a light paper page', after.page === 'light', JSON.stringify(after))
-  check('still no fog scene after rush', !after.fogScene && !after.grainient, JSON.stringify(after))
+  check('Why still has grainient behind it', after.grainient && !after.paper, JSON.stringify(after))
+  check('still no fog scene after rush', !after.fogScene, JSON.stringify(after))
   check('thesis reads ≥ 4.5:1 on the page', after.ratio >= 4.5, JSON.stringify(after))
 } finally {
   await close()

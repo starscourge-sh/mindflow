@@ -2137,8 +2137,8 @@ function BoxKeys(): React.JSX.Element {
  * "paper", the still marks on the theme's own page it had before. One word
  * here to go back.
  */
-/** Paper first frame: leaves and quiet marks. Grainient + desktop fog read as glitch (user, 24 Nov). */
-const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'paper'
+/** Grainient is the welcome look the user wants back (24 Nov: paper swap was wrong). Desktop fog scene stays off. */
+const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
 
 
 /**
@@ -2303,7 +2303,7 @@ function GrainBackdrop({ page, arrival, arriving, desk, held, onBloomed }: { pag
     grain.current?.nudge(0.38, 0.45, forward ? -1 : 1)
   }, [page])
   return (
-    <div aria-hidden className="absolute inset-0">
+    <div aria-hidden data-welcome-bg="grainient" className="absolute inset-0">
       {/* A new canvas for each arrival, so each one blooms from the page's colour; skipped, it is whole at once. */}
       {/* Out of the desktop the spark is in the mist (welcome.tsx), and the gradient is whole when the page comes up under it. */}
       {arriving && !desk && !still() && <IntroSpark key={`spark-${arrival}`} />}
