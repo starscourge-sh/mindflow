@@ -25,14 +25,60 @@ export function Roll({ n, delay = 0.15 }: { n: number; delay?: number }): React.
   return <motion.span aria-label={num(n)} className="tabular-nums">{shown}</motion.span>
 }
 
-/** One voice at a time: each child comes in after the one before. */
-export function In({ at = 0, children, className, style, from = 'up' }: { at?: number; children: ReactNode; className?: string; style?: CSSProperties; from?: 'up' | 'left' | 'scale' | 'none' }): React.JSX.Element {
-  const off = still() || from === 'none' ? {} : from === 'left' ? { x: -18 } : from === 'scale' ? { scale: 0.86 } : { y: 14 }
+/**
+ * One voice at a time. `lift` = tip lifts off the page then settles (trailer
+ * layer beat). `pop` = brief scatter snap for desk clutter. Quiet kinds linger
+ * (`linger`); energetic kinds snap (`snap`).
+ */
+export function In({
+  at = 0, children, className, style, from = 'up', pace = 'ease'
+}: {
+  at?: number
+  children: ReactNode
+  className?: string
+  style?: CSSProperties
+  from?: 'up' | 'left' | 'scale' | 'lift' | 'pop' | 'none'
+  pace?: 'ease' | 'linger' | 'snap'
+}): React.JSX.Element {
+  const quiet = still() || from === 'none'
+  const off = quiet
+    ? {}
+    : from === 'left' ? { x: -18 }
+      : from === 'scale' ? { scale: 0.86 }
+        : from === 'lift' ? { y: 22, scale: 0.94, rotate: -2.4 }
+          : from === 'pop' ? { scale: 0.55, rotate: ((Math.round(at * 97) % 17) - 8) }
+            : { y: 14 }
+  const spring = from === 'lift' || from === 'pop' || pace === 'snap'
+    ? { type: 'spring' as const, stiffness: pace === 'snap' ? 380 : 240, damping: pace === 'snap' ? 22 : 20, delay: at }
+    : { delay: at, duration: pace === 'linger' ? 0.55 : 0.36, ease: EASE }
   return (
-    <motion.div className={className} style={style} initial={{ opacity: 0, ...off }} animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-      transition={still() ? { duration: 0.15 } : { delay: at, duration: 0.36, ease: EASE }}>
+    <motion.div className={className} style={style}
+      initial={{ opacity: 0, ...off }}
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1, rotate: 0 }}
+      transition={quiet ? { duration: 0.12 } : spring}>
       {children}
     </motion.div>
+  )
+}
+
+/**
+ * Soft ink mist that clears to reveal the page — linger, then snap away.
+ * Midori atmosphere, never a neon tunnel wipe.
+ */
+export function FogClear({ accent, paper = 'rgb(241 239 233)', delay = 0.15, className = '' }: { accent: string; paper?: string; delay?: number; className?: string }): React.JSX.Element | null {
+  if (still()) return null
+  return (
+    <motion.div aria-hidden data-wrap-fog className={`pointer-events-none absolute inset-0 z-[5] ${className}`}
+      initial={{ opacity: 0.72 }}
+      animate={{ opacity: 0 }}
+      transition={{ delay, duration: 0.85, ease: EASE }}
+      style={{
+        background: [
+          `radial-gradient(ellipse 80% 60% at 40% 35%, color-mix(in srgb, ${accent} 22%, ${paper}), transparent 70%)`,
+          `linear-gradient(165deg, color-mix(in srgb, ${paper} 88%, transparent), color-mix(in srgb, ${paper} 35%, transparent) 55%, transparent)`
+        ].join(', '),
+        mixBlendMode: 'multiply'
+      }} />
   )
 }
 
@@ -173,27 +219,30 @@ export function DateStamp({ label, color, className = '', seed = 5 }: { label: s
   )
 }
 
-/** A photo tipped into the page: thin cream margin, slight tip, no rounded UI card. */
+/** A photo tipped into the page: thin cream margin, slight tip, no rounded UI card. Lifts, then settles. */
 export function TippedPrint({
-  src, alt, ink, paper, className = ''
+  src, alt, ink, paper, className = '', at = 0.18
 }: {
   src: string
   alt: string
   ink: string
   paper: string
   className?: string
+  at?: number
 }): React.JSX.Element {
   return (
-    <div data-wrap-tipped className={`relative overflow-hidden ${className}`}
-      style={{
-        background: `${FIBER}, ${paper}`,
-        backgroundSize: '80px, auto',
-        padding: 5,
-        boxShadow: `0 1px 0 color-mix(in srgb, ${ink} 12%, transparent), 0 8px 18px -8px rgb(0 0 0 / 0.4)`,
-        rotate: '-1.8deg'
-      }}>
-      <img data-wrap-hero src={src} alt={alt} draggable={false} className="pointer-events-none size-full object-cover" />
-    </div>
+    <In at={at} from="lift" pace="snap" className={className}>
+      <div data-wrap-tipped className="relative size-full overflow-hidden"
+        style={{
+          background: `${FIBER}, ${paper}`,
+          backgroundSize: '80px, auto',
+          padding: 5,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${ink} 12%, transparent), 0 8px 18px -8px rgb(0 0 0 / 0.4)`,
+          rotate: '-1.8deg'
+        }}>
+        <img data-wrap-hero src={src} alt={alt} draggable={false} className="pointer-events-none size-full object-cover" />
+      </div>
+    </In>
   )
 }
 

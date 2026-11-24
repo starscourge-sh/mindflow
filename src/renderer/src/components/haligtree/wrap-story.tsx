@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
-import { DateStamp, In, InkLine, JournalField, KraftTape, LampWash, Roll, Silk, TippedPrint } from './wrap-art'
+import { DateStamp, FogClear, In, InkLine, JournalField, KraftTape, LampWash, Roll, Silk, TippedPrint } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
@@ -210,7 +210,7 @@ type Kind = 'quiet' | 'intro' | 'tags' | 'focus' | 'sites' | 'reading' | 'plan' 
 const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number; reads: number }): string =>
   f.gems >= 5 ? 'Gem keeper' : f.captures >= 40 ? 'Collector' : f.reads >= 5 ? 'Reader' : f.minutes >= 600 ? 'Deep worker' : f.planned ? 'Planner' : f.captures ? 'Noticer' : 'Quiet'
 
-const ENTRANCES = ['up', 'left', 'scale'] as const
+const ENTRANCES = ['up', 'left', 'scale', 'lift'] as const
 /** The card is wide over the dimmed app from this size; under it, the whole window (main.css .wrap-card). */
 const WIDE = '(min-width: 640px) and (min-height: 560px)'
 const useWide = (): boolean => useSyncExternalStore((on) => {
@@ -411,7 +411,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         initial={still() ? false : { opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         className="wrap-card @container relative flex flex-col overflow-hidden"
-        style={{ background: p.bg, color: p.ink, boxShadow: STAGE.shadow, '--wrap-quiet': quiet, '--wrap-bg': p.bg, '--foreground': p.ink, '--muted-foreground': quiet, '--mf-muted-strong': quiet, '--background': p.bg } as React.CSSProperties}>
+        style={{ background: p.bg, color: p.ink, boxShadow: STAGE.shadow, perspective: '1400px', '--wrap-quiet': quiet, '--wrap-bg': p.bg, '--foreground': p.ink, '--muted-foreground': quiet, '--mf-muted-strong': quiet, '--background': p.bg } as React.CSSProperties}>
         {/* Night keeps a soft silk; Files is quiet paper. Texture is Settings › Grain on the card, not Silk noise. */}
         {world === 'night' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={0.5} scale={0.35} />}
         {world === 'files' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={light(p.bg) ? 0.05 : 0.08} scale={0.35} />}
@@ -421,11 +421,22 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
           const box = event.currentTarget.getBoundingClientRect()
           go(event.clientX - box.left > box.width / 3 ? at + 1 : at - 1)
         }}>
+          {/* Z-push through the journal: the next page comes from depth, the last pushes past — never a sideways slideshow. */}
           <AnimatePresence mode="popLayout" initial={false} custom={dir}>
             {facts && ready && kind && (
-              <motion.div key={at} className="absolute inset-0"
-                initial={byKey || still() ? false : { opacity: 0, transform: shift(`translateX(${24 * dir}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.24, ease: EASE } }}
-                custom={dir} variants={{ gone: (to: number) => ({ opacity: 0, transform: shift(`translateX(${-12 * to}px)`), transition: { duration: byKey ? 0 : 0.12, ease: EASE } }) }} exit="gone">
+              <motion.div key={at} className="absolute inset-0 origin-center"
+                style={{ transformStyle: 'preserve-3d' }}
+                initial={byKey || still() ? false : { opacity: 0, transform: shift(dir > 0 ? 'scale(0.88) translateZ(-72px)' : 'scale(1.06) translateZ(36px)') }}
+                animate={{ opacity: 1, transform: shift('scale(1) translateZ(0px)'), transition: still() ? { duration: 0.12 } : { type: 'spring', stiffness: 240, damping: 26 } }}
+                custom={dir}
+                variants={{
+                  gone: (to: number) => ({
+                    opacity: 0,
+                    transform: shift(to > 0 ? 'scale(1.08) translateZ(48px)' : 'scale(0.9) translateZ(-56px)'),
+                    transition: { duration: byKey ? 0 : 0.22, ease: EASE }
+                  })
+                }}
+                exit="gone">
                 <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} wide={wide} lead={leadFor(kind)} />
               </motion.div>
             )}
@@ -525,7 +536,7 @@ function Ranked({ rows, accent }: { rows: { name: string; n: number }[]; accent:
   return (
     <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">
       {rows.map((row, i) => (
-        <In key={row.name} at={0.3 + i * 0.06} from="left" className="min-w-0">
+        <In key={row.name} at={0.22 + i * 0.05} from="pop" pace="snap" className="min-w-0">
           <li className="flex items-baseline gap-3 text-[clamp(16px,2.6cqi,22px)] font-bold">
             <span className="w-5 shrink-0 tabular-nums" style={{ color: accent }}>{i + 1}</span>
             <span className="min-w-0 flex-1 truncate" dir="auto">#{row.name}</span>
@@ -534,6 +545,27 @@ function Ranked({ rows, accent }: { rows: { name: string; n: number }[]; accent:
         </In>
       ))}
     </ol>
+  )
+}
+
+/**
+ * Kinetic line with a brief human slip, then the real words type in — Midori
+ * hand, never a neon typewriter gag.
+ */
+function CorrectedTyped({ text }: { text: string }): React.JSX.Element {
+  const first = text.trim().split(/\s+/)[0] ?? ''
+  const slip = first.length >= 4
+    ? `${first.slice(0, 1)}${first[2]}${first[1]}${first.slice(3)}`
+    : first.length ? `${first}e` : ''
+  if (still() || !slip || slip === first) return <Typed story text={text} />
+  return (
+    <span className="relative inline">
+      <motion.span aria-hidden className="pointer-events-none absolute left-0 top-0 font-hand text-[0.95em] line-through decoration-[1.5px]"
+        style={{ color: 'color-mix(in srgb, currentColor 55%, transparent)' }}
+        initial={{ opacity: 0.7, y: 0 }} animate={{ opacity: 0, y: -3 }}
+        transition={{ delay: 0.32, duration: 0.22, ease: EASE }}>{slip}</motion.span>
+      <Typed story text={text} delay={780} />
+    </span>
   )
 }
 
@@ -718,7 +750,8 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         clipPath: 'polygon(0.5% 1.2%, 99% 0.3%, 100% 98.5%, 1% 99.2%)'
       }} />
       <LampWash ink={p.ink} accent={p.accent} className="pointer-events-none -z-10 opacity-70" />
-      {kicker}<In at={0.12} from={e}>{head}</In><In at={0.45}><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.6} className="w-full">{more}</In>}
+      <FogClear accent={p.accent} paper={p.bg} delay={0.06} />
+      {kicker}<In at={0.18} from={e} pace="linger">{head}</In><In at={0.58} pace="linger"><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.78} from="lift" pace="snap" className="w-full">{more}</In>}
     </Centre>
   )
 
@@ -767,17 +800,19 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         ].filter((one): one is string => !!one)
         return (
           <Centre>
-            <In at={0.12} from={e}><h2 data-wrap-quiet-head className={`${BIG} text-balance`}>{head}</h2></In>
-            {there.length > 0 && <In at={0.35}><ul data-wrap-quiet-has className="mt-4 space-y-1 text-[19px] leading-snug font-bold">{there.map((line) => <li key={line} dir="auto">{line}</li>)}</ul></In>}
-            <In at={0.5}><p className={SOLO_CAPTION}>{there.length ? 'Once a few more things are caught, kept or focused on, this becomes a few cards.' : 'Nothing caught, kept or focused on yet. Once a few things are, this becomes a few cards.'}</p></In>
+            <FogClear accent={p.accent} paper={p.bg} delay={0.05} />
+            <In at={0.2} from={e} pace="linger"><h2 data-wrap-quiet-head className={`${BIG} text-balance`}>{head}</h2></In>
+            {there.length > 0 && <In at={0.48} pace="linger"><ul data-wrap-quiet-has className="mt-4 space-y-1 text-[19px] leading-snug font-bold">{there.map((line) => <li key={line} dir="auto">{line}</li>)}</ul></In>}
+            <In at={0.68} pace="linger"><p className={SOLO_CAPTION}>{there.length ? 'Once a few more things are caught, kept or focused on, this becomes a few cards.' : 'Nothing caught, kept or focused on yet. Once a few things are, this becomes a few cards.'}</p></In>
           </Centre>
         )
       }
       case 'intro':
-        if (night) return <Centre>{kicker}<In at={0.12} from={e}><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.5} from={e}><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><Typed story text={opening(f, look.intro)} /></p></In></Centre>
+        if (night) return <Centre><FogClear accent={p.accent} paper={p.bg} />{kicker}<In at={0.16} from={e} pace="linger"><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.55} from={e} pace="linger"><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In></Centre>
         return split(<>
-          <In at={0.12} from={e}><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
-          <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium"><Typed story text={opening(f, look.intro)} /></p></In>
+          <FogClear accent={p.accent} paper={p.bg} />
+          <In at={0.16} from={e} pace="linger"><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
+          <In at={0.55} from={e} pace="linger"><p className="mt-4 text-[17px] leading-snug font-medium"><CorrectedTyped text={opening(f, look.intro)} /></p></In>
         </>, cover(f.heroes[0]))
       case 'tags': {
         if (!top.length) return alone(<div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div>, <>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)
@@ -840,11 +875,11 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
       }
       case 'pictures':
         return (
-          // Look-only: collage never opens a note or ends Wrapped.
+          // Look-only: collage never opens a note or ends Wrapped. Cascade lifts onto the desk.
           <div data-wrap-flow data-wrap-collage className="relative grid h-full grid-rows-[auto_1fr] [align-content:safe_center] gap-5 px-7 pt-16 pb-14 @2xl:px-12"
             onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-            <In at={0.12}>{lead && <p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p>}<h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
-            <In at={0.3} className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 280 : 170} label="Pictures and gems" onOpen={() => undefined} /></In>
+            <In at={0.1} pace="linger">{lead && <p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p>}<h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
+            <In at={0.38} from="lift" pace="snap" className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 280 : 170} label="Pictures and gems" onOpen={() => undefined} /></In>
           </div>
         )
       case 'notes': {
@@ -866,10 +901,10 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                   <DateStamp label={stamp} color={p.accent} seed={19} className="mt-4" />
                 </div>
                 <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-                  {tip && <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[36%] w-[90%] max-w-[280px] self-end" />}
+                  {tip && <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} at={0.2} className="mb-3 h-[36%] w-[90%] max-w-[280px] self-end" />}
                   <ol className="relative m-0 flex list-none flex-col gap-2.5 p-0">
                     {shown.map((note, i) => (
-                      <In key={note + i} at={0.28 + i * 0.07}>
+                      <In key={note + i} at={0.32 + i * 0.08} from="lift" pace="snap">
                         <li className="min-w-0"><InkLine className="text-[clamp(15px,2.3cqi,19px)]" style={{ color: STAGE.paperInk }}><span className="mr-2 opacity-40" style={{ color: p.accent }}>•</span>{quoted(note, 60)}</InkLine></li>
                       </In>
                     ))}
@@ -899,7 +934,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
                 </div>
                 <div className="relative flex min-h-0 flex-1 flex-col gap-5 overflow-hidden">
                   {lines.map((line, i) => (
-                    <In key={line} at={0.22 + i * 0.09}>
+                    <In key={line} at={0.28 + i * 0.11} from="lift" pace={i === 0 ? 'linger' : 'snap'}>
                       <div dir="auto"><InkLine className="text-[clamp(16px,2.6cqi,22px)]" style={{ color: STAGE.paperInk }}>{quoted(line, 160)}</InkLine></div>
                       <span aria-hidden className="mt-1.5 block h-px opacity-20" style={{ background: `linear-gradient(90deg, ${STAGE.paperInk}, transparent)`, width: `${82 - i * 9}%` }} />
                     </In>
@@ -932,9 +967,9 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
           <In at={0.4}>{caption(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In></>, <HourBars f={f} p={p} />)
       case 'outro':
-        if (night) return <Centre>{kicker}<In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
+        if (night) return <Centre><FogClear accent={p.accent} paper={p.bg} />{kicker}<In pace="linger"><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><CorrectedTyped text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.85} pace="linger"><WrappedParagraph monday={f.from} /></In>}</Centre>
         // The second of your pictures, so the story never ends on the one it opened with; with one or none, the motif.
-        return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.heroes[1]))
+        return split(<><FogClear accent={p.accent} paper={p.bg} /><In pace="linger"><h2 className={BIG}><CorrectedTyped text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.85} pace="linger"><WrappedParagraph monday={f.from} /></In>}</>, cover(f.heroes[1]))
       case 'report':
         return <Report f={f} look={look} />
     }
