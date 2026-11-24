@@ -31,6 +31,7 @@ import { retireKinds, tagged as hasTag } from './kinds'
 import { cardWords, plain } from './card-words'
 import { noteTags } from './book-tags'
 import { TAGS_KEY, cleanTag, keptWith, tagsKept } from './property-tags'
+import { defineWord } from './wordnet'
 import { layoutBook, type ExportPreview } from './premium-export'
 import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
@@ -5260,6 +5261,7 @@ export function registerHaligtree(): void {
     }
     return markdown(doc, nameOf).replace(/haligtree:\/\/assets\//g, assets).replace(/mindflow:\/\/assets\//g, assets)
   })
+  handle('wordnet:define', (word: string) => defineWord(String(word ?? '')))
   handle('export:preview', () => bookCopy().preview)
   // --- export: everything as plain text and JSON, in a folder you choose
   handle('export', async () => {

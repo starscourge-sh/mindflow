@@ -48,6 +48,7 @@ import { useQueue } from './lib/reading-queue'
 import { ReviewArea, reviewPlaceName } from './components/haligtree/review-area'
 import { SHELVES } from './components/haligtree/files-shelves'
 import { ExportPreview, SettingsView } from './components/haligtree/settings-view'
+import { WordNetSheet } from './components/haligtree/word-net'
 import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
 import { usePracticeActions } from '@/lib/practices'
@@ -2013,6 +2014,7 @@ export function Home(): React.JSX.Element {
       {/* Centred over the page, not the sidebar beside it. */}
       <div data-toast-lane className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
       <ExportPreview />
+      <WordNetSheet />
       <FolderPicker onFolders={() => setView({ id: 'articles' })} onProjects={() => setView({ id: 'projects' })} />
       <PracticeAsked onHome={split.panes.some((one) => onShow(one).id === 'home')} />
       <PickDays />
@@ -2061,6 +2063,11 @@ export function Home(): React.JSX.Element {
             // Back after a while, the sidebar shows only capture and Today: the way to the rest, from here too (the sidebar's own button is not there when it is narrow or hidden).
             ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', first: true, cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
             { label: 'New capture', hint: 'A blank capture in quick capture: write, then it goes to the Inbox', keys: 'C', first: true, run: () => window.api.showPrompt() },
+            { label: 'Define a word', hint: 'WordNet, on this Mac. Type “define ephemeral”.', words: 'define definition dictionary wordnet meaning', cue: null, run: () => { window.dispatchEvent(new CustomEvent('haligtree:define', { detail: 'ephemeral' })) }, heard: (typed) => {
+              const word = /^define\s+([a-z][a-z'-]{2,40})$/i.exec(typed.trim())?.[1]
+              if (!word) return null
+              return { label: `Define ${word}`, hint: 'WordNet, on this Mac. Nothing is saved until you say so.', cue: null, run: () => { window.dispatchEvent(new CustomEvent('haligtree:define', { detail: word })) } }
+            } },
             { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, words: 'dictate dictation transcribe speech to text voice memo talk speak microphone', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             { label: 'Recordings', hint: 'Every call and lecture you recorded', words: 'meetings recordings calls lectures transcripts', cue: null, run: () => setView({ id: 'tags', focus: 'recording' }) },

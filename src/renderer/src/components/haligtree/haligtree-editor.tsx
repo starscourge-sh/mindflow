@@ -298,6 +298,7 @@ import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
 import { LinkToBookmarkButton } from "@/components/bookmark/link-to-bookmark-button"
 import { SelectionMenu } from "@/components/selection/selection-menu"
+import { DefineWord } from "@/components/haligtree/word-net"
 import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
 import {
   ColorHighlightPopover,
@@ -2207,6 +2208,7 @@ function Surface({
             {editor && <LinkButtons editor={editor} />}
             {editor && <MarkMenu editor={editor} />}
             <LinkToBookmarkButton editor={editor} />
+            {editor && <DefineWord editor={editor} />}
           </ToolbarGroup>
     </>
   )

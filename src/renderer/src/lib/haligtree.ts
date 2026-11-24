@@ -503,6 +503,7 @@ export const haligtree = {
   sorted: (ids: string[], sorted: boolean) => call<boolean>('imports:sorted', ids, sorted),
   stats: () => call<Stats>('stats'),
   /** The folder written to; with `pictures: false` when the notes went but their pictures and files could not be copied. */
+  defineWord: (word: string) => call<{ word: string; senses: { pos: string; gloss: string; synonyms: string[]; broader: string[]; narrower: string[] }[] } | null>('wordnet:define', word),
   exportAll: () => call<string | { folder: string; pictures: false } | { stopped: true } | null>('export'),
   exportPreview: () => call<{ pages: number; gems: number; notes: number; decks: number; highlights: number; files: number; sample: { path: string; text: string }[] }>('export:preview'),
   /** Stored pictures and files no note points at; `extra` is text only a window holds, like the box's draft. Null when stopped, or overtaken by a newer look. */

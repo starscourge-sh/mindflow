@@ -31,3 +31,5 @@ build/quicklook/haligtree-md2html
 
 # Probe seed, data copies and logs made by qa/run-one.sh
 qa/local.noindex/
+
+resources/wordnet/*.sqlite

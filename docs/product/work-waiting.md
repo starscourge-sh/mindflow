@@ -27,7 +27,8 @@ Split 23 Nov, so another agent can carry on. "Any agent" means a general-purpose
 
 - **[done 24 Nov]** Tags added in Properties stay out of the note's words; the Tags row ends in "+".
 - **[done 24 Nov]** Premium export (the spec in part 2).
-- WordNet offline; the opt-in MCP server.
+- **[done 24 Nov]** WordNet offline.
+- The opt-in MCP server.
 - Snapshots you can open and restore; deleted books: bring back and clear.
 - The chip-to-sticky growth, smoother; sticky tape cut off while growing.
 - Part 3: last tab wins, the apps-you-capture-from stat, dim all but the current line, two-page PDF zoom, Read mode's kept thoughts.
@@ -59,7 +60,7 @@ You said "yes to all". These are the biggest; they change how the app is organis
 7. **[done 24 Nov] Tags added in Properties stay in Properties** (asked 23 Nov). Adding a tag from the Tags row, or with "Add a tag…" on one note or a selection, used to write it into the note's body, so every tag showed twice. The tag stays on the note: the words are left untouched. The row ends in a quiet "+", not an open "tag" field, until clicked.
 8. **Rename "Apple Intelligence" in the app to its own name**, a HAL or TARS-like name (to choose: "Hal" was the working idea). Where a limit or a requirement is shown, say it runs on Apple Intelligence.
 9. **The insight feed, the rest of it.** Resurface, Connect and Reframe are built. Still to build: **Stretch** (the less obvious implication, or the question a note raises and does not answer), then **Surprise me** (every card shows its source notes, marked app-made; facts only from your notes or Wikipedia, never the model's memory). A finite batch of 7 to 10, made when the Mac is idle and charging, "That's all for today".
-10. **WordNet, offline.** In order: word families in search ("decide" finds "decision"), define a word anywhere (select it, or "define ephemeral" in ⌘K), save a word to your book. Then thesaurus by sense, broader and narrower words. Check the licence text first.
+10. **[done 24 Nov] WordNet, offline.** In order: word families in search ("decide" finds "decision"), define a word anywhere (select it, or "define ephemeral" in ⌘K), save a word to your book. Then thesaurus by sense, broader and narrower words. The database is Princeton’s WordNet, on this Mac, and the entry says “WordNet. Copyright 2006 Princeton University.” The licence file ships with it.
 11. **MCP server, opt-in.** Off until switched on, read-only at first, never private notes, Settings showing which apps connected and what each read.
 12. **Journal and task insights about yourself**: moods over time, what you keep returning to, what you write about versus what you do, this time last year. Every insight quotes the lines it is built on; no diagnoses or labels; on-device only, never MCP; a clear switch. Lives in Wrapped or a monthly review.
 13. **Each book is also a real folder** ("file over app", from the Obsidian CEO vault video). ~/Documents/Haligtree/<book>/ kept current as you write: your pages at the top, folders as folders, Journal by date, People, Library (articles, PDFs, highlights), Gems, Decks (one file per deck, cards as folded callouts), Attachments; titles as file names, links as [[links]], properties in front matter. Grows out of today's "Markdown copies" setting (captures only, named note-N.md). One-way first: the app writes, the database stays the truth. Later: a note's words edited in Obsidian come back in, with a notice. Doubles as the premium export. A file deleted in the folder deletes nothing in the book (the app writes it back); once edits come back in, a file deleted outside sends its note to the Bin with Undo, never gone.

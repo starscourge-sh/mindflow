@@ -7,6 +7,7 @@ import { mdWords } from './md-words'
 import { LABEL, LIST, like } from './book-words'
 import { IN_PICTURE, pictureHolding, type Pictures } from './picture-lines'
 import { articlesToFind, mediaToFind, pdfsToFind, worksToFind } from './find-files'
+import { familyOf } from './wordnet'
 
 /**
  * Search, as a read of the book and nothing else (no Electron in it): what
@@ -185,10 +186,12 @@ export function bookFinder(db: DatabaseSync, pictures: Pictures): {
       if (!line?.startsWith(IN_PICTURE)) return { ...one, line }
       return { ...one, line: line.slice(1), picture: pictureHolding(pictures.known(), line.slice(1)) }
     }
+    const forms = new Map(terms.map((term) => [term, [term, ...(/^[a-z][a-z'-]{3,}$/.test(term) ? familyOf(term).filter((one) => one.length >= 4) : [])]]))
+    const covers = (term: string, text: string): boolean => (forms.get(term) ?? [term]).some((one) => text.includes(one))
     // Newest first within three tiers: the words in its name, then in its own words, then only in a
     // picture's. A note titled with the words used to sit under newer notes that had them in a screenshot,
-    // and past the first 60 by date it was not shown at all.
-    const all = take((one) => terms.every((term) => one.text.includes(term)), 600)
+    // and past the first 60 by date it was not shown at all. A word's family counts: "decide" finds "decision".
+    const all = take((one) => terms.every((term) => covers(term, one.text)), 600)
     const named = (one: Searchable): boolean => terms.every((term) => (one.label ?? '').toLowerCase().includes(term))
     const titled = all.filter(named)
     const rest = all.filter((one) => !named(one)).slice(0, 120).map((one) => shown(one))
