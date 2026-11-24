@@ -31,9 +31,23 @@ try {
   check('welcome is not a desktop fog scene', early.scene !== 'on' && !early.fogScene, JSON.stringify(early))
   check('grainient background is back', early.grainient, JSON.stringify(early))
   check('paper leaves are not the open mark', !early.paper, JSON.stringify(early))
+  // Skip intro (↵): Why at once — no mist chrome, no spark, no title-card smoke fade; grainient stays.
   await h.keyboard.press('Enter')
   await h.waitForSelector('[data-thesis="line"]', { timeout: 8000 })
-  await wait(500)
+  await wait(120)
+  const rushed = await h.evaluate(() => ({
+    intro: !!document.querySelector('[data-intro]'),
+    spark: !!document.querySelector('[data-intro-spark]'),
+    title: !!document.querySelector('[data-title-card]'),
+    fogScene: !!document.querySelector('[data-welcome-scene]'),
+    grainient: !!document.querySelector('[data-welcome-bg="grainient"]'),
+    thesis: !!document.querySelector('[data-thesis="line"]')
+  }))
+  check('Skip intro drops mist chrome at once', !rushed.intro, JSON.stringify(rushed))
+  check('Skip intro plays no spark', !rushed.spark, JSON.stringify(rushed))
+  check('Skip intro shows no title card', !rushed.title, JSON.stringify(rushed))
+  check('Skip intro lands on Why with grainient', rushed.thesis && rushed.grainient && !rushed.fogScene, JSON.stringify(rushed))
+  await wait(400)
   if (SHOTS) await h.screenshot({ type: 'jpeg', quality: 88, path: join(SHOTS, 'welcome-open-grainient-why.jpg') })
   const after = await h.evaluate(() => {
     const root = document.querySelector('.mf-welcome')
@@ -57,12 +71,15 @@ try {
       fogScene: !!document.querySelector('[data-scene="on"] canvas'),
       grainient: !!document.querySelector('[data-welcome-bg="grainient"]'),
       paper: !!document.querySelector('[data-welcome-leaves]'),
+      intro: !!document.querySelector('[data-intro]'),
+      spark: !!document.querySelector('[data-intro-spark]'),
       thesis: thesis?.textContent?.slice(0, 40) ?? '',
       ratio: thesis && bg ? Math.round(ratio(color, bg) * 10) / 10 : 0
     }
   })
   check('Why still has grainient behind it', after.grainient && !after.paper, JSON.stringify(after))
   check('still no fog scene after rush', !after.fogScene, JSON.stringify(after))
+  check('no mist or spark left on Why', !after.intro && !after.spark, JSON.stringify(after))
   check('thesis reads ≥ 4.5:1 on the page', after.ratio >= 4.5, JSON.stringify(after))
 } finally {
   await close()

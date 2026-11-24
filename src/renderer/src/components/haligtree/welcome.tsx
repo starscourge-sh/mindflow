@@ -286,8 +286,12 @@ export function Welcome(): React.JSX.Element | null {
     // Arriving as a scene: straight to its end, the page in place over it and the words at once.
     sweep.current?.cancel()
     setSwept(true)
+    // Skip intro: land on Why whole, no mist fade, no bloom-clearing smoke, grainient already full (user, 24 Nov).
     setVeiled(false)
+    setMist(false)
+    setBloomed(true)
     setRushed(true)
+    setArrival((n) => n + 1)
   }
   const rushNow = useRef(rush)
   rushNow.current = rush
@@ -361,6 +365,7 @@ export function Welcome(): React.JSX.Element | null {
     setTurn('idle')
     setMine(null)
     setSkipped(false)
+    setAsking(false)
     setReplay(again)
     // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
     reel.current = { done: true, settle: () => undefined }
@@ -755,7 +760,7 @@ export function Welcome(): React.JSX.Element | null {
           the dark deep end on the right the user called "mud on the right" (15 Nov). */}
       <div ref={plate} data-plate="" className="absolute inset-0 bg-background"
         style={scened && !swept ? { transform: 'translateX(calc(-100% - 18rem))' } : undefined}>
-        <Backdrop family={at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={!scened && mist && veiled && at === WHY} desk={!!scened} held={false} onBloomed={bloom} />
+        <Backdrop family={at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={!scened && mist && veiled && at === WHY && !rushed} desk={!!scened} held={false} rushed={rushed} onBloomed={bloom} />
         {/* Its leading edge feathered into the haze as it comes, never a hard line crossing the window; the feather
             ends past the window's right edge once the page is in, so nothing pops as it goes. */}
         {scened && !swept && <div aria-hidden className="pointer-events-none absolute inset-y-0 left-full w-[18rem] bg-[linear-gradient(90deg,var(--background),transparent)]" />}
@@ -2145,9 +2150,10 @@ const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
  * `arrival` counts the arrivals played; `arriving` is true while one is on; `onBloomed` once its gradient is whole.
  * `desk`: this arrival came as a scene over the desktop (welcome-scene.tsx), so the page has no spark or
  * bloom of its own; `held` while the page is not seen yet (the mist still over the desktop): its gradient draws nothing.
+ * `rushed`: Skip intro (or Esc / Enter in the arrival): grainient is whole at once, no veil fade that reads as smoke clearing.
  */
-export function Backdrop({ family, page, arrival = 0, arriving = false, desk = false, held = false, onBloomed }: { family: Family; page: number; arrival?: number; arriving?: boolean; desk?: boolean; held?: boolean; onBloomed?: () => void }): React.JSX.Element {
-  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop page={page} arrival={arrival} arriving={arriving} desk={desk} held={held} onBloomed={onBloomed} />
+export function Backdrop({ family, page, arrival = 0, arriving = false, desk = false, held = false, rushed = false, onBloomed }: { family: Family; page: number; arrival?: number; arriving?: boolean; desk?: boolean; held?: boolean; rushed?: boolean; onBloomed?: () => void }): React.JSX.Element {
+  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop page={page} arrival={arrival} arriving={arriving} desk={desk} held={held} rushed={rushed} onBloomed={onBloomed} />
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* No painting: under the words it had to be veiled for reading, which hid it on most themes and showed it on a few.
@@ -2277,19 +2283,20 @@ function IntroSpark({ onDone, inMist = false }: { onDone?: () => void; inMist?: 
   return (
     // In the mist over the desktop (`inMist`) its light gives out before the screen's edges, as the mist does: rolled out
     // to the edge at its burst, it read as a sheet's edge over the desktop (6% at the screen's top on a 1080-high screen).
-    <span aria-hidden data-intro-spark className="pointer-events-none absolute inset-0 z-[1] grid place-items-center mix-blend-screen"
+    // Soft light, not screen: screen on grainient flashed as a white glitch sheet (user, 24 Nov). Grainient itself stays.
+    <span aria-hidden data-intro-spark className="pointer-events-none absolute inset-0 z-[1] grid place-items-center mix-blend-soft-light"
       style={inMist ? { maskImage: SPARK_IN_MIST, WebkitMaskImage: SPARK_IN_MIST } : undefined}>
       {/* The halo: wide and soft, gathering through the hold, then rolling out ahead of the light. */}
-      <span ref={halo} className="col-start-1 row-start-1 size-40 shrink-0 rounded-full opacity-0"
-        style={{ background: 'radial-gradient(circle, rgb(255 233 168 / 0.55) 0%, rgb(250 189 47 / 0.22) 35%, rgb(250 189 47 / 0.06) 60%, transparent 72%)' }} />
+      <span ref={halo} className="col-start-1 row-start-1 size-36 shrink-0 rounded-full opacity-0"
+        style={{ background: 'radial-gradient(circle, rgb(255 233 168 / 0.42) 0%, rgb(250 189 47 / 0.16) 38%, rgb(250 189 47 / 0.05) 62%, transparent 74%)' }} />
       {/* The point itself: a hot white-gold core, glimmering slightly, squeezed and then flashing as it lets go. */}
-      <span ref={core} className="col-start-1 row-start-1 size-[7px] rounded-full bg-[#fffaf0] opacity-0"
-        style={{ boxShadow: '0 0 6px 2px rgb(255 240 200 / 0.95), 0 0 18px 6px rgb(250 189 47 / 0.55), 0 0 42px 14px rgb(250 189 47 / 0.22)' }} />
+      <span ref={core} className="col-start-1 row-start-1 size-[6px] rounded-full bg-[#fffaf0] opacity-0"
+        style={{ boxShadow: '0 0 5px 2px rgb(255 240 200 / 0.85), 0 0 14px 5px rgb(250 189 47 / 0.4), 0 0 28px 10px rgb(250 189 47 / 0.16)' }} />
     </span>
   )
 }
 
-function GrainBackdrop({ page, arrival, arriving, desk, held, onBloomed }: { page: number; arrival: number; arriving: boolean; desk: boolean; held: boolean; onBloomed?: () => void }): React.JSX.Element {
+function GrainBackdrop({ page, arrival, arriving, desk, held, rushed, onBloomed }: { page: number; arrival: number; arriving: boolean; desk: boolean; held: boolean; rushed: boolean; onBloomed?: () => void }): React.JSX.Element {
   const light = useLightTheme()
   const colours = usePalette()
   const grain = useRef<GrainientHandle>(null)
@@ -2311,8 +2318,9 @@ function GrainBackdrop({ page, arrival, arriving, desk, held, onBloomed }: { pag
       <Grainient key={arrival} ref={grain} intro={arriving && !desk} paused={held} onIntroDone={onBloomed} colors={colours} angle={55} speed={1.32} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
       {/* One even veil of the page's own colour over the whole width: not over the arrival, which fills the whole window as
           Arc's does, then in as the first words come. It used to thin out to nothing on the right, where the gradient's
-          deep end showed raw and dark: "mud on the right" (the user, 15 Nov). Now warm and even from edge to edge. */}
-      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} ${light ? 'bg-[color-mix(in_oklab,var(--background)_36%,transparent)]' : 'bg-[color-mix(in_oklab,var(--background)_28%,transparent)]'}`} />
+          deep end showed raw and dark: "mud on the right" (the user, 15 Nov). Now warm and even from edge to edge.
+          Skip intro: no 1.6s fade-in (that read as smoke clearing over Why). */}
+      <div className={`pointer-events-none absolute inset-0 ${rushed ? '' : 'transition-opacity duration-[1600ms]'} ${arriving ? 'opacity-0' : 'opacity-100'} ${light ? 'bg-[color-mix(in_oklab,var(--background)_36%,transparent)]' : 'bg-[color-mix(in_oklab,var(--background)_28%,transparent)]'}`} />
       {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}
       {!light && <div className="pointer-events-none absolute inset-0 bg-[color-mix(in_oklab,var(--background)_20%,transparent)]" />}
     </div>
