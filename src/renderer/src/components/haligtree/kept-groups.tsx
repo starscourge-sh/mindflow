@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { askFolder } from '@/lib/folders'
 import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
@@ -674,40 +674,61 @@ function PanelTile({ group, onIcon, ...rest }: { group: GroupView; onIcon?: () =
   )
 }
 
+/** A folder's colours, worked from its ink: the back a little deeper than the front, the front lighter at its top. */
+const MARK_BACK = 'color-mix(in oklab, var(--ink) var(--mark-back), var(--background))'
+const MARK_FRONT = 'color-mix(in oklab, var(--ink) var(--mark-front), var(--background))'
+const MARK_LIT = `color-mix(in oklab, ${MARK_FRONT} 78%, white)`
+const MARK_EDGE = 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)'
+/** The back, with a soft rounded tab on its top-left, as Finder draws a folder. */
+const BACK = 'M1 4.2a2 2 0 0 1 2-2h6.1c.9 0 1.5.35 2 1l.55.7c.4.5.9.8 1.6.8H25a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z'
+/** The front, a little shorter than the back, so the back's top edge shows over it. */
+const FRONT = 'M1 8.6a2 2 0 0 1 2-2h22a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z'
+/** The front fallen open toward you: its top edge lower and a touch wider, its foot where it was. */
+const FALLEN = 'M.6 12.6c-.1-.75.4-1.3 1.15-1.3h24.5c.75 0 1.25.55 1.15 1.3l-.9 6.6A2 2 0 0 1 24.5 21h-21a2 2 0 0 1-2-1.8Z'
+
 /**
- * A folder drawn small, for a row: its tab and back, its front in the folder's colour (the theme's ink where it has
- * none), and its emoji or icon on the front, so a folder row reads as a folder beside a page's tile.
+ * A folder drawn small, for a row, in Finder's shape: a back with a soft tab on its top-left, a front a little shorter
+ * so the back's top edge shows, the front lighter at its top with a thin light along its top edge, all in the folder's
+ * colour (the theme's ink where it has none), and its emoji, icon or picture on the front. One SVG sized by its box, so
+ * it is as crisp at 28px as larger. The SVG carries its own ink and shades (`data-folder-mark`), so a copy of it alone
+ * (the carried card's icon, sortable.tsx `carriedOf`) draws the same, never a black square.
  */
-export function FolderMark({ icon, color, className, empty = false }: { icon: string | null; color: string | null; className?: string; /** Nothing in it: drawn open and hollow, no front, so an empty folder reads as empty at a glance. */ empty?: boolean }): React.JSX.Element {
+export function FolderMark({ icon, color, className, empty = false }: { icon: string | null; color: string | null; className?: string; /** Nothing in it: its front fallen open toward you, the inside in shadow, so an empty folder reads as empty at a glance. */ empty?: boolean }): React.JSX.Element {
   const ink = color ? `var(--tt-color-text-${color})` : 'var(--foreground)'
-  if (empty)
-    return (
-      <span data-folder-mark="" data-folder-empty="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0 transition-transform duration-150 ease-out group-active/row:scale-[0.94] motion-reduce:transition-none', className)} style={{ '--ink': ink } as CSSProperties}>
-        {/* A real folder with nothing in it (the user, 23 Nov: "an actual empty folder look"): the same back and tab as a
-            full one, its inside in shadow, and its front fallen open toward you, so the empty inside shows. */}
-        <svg viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible">
-          <path d="M1 3a2 2 0 0 1 2-2h6.2a2 2 0 0 1 1.4.6l1.4 1.4h13a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z"
-            style={{ fill: 'color-mix(in oklab, var(--ink) var(--mark-back), var(--background))', stroke: 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', strokeWidth: 0.75 }} />
-          <path d="M3 6h22v13H3Z" style={{ fill: 'color-mix(in oklab, black 22%, transparent)' }} />
-        </svg>
-        <span className="absolute inset-x-[1px] bottom-[1px] top-[9px] flex items-center justify-center rounded-[2.5px] shadow-[inset_0_1px_0_color-mix(in_oklab,white_45%,transparent)] [&>span]:text-[0.6875rem] [&_svg]:size-3"
-          style={{ background: 'color-mix(in oklab, var(--ink) var(--mark-front), var(--background))', border: '0.75px solid color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', transform: 'perspective(28px) rotateX(-28deg)', transformOrigin: 'bottom' }}>
-          {icon ? <GroupIcon icon={icon} color={color} className="size-3" /> : null}
-        </span>
-      </span>
-    )
+  const id = `folder-front-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const own = { '--ink': ink } as CSSProperties
   return (
-    <span data-folder-mark="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0 transition-transform duration-150 ease-out group-active/row:scale-[0.94] motion-reduce:transition-none', className)} style={{ '--ink': ink } as CSSProperties}>
-      {/* The back, with its tab. */}
-      <svg viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible">
-        <path d="M1 3a2 2 0 0 1 2-2h6.2a2 2 0 0 1 1.4.6l1.4 1.4h13a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z"
-          style={{ fill: 'color-mix(in oklab, var(--ink) var(--mark-back), var(--background))', stroke: 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', strokeWidth: 0.75 }} />
+    <span data-folder-mark="" data-folder-empty={empty ? '' : undefined} aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0 transition-transform duration-150 ease-out group-active/row:scale-[0.94] motion-reduce:transition-none', className)} style={own}>
+      <svg data-folder-mark="" viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible" style={own}>
+        <defs>
+          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style={{ stopColor: MARK_LIT }} />
+            <stop offset="1" style={{ stopColor: MARK_FRONT }} />
+          </linearGradient>
+        </defs>
+        <path d={BACK} style={{ fill: MARK_BACK, stroke: MARK_EDGE, strokeWidth: 0.6 }} />
+        {empty ? (
+          <>
+            {/* Its inside, in shadow. */}
+            <path d="M2.6 6.4h22.8v12.4H2.6Z" style={{ fill: 'color-mix(in oklab, black 24%, transparent)' }} />
+            <path d={FALLEN} style={{ fill: `url(#${id})`, stroke: MARK_EDGE, strokeWidth: 0.6 }} />
+            <path d="M1.9 11.95h24.2" style={{ fill: 'none', stroke: 'color-mix(in oklab, white 55%, transparent)', strokeWidth: 0.6, strokeLinecap: 'round' }} />
+          </>
+        ) : (
+          <>
+            {/* The front's soft shadow on the back, just over its top edge. */}
+            <path d="M2.4 6.1h23.2" style={{ fill: 'none', stroke: 'color-mix(in oklab, black 14%, transparent)', strokeWidth: 0.8, strokeLinecap: 'round' }} />
+            <path d={FRONT} style={{ fill: `url(#${id})`, stroke: MARK_EDGE, strokeWidth: 0.6 }} />
+            <path d="M2.6 7.25h22.8" style={{ fill: 'none', stroke: 'color-mix(in oklab, white 60%, transparent)', strokeWidth: 0.6, strokeLinecap: 'round' }} />
+          </>
+        )}
       </svg>
-      {/* The front, its icon on it. */}
-      <span className="absolute inset-x-[1px] bottom-[1px] top-[5px] flex items-center justify-center rounded-[2.5px] shadow-[inset_0_1px_0_color-mix(in_oklab,white_45%,transparent)] [&>span]:text-[0.6875rem] [&_svg]:size-3"
-        style={{ background: 'color-mix(in oklab, var(--ink) var(--mark-front), var(--background))', border: '0.75px solid color-mix(in oklab, var(--ink) var(--mark-edge), transparent)' }}>
-        {icon ? <GroupIcon icon={icon} color={color} className="size-3" /> : null}
-      </span>
+      {/* Its icon on the front, sized by the front (cqh), so it grows with the drawing. */}
+      {icon && (
+        <span className={cn('absolute inset-x-[4%] bottom-[6%] flex items-center justify-center [&_img]:size-[62cqh] [&_svg]:size-[62cqh] [&>span]:text-[58cqh]', empty ? 'top-[52%]' : 'top-[32%]')} style={{ containerType: 'size' }}>
+          <GroupIcon icon={icon} color={color} className="size-3" />
+        </span>
+      )}
     </span>
   )
 }

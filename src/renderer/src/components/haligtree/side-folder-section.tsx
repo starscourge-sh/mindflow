@@ -317,7 +317,7 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
   if (naming)
     return (
       <div className={page ? cn(ROW_SHAPE, ROW_PAD) : 'flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2'}>
-        {page ? <GroupTile group={folder} empty={!n} /> : <span className="flex size-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>}
+        {page ? <><span aria-hidden className="-ml-1 w-3.5 shrink-0" /><GroupTile group={folder} empty={!n} /></> :<span className="flex size-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>}
         <NameInPlace initial={folder.name} data-folder-name={folder.id} label="Folder name" placeholder="Name the folder" onDone={name}
           // As Finder names a new folder: a field as wide as the name, a fine ring round it, never a bar across the row (23 Nov).
           className={cn('min-w-[5rem] max-w-full rounded-[4px] bg-background px-1 text-foreground outline-none ring-2 ring-ring/45 [field-sizing:content]', page && 'text-control font-medium')} />
@@ -353,16 +353,19 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
             // On a folder's page, Writing's folder row from before Folders (kept-groups.tsx `GroupTile`): the drawn folder
             // with its icon in a page thumbnail's box, the name on the titles' line, what it holds in words on the right.
             <>
-              {/* On a page a folder opens, never folds (the user, 23 Nov: pointed at, its drawing gave way to a fold, or to nothing in an empty one). */}
+              {/* Finder's list view: a column at its left for the fold's chevron (drawn over it, below), kept on every
+                  folder row so their drawings line up, an empty one's too. Its drawing never gives way to the fold. */}
+              <span aria-hidden data-folder-fold-room="" className="-ml-1 w-3.5 shrink-0" />
               <GroupTile group={folder} empty={!n} />
-              <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{folder.name}</span>
+              <span data-folder-row-name="" data-title="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{folder.name}</span>
               {/* Pointed at, the count gives its place to the row's "…" and "+". */}
               {!!n && <span data-folder-held="" className="shrink-0 text-meta text-muted-foreground tabular-nums transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100">{kind ? kind.held : heldSaid(all, folder.id)}</span>}
             </>
           ) : (
             <>
               <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
-              <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
+              {/* Its name is what its carried card says (carry.tsx `titleOf`), never its emoji. */}
+              <span data-title="" className="flex min-w-0 flex-1"><Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted></span>
               {/* An empty folder shows no count: a "0" reads as something to see to. */}
               {!!n && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
             </>
@@ -371,6 +374,12 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
         {onFold && !page && <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
           className={`absolute ${page ? 'top-1/2 left-2 size-9 -translate-y-1/2' : 'top-[0.1875rem] left-1.5 size-5'} flex cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <ChevronRight className={`size-3.5 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
+        </button>}
+        {/* On a page, Finder's disclosure: always there on a folder that holds something, opening what it holds in place
+            under it on the tree's lines. A press on the row itself still opens the folder's page. */}
+        {onFold && page && <button type="button" data-folder-page-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
+          className="absolute top-1/2 left-px flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors duration-80 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45">
+          <ChevronRight className={cn('size-3.5 transition-transform duration-150 ease-out motion-reduce:transition-none', open && 'rotate-90')} />
         </button>}
         <span className={`absolute ${page ? 'top-1/2 right-2 -translate-y-1/2' : 'top-[0.1875rem] right-1.5'} flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>
           <Tip label="More">
@@ -438,18 +447,29 @@ export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string | n
     // icon stays put and no "Nothing in it yet" hangs under it.
     const holds = n > 0 || live.some((sub) => sub.parent === one.id)
     const open = holds && unfolded.has(one.id)
+    const kids = live.filter((kid) => kid.parent === one.id)
     return [
-      <FolderRow key={one.id} page={top} folder={one} all={live} here={false} n={n || null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)}
+      // Every level at the page's row size, as Finder's list view draws a folder's folders under it.
+      <FolderRow key={one.id} page folder={one} all={live} here={false} n={n || null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)}
         onOpen={() => onPlace(one.id)} open={open} onFold={holds ? () => fold(one.id) : undefined} onAdd={() => void addPageIn(one, onOpenItem)}
         picked={top && picked.includes(one.id)} onPick={top ? (event) => pick(one.id, event) : undefined} many={top ? many(one.id) : undefined} />,
-      ...(open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="">
+      // Unfolded, what it holds hangs under it on the tree's lines: its folders (carried as these are), then its pages
+      // and notes. Its own presses (lib/own-press.ts): a folder carried from in here is that one, never the one above.
+      ...(open ? [<div key={`${one.id}:in`} data-no-twig="" data-own-press="" data-folder-page-in={one.id}>
         <Branches className="ml-5 flex flex-col gap-px">
-          {live.filter((kid) => kid.parent === one.id).flatMap((kid) => rows(kid, false))}
+          {kids.length > 0 && level(kids, false)}
           <FolderThings key={`${one.id}:things`} folder={one} onOpen={(type, id) => onOpenItem(type, id, one.id)} onAll={() => onPlace(one.id)} />
         </Branches>
       </div>] : [])
     ]
   }
+  // One level of folders, carried by the app's one drag (sortable.tsx) with the sidebar's moves (useFolderMoves): by
+  // another's edge before or after it, rested on its middle inside it, onto the path's "Writing" or a folder in it.
+  const level = (list: Folder[], top: boolean): React.JSX.Element => (
+    <SortableList key={moves.epoch} items={list} keyOf={(one) => one.id} onMove={moves.place} onNest={(id, target) => moves.nest(id, target)} nests={moves.nests} nestSays={moves.nestSays} places={moves.places}>{(items) => items.map((one) => (
+      <SortableRow key={one.id} id={one.id} glide={`page-folder-${one.id}`}><div className="flex flex-col">{rows(one, top)}</div></SortableRow>
+    ))}</SortableList>
+  )
   const here = live.filter((one) => (one.parent ?? null) === parent)
   const pick = (id: string, event: React.MouseEvent): boolean => {
     if (!event.metaKey && !event.shiftKey) return (setPicked([]), false)
@@ -488,9 +508,7 @@ export function FolderRows({ parent, onPlace, onOpenItem }: { parent: string | n
   if (!here.length) return null
   return (
     <div data-folder-rows="" onKeyDown={keys} className="-mx-2 mb-2 flex flex-col">
-      <SortableList key={moves.epoch} items={here} keyOf={(one) => one.id} onMove={moves.place} onNest={(id, target) => moves.nest(id, target)} nests={moves.nests} nestSays={moves.nestSays} places={moves.places}>{(items) => items.map((one) => (
-        <SortableRow key={one.id} id={one.id} glide={`page-folder-${one.id}`}><div className="flex flex-col">{rows(one, true)}</div></SortableRow>
-      ))}</SortableList>
+      {level(here, true)}
     </div>
   )
 }

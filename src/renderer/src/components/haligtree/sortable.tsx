@@ -98,7 +98,11 @@ const carriedOf = (id: string, event: Event): Lift | null => {
   const box = node.getBoundingClientRect()
   const [x, y] = event instanceof PointerEvent ? [event.clientX, event.clientY] : [box.left, box.top]
   // A task's card is its words alone (a subtask's too): its first picture is the tick's check, which would read as done.
-  const icon = node.querySelector('[data-task-row], [data-subtask-row]') ? undefined : [...node.querySelectorAll('svg')].find((one) => !one.closest('[data-grip]'))
+  // A folder's card shows its drawing, a copy that carries its own ink (kept-groups.tsx `FolderMark`), set free of the
+  // row's own placing: never its fold's chevron, nor a black square from a drawing whose colours lived on the row.
+  const mark = node.querySelector<SVGSVGElement>('svg[data-folder-mark]')?.cloneNode(true) as SVGSVGElement | undefined
+  mark?.removeAttribute('class')
+  const icon = node.querySelector('[data-task-row], [data-subtask-row]') ? undefined : mark ?? [...node.querySelectorAll('svg')].find((one) => !one.closest('[data-grip], [data-folder-fold]'))
   // Its list's own part of the page: the nearest thing round it that holds another row.
   let within = node.parentElement
   while (within && within !== document.body && within.querySelectorAll('[data-sortable-id]').length < 2) within = within.parentElement
@@ -249,8 +253,11 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, nestSays, places, parts,
     if (!over || over.id === id) return (undwell(), targets.dim(), point(null, true))
     const target = over.id
     const at = (y - over.top) / over.height
-    // Rested on a row's middle: its step, or the reason it cannot be. Until it has rested there, it only moves beside it.
-    const may = onNest && at > 0.28 && at < 0.72 ? (nests ? nests(id, target) : true) : false
+    // Rested on a row's middle half: its step (or a folder's inside), or the reason it cannot be. Until it has rested
+    // there, it only moves beside it. Once going in, it stays going in until the pointer nears the row's very edges, so
+    // a hand that drifts a little never flips it back to a move beside (the dead band kept-groups.tsx `sided` keeps).
+    const going = aimed.current?.how === 'join' && aimed.current.target === target && at > 0.12 && at < 0.88
+    const may = onNest && (going || (at > 0.25 && at < 0.75)) ? (nests ? nests(id, target) : true) : false
     if (!may) undwell()
     else if (rested(target)) {
       targets.dim()
