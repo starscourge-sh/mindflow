@@ -11,7 +11,7 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 
 ## State on 24 Nov 2026
 
-- Branch: everything is on `main`. The newest build is `dist/Haligtree-0.4.0-beta.219.dmg`; the next build is beta.220 (bump `package.json` first, keep only the newest `dist/Haligtree-*`).
+- Branch: everything is on `main`. The newest build is `dist/Haligtree-0.4.0-beta.220.dmg` (the owner may still have beta.219 installed: check `/Applications/Haligtree.app` before blaming new code); the next build is beta.221 (bump `package.json` first, keep only the newest `dist/Haligtree-*`).
 - Wrapped Midori → F49 → F51 → F53/F53b → F54: journal pages, not a Spotify deck. Grade talk, ranked tags, photo carousel and bar charts gone (user shots 12–15). Shots under the store `break-shots/wrapped-full-walk/`. Grainient stays; no card smoke. Probe `wrap-book-first` 41/41. **Not WOW yet**.
 - The owner runs `npm run dev` from this folder and reports bugs with screenshots. Fix on `main`, commit each fix on its own with a plain message saying what the user now sees and why.
 
@@ -20,6 +20,11 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 - `qa/task-in-session.mjs`: 5 of 63 checks fail (the running session's time, the task's page).
 - `qa/tasks-drag.mjs`: stops at its last step ("A tab's menu"); same on older code.
 - `qa/drag-hint-still.mjs`: on Today with "Write out my day" open, starting a drag moves "For tomorrow" down 19px (the write line closes on the drag and the list's height catches up late). Real; not fixed.
+- Unit tests: 3 fail in the Wrapped files (`wrap-art.tsx`, `wrap-story.tsx`: see-through words, a count not through num(), round dots that squash), from the Wrapped work in progress.
+- `qa/folders.mjs` "about seven rows show": the fresh test book has too few folders to scroll.
+- `qa/folder-page.mjs` "Home is above Inbox": the fresh test book lists Inbox first.
+- The reminder card's new look (`nudge-card.tsx`) has not been seen on screen: no test raises a task reminder yet.
+- A "Maximum update depth exceeded" crash was reported once (24 Nov) and not reproduced; today's three now write once a day, the likely cause.
 - `qa/ctrl-l-stall.mjs` dark typed-* checks and one deck-count check in `qa/deck-counts.mjs`: failing on main for a while.
 
 ## Decided recently (keep to these)
@@ -28,6 +33,11 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 - The current item in a list stands apart, above the list and larger, never a label in an identical row.
 - Continuity: walk into any change from its neighbours (the tabs either side, pages that link in, other places the same object shows) and compare screenshots side by side. One tab bar, one task row, one month grid across the app is queued as the "Continuity pass".
 - Tasks: projects live in Tasks (archived ones fold under "Archived"); "On hold" (from Start fresh) is folded at the foot of every tab; "N open" counts what is shown; dropping a task on "Today" or "Tomorrow" sets that day and moves a past deadline with it; drops into another part open room where the task lands, never a lit heading.
+- Today's three: a part of their own at the top of Today ("Today's three"), kept for the day in localStorage `three:<day>` (day-list.tsx `keptThree`). A task dragged onto them is swapped in; one ticked stays there struck until tomorrow; dragging one out is refused. The Journal and Tasks number the same three. The desktop sticky does not show them yet.
+- Callouts are a slip of the paper's grain (no grid), corner 0.875rem as the note panels, title in the page's ink, each type's emoji drawn as a line icon; a picked emoji shows as itself.
+- Page tabs are one component everywhere (`tab-chips.tsx`), plain pills by default, "Boxed" in Settings › Appearance.
+- Folder and project menus open on a row of colour swatches.
+- Reminder cards: what it is about first, why under it in quiet ink, the app's own buttons, never a coloured badge or pill.
 - Deleting a book: any book but your last; the open one opens another first.
 - Start fresh puts things away (never deletes notes); "Bring it back" or dragging out of "On hold" returns a task.
 

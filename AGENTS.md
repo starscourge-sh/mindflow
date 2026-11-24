@@ -2,6 +2,11 @@
 
 Read this first. It is all you need to pick up work with no chat history.
 
+**Start here, in this order:**
+1. `docs/HANDOVER.md`: where things stand today, the tests known to fail, the decisions made recently, and Haligtree's own rules.
+2. `docs/product/work-waiting.md`: the work list. Take items from its "Any agent" list, top first; the rest needs Claude or the owner.
+3. `playbook/handbook/3-check.md`: the gate every change passes before it is called done.
+
 ## What the app is
 
 Haligtree (once called Vigil, and mindflow before that; only the repo folder keeps `mindflow`) is a Mac desktop app
