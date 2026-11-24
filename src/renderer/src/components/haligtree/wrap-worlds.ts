@@ -62,16 +62,16 @@ export function nextSeed(): number {
   return seed
 }
 
-/** First lines, in Haligtree's own voice; `{name}` is the month or week. Scrapbook, not a scorecard. */
+/** First lines, in Haligtree's own voice; `{name}` is the month or week. Scrapbook, never a grade or score. */
 export const INTROS = [
   'You kept a book all {name}. Here is what it held.',
   '{name}, pages from your own hand.',
   'Before {name} goes on the shelf, a look back.',
   'Quotes, gems, reading: what {name} left in the book.',
-  'A few cards on {name}. Nothing to grade.'
+  'A few pages on {name}, from your own hand.'
 ]
 export const OUTROS = [
-  'That was {name}. Nothing here is a score.',
+  'That was {name}, kept as you wrote it.',
   'That was {name}, as you wrote it.',
   'On to the next page. {name} is kept.',
   'Thank you for writing it down.',

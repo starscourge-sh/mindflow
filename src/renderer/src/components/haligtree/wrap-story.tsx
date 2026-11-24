@@ -13,7 +13,6 @@ import { taskName } from '@/lib/tasks'
 import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
-import { PictureRow } from './picture-row'
 import { DateStamp, In, InkLine, InkStamp, JournalField, KraftTape, LampWash, MarginNote, Roll, TippedPrint } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
@@ -25,11 +24,11 @@ import { APP_NAME } from '../../../../main/name'
 import { quoted } from '../../../../main/clip'
 
 /**
- * A month or a week, wrapped: a scrapbook of a few cards, one thing each
- * (Spotify Wrapped’s pace, Midori notebook’s feel). What you caught and tagged,
- * gems kept, pages and pictures, reading finished, then busiest day and runs;
- * focus hours, blocked sites and planned-vs-did come later, never as the lead.
- * Only cards with something true to say are shown. ← → turn, Esc closes.
+ * A month or a week, wrapped: Midori journal pages, one thing each. What you
+ * caught and tagged, gems kept, pages and pictures, reading finished, then
+ * busiest day and runs; focus hours, blocked sites and planned-vs-did come
+ * later, never as the lead. Never a Spotify deck: no grade talk, ranked tag
+ * lists, photo carousels or dashboard charts. ← → turn, Esc closes.
  * Made from your own notes, on this Mac.
  *
  * It comes to you: once a month ends, the first open after the 1st offers
@@ -517,14 +516,10 @@ const held = (minutes: number): string => howLong(minutes).replace(/ /g, '\u00a0
 
 const BIG = 'font-heading text-[clamp(28px,6cqi,50px)] leading-[1.02] font-semibold tracking-[-0.02em] break-words'
 const HUGE = 'font-heading text-[clamp(52px,14cqi,120px)] leading-[0.9] font-semibold tracking-[-0.03em]'
-/** A long heading steps down by its length, so a long tag or site still sits in two or three lines. */
-const fit = (text: string): string => (text.length <= 16 ? BIG : text.length <= 30 ? 'font-heading text-[clamp(24px,4.6cqi,38px)] leading-[1.05] font-semibold tracking-[-0.02em] break-words' : 'font-heading text-[clamp(20px,3.4cqi,28px)] leading-[1.1] font-semibold tracking-[-0.02em] break-words')
 /** A line under a heading or number, saying what it counts: never a label above one. */
 const CAPTION = 'mt-3 text-[15px] leading-snug font-semibold text-(--wrap-quiet) text-pretty'
 /** A card with one thing to say says it alone, centred and large: never a big word beside a half-empty column. */
 const SOLO_CAPTION = 'mx-auto mt-4 max-w-[44ch] text-[17px] leading-snug font-semibold text-(--wrap-quiet) text-balance'
-/** A lone heading (one tag, one site) as large as its length lets it be, still in two or three lines at most. */
-const solo = (text: string): string => `font-heading ${text.length <= 12 ? 'text-[clamp(44px,11cqi,92px)] leading-[0.95]' : text.length <= 24 ? 'text-[clamp(34px,7.4cqi,64px)] leading-[1]' : 'text-[clamp(26px,5.2cqi,44px)] leading-[1.05]'} font-semibold tracking-[-0.03em] break-words text-balance`
 /** A list is drawn only with this many in it; fewer are said in the card's sentence instead. */
 const LIST = 3
 
@@ -544,20 +539,44 @@ function Centre({ children }: { children: ReactNode }): React.JSX.Element {
   return <div className="relative grid h-full content-center justify-items-center gap-4 px-4 pt-2 pb-2 text-center @2xl:px-12">{children}</div>
 }
 
-/** A few lines ranked, the way the report card lists them. */
-function Ranked({ rows, accent }: { rows: { name: string; n: number }[]; accent: string }): React.JSX.Element {
+/** Ink lines on a journal page: a name and a quiet count — never a ranked leaderboard. */
+function InkList({ rows, accent }: { rows: { key: string; name: ReactNode; said: string }[]; accent: string }): React.JSX.Element {
   return (
-    <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">
+    <ul data-wrap-ink-list className="m-0 mt-2 list-none space-y-2.5 p-0">
       {rows.map((row, i) => (
-        <In key={row.name} at={0.22 + i * 0.05} from="pop" pace="snap" className="min-w-0">
-          <li className="flex items-baseline gap-3 text-[clamp(16px,2.6cqi,22px)] font-bold">
-            <span className="w-5 shrink-0 tabular-nums" style={{ color: accent }}>{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate" dir="auto">#{row.name}</span>
-            <span className="shrink-0 text-[13px] tabular-nums text-(--wrap-quiet)">{plural(row.n, 'capture')}</span>
+        <In key={row.key} at={0.18 + i * 0.05} from="lift" pace="snap" className="min-w-0">
+          <li className="flex min-w-0 items-baseline gap-2 text-[clamp(15px,2.4cqi,19px)] font-semibold" dir="auto">
+            <span aria-hidden style={{ color: accent }}>·</span>
+            <span className="min-w-0 flex-1 truncate">{row.name}</span>
+            <span className="shrink-0 text-[13px] tabular-nums" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 68%, ${STAGE.paper})` }}>{row.said}</span>
           </li>
         </In>
       ))}
-    </ol>
+    </ul>
+  )
+}
+
+/** Full Midori page: subject / date, optional margin title, ink body. Never a Spotify slide. */
+function JournalPage({ stamp, margin, accent, children, grid = 'dot', seed = 7 }: {
+  stamp: string; margin?: string; accent: string; children: ReactNode; grid?: 'dot' | 'quad'; seed?: number
+}): React.JSX.Element {
+  return (
+    <div data-wrap-flow data-wrap-collage className="absolute inset-0"
+      onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+      <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={accent} grid={grid} className="absolute inset-0">
+        <div className="absolute inset-0 flex flex-col overflow-hidden pl-[16%] pr-5 pt-3 pb-5 text-left">
+          {margin && (
+            <p aria-hidden className="pointer-events-none absolute top-[18%] left-[2%] m-0 font-heading text-[clamp(16px,2.8cqi,24px)] font-semibold tracking-[0.14em] uppercase"
+              style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 55%, ${accent})`, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{margin}</p>
+          )}
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <p className="m-0 text-[11px] font-semibold tracking-[0.08em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 72%, ${STAGE.paper})` }}>subject</p>
+            <DateStamp label={stamp} color={accent} seed={seed} />
+          </div>
+          {children}
+        </div>
+      </JournalField>
+    </div>
   )
 }
 
@@ -580,25 +599,6 @@ function CorrectedTyped({ text }: { text: string }): React.JSX.Element {
         transition={{ delay: 0.18, duration: 0.22, ease: EASE }}>{slip}</motion.span>
       <span>{text}</span>
     </span>
-  )
-}
-
-/** Bars, one a row, each with its name and what it stands for in words: the first in the loud colour. */
-// `of`: each row's own whole (a read's minutes of its reading time), so a bar is its share of that, never of the longest row.
-function Rows({ rows: all, p, wide, small = 3 }: { rows: { name: ReactNode; key: string; said: string; n: number; of?: number }[]; p: Palette; wide: boolean; /** How many on a small card: fewer under a tall heading. */ small?: number }): React.JSX.Element {
-  // Three on a small card, so the list never reaches the card's foot.
-  const rows = all.slice(0, wide ? 5 : small)
-  const most = Math.max(1, ...rows.map((row) => row.n))
-  return (
-    <div data-wrap-rows className="grid h-full grid-cols-1 [align-content:safe_center] gap-4">
-      {rows.map((row, i) => (
-        <In key={row.key} at={0.3 + i * 0.07} from="left" className="min-w-0">
-          <p className="flex items-baseline gap-3 text-[15px] font-semibold"><span className="min-w-0 flex-1 truncate" dir="auto">{row.name}</span><span className="shrink-0 tabular-nums">{row.said}</span></p>
-          <motion.div className="mt-1.5 h-2 origin-left rounded-none" style={{ width: `${Math.max(2, Math.min(1, row.n / (row.of ?? most)) * 100)}%`, background: i ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : p.accent }}
-            initial={still() ? false : { scaleX: 0.28 }} animate={{ scaleX: 1 }} transition={{ delay: 0.12 + i * 0.05, duration: 0.28, ease: EASE }} />
-        </In>
-      ))}
-    </div>
   )
 }
 
@@ -675,15 +675,13 @@ function wrapSays(f: Facts): WrapPage[] {
     const top = f.tags[0].name
     const had = f.before.tags.find((one) => one.name === top)?.n ?? 0
     if (!had) page('tags', `#${top} was new this ${f.period}.`, null, [top, 'new'])
-    else if (f.tags[0].n > had * 1.3) page('tags', `#${top} came up more than ${last}.`, 'up', [top])
-    else page('tags', `#${top} came up most this ${f.period}.`, null, [top])
+    else if (f.tags[0].n > had * 1.3) page('tags', `#${top} showed more than ${last}.`, 'up', [top])
+    else page('tags', `#${top} showed often this ${f.period}.`, null, [top])
   } else if (f.captures) page('tags', 'None of it was tagged.')
   if (f.minutes >= 1) page('focus', focusSaid, focused)
   if (f.busiest) {
-    const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
-    const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
     const day = dayjs(f.busiest.day).format('dddd')
-    page('busiest', `${day} was your busiest day${usual > 0 && f.busiest.n >= usual * 2 ? ' by far' : ''}.`, null, [day])
+    page('busiest', `Most of what you caught landed on ${day}.`, null, [day])
   }
   if (f.hour !== null) {
     const time = f.hour >= 5 && f.hour < 12 ? 'morning' : f.hour >= 12 && f.hour < 17 ? 'afternoon' : f.hour >= 17 && f.hour < 22 ? 'evening' : 'night'
@@ -700,47 +698,55 @@ const busiestDays = (f: Facts): string[] => {
   return most ? Object.keys(f.days).filter((day) => day >= f.from && day <= f.to && f.days[day] === most).sort() : f.busiest ? [f.busiest.day] : []
 }
 
-/**
- * Each day of the span as a bar of its captures, on one height scale, the busiest lit and the rest muted. A week's
- * seven bars each carry their count over them and their day under them; a month's thirty are too many to label, so
- * only the busiest says its count and the first and last dates sit under the row.
- */
-function DayBars({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
-  const days: string[] = []
-  for (let day = dayjs(f.from); dayKey(day) <= f.to; day = day.add(1, 'day')) days.push(dayKey(day))
-  const lit = new Set(busiestDays(f).map((day) => days.indexOf(day)))
-  const each = days.length <= 7
-  return <Bars p={p} mark="days" values={days.map((day) => f.days[day] ?? 0)} lit={lit} ticks={each ? days.map((day) => dayjs(day).format('ddd')) : undefined} under={each ? [] : [dayjs(f.from).format('D MMM'), dayjs(f.to).format('D MMM')]} />
+/** Captures by day as ink lines on the page — never a bar chart. */
+function DayInk({ f, accent }: { f: Facts; accent: string }): React.JSX.Element {
+  const tops = new Set(busiestDays(f))
+  const rows: { key: string; name: ReactNode; said: string }[] = []
+  if (f.period === 'week') {
+    for (let day = dayjs(f.from); dayKey(day) <= f.to; day = day.add(1, 'day')) {
+      const key = dayKey(day)
+      const n = f.days[key] ?? 0
+      if (!n && !tops.has(key)) continue
+      rows.push({
+        key,
+        name: <span style={tops.has(key) ? { color: accent } : undefined}>{day.format('dddd D')}</span>,
+        said: plural(n, 'capture')
+      })
+    }
+  } else {
+    const ranked = Object.entries(f.days).filter(([day, n]) => day >= f.from && day <= f.to && n > 0)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5)
+    for (const [day, n] of ranked) {
+      rows.push({
+        key: day,
+        name: <span style={tops.has(day) ? { color: accent } : undefined}>{dayName(noon(day), 'never')}</span>,
+        said: plural(n, 'capture')
+      })
+    }
+  }
+  return <div data-wrap-days><InkList rows={rows} accent={accent} /></div>
 }
-/** The day's 24 hours as bars of the span's captures, the thinking hour lit the same way. */
-const HourBars = ({ f, p }: { f: Facts; p: Palette }): React.JSX.Element => <Bars p={p} mark="hours" values={f.hours} lit={new Set(f.hour === null ? [] : [f.hour])} under={['midnight', 'noon', '23:00']} />
 
-/**
- * A row of bars on one scale: `lit` in the loud colour, the rest muted. With `ticks` (a few bars) every bar has its
- * count over it and its tick under it; without, only the lit ones say their count, and the words `under` spread beneath.
- */
-function Bars({ p, mark, values, lit, ticks, under }: { p: Palette; mark: string; values: number[]; lit: Set<number>; ticks?: string[]; under: string[] }): React.JSX.Element {
-  const most = Math.max(1, ...values)
-  const few = !!ticks
-  return (
-    <div {...{ [`data-wrap-${mark}`]: '' }} className="grid h-full content-center">
-      <div className={`flex h-[clamp(96px,24cqi,180px)] items-end pt-7 ${few ? 'gap-2.5' : 'gap-[3px]'}`}>
-        {values.map((n, i) => {
-          const top = lit.has(i)
-          return (
-            <div key={i} className="relative flex h-full flex-1 items-end justify-center">
-              {(top || few) && <span data-wrap-peak={top || undefined} className="absolute left-1/2 -translate-x-1/2 text-[13px] font-black whitespace-nowrap tabular-nums" style={{ bottom: `calc(${(n / most) * 100}% + 5px)`, color: top ? p.accent : 'var(--wrap-quiet)' }}>{num(n)}</span>}
-              <motion.div className={`w-full origin-bottom rounded-[2px] ${few ? 'max-w-[40px]' : 'max-w-2'}`} style={{ height: n ? `max(4px, ${(n / most) * 100}%)` : '2px', background: top ? p.accent : n ? `color-mix(in srgb, ${p.ink} 34%, ${p.bg})` : `color-mix(in srgb, ${p.ink} 16%, ${p.bg})` }}
-                initial={still() ? false : { scaleY: 0.28 }} animate={{ scaleY: 1 }} transition={{ delay: 0.12 + i * (few ? 0.03 : 0.01), duration: 0.28, ease: EASE }} />
-            </div>
-          )
-        })}
-      </div>
-      {few
-        ? <div className="mt-2 flex gap-2.5 text-[12px] font-semibold text-(--wrap-quiet)">{ticks.map((tick, i) => <span key={i} className="flex-1 text-center" style={lit.has(i) ? { color: p.accent } : undefined}>{tick}</span>)}</div>
-        : <div className="mt-2 flex justify-between text-[12px] font-semibold text-(--wrap-quiet)">{under.map((word) => <span key={word}>{word}</span>)}</div>}
-    </div>
-  )
+/** Thinking hour as ink — morning / afternoon / evening / night totals, never 24 bars. */
+function HourInk({ f, accent }: { f: Facts; accent: string }): React.JSX.Element {
+  const bands: { key: string; label: string; from: number; to: number }[] = [
+    { key: 'morning', label: 'Morning', from: 5, to: 12 },
+    { key: 'afternoon', label: 'Afternoon', from: 12, to: 17 },
+    { key: 'evening', label: 'Evening', from: 17, to: 22 },
+    { key: 'night', label: 'Night', from: 22, to: 29 }
+  ]
+  const peak = f.hour
+  const rows = bands.map((band) => {
+    let n = 0
+    for (let h = band.from; h < band.to; h++) n += f.hours[h % 24] ?? 0
+    const lit = peak !== null && ((peak >= band.from && peak < band.to) || (band.key === 'night' && (peak >= 22 || peak < 5)))
+    return {
+      key: band.key,
+      name: <span style={lit ? { color: accent } : undefined}>{band.label}{lit ? ` · around ${hourSaid(peak!)}` : ''}</span>,
+      said: plural(n, 'capture')
+    }
+  }).filter((row) => !row.said.startsWith('0 '))
+  return <div data-wrap-hours><InkList rows={rows} accent={accent} /></div>
 }
 
 /** One card: its words in front, its own chart or your own pictures beside them, laid out for the width it has. */
@@ -865,104 +871,127 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         </>, cover(f.heroes[0]))
       }
       case 'tags': {
-        if (!top.length) return alone(<div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div>, <>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)
-        const lead = `#${top[0].name}`
-        const most = <>came up most: {plural(top[0].n, 'capture')} of the {num(f.captures)} {f.captures === 1 ? 'thing' : 'things'} you caught</>
-        // Few tags: still a journal desk, not a lone hashtag in empty cream.
-        if (top.length < LIST) {
-          return alone(
-            <h2 className={solo(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2>,
-            <>{most}{top[1] ? <>, then <span dir="auto">#{top[1].name}</span> with {plural(top[1].n, 'capture')}</> : null}.</>,
-            <div className="mx-auto mt-4 flex max-w-[420px] flex-wrap justify-center gap-2">
-              {top.map((tag, i) => (
-                <In key={tag.name} at={0.2 + i * 0.06} from="pop" pace="snap">
-                  <DateStamp label={`#${tag.name}`.toUpperCase()} color={p.accent} seed={seed + 20 + i} />
-                </In>
-              ))}
-            </div>
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
+        if (!top.length) {
+          return (
+            <JournalPage stamp={stamp} margin="Tags" accent={p.accent} seed={seed + 9}>
+              {pageLead}
+              <In at={0.1}>{pageHead(`${plural(f.captures, 'thing')} caught`)}{pageCap(<>this {f.period}, none of them tagged</>)}</In>
+            </JournalPage>
           )
         }
-        return split(<><In at={0.12}><h2 className={fit(lead)} style={{ color: p.accent }} dir="auto">{lead}</h2></In><In at={0.45}>{caption(most)}</In></>, <Ranked rows={top} accent={p.accent} />)
+        const head = `#${top[0].name}`
+        const said = <>showed in {plural(top[0].n, 'capture')} of the {num(f.captures)} you caught{top[1] ? <>; then <span dir="auto">#{top[1].name}</span></> : null}</>
+        return (
+          <JournalPage stamp={stamp} margin="Tags" accent={p.accent} seed={seed + 9}>
+            {pageLead}
+            <In at={0.08}>{pageHead(<span dir="auto" style={{ color: p.accent }}>{head}</span>)}{pageCap(said)}</In>
+            <InkList rows={top.map((tag) => ({ key: tag.name, name: <span dir="auto">#{tag.name}</span>, said: plural(tag.n, 'capture') }))} accent={p.accent} />
+            <In at={0.55} className="mt-4 flex flex-wrap gap-1.5">
+              {top.slice(0, 4).map((tag, i) => (
+                <DateStamp key={tag.name} label={`#${tag.name}`.toUpperCase().slice(0, 14)} color={p.accent} seed={seed + 20 + i} />
+              ))}
+            </In>
+            <KraftTape kind="washi" seed={seed + 28} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 18%, ${STAGE.paper})`}
+              className="absolute bottom-[8%] right-[10%] w-[22%] rotate-[6deg]" />
+          </JournalPage>
+        )
       }
       case 'focus': {
-        // Counted in minutes, as Spotify counts listening: a whole number that rolls up, never hours rounded up or down;
-        // past an hour the sentence says it in hours too.
-        const big = f.minutes
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
         const unit = `${f.minutes === 1 ? 'minute' : 'minutes'} of focus${f.minutes >= 60 ? ` (${howLong(f.minutes)})` : ''}`
-        const number = <div className={HUGE} style={{ color: p.accent }}><Roll n={big} /></div>
         const [one, two] = f.focusTasks
-        if (f.focusTasks.length < LIST)
-          return alone(number, <>{unit}, over {plural(f.sessions, 'session')}{one ? <>. {howLong(one.minutes)} of it on {quoted(one.name, 60)}{two ? <>, {howLong(two.minutes)} on {quoted(two.name, 60)}</> : null}</> : null}.</>)
-        // Each task's bar is its share of all the focus, so the bars and the big number agree.
-        return split(<><In at={0.12}>{number}</In><In at={0.45}>{caption(<>{unit}, over {plural(f.sessions, 'session')}. Where most of it went:</>)}</In></>,
-          <Rows p={p} wide={wide} small={2} rows={f.focusTasks.map((task) => ({ key: task.name, name: task.name, said: howLong(task.minutes), n: task.minutes, of: Math.max(1, f.minutes) }))} />)
+        const said = <>{unit}, over {plural(f.sessions, 'session')}{one ? `. ${howLong(one.minutes)} of it on ${quoted(one.name, 60)}${two ? `; ${howLong(two.minutes)} on ${quoted(two.name, 60)}` : ''}` : ''}.</>
+        return (
+          <JournalPage stamp={stamp} margin="Focus" accent={p.accent} seed={seed + 13}>
+            {pageLead}
+            <In at={0.08}>{pageHead(<span style={{ color: p.accent }}><Roll n={f.minutes} /></span>)}{pageCap(said)}</In>
+            {f.focusTasks.length > 0 && (
+              <InkList rows={f.focusTasks.slice(0, wide ? 5 : 3).map((task) => ({ key: task.name, name: task.name, said: howLong(task.minutes) }))} accent={p.accent} />
+            )}
+          </JournalPage>
+        )
       }
       case 'sites': {
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
         const [first, ...rest] = f.sites
         const total = f.sites.reduce((n, one) => n + one.count, 0)
-        const head = <>Kept you off <span style={{ color: p.accent }}>{siteWords(first.site)}</span> {timesSaid(first.count)} this {f.period}</>
-        if (f.sites.length < LIST) return alone(<h2 className={fit(first.site)}>{head}</h2>, rest.length ? `and ${rest[0].site} ${timesSaid(rest[0].count)}: sent away ${plural(total, 'time')} while you focused.` : 'The one site it had to send away while you focused.')
-        return split(<><In at={0.12}><h2 className={fit(first.site)}>{head}</h2></In>
-          <In at={0.45}>{caption(<>{`and ${and(rest.slice(0, 2).map((one) => `${one.site} ${timesSaid(one.count)}`))}${rest.length > 2 ? `, and ${plural(rest.length - 2, 'more site')}` : ''}: sent away ${plural(total, 'time')} while you focused.`}</>)}</In></>,
-          <Rows p={p} wide={wide} rows={f.sites.slice(0, 5).map((one) => ({ key: one.site, name: one.site, said: timesSaid(one.count), n: one.count }))} />)
+        const said = rest.length
+          ? `and ${and(rest.slice(0, 2).map((one) => `${one.site} ${timesSaid(one.count)}`))}${rest.length > 2 ? `, and ${plural(rest.length - 2, 'more site')}` : ''}: sent away ${plural(total, 'time')} while you focused.`
+          : 'The one site it had to send away while you focused.'
+        return (
+          <JournalPage stamp={stamp} margin="Sites" accent={p.accent} seed={seed + 14}>
+            {pageLead}
+            <In at={0.08}>{pageHead(<>Kept you off <span style={{ color: p.accent }}>{siteWords(first.site)}</span> {timesSaid(first.count)} this {f.period}</>)}{pageCap(said)}</In>
+            <InkList rows={f.sites.slice(0, 5).map((one) => ({ key: one.site, name: one.site, said: timesSaid(one.count) }))} accent={p.accent} />
+          </JournalPage>
+        )
       }
       case 'reading': {
-        // Rule lives in the Tip; the card says the finish count and what is left, never a lecture.
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
         const { total, finished, left } = f.reads
-        const head = (
-          <Tip label="Finished means its end reached with at least half its reading time spent">
-            <h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2>
-          </Tip>
-        )
         const said = left.length
-          ? `${num(left.length)} left part way, to pick back up${left.length < LIST ? `: ${and(left.map((one) => quoted(one.title, 50)))}` : ''}.`
+          ? `${num(left.length)} left part way, to pick back up${left.length <= 3 ? `: ${and(left.map((one) => quoted(one.title, 50)))}` : ''}.`
           : 'A solid stack of finishes.'
-        if (left.length < LIST) return alone(head, said)
-        return split(<><In at={0.12}>{head}</In><In at={0.45}>{caption(said)}</In></>,
-          <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} />)
+        return (
+          <JournalPage stamp={stamp} margin="Read" accent={p.accent} seed={seed + 15}>
+            {pageLead}
+            <In at={0.08}>
+              <Tip label="Finished means its end reached with at least half its reading time spent">
+                <h2 className={BIG} style={{ color: STAGE.paperInk }}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2>
+              </Tip>
+              {pageCap(said)}
+            </In>
+            {left.length > 0 && (
+              <InkList rows={left.slice(0, 5).map((one, i) => ({
+                key: `${one.title}${i}`,
+                name: one.title,
+                said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`
+              }))} accent={p.accent} />
+            )}
+          </JournalPage>
+        )
       }
       case 'plan': {
-        const rows = [...f.planRows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, wide ? 4 : 2)
-        const most = Math.max(1, ...rows.flatMap((row) => [row.planned, row.did]))
-        const head = <h2 className={BIG}>You planned {held(f.planned)}{f.did ? ` and did ${held(f.did)}` : ''}.</h2>
-        const said = <>on {plural(f.planRows.length, 'task')} with a time planned and a date this {f.period}</>
-        const bars = (
-          <div className="grid h-full w-full grid-cols-1 [align-content:safe_center] gap-4 text-left">{rows.map((row, i) => (
-            <In key={row.name + i} at={0.3 + i * 0.07} from="left" className="min-w-0">
-              <p className="truncate text-[15px] font-semibold" dir="auto">{row.name}</p>
-              {/* The time planned as the track, what was done filling it: the words say both. */}
-              <div className="relative mt-1.5 h-2 rounded-none" style={{ background: `color-mix(in srgb, ${p.ink} 18%, ${p.bg})`, width: `${(row.planned / most) * 100}%` }}>
-                <motion.div className="absolute inset-y-0 left-0 origin-left rounded-none" style={{ background: p.accent, width: `${(row.did / Math.max(1, row.planned)) * 100}%` }} initial={still() ? false : { scaleX: 0.28 }} animate={{ scaleX: 1 }} transition={{ delay: 0.12 + i * 0.05, duration: 0.28, ease: EASE }} />
-              </div>
-              <p className="mt-1 text-[13px] font-semibold text-(--wrap-quiet)">{row.did ? `did ${howLong(row.did)} of ${howLong(row.planned)} planned` : `${howLong(row.planned)} planned, none done yet`}</p>
-            </In>
-          ))}</div>
-        )
-        // One or two tasks: the sentence in the middle and their bars under it, a column as wide as a line of words.
-        if (rows.length < LIST) return alone(head, said, <div className="mx-auto mt-2 w-full max-w-[420px]">{bars}</div>)
-        return split(<><In at={0.12}>{head}</In><In at={0.45}>{caption(said)}</In></>, bars)
-      }
-      case 'pictures':
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
+        const rows = [...f.planRows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, wide ? 4 : 3)
         return (
-          // Full journal page (refs): never an empty Spotify slide with smoke silk.
-          <div data-wrap-flow data-wrap-collage className="absolute inset-0"
-            onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-            <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
-              <div className="absolute inset-0 grid grid-rows-[auto_1fr] gap-4 px-[12%] pt-4 pb-6 pr-6 text-left">
-                <div>
-                  {pageLead}
-                  <In at={0.1} pace="linger">{pageHead(f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw')}{pageCap(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
-                  <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={41} className="mt-3" />
-                </div>
-                <In at={0.28} from="lift" pace="snap" className="min-h-0 min-w-0 self-stretch">
-                  <PictureRow items={f.pictures} height={wide ? 300 : 190} label="Pictures and gems" onOpen={() => undefined} />
-                </In>
-                <KraftTape kind="washi" seed={47} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 18%, ${STAGE.paper})`}
-                  className="absolute bottom-[10%] right-[12%] w-[22%] rotate-[7deg]" />
-              </div>
-            </JournalField>
-          </div>
+          <JournalPage stamp={stamp} margin="Plan" accent={p.accent} seed={seed + 16}>
+            {pageLead}
+            <In at={0.08}>{pageHead(<>You planned {held(f.planned)}{f.did ? ` and did ${held(f.did)}` : ''}.</>)}{pageCap(<>on {plural(f.planRows.length, 'task')} with a time planned and a date this {f.period}</>)}</In>
+            <InkList rows={rows.map((row, i) => ({
+              key: row.name + i,
+              name: row.name,
+              said: row.did ? `did ${howLong(row.did)} of ${howLong(row.planned)}` : `${howLong(row.planned)} planned`
+            }))} accent={p.accent} />
+          </JournalPage>
         )
+      }
+      case 'pictures': {
+        // Tipped prints on the page — never a carousel with arrows (14-photo-carousel).
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
+        const prints = f.pictures.slice(0, 4)
+        const places = [
+          'absolute top-[28%] left-[18%] z-[2] h-[42%] w-[38%] max-w-[240px] -rotate-[2deg]',
+          'absolute top-[22%] right-[10%] z-[3] h-[48%] w-[40%] max-w-[250px] rotate-[3deg]',
+          'absolute bottom-[12%] left-[28%] z-[4] h-[36%] w-[34%] max-w-[210px] rotate-[-4deg]',
+          'absolute bottom-[8%] right-[18%] z-[2] h-[32%] w-[30%] max-w-[180px] rotate-[5deg]'
+        ]
+        return (
+          <JournalPage stamp={stamp} margin="Seen" accent={p.accent} grid="quad" seed={41}>
+            {pageLead}
+            <In at={0.08}>{pageHead(f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw')}{pageCap(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
+            <div data-wrap-prints className="relative mt-2 min-h-0 flex-1">
+              {prints.map((pic, i) => (
+                <TippedPrint key={pic.id + i} src={pic.stored ?? pic.src} alt={pic.title} ink={STAGE.paperInk} paper={STAGE.paper}
+                  className={places[i] ?? places[0]} />
+              ))}
+            </div>
+            <KraftTape kind="washi" seed={47} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 18%, ${STAGE.paper})`}
+              className="absolute bottom-[10%] left-[14%] z-[5] w-[22%] rotate-[-7deg]" />
+          </JournalPage>
+        )
+      }
       case 'notes': {
         // Full journal page (refs): tip or a large handwriting block on the right; ink packed on the left; margin used. Never two lonely bullets in empty cream.
         const stamp = dayjs(f.to).format('MMM D').toUpperCase()
@@ -1113,17 +1142,34 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return split(<><In at={0.12}>{number}</In><In at={0.5}>{caption(said)}</In></>, <Calendar f={f} p={p} />)
       }
       case 'busiest': {
+        // Journal page with ink day list — never a bar chart / “heaviest load” deck (15-bar-chart).
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
         const counts = Object.values(f.days).filter((n) => n > 0).sort((a, b) => a - b)
         const usual = counts.length ? counts[Math.floor((counts.length - 1) / 2)] : 0
         const tops = busiestDays(f)
         const n = f.days[tops[0]] ?? f.busiest?.n ?? 0
         const named = and(tops.map((day) => dayName(noon(day), 'never')))
-        return split(<><In at={0.12}><h2 className={BIG}>{tops.length > 1 ? 'Your busiest days were ' : 'Your busiest day was '}<span style={{ color: p.accent }}>{named}</span></h2></In>
-          <In at={0.4}>{caption(<>{plural(n, 'capture')} in one day{tops.length > 1 ? ', each' : ''}{usual && usual < n ? `, where a usual day held ${num(usual)}` : ''}.</>)}</In></>, <DayBars f={f} p={p} />)
+        return (
+          <JournalPage stamp={stamp} margin="Days" accent={p.accent} seed={seed + 18}>
+            {pageLead}
+            <In at={0.08}>{pageHead(<>{tops.length > 1 ? 'Most catches landed on ' : 'Most of what you caught landed on '}<span style={{ color: p.accent }}>{named}</span></>)}
+              {pageCap(<>{plural(n, 'capture')} that day{tops.length > 1 ? ', each' : ''}{usual && usual < n ? `; a usual day held ${num(usual)}` : ''}.</>)}</In>
+            <DayInk f={f} accent={p.accent} />
+            {f.period === 'week' && <div className="mt-3"><Calendar f={f} p={p} /></div>}
+          </JournalPage>
+        )
       }
-      case 'hours':
-        return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
-          <In at={0.4}>{caption(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In></>, <HourBars f={f} p={p} />)
+      case 'hours': {
+        const stamp = dayjs(f.to).format('MMM D').toUpperCase()
+        return (
+          <JournalPage stamp={stamp} margin="Hours" accent={p.accent} seed={seed + 19}>
+            {pageLead}
+            <In at={0.08}>{pageHead(<>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></>)}
+              {pageCap(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In>
+            <HourInk f={f} accent={p.accent} />
+          </JournalPage>
+        )
+      }
       case 'outro':
         if (night) return <Centre>{kicker}<In pace="linger"><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><CorrectedTyped text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.85} pace="linger"><WrappedParagraph monday={f.from} /></In>}</Centre>
         // The second of your pictures, so the story never ends on the one it opened with; with one or none, the motif.

@@ -220,6 +220,19 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, nestSays, places, parts,
   // draws this list again; drawing every row's own contents with it (a task's menu, marks and steps) cost frames in a long
   // list. Each row's slide still reaches it, through carry.tsx's own context.
   const drawn = useMemo(() => children(shown), [children, shown])
+  // The parts' headings as the list lay when the row was taken, and that row's own top: carried into another part, the
+  // headings between slide with the rows, so room opens where it lands as it does among rows, and no row slides over a
+  // heading (the user, 23 and 24 Nov: one look for every drag).
+  const heads = useRef<{ el: HTMLElement; top: number }[]>([])
+  const fromTop = useRef(0)
+  const slideHeads = (to: number | null, height: number): void => {
+    for (const one of heads.current) {
+      const between = to !== null && (to > fromTop.current ? one.top > fromTop.current && one.top < to : one.top > to && one.top < fromTop.current)
+      one.el.style.transition = 'transform 200ms cubic-bezier(0.2, 0, 0, 1)'
+      one.el.style.transform = between ? `translateY(${to! > fromTop.current ? -height : height}px)` : ''
+    }
+  }
+  const restHeads = (): void => { for (const one of heads.current) (one.el.style.transform = '', one.el.style.transition = ''); heads.current = [] }
   if (!onMove && !onNest) return <>{drawn}</>
   read.current = (): void => {
     const lift = carrying.current
@@ -250,16 +263,23 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, nestSays, places, parts,
     const [from, to] = [keys.indexOf(id), keys.indexOf(target)]
     const gap = from < to ? to : to - 1
     const next = keys[gap + 1]
-    // Another part of the list, whose own rule says what is in it: its heading lights and nothing opens. Opening room here
-    // slid the rows between over the part's heading, which does not move with them (the user, 23 Nov: rows on top of
-    // "Tomorrow"); that needs the headings to move with the rows first.
+    // Another part of the list, whose own rule says what is in it: taken in, room opens where it lands, as among rows,
+    // with the headings between sliding along with the rows; the card says what letting go does there ("Move to Today").
+    // Refused, nothing opens and the card says why.
     const part = targets.part(id, target, lift.within)
-    if (part) return point(part)
+    if (part && part.refused) return (slideHeads(null, 0), point(part))
+    if (part) {
+      targets.dim()
+      slideHeads(over.top + (from < to ? over.height : 0), lift.folded || lift.tall)
+      return point({ ...part, part: part.target, target, how: from < to ? 'after' : 'before', into: null, gap, around: [] })
+    }
+    slideHeads(null, 0)
     targets.dim()
     // Last of its part (a heading comes next), the room sits close under the row before it.
     point({ target, how: from < to ? 'after' : 'before', into: null, label: 'Move here', gap, around: [], snug: next === undefined || (!!parts && parts.of(next) !== parts.of(id)) })
   }
   const end = (): void => {
+    restHeads()
     carrying.current = null
     setShot(null)
     undwell()
@@ -275,6 +295,9 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, nestSays, places, parts,
     setQuiet(false)
     start(String(active.id), null)
     carrying.current = lift
+    const within = lift?.within ?? null
+    heads.current = within ? [...within.querySelectorAll<HTMLElement>('[data-row-part]')].map((el) => ({ el, top: el.getBoundingClientRect().top })) : []
+    fromTop.current = (within?.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(String(active.id))}"]`) ?? null)?.getBoundingClientRect().top ?? 0
     setShot(lift)
     setSpan(lift?.folded ?? 0)
   }

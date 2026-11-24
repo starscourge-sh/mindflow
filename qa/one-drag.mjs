@@ -778,6 +778,12 @@ await part('One look: Tasks', async () => {
   for (const id of [t.late, t.plumber]) await v('task:save', id, { due: yesterday.toISOString() })
   // Carried over many times: this one shows its “Carried over … What now?” question under its row, as in the user's picture.
   await v('task:save', t.plumber, { rollovers: 9 }).catch(() => {})
+  // Today's three are three tasks of their own here, so the rows this part carries stand in "Overdue" and "Today";
+  // the window a little taller for their part, so no carry runs into the edge where the list scrolls by itself.
+  const wasSize = await h.evaluate(() => [innerWidth, innerHeight])
+  await c.size(wasSize[0], wasSize[1] + 240)
+  const threeOf = [await addLine('Three: write the outline'), await addLine('Three: call the bank'), await addLine('Three: post the letter')]
+  await h.evaluate((ids) => localStorage.setItem(`three:${new Date().toLocaleDateString('en-CA')}`, JSON.stringify(ids)), threeOf)
   await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
   await h.reload(); await wait(1500); await c.go('today'); await wait(1200)
   // A task with its steps open is a tall row: in the hand it is its one row, and the room is that row's.
@@ -814,7 +820,7 @@ await part('One look: Tasks', async () => {
   // Out of Overdue over Today's rows: Today's heading lights, the card says where it goes, and the drop is said with Undo.
   was = await boxes()
   at = await hold(await grip(t.late), await edge(t.wash, true))
-  await oneLook('Tasks, Overdue carried over Today', at, { words: 'Move to Today', lit: true })
+  await oneLook('Tasks, Overdue carried over Today', at, { words: 'Move to Today' })
   await putBack('Tasks, Overdue over Today', was)
   await hold(await grip(t.late), await edge(t.wash, true)); await wait(350); await h.mouse.up(); await wait(1300)
   const moved = await task(t.late)
@@ -853,6 +859,7 @@ await part('One look: Tasks', async () => {
   }
   await h.evaluate(() => { localStorage.setItem('style', 'soft'); window.dispatchEvent(new StorageEvent('storage', { key: 'style' })) })
   await wait(300)
+  await c.size(wasSize[0], wasSize[1])
 })
 await part('One look: the Queue', async () => {
   let was, at

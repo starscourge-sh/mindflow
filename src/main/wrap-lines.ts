@@ -61,8 +61,8 @@ const UP = /\b(more|most|fuller|busier|bigger|grew|grow|grown|rose|risen|rise|cl
 const DOWN = /\b(less|least|fewer|fewest|quieter|quietest|slower|slowest|smaller|lighter|shorter|fell|fallen|dipped|down|dropped|declined|lower|eased|shrank|thinner|slipped|waned|faded)\b/i
 /** Number words a lead-in may not hold: the page's sentence says every number. ("one" stays: "a quieter one".) */
 const NUMBER_WORDS = /\b(zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|dozens|half|twice|thrice|double|triple)\b/i
-/** A reason, a feeling put in the person, or a grade: the statement holds none, so a rephrasing may not add one. */
-const ADDS = /\b(because|due to|thanks to|since you|which is why|so that|felt|feel|feeling|happy|proud|tired|weary|excited|eager|love|loved|enjoy|enjoyed|joy|passion|effort|dedicat\w*|determin\w*|motivat\w*|inspir\w*|stress\w*|struggl\w*|hard work|great|amazing|impressive|well done|keep it up|productive|lazy|must have|probably)\b/i
+/** A reason, a feeling, a grade, or Spotify-deck load talk: the statement holds none, so a rephrasing may not add one. */
+const ADDS = /\b(because|due to|thanks to|since you|which is why|so that|felt|feel|feeling|happy|proud|tired|weary|excited|eager|love|loved|enjoy|enjoyed|joy|passion|effort|dedicat\w*|determin\w*|motivat\w*|inspir\w*|stress\w*|struggl\w*|hard work|great|amazing|impressive|well done|keep it up|productive|lazy|must have|probably|grade|score|heaviest|heavier|heavy load|leaderboard|ranked|ranking)\b/i
 /** A time of day, or "new", may be said another way, as long as it still means that. */
 const SAME_AS: Record<string, string[]> = {
   new: ['new', 'first', 'fresh', 'arrived', 'debuted', 'newcomer'],

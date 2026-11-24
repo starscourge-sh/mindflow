@@ -38,7 +38,7 @@ import { ListSearch, useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, PANEL_FIELD, PanelRow, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside, AppNamed } from './ui'
 import { Display, arrange, useView, type Facet } from './display'
-import { ThreeMark, keptThree, pickThreeAgain, takeWriteDay } from './day-list'
+import { ThreeMark, keptThree, saveThree, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
 import { type AtLink } from './at-notes'
 import { MatrixView } from './matrix-view'
@@ -737,6 +737,8 @@ export const homeOf = (task: Task): 'today' | 'upcoming' | 'later' | 'routines' 
 
 /** The fold a fresh start's tasks wait in, at the foot of the tab each belongs to. */
 const ON_HOLD = 'On hold'
+/** Today's three, a part of Today of their own. */
+const THREE = "Today's three"
 /** The parts of a list a dropped task is put on the day of: how many days from today. */
 const DAY_PARTS: Record<string, number> = { Today: 0, Tomorrow: 1 }
 /** A task put on a day by a drop: its day, and a deadline already gone by moved to that day too; with what it was, for Undo. */
@@ -906,11 +908,6 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   // and its tags, what its row shows. Every list (Today, Upcoming, All...) and the buttons act on what it leaves.
   const found = (task: Task): boolean => !typed.trim() || task.title.toLowerCase().includes(typed.trim().toLowerCase())
   const open_ = chosenTasks.filter((task) => task.status === 'open' && found(task))
-  // Today's three ticked off today stay on their band, struck and green-numbered, until the day ends: gone from the
-  // list, a ticked one read as lost (the user, 24 Nov: "i ticked one, where did it go?"). Ticked again, it is open again.
-  const savedThree = ((): string[] => { try { return JSON.parse(localStorage.getItem(`three:${dayKey()}`) ?? '[]') } catch { return [] } })()
-  const ticked3 = mode === 'today' && view.group === 'when' ? savedThree.map((id) => chosenTasks.find((task) => task.id === id && task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey())).filter((task): task is Task => !!task) : []
-  const overdueFirst = savedThree.some((id) => { const one = chosenTasks.find((each) => each.id === id && each.status === 'open'); return !!one && dayOf(one) < startOfDay() })
   const live = mode === 'alltasks' ? open_ : open_.filter((task) => !task.waitingOn && (homeOf(task) === home || (mode === 'today' && !!task.recurrence && dayOf(task) < startOfDay(1))))
   const waiting = mode === 'alltasks' ? [] : open_.filter((task) => task.waitingOn && homeOf(task) === home)
   // Late lives on Today alone: every other tab says it in one quiet line that leads there, never a red group of its own.
@@ -937,6 +934,14 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     (task.notify ?? notify) === 'pull' &&
     ((!!task.dueAt && !task.allDay && Date.parse(task.dueAt) <= Date.now()) || (!!task.deadline && !!task.deadlineTimed && Date.parse(task.deadline) <= Date.now()))
   const today = base.filter((task) => dayOf(task) >= startOfDay())
+  // Today's three, kept for the day (day-list.tsx keptThree): chosen from the late ones, then today's, in your order.
+  const [threeTick, setThreeTick] = useState(0)
+  void threeTick
+  const threeIds = mode === 'today' && view.group === 'when' && !example && !typed.trim()
+    ? keptThree([...base.filter((task) => dayOf(task) < startOfDay()), ...today].filter((task) => task.id !== frog && !task.waitingOn && !task.heldAt).map((task) => task.id), tasks)
+    : []
+  const setThree = (ids: string[]): void => (saveThree(ids), setThreeTick((n) => n + 1))
+  const threeTasks = threeIds.map((id) => tasks.find((task) => task.id === id && (task.status === 'open' || (!!task.completedAt && dayKey(task.completedAt) === dayKey())))).filter((task): task is Task => !!task)
   // Folded at the foot on every tab until opened, the same list in the same place (the user, 23 Nov: open at the top on
   // a tab with nothing else, folded at the foot on the others, it read as a different list on each). With nothing else
   // on the tab its heading says so.
@@ -974,8 +979,11 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
       ? [
           // The frog, picked last night, above everything, late or not.
           ['One big thing', base.filter((task) => task.id === frog)],
-          ['Overdue', [...ticked3.filter(() => overdueFirst), ...base.filter((task) => dayOf(task) < startOfDay() && task.id !== frog)]],
-          ['Today', [...ticked3.filter(() => !overdueFirst), ...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog)],
+          // Today's three in a part of their own at the top, under their own name: split across "Overdue" and "Today"
+          // they read as two bands and no one knew what they were (the user, 24 Nov). One ticked stays there, struck.
+          [THREE, threeTasks],
+          ['Overdue', base.filter((task) => dayOf(task) < startOfDay() && task.id !== frog && !threeIds.includes(task.id))],
+          ['Today', [...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog && !threeIds.includes(task.id))],
           ['Waiting on someone', waiting]
         ]
       : [
@@ -1036,7 +1044,7 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
   }
   // The day's three: the first three of today's tasks as the list shows them, numbered in the margin.
   // Numbered in the order the list shows them. Today's three wherever today's tasks stand under "Today": the All tab's "Today" too, so the same part never looks two ways (23 Nov).
-  const three = (mode === 'today' || mode === 'alltasks') && view.group === 'when' && !example ? ((kept: string[]) => shown.map((task) => task.id).filter((id) => kept.includes(id)))(keptThree(shown.filter((task) => task.status === 'open' && dayOf(task) < startOfDay(1) && !task.waitingOn && !task.heldAt).map((task) => task.id), tasks)) : []
+  const three = mode === 'today' ? threeTasks.map((task) => task.id) : mode === 'alltasks' && view.group === 'when' && !example ? ((kept: string[]) => shown.map((task) => task.id).filter((id) => kept.includes(id)))(keptThree(shown.filter((task) => task.status === 'open' && dayOf(task) < startOfDay(1) && !task.waitingOn && !task.heldAt).map((task) => task.id), tasks)) : []
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
@@ -1216,6 +1224,15 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     const rest = shown.map((one) => one.id).filter((one) => one !== id)
     const first = beside && rest.includes(beside.row) ? rest.indexOf(beside.row) + (beside.after ? 1 : 0) : rest.findIndex((one) => partOf.get(one) === target)
     const head = first >= 0 ? [...rest.slice(0, first), id, ...rest.slice(first)] : []
+    // Onto today's three: one of them where it was let go, the last of them giving up its place.
+    if (target === THREE) {
+      const at = beside && threeIds.includes(beside.row) ? threeIds.indexOf(beside.row) + (beside.after ? 1 : 0) : 0
+      const next = [...threeIds.slice(0, at), id, ...threeIds.slice(at)].slice(0, 3)
+      const was = threeIds
+      chime('settled')
+      setThree(next)
+      return void toast('One of today’s three', () => setThree(was))
+    }
     // Out of "On hold": brought back. Let go in "Today", it is today's too, so it stays where it was dropped: brought
     // back with its old date alone, it fell into "Overdue" (the user, 23 Nov). One notice, one Undo for both.
     if (partOf.get(id) === ON_HOLD) {
@@ -1252,7 +1269,8 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
     const order = shown.map((task) => task.id).filter((one) => one !== id)
     order.splice(order.indexOf(target) + (after ? 1 : 0), 0, id)
     if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
-    pickThreeAgain()
+    // Within today's three: their own order, kept for the day.
+    if (partOf.get(id) === THREE) setThree(order.filter((one) => threeIds.includes(one)))
     chime('shift')
     const saving = place(order)
     // Said, as a drop in Writing is (“Moved”), with its Undo.
@@ -1273,7 +1291,9 @@ export function TasksView({ mode, focus, onOpen, keep, lead: givenLead, said, pr
    * by dragging, and the refusal says what does put a task there.
    */
   const takenBy = (id: string, part: string): { words: string } | { refused: string } =>
-    partOf.get(id) === ON_HOLD ? { words: 'Bring it back' }
+    part === THREE ? { words: 'Make it one of today’s three' }
+    : partOf.get(id) === THREE ? { refused: 'Tick it, or drag another task onto the three to swap it out' }
+    : partOf.get(id) === ON_HOLD ? { words: 'Bring it back' }
     : part === ON_HOLD ? { words: 'Put on hold' }
     // Into "Today" from any part (Overdue, a later day, No date on All): moved to today, where it was let go.
     : part === 'Today' ? { words: 'Move to Today' }
@@ -2853,7 +2873,7 @@ function ThreeBand({ three }: { three: string[] }): React.JSX.Element {
       {at.map((one, n) => <div key={n} data-three-band="" aria-hidden className="pointer-events-none absolute -z-10 rounded-lg" style={one} />)}
       {/* Why it looks like this, said where it is: the band is today's three, and how a task gets on it. */}
       {at[0] && (
-        <Tip label="Your three for today: if you finish only these, it was a good day. They are the top three of your list; drag a task up here to swap it in." side="right">
+        <Tip label="Your three for today: if you finish only these, it was a good day. Drag a task onto them to swap it in; one you tick stays here, struck, until tomorrow." side="right">
           <button type="button" aria-label="About today's three" className="absolute z-10 grid size-5 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" // Inside the band's bottom-right corner: outside it the list scrolled sideways, and at its top it sat on a row's note button (the user, 24 Nov).
             style={{ top: at[0].top + at[0].height - 26, left: at[0].left + at[0].width - 26 }}>
             <Info className="size-3.5" />

@@ -22,7 +22,7 @@ export const takeWriteDay = (): boolean => (pending ? ((pending = false), true) 
  * Today's three, kept for the day: the first three in Today's order the first time the day is looked at, and the same
  * three after. One ticked off stays one of them (its number with it); nothing moves up to take its place, so the three
  * can be finished (the user, 24 Nov: "they are just replaced by new top three, which makes the list endless"). One moved
- * off today (to tomorrow, on hold) gives its place to the next; your own reordering picks them afresh (`pickThreeAgain`).
+ * off today (to tomorrow, on hold) gives its place to the next; dragging a task onto them swaps it in (`saveThree`).
  */
 export const dayThree = (tasks: Task[]): string[] =>
   keptThree(tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.heldAt && (placed(task) ?? Infinity) < startOfDay(1)).sort(dayOrder).map((task) => task.id), tasks)
@@ -50,8 +50,8 @@ export function keptThree(open: string[], tasks: Task[]): string[] {
   if (!saved.length && kept.length) try { localStorage.setItem(threeKey(), JSON.stringify(kept)) } catch { /* kept for this look only */ }
   return kept
 }
-/** Your own reordering of today's list chooses the three again, from the top. */
-export const pickThreeAgain = (): void => { try { localStorage.removeItem(threeKey()) } catch { /* nothing kept */ } }
+/** The day's three chosen by hand: dragged onto them, or reordered among them. */
+export const saveThree = (ids: string[]): void => { try { localStorage.setItem(threeKey(), JSON.stringify(ids)) } catch { /* kept for this look only */ } }
 
 /** Today's order, as Today's page lists it: what is late first, then the rest, each in your own order. */
 export const dayOrder = (a: Task, b: Task): number => Number(!late(a)) - Number(!late(b)) || yourOrder(a, b)
