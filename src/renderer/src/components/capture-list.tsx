@@ -15,7 +15,8 @@ import { copy, copyLinkItem, type RowItem } from './haligtree/row-menu'
 import { stickOnDesktop } from './haligtree/sticky-note'
 import { NoteList, type Entry } from './haligtree/note-list'
 import type { Density } from './haligtree/display'
-import { archive, changeKind, publishSite, saveAttachments } from '@/lib/notes'
+import { archive, changeKind, notes, publishSite, saveAttachments } from '@/lib/notes'
+import { TAGS_KEY, tagsKept } from '../../../main/property-tags'
 import { openApart, openSmall } from '@/lib/apart'
 import { openItems } from '@/lib/split'
 import { binItem, moveToBin } from '@/lib/to-bin'
@@ -124,8 +125,9 @@ export function ageTint(at: string, importedAt?: string | null): string | undefi
 }
 
 /**
- * A tag put on one capture or several, asked for by name, with an undo that
- * puts each back as it was: its words before the tag, and its privacy.
+ * A tag put on one capture or several, asked for by name. It stays in Properties,
+ * as a tag added on the note does, and the words are left as they were. Undo
+ * puts each list back, and its privacy when #bit made it private.
  */
 export async function tagCaptures(ids: string[]): Promise<void> {
   const tag = (await ask(`Tag ${ids.length === 1 ? 'it' : `these ${ids.length}`} with`, 'thesis', { field: 'tag', action: ids.length === 1 ? 'Tag it' : `Tag ${num(ids.length)}` }))?.trim().replace(/^#/, '')
@@ -133,10 +135,14 @@ export async function tagCaptures(ids: string[]): Promise<void> {
   const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
   await haligtree.bulk(ids, { tag })
   chime('tag')
-  void (ids.length === 1 ? quietly : (undo: () => void) => toast(`Tagged ${num(ids.length)} with #${tag}`, undo))(() => void Promise.all(before.map((one) => Promise.all([
-    window.api.captures.save(one.id, { body: one.body, fetched: true }),
-    !one.private ? haligtree.setPrivate('captures', one.id, false, true) : undefined
-  ]))).then(() => chime('undo')))
+  const putBack = (): Promise<unknown> => Promise.all(before.map((one) => {
+    const kept = tagsKept(one.fields)
+    return Promise.all([
+      notes.setField('captures', one.id, TAGS_KEY, kept.length ? kept : null),
+      !one.private ? haligtree.setPrivate('captures', one.id, false, true) : undefined
+    ])
+  })).then(() => chime('undo'))
+  void (ids.length === 1 ? quietly : (undo: () => void) => toast(`Tagged ${num(ids.length)} with #${tag}`, undo))(() => void putBack())
 }
 
 /**

@@ -69,7 +69,8 @@ import BookIcon from '@/components/ui/book-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader, PlaceChip, TopicName, WritingSpent } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
-import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { archive, changeKind, notes, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { TAGS_KEY, tagsKept } from '../../../../main/property-tags'
 import { askBook, moveToBookItem } from '@/lib/books'
 import { askFolder } from '@/lib/folders'
 import { useOpened } from '@/lib/nav'
@@ -1346,15 +1347,18 @@ const Lead = ({ children }: { children: React.ReactNode }): React.JSX.Element =>
 
 /**
  * A tag or a date put on many captures at once, with an undo that puts each
- * back as it was: its words before the tag, its own date, its privacy.
+ * back as it was: the tag list it had, its own date, its privacy. The words stay.
  */
 async function bulkUndoable(ids: string[], change: { tag?: string; capturedAt?: string }, said: string, cue: 'tag' | 'noted'): Promise<void> {
   const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
   await haligtree.bulk(ids, change)
   chime(cue)
-  toast(said, () => void Promise.all(before.map((one) => Promise.all([
-    change.tag ? window.api.captures.save(one.id, { body: one.body, fetched: true }) : undefined,
-    change.capturedAt ? haligtree.bulk([one.id], { capturedAt: one.capturedAt }) : undefined,
-    change.tag && !one.private ? haligtree.setPrivate('captures', one.id, false, true) : undefined
-  ]))))
+  toast(said, () => void Promise.all(before.map((one) => {
+    const kept = tagsKept(one.fields)
+    return Promise.all([
+      change.tag ? notes.setField('captures', one.id, TAGS_KEY, kept.length ? kept : null) : undefined,
+      change.capturedAt ? haligtree.bulk([one.id], { capturedAt: one.capturedAt }) : undefined,
+      change.tag && !one.private ? haligtree.setPrivate('captures', one.id, false, true) : undefined
+    ])
+  })))
 }

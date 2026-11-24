@@ -27,10 +27,10 @@ import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, st
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder, writeMarkdown } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
 import { openOutside } from './app-folder'
-import { retireKinds, tagged as hasTag, withTag } from './kinds'
+import { retireKinds, tagged as hasTag } from './kinds'
 import { cardWords, plain } from './card-words'
 import { noteTags } from './book-tags'
-import { TAGS_KEY, tagsKept } from './property-tags'
+import { TAGS_KEY, cleanTag, keptWith, tagsKept } from './property-tags'
 import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
@@ -1648,14 +1648,13 @@ export function registerHaligtree(): void {
     atomically(() => { for (const id of ids) {
       if (change.capturedAt) db.prepare('update captures set captured_at = ? where id = ?').run(change.capturedAt, id)
       if (!change.tag) continue
-      const tag = `#${change.tag.replace(/^#/, '')}`
-      // Gone meanwhile, from another window: nothing to tag.
-      const row = db.prepare('select body from captures where id = ?').get(id) as { body: string } | undefined
+      // Gone meanwhile, from another window: nothing to tag. The tag stays in Properties, as one added on the note does, and the words are left as they were.
+      const row = db.prepare('select fields from captures where id = ?').get(id) as { fields: string | null } | undefined
       if (!row) continue
-      // On its line of tags at the end, where a row reads them beside its name (kinds.ts `withTag`).
+      const next = keptWith(row.fields, change.tag)
+      if (next.added) db.prepare('update captures set fields = ? where id = ?').run(next.fields, id)
       // #bit makes it private, as typed does.
-      db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(withTag(JSON.parse(row.body ?? 'null'), tag)), id)
-      if (tag.toLowerCase() === '#bit') (db.prepare('update captures set private = 1 where id = ?').run(id), checkMarkdown(id))
+      if (cleanTag(change.tag) === 'bit') (db.prepare('update captures set private = 1 where id = ?').run(id), checkMarkdown(id))
     } })
     return write(ids.length)
   })

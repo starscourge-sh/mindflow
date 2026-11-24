@@ -35,3 +35,31 @@ export function tagsKept(fields: unknown): string[] {
 export function tagsBeside(fromWords: string[], fields: unknown): string[] {
   return [...fromWords, ...tagsKept(fields).filter((tag) => !fromWords.includes(tag))]
 }
+
+/**
+ * The note's properties with this tag added, as Properties keeps one. The words
+ * are not in this. `added` is false when it was already kept, or it is not a tag.
+ * A properties value that will not read is left as it was.
+ */
+export function keptWith(fields: unknown, raw: string): { fields: string | null; added: boolean } {
+  const tag = cleanTag(raw)
+  const asObject = (value: unknown): Record<string, unknown> | null => {
+    if (value == null) return {}
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value) as unknown
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? { ...(parsed as Record<string, unknown>) } : null
+      } catch {
+        return null
+      }
+    }
+    return typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : null
+  }
+  const same = typeof fields === 'string' ? fields : fields == null ? null : JSON.stringify(fields)
+  const obj = asObject(fields)
+  if (!tag || !obj) return { fields: same, added: false }
+  const had = tagsKept(obj)
+  if (had.includes(tag)) return { fields: Object.keys(obj).length ? JSON.stringify(obj) : null, added: false }
+  obj[TAGS_KEY] = [...had, tag]
+  return { fields: JSON.stringify(obj), added: true }
+}

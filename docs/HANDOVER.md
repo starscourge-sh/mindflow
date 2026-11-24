@@ -38,7 +38,7 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 - Page tabs are one component everywhere (`tab-chips.tsx`), plain pills by default, "Boxed" in Settings › Appearance.
 - Folder and project menus open on a row of colour swatches.
 - Reminder cards: what it is about first, why under it in quiet ink, the app's own buttons, never a coloured badge or pill.
-- A tag added from the Properties row stays on the note (`fields._tags`) and is not written into its words. The row ends in a quiet "+". "Add a tag…" on a selection still writes the tag into the words.
+- A tag added from the Properties row, or with "Add a tag…" on one note or a selection, stays on the note (`fields._tags`) and is not written into its words. The row ends in a quiet "+". Undo puts the tag list back.
 - Deleting a book: any book but your last; the open one opens another first.
 - Start fresh puts things away (never deletes notes); "Bring it back" or dragging out of "On hold" returns a task.
 
