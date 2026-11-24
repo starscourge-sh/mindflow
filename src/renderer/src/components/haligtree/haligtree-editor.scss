@@ -3784,10 +3784,19 @@ body > div[dir] > .tableWrapper {
   overflow: clip;
   // The same gap above and below as a code block's.
   margin: 1em 0;
-  padding: 0.625rem 1rem 0.625rem 2.375rem;
-  border: 1px solid var(--callout-border);
-  border-radius: 0.5rem;
-  background: var(--callout-tint);
+  // A margin note, as a commonplace book sets one: no box, no tint, a fine rule in the margin in the callout's colour
+  // and the words in the page's own ink and type (the user, 24 Nov: the tinted, bordered box with a blue title and an
+  // emoji read as a template). The rule is drawn, not a border, so it has square ends.
+  padding: 0.125rem 0 0.125rem 2.375rem;
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    left: 0;
+    width: 2px;
+    background: color-mix(in srgb, var(--callout-accent) 55%, transparent);
+  }
 
   // A one line callout should be one line tall.
   > .tiptap-callout-body > :first-child {
@@ -3806,7 +3815,8 @@ body > div[dir] > .tableWrapper {
   gap: 0.25rem;
   min-height: 1.6em;
   font-weight: 600;
-  color: var(--callout-accent);
+  // The title is the note's own ink, a bold lead-in; the colour is left to the rule and the icon.
+  color: var(--foreground);
   user-select: none;
 
   + .tiptap-callout-body {
@@ -3876,8 +3886,8 @@ body > div[dir] > .tableWrapper {
   // Level with the first line of text, not with the box: the top edge is the
   // callout's own padding, and the button is one line tall, so the two centre
   // on each other. A fixed rem height sat a few pixels high of it.
-  top: 0.625rem;
-  left: 0.5rem;
+  top: 0.125rem;
+  left: 0.625rem;
   height: 1.6em;
   width: 1.6em;
   border-radius: 0.25rem;

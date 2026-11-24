@@ -7,14 +7,19 @@ import { cue } from "@/lib/cues"
 
 import type { BlockColor } from "@/extensions/block-color"
 import { ChevronRight } from "@/components/ui/icons"
-import { Lightbulb } from "lucide-react"
+import { Bug, CircleAlert, CircleCheck, CircleHelp, CircleX, ClipboardList, FlaskConical, Flame, Info, Lightbulb, ListTodo, MessageSquareQuote, OctagonAlert, Pencil, TriangleAlert } from "lucide-react"
 
 /**
- * The default callout's 💡, drawn as a line icon in the callout's own colour:
- * the colour emoji was the one cartoon on a page of paper and ink. A chosen
- * emoji still shows as itself, and the note still saves the 💡.
+ * Each callout type's own emoji, drawn as a line icon in the callout's colour: a colour emoji (ℹ️, 📝) was the one
+ * cartoon on a page of paper and ink, and read as a template pasted in (the user, 24 Nov). An emoji you pick yourself
+ * still shows as itself, and the note still saves the emoji, so Obsidian reads it as before.
  */
-const DRAWN: Record<string, React.ReactNode> = { "💡": <Lightbulb className="tiptap-callout-drawn" aria-hidden /> }
+const line = (Icon: typeof Info): React.ReactNode => <Icon className="tiptap-callout-drawn" aria-hidden />
+const DRAWN: Record<string, React.ReactNode> = {
+  "💡": line(Lightbulb), "📝": line(Pencil), "ℹ️": line(Info), "📋": line(ClipboardList), "☑️": line(ListTodo), "🔥": line(Flame),
+  "✅": line(CircleCheck), "❓": line(CircleHelp), "⚠️": line(TriangleAlert), "❌": line(CircleX), "⛔": line(OctagonAlert),
+  "🐞": line(Bug), "🧪": line(FlaskConical), "💬": line(MessageSquareQuote), "❗": line(CircleAlert),
+}
 
 /**
  * A tinted box with an icon you can change, and anything you like inside.

@@ -78,17 +78,28 @@ function markDayPaths(): void {
   // And the way up from what stays at hand while you write (data-day-keep: "Writing room"): faded with the bar, the
   // first click on it only brought the bar back, and the room seemed to do nothing (the user, 20 Nov 2026).
   const kept = open.length ? [...document.querySelectorAll('[data-day-keep]')] : []
-  for (const words of [...open, ...kept]) for (let up = words.parentElement; up && up !== document.body; up = up.parentElement) way.add(up)
-  for (const one of kept) way.add(one)
+  // Path is the words' way up, plus each keep and its ancestors (so a faded parent does not hide
+  // “Writing room”). Keep's own siblings (Copy link, Name, …) still fade — they used to stay lit
+  // because the whole actions row joined the path with the keep (24 Nov walk).
+  for (const words of open) for (let up = words.parentElement; up && up !== document.body; up = up.parentElement) way.add(up)
+  for (const one of kept) {
+    way.add(one)
+    for (let up = one.parentElement; up && up !== document.body; up = up.parentElement) way.add(up)
+  }
   const aside = new Map<Element, string>()
-  if (open.length)
-    for (const on of [document.body, ...way])
-      for (const beside of on.children) {
-        if (way.has(beside)) continue
-        aside.set(beside, '')
-        if (beside.classList.contains('contents')) for (const inner of beside.children) aside.set(inner, 'in')
-      }
-  // Only what changed is touched: a mark taken off and put back is still a change the browser must answer.
+  const markAside = (beside: Element): void => {
+    if (way.has(beside)) return
+    aside.set(beside, '')
+    if (beside.classList.contains('contents')) for (const inner of beside.children) aside.set(inner, 'in')
+  }
+  if (open.length) {
+    for (const on of [document.body, ...way]) for (const beside of on.children) markAside(beside)
+    for (const one of kept) {
+      const parent = one.parentElement
+      if (!parent) continue
+      for (const sib of parent.children) if (sib !== one) markAside(sib)
+    }
+  }  // Only what changed is touched: a mark taken off and put back is still a change the browser must answer.
   for (const one of document.querySelectorAll('[data-day-path]')) if (!way.has(one)) one.removeAttribute('data-day-path')
   for (const one of way) if (!one.hasAttribute('data-day-path')) one.setAttribute('data-day-path', '')
   for (const one of document.querySelectorAll('[data-day-aside]')) if (!aside.has(one)) one.removeAttribute('data-day-aside')
