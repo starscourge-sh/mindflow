@@ -149,6 +149,8 @@ try {
   await wait(300)
 
   // A section carried by its heading and let go within 100ms of reaching its spot lands where the line showed, 5 times.
+  // The sidebar no longer has a Folders section of its own (folders hang under Writing); Library, Favorites, Recent and
+  // Tags are the four that fold (24 Nov walk).
   await h.evaluate(() => localStorage.setItem('list-width', '400'))
   await c.go('day')
   await wait(600)
@@ -158,16 +160,16 @@ try {
     // As drawn, top to bottom (each section's place is set by CSS order, not where it sits in the page's code).
     .sort((a, b) => a.top - b.top))
   // Folded to their headings, so every section is in the window (a heading under its edge cannot be pressed).
-  for (const id of ['folders', 'library']) {
+  for (const id of ['library', 'pinned', 'recent', 'tags']) {
     const handle = h.locator(`aside [data-side-section-handle="${id}"]`)
     if ((await handle.count()) && (await handle.getAttribute('aria-expanded')) !== 'false') await handle.click()
     await wait(300)
   }
   const landed = []
   // Each: the section carried, and the section it is let go just over (its top edge), or past the last ('end').
-  for (const [carry, onto] of [[0, 2], [1, 0], [3, 0], [0, 4], [2, 'end']]) {
+  for (const [carry, onto] of [[0, 2], [1, 0], [3, 0], [0, 3], [2, 'end']]) {
     const before = await sections()
-    if (before.length < 5) break
+    if (before.length < 4) break
     const one = before[carry]
     await h.mouse.move(one.head.left + 20, one.head.top + one.head.height / 2)
     await h.mouse.down()
