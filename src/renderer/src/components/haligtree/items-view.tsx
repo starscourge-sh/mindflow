@@ -40,7 +40,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, kindOf, asksFor, byKind, type Capture
 import { age, fieldOf } from '../capture-list'
 import { headword, letterOf } from '@/lib/headword'
 import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
-import { call, splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
+import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { exampleIdeas, exampleWords, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { LIFECYCLE } from './page-hint'
@@ -334,7 +334,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
   }, [all, shelf, opened, inFolder, folderOfItem])
-  const { groups: arranged, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
+  const { groups: arranged, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly, !!inFolder && inFolder.id !== 'unfiled')
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -953,11 +953,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           </Example>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
-        ) : unloaded(all) ? null : inFolder && inFolder.id !== 'unfiled' ? (
-          // A folder of your own shows only what is yours: never made-up pages in a real folder (the user, 24 Nov: "where
-          // are the things?"). What Start fresh put away here is said, with the way back.
-          <PutAwayHere folder={inFolder.id} />
-        ) : (
+        ) : unloaded(all) ? null : inFolder && inFolder.id !== 'unfiled' ? null : (
           // Nothing on show (none kept yet, or only archived ones): the page as it will look, with a few made-up ones.
           // One empty page either way: a second one, laid out apart, showed for a moment before this one.
           <Example tryIt={`${tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New page” above, or pick a few gems with X and choose “Start a page”.'} ${LIFECYCLE}`}>
@@ -1792,7 +1788,7 @@ const propOf = (one: Item): { status?: string; rating?: number } => {
 /** Questions › Words' Display, kept apart from Open's and Answered's. */
 const WORDS = 'question:words'
 
-export function useItemDisplay(name: string, every: Item[], withGroups = false): {
+export function useItemDisplay(name: string, every: Item[], withGroups = false, /** In a folder of your own: what is put away shows too, quiet. */ keepAway = false): {
   groups: [string, Item[]][]
   display: React.JSX.Element
   /** The orders the list can take, as Display's "Sort" offers them: the list's own right-click offers the same. */
@@ -1822,7 +1818,9 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   // Words, as Looked up: A to Z under their letters (a list of its own, so Open and Answered keep theirs).
   const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'date' })
   // Archived ones are out of sight until Display's Marked asks for them.
-  const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
+  // In a folder of your own, put away ones stay on show where they are kept: put away means out of the Feed, Home and
+  // Review, never out of its folder (the user, 24 Nov: a folder of 40 put-away pages showed none).
+  const all = keepAway && !view.filter.flags?.includes('archived') ? every : every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
   const folderOf = useFolderOf()
   const own = useOwnOrder(name)
   // Moving a row is choosing your own order: the list switches to it.
@@ -2475,23 +2473,3 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, groupNew, ungroup, folds, reveal, moveInto, newFolder, home }
 }
 
-/** What Start fresh put away in a folder, said where the folder's things would be, with "Bring them back" (Undo, ⌘Z). */
-function PutAwayHere({ folder }: { folder: string }): React.JSX.Element | null {
-  const [away, setAway] = useState<{ pages: number; gems: number; notes: number } | null>(null)
-  const read = (): void => void call<{ pages: number; gems: number; notes: number }>('fresh:away-in', folder).then(setAway, () => setAway(null))
-  useEffect(read, [folder]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!away) return null
-  const parts = [away.pages && plural(away.pages, 'page'), away.gems && plural(away.gems, 'gem'), away.notes && plural(away.notes, 'note')].filter(Boolean)
-  if (!parts.length) return null
-  const back = (): void => void call<number>('fresh:back', 'contents', folder).then(() => {
-    chime('unshelve')
-    read()
-    toast(`Brought back ${parts.join(', ')}`, () => void call('fresh:unback', 'contents', folder).then(() => (chime('away'), read())))
-  })
-  return (
-    <div data-folder-away className="list-edge my-6 flex items-center gap-4 rounded-[0.875rem] border bg-foreground/[0.03] px-4 py-3">
-      <p className="min-w-0 flex-1 text-body text-foreground"><strong className="font-semibold">{parts.join(', ')} put away here</strong> <span className="text-(--mf-muted-strong)">by Start fresh: out of the Feed, Home and Review until you bring them back.</span></p>
-      <Button size="sm" className="shrink-0 cursor-pointer" onClick={back}>Bring them back</Button>
-    </div>
-  )
-}
