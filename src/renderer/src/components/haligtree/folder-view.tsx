@@ -144,7 +144,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace, group, onGroup 
           folder of pages alone 16px lower. */}
       {/* Always there (a folder made here is named in its row, FolderRows), its height gliding as folders come and go. */}
       {on !== 'recent' && (
-        <Grows className="-mx-2 px-2" inner={inside.length ? 'pt-4' : undefined}><FolderRows parent={top ? null : id} onPlace={(one) => onPlace(one)} onOpenItem={onOpen} /></Grows>
+        <Grows className="-mx-7 px-7" inner={inside.length ? 'pt-4' : undefined}><FolderRows parent={top ? null : id} onPlace={(one) => onPlace(one)} onOpenItem={onOpen} /></Grows>
       )}
     </div>
   )

@@ -317,7 +317,7 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
   if (naming)
     return (
       <div className={page ? cn(ROW_SHAPE, ROW_PAD) : 'flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2'}>
-        {page ? <><span aria-hidden className="-ml-1 w-3.5 shrink-0" /><GroupTile group={folder} empty={!n} /></> :<span className="flex size-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>}
+        {page ? <GroupTile group={folder} empty={!n} /> :<span className="flex size-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>}
         <NameInPlace initial={folder.name} data-folder-name={folder.id} label="Folder name" placeholder="Name the folder" onDone={name}
           // As Finder names a new folder: a field as wide as the name, a fine ring round it, never a bar across the row (23 Nov).
           className={cn('min-w-[5rem] max-w-full rounded-[4px] bg-background px-1 text-foreground outline-none ring-2 ring-ring/45 [field-sizing:content]', page && 'text-control font-medium')} />
@@ -353,9 +353,8 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
             // On a folder's page, Writing's folder row from before Folders (kept-groups.tsx `GroupTile`): the drawn folder
             // with its icon in a page thumbnail's box, the name on the titles' line, what it holds in words on the right.
             <>
-              {/* Finder's list view: a column at its left for the fold's chevron (drawn over it, below), kept on every
-                  folder row so their drawings line up, an empty one's too. Its drawing never gives way to the fold. */}
-              <span aria-hidden data-folder-fold-room="" className="-ml-1 w-3.5 shrink-0" />
+              {/* Finder's list view: the fold's chevron hangs in the margin left of the drawing (below), so every folder's
+                  drawing stands on the page's one left edge, as a page's thumbnail does. */}
               <GroupTile group={folder} empty={!n} />
               <span data-folder-row-name="" data-title="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{folder.name}</span>
               {/* Pointed at, the count gives its place to the row's "…" and "+". */}
@@ -378,7 +377,7 @@ export function FolderRow({ folder, all, here, n, naming, open, onNamed, onRenam
         {/* On a page, Finder's disclosure: always there on a folder that holds something, opening what it holds in place
             under it on the tree's lines. A press on the row itself still opens the folder's page. */}
         {onFold && page && <button type="button" data-folder-page-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
-          className="absolute top-1/2 left-px flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors duration-80 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45">
+          className="absolute top-1/2 -left-5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors duration-80 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45">
           <ChevronRight className={cn('size-3.5 transition-transform duration-150 ease-out motion-reduce:transition-none', open && 'rotate-90')} />
         </button>}
         <span className={`absolute ${page ? 'top-1/2 right-2 -translate-y-1/2' : 'top-[0.1875rem] right-1.5'} flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0`}>

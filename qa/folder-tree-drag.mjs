@@ -25,7 +25,7 @@ const said = () => h.evaluate(() => [...document.querySelectorAll('[role="status
 // Asked again until it holds, for at most 5 s.
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
 const parentOf = async (id) => (await c.v('folders')).find((one) => one.id === id)?.parent ?? null
-const row = (id) => h.locator(`[data-page="articles"] [data-folder-open="${id}"]`)
+const row = (id) => h.locator(`[data-page] [data-folder-open="${id}"]`)
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
   await c.v('settings:set', { hintRate: 0, rotCount: 0, sounds: false })
