@@ -657,8 +657,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         {/* Frosted: the desktop picture behind it, blurred, under the same paper. */}
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
-        {/* The strip of tape that holds it up; the pointer on the card, the grabber that moves it in its place. */}
-        <Tape inside={GLASS} />
+        {/* The strip of tape that holds it up. While the card grows out of its pill it stays hidden until the clip has cleared it. */}
+        <div data-pill-later aria-hidden className="pointer-events-none absolute inset-0 z-20"><Tape inside={GLASS} /></div>
         <Grabber label="Move this sticky" inside={GLASS} />
         <StickyHead title={named.tags.length ? <span className="flex min-w-0 items-center gap-1.5"><span className="truncate">{named.text}</span><Tags tags={named.tags} go={false} /></span> : title} titleClass="private-text" open={asking}
           // "All done" gives way first when the title needs the room, down to a ✓.

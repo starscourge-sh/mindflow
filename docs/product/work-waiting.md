@@ -30,7 +30,7 @@ Split 23 Nov, so another agent can carry on. "Any agent" means a general-purpose
 - **[done 24 Nov]** WordNet offline.
 - **[done 24 Nov]** The opt-in MCP server.
 - **[done 24 Nov]** Snapshots you can open and restore; deleted books: bring back and clear.
-- The chip-to-sticky growth, smoother; sticky tape cut off while growing.
+- **[done 24 Nov]** The chip-to-sticky growth, smoother; sticky tape cut off while growing.
 - Part 3: last tab wins, the apps-you-capture-from stat, dim all but the current line, two-page PDF zoom, Read mode's kept thoughts.
 - Part 4: the Feed's 7-day rest, the "More below" arrow, the article ribbon.
 - Every item in part 5 (fixes found while working), from the tag page overflow to the narrow-window bar.
@@ -48,7 +48,7 @@ You said "yes to all". These are the biggest; they change how the app is organis
 
 1. **A pass over every menu, context menu and popover**: is each line relevant and up to date, one action one home, no sparse menus, no stale words.
 2. **[done 24 Nov] Export that feels premium.** Leaving should feel like a gift, good enough that people try the export in Obsidian just to see it. Markdown with front matter, folders as folders, links and backlinks kept, pictures and files beside the notes, gems and their source notes linked both ways, highlights kept with their source. Review cards: one file per deck, each card a collapsible callout (question visible, answer folded). A readme at the top explaining the export. A preview of the export before saving. The JSON beside it is still the whole book. The live "Markdown copies" setting is unchanged: one file a note, kept up to date.
-3. **The chip-to-sticky expansion, smoother.** One surface, springs, no step in the size.
+3. **[done 24 Nov] The chip-to-sticky expansion, smoother.** One surface, one spring, and the card stops at its own size: the spring's give no longer stretches it. The tape stays hidden until the opening has cleared it, so it is never shown cut.
 4. **The sandbox's Wrapped becomes the standard Wrapped**, then:
    - a choreography pass on every card so it reads made by hand, not generated;
    - easy stats it misses: words written, longest writing streak, busiest hour, most-used words, longest note, pages finished;
@@ -83,7 +83,7 @@ You said "yes to all". These are the biggest; they change how the app is organis
 - **The Feed's review card** that graded "Nebulous" without you meaning to: make a review card in the Feed unmistakable, and say whether to delete that one review from your book (writes your data, needs your OK).
 - **Wrapped's pulp voice**: a hand-written bank of pulp lines as the fallback when a model line fails and on Macs without Apple Intelligence (asked, never answered).
 - **Read mode**: kept thoughts sit at the bottom on a short note, as the note page now does.
-- **Stickies**: the Today sticky and sticky notes still show their tape cut off while growing out of a pill.
+- **[done 24 Nov] Stickies**: the tape on Today, a sticky note and a goal card stays hidden until the pill has opened past it, and on glass it sits on the card so the window cannot cut it.
 
 ## 4. Pitched, you agreed, never given the go
 

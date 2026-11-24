@@ -152,7 +152,7 @@ export function TodaySticky(): React.JSX.Element {
         style={{ ...DRAG, '--tilt': `${tilt}deg`, ...PAPER } as unknown as CSSProperties}>
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
-        <Tape inside={GLASS} />
+        <div data-pill-later aria-hidden className="pointer-events-none absolute inset-0 z-20"><Tape inside={GLASS} /></div>
         <Grabber label="Move this sticky" inside={GLASS} />
         <StickyHead title="Today" open={asking}
           count={todos.length > 0 && (

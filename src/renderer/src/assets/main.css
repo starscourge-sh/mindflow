@@ -3678,7 +3678,9 @@ html[data-pill-open] #root { position: fixed; top: 0; bottom: 0; left: var(--pil
 #root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > [data-card-head] { opacity: var(--pill-head, 1); }
 /* What hangs past the card's edge (its tape, the sandbox badge, the grabber) would be cut by the growing shape: it comes
    in last, once the shape has passed it. */
-#root[data-growing] :is([data-pill-later], [data-grabber]) { opacity: var(--pill-later, 1); }
+/* More specific than the body fade above, which would otherwise keep the tape at full strength and let the clip cut it. */
+#root[data-growing] :is([data-goal-card], [data-goals-sticky], .mf-card) > [data-pill-later],
+#root[data-growing] :is([data-pill-later], [data-grabber]) { opacity: var(--pill-later, 0); }
 
 /* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: dots or squares in a
    faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */

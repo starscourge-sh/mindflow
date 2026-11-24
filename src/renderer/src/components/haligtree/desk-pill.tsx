@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { animate, motion, motionValue } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
+import { tapeReady } from '@/lib/pill-open'
 import { chime } from '@/lib/sound'
 import { wornStyle } from '@/lib/theme'
 import { LIFT, SOLID } from '@/lib/float'
@@ -85,21 +86,20 @@ export function DeskPill(): React.JSX.Element | null {
       const mix = (a: number, b: number): number => a + (b - a) * t
       // The shape: the pill's box at the card's corner on the stack's side, sprung out to the paper and the room round
       // it (its shadow), the corners from the pill's round ends to the card's own (concentric with the room's). The pill
-      // is the card's width (main's pillWide), so the paper's sides stay where they are: it grows only downward. Past 1
-      // (the spring's give) the card grows a hair downward from its top and settles back, never sideways.
+      // is the card's width (main's pillWide), so the paper's sides stay where they are: it grows only downward, and it
+      // stops at the card's own size (the spring may pass 1; the card does not stretch past itself).
       const left = mix(edge === 'right' ? frame.x + frame.width - pill.width : frame.x, 0)
       const top = mix(frame.y, 0)
       const width = mix(pill.width, card.width)
       const height = mix(pill.height, card.height)
       root.style.clipPath = `inset(${top}px ${card.width - left - width}px ${card.height - top - height}px ${left}px round ${mix(round, corner + frame.y)}px)`
-      const give = 1 + Math.max(0, p - 1) * 0.5
       root.style.transformOrigin = `${edge === 'right' ? frame.x + frame.width : frame.x}px ${frame.y}px`
-      root.style.transform = `translate(${dx * (1 - t)}px, ${dy * (1 - t)}px)${give > 1 ? ` scale(1, ${give})` : ''}`
+      root.style.transform = `translate(${dx * (1 - t)}px, ${dy * (1 - t)}px)`
       // The card's own words: its first line comes in as the pill's go, the rest once the shape is mostly open.
       root.style.setProperty('--pill-head', String(clamp((p - 0.25) / 0.3)))
       root.style.setProperty('--pill-body', String(clamp((p - 0.55) / 0.4)))
-      // What hangs past the card's edge, once the shape has passed it.
-      root.style.setProperty('--pill-later', String(clamp((p - 0.85) / 0.15)))
+      // The tape hangs above the card. It stays hidden until the clip has cleared it, so it is never shown cut.
+      root.style.setProperty('--pill-later', String(tapeReady(p, frame.y)))
       const words = ghost.current
       if (!words) return
       // The pill's words glide to the card's first line as they cross-fade into it.

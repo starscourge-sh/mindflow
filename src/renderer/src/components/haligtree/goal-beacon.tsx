@@ -78,9 +78,9 @@ function Desk({ shown, children, onEnter, onLeave }: { shown: number; children: 
     >
       <div className="relative h-full">
         {children}
-        <div data-pill-later className="pointer-events-none absolute inset-0 z-30"><SandboxStamp /></div>
+        <div data-pill-later aria-hidden className="pointer-events-none absolute inset-0 z-30"><SandboxStamp /></div>
         {/* The tape holding it to the desk. */}
-        <div data-pill-later className="pointer-events-none absolute inset-0 z-30"><Tape inside={GLASS} /></div>
+        <div data-pill-later aria-hidden className="pointer-events-none absolute inset-0 z-30"><Tape inside={GLASS} /></div>
         {/* The pointer on the card: the grabber that moves it, in the tape's place, as on every floating card. */}
         <Grabber label="Move this card" inside={GLASS} style={DRAG} />
       </div>
