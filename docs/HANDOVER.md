@@ -42,6 +42,7 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 - Export everything shows a preview first (pages, gems, notes, decks, highlights, the readme), then saves a folder: Writing, Gems, Notes, Decks, Library, assets, and haligtree.json. The Markdown copies setting still writes one file a note.
 - WordNet stays on this Mac. Search for “decide” also finds “decision”. “define ephemeral” in ⌘K, or Define on a picked word, shows the meaning, the same sense, and broader and narrower words. Saving keeps it as a Word. The entry names Princeton’s copyright.
 - Other apps can read the book only after Settings › Other apps is on. The server is read-only, on this Mac, and a private note is refused. Settings lists who connected and what each read.
+- Settings › Import and backups lists each daily copy ("24 Nov · 137 notes, 20 pages"). Open one to read it. Bring back copies one note into the open book. Restore as a new book sits beside the open book and never over it. Deleted books show their size there, come back the same way, and a copy older than 30 days is cleared. Hold to delete removes one for good.
 - Deleting a book: any book but your last; the open one opens another first.
 - Start fresh puts things away (never deletes notes); "Bring it back" or dragging out of "On hold" returns a task.
 

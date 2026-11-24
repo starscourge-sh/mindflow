@@ -6,8 +6,8 @@ import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
 import { foldMeeting, transcriptLines, voiceName, type MeetingLine } from './meeting-doc'
 import { awayDays } from './away'
 import { Notification, app, dialog, ipcMain, net, session } from 'electron'
-import { createHash, randomUUID } from 'crypto'
-import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
+import { createHash, randomBytes, randomUUID } from 'crypto'
+import { copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
 import { begin, end as endJob } from './jobs'
 import type { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
@@ -24,8 +24,9 @@ import { docList, tasksSaid } from './day-lines'
 import { advance, dateIn, leadingTag, readTask } from './task-words'
 import { linkName, linkOut, wordsLeft } from './task-links'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
-import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder, writeMarkdown } from './backup'
-import { SANDBOX, handedOff } from './sandbox'
+import { backUpWatched, backupBase, backupDir, backupStatus, checkMarkdown, chooseFolder, writeMarkdown } from './backup'
+import { SANDBOX, bookRoot, handedOff, readShelf, writeShelf } from './sandbox'
+import { listDeleted, listSnapshots, pruneDeleted, safeFolder, saidDay, snapshotRow, snapshotRows, snapshotText } from './snapshots-read'
 import { openOutside } from './app-folder'
 import { retireKinds, tagged as hasTag } from './kinds'
 import { cardWords, plain } from './card-words'
@@ -1670,6 +1671,110 @@ export function registerHaligtree(): void {
     }
     await busy(() => backUpWatched())
     return backupStatus()
+  })
+
+  const copiesDir = (): string => join(backupDir(), 'database')
+  const copyFileOf = (day: unknown): string | null => {
+    const key = String(day ?? '')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return null
+    const file = join(copiesDir(), `haligtree-${key}.db`)
+    return existsSync(file) ? file : null
+  }
+  /** Today's whole copy, so Settings can list it. The sandbox makes one too: a probe looks at its own book, never yours. */
+  handle('snapshots:copy', async () => {
+    const dir = copiesDir()
+    await mkdir(dir, { recursive: true })
+    const today = join(dir, `haligtree-${dayKey()}.db`)
+    if (!existsSync(today)) database().exec(`vacuum into '${today.replaceAll("'", "''")}'`)
+    return listSnapshots(dir)
+  })
+  handle('snapshots:list', () => listSnapshots(copiesDir()))
+  handle('snapshots:rows', (day: unknown) => {
+    const file = copyFileOf(day)
+    return file ? snapshotRows(file) : []
+  })
+  handle('snapshots:read', (day: unknown, table: unknown, id: unknown) => {
+    const file = copyFileOf(day)
+    const which = table === 'nuggets' ? 'nuggets' : table === 'captures' ? 'captures' : null
+    return file && which ? snapshotText(file, which, String(id ?? '')) : null
+  })
+  /** One note from a copy, written into the open book as its own note. The open book is left as it was apart from that one note. */
+  handle('snapshots:bring', (day: unknown, table: unknown, id: unknown): { id: string } | null => {
+    const file = copyFileOf(day)
+    const which = table === 'nuggets' ? 'nuggets' : table === 'captures' ? 'captures' : null
+    if (!file || !which) return null
+    const row = snapshotRow(file, which, String(id ?? ''))
+    if (!row) return null
+    const db = database()
+    const live = (db.prepare(`pragma table_info(${which})`).all() as { name: string }[]).map((col) => col.name)
+    const cols = live.filter((name) => name !== 'id' && name !== 'number' && name in row)
+    const newId = randomUUID()
+    const number = which === 'captures' && live.includes('number') ? Number((db.prepare('select coalesce(max(number), 0) + 1 as n from captures').get() as { n: number }).n) : null
+    const names = ['id', ...cols, ...(number != null ? ['number'] : [])]
+    const cell = (value: unknown): string | number | bigint | null | Uint8Array => {
+      if (value == null) return null
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' || value instanceof Uint8Array) return value
+      return String(value)
+    }
+    const values = [newId, ...cols.map((name) => cell(row[name])), ...(number != null ? [number] : [])]
+    try {
+      db.prepare(`insert into ${which} (${names.join(', ')}) values (${names.map(() => '?').join(', ')})`).run(...values)
+    } catch (error) {
+      console.error('Bringing a note back failed:', error)
+      return null
+    }
+    changed()
+    return { id: newId }
+  })
+  handle('snapshots:unbring', (table: unknown, id: unknown) => {
+    const which = table === 'nuggets' ? 'nuggets' : table === 'captures' ? 'captures' : null
+    if (!which) return false
+    database().prepare(`delete from ${which} where id = ?`).run(String(id ?? ''))
+    changed()
+    return true
+  })
+  /**
+   * The copy becomes a new book on the shelf. The open book is never replaced.
+   * The sandbox refuses: a new book would be written into the real shelf.
+   */
+  handle('snapshots:restore', async (day: unknown): Promise<string | null> => {
+    if (SANDBOX) return null
+    const file = copyFileOf(day)
+    if (!file) return null
+    const id = `b-${randomBytes(5).toString('hex')}`
+    const folder = bookRoot(id)
+    await mkdir(folder, { recursive: true })
+    await copyFile(file, join(folder, 'haligtree.db'))
+    const shelf = readShelf()
+    writeShelf({ ...shelf, books: [...shelf.books, { id, name: `Book from ${saidDay(String(day))}`, createdAt: new Date().toISOString() }] })
+    return id
+  })
+
+  const removedBooks = (): string => join(SANDBOX ? backupDir() : backupBase(), 'deleted books')
+  handle('deleted-books:list', async () => {
+    await pruneDeleted(removedBooks())
+    return listDeleted(removedBooks())
+  })
+  /** A deleted book back on the shelf, as a new book. Never over the open one. The sandbox refuses, same as a restore. */
+  handle('deleted-books:bring', async (folder: unknown): Promise<string | null> => {
+    if (SANDBOX) return null
+    const name = safeFolder(String(folder ?? ''))
+    const from = name && join(removedBooks(), name, 'haligtree.db')
+    if (!from || !existsSync(from)) return null
+    const id = `b-${randomBytes(5).toString('hex')}`
+    const dest = bookRoot(id)
+    await mkdir(dest, { recursive: true })
+    await cp(join(removedBooks(), name), dest, { recursive: true })
+    const shelf = readShelf()
+    const title = name.replace(/\s+\d{4}-\d{2}-\d{2}\s+b-[a-z0-9]+$/i, '').trim() || 'A book'
+    writeShelf({ ...shelf, books: [...shelf.books, { id, name: title, createdAt: new Date().toISOString() }] })
+    return id
+  })
+  handle('deleted-books:drop', async (folder: unknown) => {
+    const name = safeFolder(String(folder ?? ''))
+    if (!name || !existsSync(join(removedBooks(), name))) return false
+    await rm(join(removedBooks(), name), { recursive: true, force: true })
+    return true
   })
 
   // A few capture fields set one at a time from the properties column.

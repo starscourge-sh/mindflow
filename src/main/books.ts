@@ -345,7 +345,7 @@ const MY_BOOK_PARTS = /^(haligtree\..*db(-wal|-journal)?|assets|notes|thumbs|mee
 /** What the app and every book share there: never My book's to delete. */
 const SHARED = new Set(['books', 'books.json', 'sandbox', 'sandbox-carry-out.json'])
 /** "… is deleted", owed to the window of the run that deleted a book it had left. */
-let deletedNote: string | null = null
+let deletedNote: string | { text: string; folder: string } | null = null
 
 export function registerBooks(backupBase: () => string, onChange: () => void): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
@@ -451,7 +451,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     if (fresh) {
       const name = nameOf(owed.id)
       void removeBook(owed.id).catch((error) => (console.error('Deleting a book failed:', error), null)).then((kept) => {
-        deletedNote = kept ? `${name} is deleted. A whole copy of it is kept with your backups, under deleted books` : `${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was`
+        deletedNote = kept ? { text: `${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, folder: kept.split(/[/\\]/).pop() ?? '' } : `${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was`
         tell()
       })
     }

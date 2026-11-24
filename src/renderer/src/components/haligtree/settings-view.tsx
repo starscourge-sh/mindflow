@@ -1528,7 +1528,8 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>', 'book-rename:<id>' or
     // Nothing goes until its whole copy is safe with the backups: that is the one way it fails.
     if (!kept) return refuse(`${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was. Check the backup folder under “Import and backups”, then try again`, 'error')
     chime('away')
-    toast(`${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, undefined, 'info')
+    const folder = kept.split(/[/\\]/).pop() ?? ''
+    toast(`${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, () => void haligtree.bringDeleted(folder), 'info')
   }
   // Until its card has come, a space holds the line, so the row never grows under the pointer.
   const factOf = (book: Book): string => {
@@ -1665,6 +1666,112 @@ function ThemeDialRow(): React.JSX.Element {
  * app's data, or a folder you chose), when the last one was made, and, when
  * they are failing, why, on a line of its own you cannot miss.
  */
+type CopyDay = { day: string; notes: number; pages: number; said: string }
+type CopyRow = { id: string; table: 'captures' | 'nuggets'; title: string }
+type RemovedBook = { name: string; day: string | null; bytes: number; folder: string }
+
+/** Daily copies you can open and restore, and books already deleted, with a way back. */
+function DailyCopies(): React.JSX.Element {
+  const [copies, setCopies] = useState<CopyDay[]>([])
+  const [open, setOpen] = useState<string | null>(null)
+  const [rows, setRows] = useState<CopyRow[]>([])
+  const [reading, setReading] = useState<{ title: string; text: string } | null>(null)
+  const [removed, setRemoved] = useState<RemovedBook[]>([])
+  const load = (): void => {
+    void haligtree.snapshots().then(setCopies)
+    void haligtree.deletedBooks().then(setRemoved)
+  }
+  useEffect(() => { load() }, [])
+  const look = (day: string): void => {
+    setOpen(day)
+    setReading(null)
+    void haligtree.snapshotRows(day).then(setRows)
+  }
+  const bring = (row: CopyRow): void => {
+    if (!open) return
+    void haligtree.snapshotBring(open, row.table, row.id).then((made) => {
+      if (!made) return refuse('That note could not be brought back')
+      chime('done')
+      toast('Brought back into this book', () => void haligtree.snapshotUnbring(row.table, made.id))
+    })
+  }
+  return (
+    <div className="space-y-2 pt-1" data-snapshots>
+      {copies.length > 0 && (
+        <div className="space-y-1">
+          {copies.map((copy) => (
+            <div key={copy.day} className="flex flex-wrap items-center gap-1.5" data-snapshot={copy.day}>
+              <span className="min-w-0 flex-1 text-sm text-foreground">{copy.said}</span>
+              <Button variant="ghost" size="sm" data-snapshot-open={copy.day} onClick={() => look(copy.day)}>Open</Button>
+              <Button variant="outline" size="sm" data-snapshot-restore={copy.day} onClick={() => void haligtree.snapshotRestore(copy.day).then((id) => id ? (chime('done'), toast('Restored as a new book beside this one')) : refuse('That copy stays a copy. It is not written over this book.'))}>Restore as a new book</Button>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && (
+        <div className="rounded-lg border border-border p-2" data-snapshot-look={open}>
+          <p className="text-xs text-muted-foreground">Looking at {open}. Nothing here is written until you bring one note back.</p>
+          <div className="mt-1 max-h-40 space-y-0.5 overflow-auto">
+            {rows.map((row) => (
+              <button key={row.id} type="button" className="flex w-full cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-left text-sm hover:bg-accent" data-snapshot-row={row.id} onClick={() => void haligtree.snapshotRead(open, row.table, row.id).then(setReading)}>
+                <span className="min-w-0 flex-1 truncate">{row.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground" onClick={(event) => { event.stopPropagation(); bring(row) }}>Bring back</span>
+              </button>
+            ))}
+          </div>
+          {reading && (
+            <div className="mt-2 text-sm" data-snapshot-reading>
+              <p className="font-semibold">{reading.title}</p>
+              <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{reading.text || 'No words in this one.'}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {removed.length > 0 && (
+        <div className="space-y-1 pt-1" data-deleted-books>
+          <p className="text-xs font-semibold text-muted-foreground">Deleted books</p>
+          {removed.map((book) => (
+            <div key={book.folder} className="flex flex-wrap items-center gap-1.5" data-deleted-book={book.folder}>
+              <span className="min-w-0 flex-1 text-sm">{book.name} · {saidBytes(book.bytes)}</span>
+              <Button variant="ghost" size="sm" data-deleted-bring={book.folder} onClick={() => void haligtree.bringDeleted(book.folder).then((id) => id ? (chime('done'), toast(`${book.name} is back on the shelf`)) : refuse('That book stays in Deleted books. It is not written over this one.'))}>Bring back</Button>
+              <HoldAway label="Hold to delete" onDone={() => void haligtree.dropDeleted(book.folder).then((ok) => ok && (load(), toast(`${book.name} is gone for good`)))} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function saidBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** A control that acts only after it is held, so a tap cannot throw a book away. */
+function HoldAway({ label, onDone }: { label: string; onDone: () => void }): React.JSX.Element {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [held, setHeld] = useState(false)
+  const stop = (): void => {
+    setHeld(false)
+    if (timer.current) clearTimeout(timer.current)
+  }
+  return (
+    <button
+      type="button"
+      data-hold-delete
+      className="cursor-pointer rounded px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+      onPointerDown={() => {
+        setHeld(true)
+        timer.current = setTimeout(() => { setHeld(false); onDone() }, 700)
+      }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+    >{held ? 'Keep holding…' : label}</button>
+  )
+}
+
 function BackupPlace(): React.JSX.Element {
   const [where, setWhere] = useState('')
   const [status, setStatus] = useState<{ at: number | null; failing: string | null; chosen: boolean } | null>(null)
@@ -1704,6 +1811,7 @@ function BackupPlace(): React.JSX.Element {
           {status?.chosen && <Button variant="ghost" size="sm" onClick={() => void choose(true)}>Use the usual place</Button>}
         </div>
       )}
+      <DailyCopies />
       {/* The one-time move of Writing's and Gems' folders into Folders (folders.ts), undone or made again from here. */}
       {moveState && (
         <div className="flex flex-wrap items-center gap-1.5 pt-1" data-folder-move-state={moveState}>

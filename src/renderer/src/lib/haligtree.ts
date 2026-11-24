@@ -328,6 +328,18 @@ export const haligtree = {
   backupNow: () => call<{ at: number | null; failing: string | null; chosen: boolean }>('backups:now'),
   /** Pick another folder for the backups, or go back to the usual place: a backup runs there at once. Null when the picker was closed. */
   chooseBackups: (usual = false) => call<{ at: number | null; failing: string | null; chosen: boolean } | null>('backups:choose', usual),
+  /** Today's whole copy, then the daily copies with what each held. */
+  snapshotCopy: () => call<{ day: string; notes: number; pages: number; said: string }[]>('snapshots:copy'),
+  snapshots: () => call<{ day: string; notes: number; pages: number; said: string }[]>('snapshots:list'),
+  snapshotRows: (day: string) => call<{ id: string; table: 'captures' | 'nuggets'; title: string }[]>('snapshots:rows', day),
+  snapshotRead: (day: string, table: 'captures' | 'nuggets', id: string) => call<{ title: string; text: string } | null>('snapshots:read', day, table, id),
+  snapshotBring: (day: string, table: 'captures' | 'nuggets', id: string) => call<{ id: string } | null>('snapshots:bring', day, table, id),
+  snapshotUnbring: (table: 'captures' | 'nuggets', id: string) => call<boolean>('snapshots:unbring', table, id),
+  /** The copy as a new book beside this one. Null in the sandbox, and when there is no such copy. */
+  snapshotRestore: (day: string) => call<string | null>('snapshots:restore', day),
+  deletedBooks: () => call<{ name: string; day: string | null; bytes: number; folder: string }[]>('deleted-books:list'),
+  bringDeleted: (folder: string) => call<string | null>('deleted-books:bring', folder),
+  dropDeleted: (folder: string) => call<boolean>('deleted-books:drop', folder),
   /** The scenes in these folders so far; copies of new pictures are made in the background. */
   scenery: (folders: string[], use: 'scenery' | 'covers' = 'scenery') => call<{ scenes: Scene[]; scanning: boolean }>('scenery', folders, use),
   /** A folder of pictures, picked in the system's own chooser. */

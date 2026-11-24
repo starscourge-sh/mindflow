@@ -1171,7 +1171,12 @@ export function Home(): React.JSX.Element {
   // an unrelated popup). The spine stands pulled out while its menu is up; Esc or a click away shuts that menu alone.
   // A book left to be deleted (it was open when asked): this run deleted it, and says so once, when it is done.
   useEffect(() => {
-    const hear = (): void => void deletedNote().then((note) => note && (chime('away'), toast(note, undefined, 'info')))
+    const hear = (): void => void deletedNote().then((note) => {
+      if (!note) return
+      chime('away')
+      if (typeof note === 'string') toast(note, undefined, 'info')
+      else toast(note.text, () => void haligtree.bringDeleted(note.folder), 'info')
+    })
     hear()
     window.addEventListener('haligtree:books-changed', hear)
     return () => window.removeEventListener('haligtree:books-changed', hear)

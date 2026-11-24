@@ -267,7 +267,7 @@ export const renameBook = (id: string, name: string): Promise<boolean> => window
 /** The copy's folder once deleted; 'leaving' for the open book, which another book's run deletes once this one has left it. */
 export const deleteBook = (id: string): Promise<string | 'leaving' | null> => window.api.haligtree<string | 'leaving' | null>('books:delete', id)
 /** "… is deleted", once, in the run that deleted a book it had just left. */
-export const deletedNote = (): Promise<string | null> => window.api.haligtree<string | null>('books:deleted-note')
+export const deletedNote = (): Promise<string | { text: string; folder: string } | null> => window.api.haligtree<string | { text: string; folder: string } | null>('books:deleted-note')
 /** How many were copied into that book. */
 export const copyToBook = (refs: BookRef[], id: string): Promise<number> => window.api.haligtree<number>('books:copy', refs, id)
 
