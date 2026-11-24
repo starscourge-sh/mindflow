@@ -99,7 +99,8 @@ function markDayPaths(): void {
       if (!parent) continue
       for (const sib of parent.children) if (sib !== one) markAside(sib)
     }
-  }  // Only what changed is touched: a mark taken off and put back is still a change the browser must answer.
+  }
+  // Only what changed is touched: a mark taken off and put back is still a change the browser must answer.
   for (const one of document.querySelectorAll('[data-day-path]')) if (!way.has(one)) one.removeAttribute('data-day-path')
   for (const one of way) if (!one.hasAttribute('data-day-path')) one.setAttribute('data-day-path', '')
   for (const one of document.querySelectorAll('[data-day-aside]')) if (!aside.has(one)) one.removeAttribute('data-day-aside')

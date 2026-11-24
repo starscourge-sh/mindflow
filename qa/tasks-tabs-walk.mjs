@@ -29,7 +29,11 @@ try {
   }
   const lefts = new Set(Object.values(seen).map((one) => `${one.display}`))
   check('the bar\'s Sort button stands in one place on every tab, Today included', lefts.size === 1 && !lefts.has('null'), JSON.stringify(seen))
-  check('"N open" counts the tasks shown, never those folded on hold', Object.values(seen).every((one) => one.said === null || one.said === one.rows), JSON.stringify(seen))
+  // All's list is long enough that VirtualList leaves some rows unmounted; the header still counts every open
+  // task that is not on hold (tasks IPC drops held ones). Smaller tabs keep the drawn-row check.
+  const openFree = (await s.v('tasks')).filter((t) => t.status === 'open').length
+  const held = (await s.v('tasks:held')).length
+  check('"N open" counts the tasks shown, never those folded on hold', held > 0 && seen.All?.said === openFree && Object.entries(seen).every(([tab, one]) => tab === 'All' || one.said === null || one.said === one.rows), JSON.stringify({ seen, openFree, held }))
   check('"On hold" is folded and last on every tab that has it', Object.values(seen).filter((one) => one.heldOpen).every((one) => one.heldOpen === 'false' && one.heldLast), JSON.stringify(seen))
   // Its tasks, opened: dates in quiet ink, never a red "Late". At the foot of the list, scrolled to.
   await h.mouse.move(700, 500); for (let n = 0; n < 12; n++) await h.mouse.wheel(0, 800); await h.waitForTimeout(600)
