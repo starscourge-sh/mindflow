@@ -13,6 +13,7 @@ import { Unfold, Weighted } from './glide'
 import { useTreeFolds } from '@/lib/side-folds'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
+import { GROUP_COLORS, tintOf } from '@/lib/groups'
 import { SortableList, SortableRow, type NestCheck } from './sortable'
 import { age, num, plural } from '../../../../main/dates'
 import { call, haligtree, useLive } from '@/lib/haligtree'
@@ -240,6 +241,15 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
   const tie = (cal: Calendar, to: string | null, said: string): void =>
     void events.setCalendar({ id: cal.id, folder: to }).then((done) => done && (chime('tap'), toast(said, () => void events.setCalendar({ id: cal.id, folder: done.was?.folder ?? null }).then(() => chime('undo')))))
   return [
+    // Its colour first, a row of swatches at the menu's top, as Arc's group menu has them (the user, 24 Nov): one press,
+    // the one in use pressed again takes it off.
+    { swatches: GROUP_COLORS.map((color) => ({ color: tintOf(color)!, label: color[0].toUpperCase() + color.slice(1), on: folder.color === color, run: () => {
+      const was = folder.color ?? null
+      const next = folder.color === color ? null : color
+      chime('tap')
+      void folders.set(folder.id, { color: next }).then(() => quietly(() => void folders.set(folder.id, { color: was })))
+    } })) },
+    'separator',
     // As Notion's: its name and place, then opening it, then the foot. Every folder shows under Writing in the sidebar.
     copyLinkItem(`folder:${folder.id}`, folder.name),
     // Put away by Start fresh: back at the top of Writing, everything in it with it (start-fresh.ts `bringBack`).

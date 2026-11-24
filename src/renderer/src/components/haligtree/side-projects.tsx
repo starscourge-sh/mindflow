@@ -8,7 +8,7 @@ import { SortableList, SortableRow } from './sortable'
 import { cn } from '@/lib/cn'
 import { chime } from '@/lib/sound'
 import { openItems } from '@/lib/split'
-import { GROUP_COLORS } from '@/lib/groups'
+import { GROUP_COLORS, tintOf } from '@/lib/groups'
 import { PROJECT_DEPTH, asFolders, askProjectFor, newProjectHere, openIn, projectPath, projects, useProjects, type Project } from '@/lib/projects'
 
 /**
@@ -101,6 +101,10 @@ export function projectMenu(project: Project, all: Project[], { onOpen, onRename
   const set = (patch: Parameters<typeof projects.set>[1], was: Parameters<typeof projects.set>[1], said: string, cue: Parameters<typeof chime>[0]): void =>
     (chime(cue), sayNow(projects.set(project.id, patch), said, () => void projects.set(project.id, was)))
   return [
+    // Its colour first, as a folder's menu and Arc's group menu have it.
+    { swatches: GROUP_COLORS.map((color) => ({ color: tintOf(color)!, label: color[0].toUpperCase() + color.slice(1), on: project.color === color, run: () =>
+      set({ color: project.color === color ? null : color }, { color: project.color ?? null }, project.color === color ? 'No colour' : `${color[0].toUpperCase() + color.slice(1)}`, 'tap') })) },
+    'separator',
     // A favorite, in the words Folders' menu uses for the same star (side-folder-section.tsx `folderMenu`).
     { label: project.starred ? 'Remove from the sidebar' : 'Show in the sidebar', hint: project.starred ? 'Unstar it' : 'Star it',
       run: () => set({ starred: !project.starred }, { starred: !!project.starred }, project.starred ? `Took ${project.name} off the sidebar` : `Starred ${project.name}`, project.starred ? 'off' : 'on') },

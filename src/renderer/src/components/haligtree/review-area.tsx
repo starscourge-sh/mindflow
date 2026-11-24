@@ -113,7 +113,8 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   // The tabs on the left of the page's line, where they stay put; "Study now", the page's one filled button, on the right.
   const tabs = (
     // The one tab switch (tab-chips.tsx); go() hears every press, so a tab pressed again still shuts a form open over it.
-    <span data-review-tabs className="flex">
+    // Pill on the list's box edge and words on its ink edge, as Writing and Tasks (qa/list-edges.mjs; 24 Nov walk).
+    <span data-review-tabs data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
       <TabChips name="review" data="review-tab" quiet tabs={TABS.map((one) => ({ value: one.id, label: one.label }))} value={tab} onChange={go} />
     </span>
   )

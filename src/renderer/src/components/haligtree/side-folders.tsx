@@ -7,7 +7,7 @@ import { Branches } from './branches'
 import { haligtree } from '@/lib/haligtree'
 import { DEPTH, KEY, layoutOf, moveTo } from '@/lib/group-layout'
 import { notes } from '@/lib/notes'
-import { groups, isFolder, useGroups, useKept, type NoteGroup } from '@/lib/groups'
+import { GROUP_COLORS, groups, isFolder, tintOf, useGroups, useKept, type NoteGroup } from '@/lib/groups'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -373,6 +373,13 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   // The level's own step in is its trunk's (rows above); within it, the rows' own edge.
   const left = '0.5rem'
   const menu: RowItem[] = [
+    // Its colour first, a row of swatches at the menu's top, as Arc's group menu has them (the user, 24 Nov).
+    { swatches: GROUP_COLORS.map((color) => ({ color: tintOf(color)!, label: color[0].toUpperCase() + color.slice(1), on: group.color === color, run: () => {
+      const was = group.color ?? null
+      chime('tap')
+      void groups.set(group.id, { color: group.color === color ? null : color }).then(() => quietly(() => void groups.set(group.id, { color: was })))
+    } })) },
+    'separator',
     { label: 'Open', run: () => onOpen(group.id) },
     // Beside the page in front, as a page's row offers it (⌥-click on the row does it too).
     ...openItems('folder', `${list}:${group.id}`),

@@ -412,7 +412,9 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
           {lead && aside && count !== undefined && <span aria-hidden data-count-room className="invisible absolute mr-2 border-l pl-3 text-xs whitespace-nowrap tabular-nums">{num(Math.max(count ?? 0, 888))} {unit[1]}</span>}
           {/* With tabs or a switch at the line's left (lead), the count goes to the right, before the actions, so it is
               never read as one more tab; without, it opens the line. Said plainly when it counts what is picked. */}
-          {count && !lead ? countSaid : null}
+          {/* Count alone opens the line: pull it onto the list's ink edge, as a tab row's words (qa/list-edges.mjs;
+              Files was 12px further in than Writing, 24 Nov walk). */}
+          {count && !lead ? <span style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>{countSaid}</span> : null}
           {/* The count is on the same line: measured again the moment it comes or changes, not a frame later by the observer. */}
           <FitActions keep={lead && count ? <>{countSaid}{search}</> : search} room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
         </header>
