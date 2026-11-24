@@ -1529,7 +1529,9 @@ const HELD = {
   onKeyDown: (event: React.SyntheticEvent): void => event.stopPropagation()
 }
 /** The days chip on a goal's row: the days left, bold, in the goal's warmth, a field you drag (Figma's number fields). */
-const DAYS_CHIP = 'h-5 w-full rounded border border-transparent bg-transparent px-1 text-left text-xs font-semibold tabular-nums outline-none transition-colors hover:border-input hover:bg-input/20 focus:cursor-text focus:border-foreground/25 focus:bg-input/20'
+// A box you can see is a control (the owner, 24 Nov: "a box holding the day count"): the days and the date each a small
+// field of the app's own, side by side, the same height and corner.
+const DAYS_CHIP = 'h-6 w-full rounded-md border border-input bg-foreground/[0.04] px-2 text-center text-xs font-semibold tabular-nums outline-none transition-colors hover:bg-foreground/[0.08] focus:cursor-text focus:border-ring focus:bg-input/20'
 const daysSaid = (n: number): string => (n === 0 ? 'Today' : plural(n, 'day'))
 /** A number typed in the days chip: "30", "30 days"; else null, and the words are worked out as a sum ("+7"). */
 const daysTyped = (typed: string): number | null => (/^\s*[\d,]+\s*(days?)?\s*$/i.test(typed) ? Number(typed.replace(/\D/g, '')) : null)
@@ -1552,8 +1554,6 @@ function GoalDue({ item, today, onLog }: { item: Item; today: string; onLog?: (i
   const days = draft ?? left
   const day = draft === null ? target : dayKey(noon(today).add(draft, 'day').toDate())
   // The chip never narrows while it is dragged, so what follows it never slides back under the pointer.
-  const widest = useRef(0)
-  widest.current = draft === null ? daysSaid(days).length : Math.max(widest.current, daysSaid(days).length)
   const save = (to: string): void => {
     const was = { target, from: item.goalFrom ?? undefined }
     if (to === target) return void ((next.current = null), setDraft(null))
@@ -1581,8 +1581,9 @@ function GoalDue({ item, today, onLog }: { item: Item; today: string; onLog?: (i
   )
   return (
     <span data-goal-mark="dated" className="inline-flex items-center gap-1.5">
-      <span data-goal-days {...HELD} {...loud(leftLoud(days), '-ml-1 inline-flex shrink-0 font-semibold')}
-        style={{ color: days > 30 ? 'var(--foreground)' : undefined, width: `calc(${widest.current}ch + 0.75rem)` }}>
+      <span data-goal-days {...HELD} {...loud(leftLoud(days), 'inline-flex shrink-0 font-semibold')}
+        // On the title's own left edge, and one width for every row's days ("9,999 days"), so the dates line up.
+        style={{ color: days > 30 ? 'var(--foreground)' : undefined, width: 'calc(10ch + 1.25rem)' }}>
         <ScrubField label="Days to go: drag to move the day" min={0} max={9999} value={days} show={daysSaid} read={daysTyped} shiftBy={7} className={DAYS_CHIP}
           onChange={(n) => ((next.current = n), setDraft(n))}
           onSettle={() => next.current !== null && save(dayKey(noon(today).add(next.current, 'day').toDate()))} />
@@ -1597,8 +1598,8 @@ function GoalDue({ item, today, onLog }: { item: Item; today: string; onLog?: (i
 /** The date a goal is for on its row, "Fri 1 Jan 2028": pressed, the calendar, as a task's date chip opens it. */
 function GoalDayChip({ day, onPick }: { day: string; onPick: (day: string) => void }): React.JSX.Element {
   return (
-    <DatePicker chip value={`${day}T12:00`} onChange={(iso) => iso && onPick(dayKey(iso))} suggest={['in 1 month', 'in 3 months', 'in 1 year']} tip="Change the day">
-      <span data-goal-day className="tabular-nums">{dayFull(day)}</span>
+    <DatePicker chip value={`${day}T12:00`} onChange={(iso) => iso && onPick(dayKey(iso))} suggest={['in 1 month', 'in 3 months', 'in 1 year']} tip="Change the day" className="m-0 p-0 hover:bg-transparent data-[state=open]:bg-transparent">
+      <span data-goal-day className="inline-flex h-6 items-center rounded-md border border-input bg-foreground/[0.04] px-2 text-xs tabular-nums text-foreground transition-colors hover:bg-foreground/[0.08]">{dayFull(day)}</span>
     </DatePicker>
   )
 }
