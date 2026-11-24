@@ -590,7 +590,7 @@ function Rows({ rows: all, p, wide, small = 3 }: { rows: { name: ReactNode; key:
         <In key={row.key} at={0.3 + i * 0.07} from="left" className="min-w-0">
           <p className="flex items-baseline gap-3 text-[15px] font-semibold"><span className="min-w-0 flex-1 truncate" dir="auto">{row.name}</span><span className="shrink-0 tabular-nums">{row.said}</span></p>
           <motion.div className="mt-1.5 h-2 origin-left rounded-none" style={{ width: `${Math.max(2, Math.min(1, row.n / (row.of ?? most)) * 100)}%`, background: i ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : p.accent }}
-            initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.4 + i * 0.07, duration: 0.4, ease: EASE }} />
+            initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.4 + i * 0.07, duration: 0.28, ease: EASE }} />
         </In>
       ))}
     </div>
@@ -624,7 +624,7 @@ function Calendar({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
                     ? { background: `color-mix(in srgb, ${p.ink} 22%, ${p.bg})`, color: p.ink, clipPath: 'polygon(1% 3%, 100% 1%, 97% 100%, 0% 96%)' }
                     : { boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${p.ink} 18%, ${p.bg})`, color: 'var(--wrap-quiet)' })
               }}
-              initial={still() ? false : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + i * 0.012, type: 'spring', stiffness: 400, damping: 24 }}>
+              initial={still() ? false : { opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + i * 0.012, type: 'spring', stiffness: 400, damping: 24 }}>
               {dayjs(day).date()}
             </motion.span>
           )
@@ -724,7 +724,7 @@ function Bars({ p, mark, values, lit, ticks, under }: { p: Palette; mark: string
             <div key={i} className="relative flex h-full flex-1 items-end justify-center">
               {(top || few) && <span data-wrap-peak={top || undefined} className="absolute left-1/2 -translate-x-1/2 text-[13px] font-black whitespace-nowrap tabular-nums" style={{ bottom: `calc(${(n / most) * 100}% + 5px)`, color: top ? p.accent : 'var(--wrap-quiet)' }}>{num(n)}</span>}
               <motion.div className={`w-full origin-bottom rounded-[2px] ${few ? 'max-w-[40px]' : 'max-w-2'}`} style={{ height: n ? `max(4px, ${(n / most) * 100}%)` : '2px', background: top ? p.accent : n ? `color-mix(in srgb, ${p.ink} 34%, ${p.bg})` : `color-mix(in srgb, ${p.ink} 16%, ${p.bg})` }}
-                initial={still() ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.3 + i * (few ? 0.04 : 0.012), duration: 0.36, ease: EASE }} />
+                initial={still() ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.3 + i * (few ? 0.04 : 0.012), duration: 0.28, ease: EASE }} />
             </div>
           )
         })}
@@ -911,7 +911,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
               <p className="truncate text-[15px] font-semibold" dir="auto">{row.name}</p>
               {/* The time planned as the track, what was done filling it: the words say both. */}
               <div className="relative mt-1.5 h-2 rounded-none" style={{ background: `color-mix(in srgb, ${p.ink} 18%, ${p.bg})`, width: `${(row.planned / most) * 100}%` }}>
-                <motion.div className="absolute inset-y-0 left-0 origin-left rounded-none" style={{ background: p.accent, width: `${(row.did / Math.max(1, row.planned)) * 100}%` }} initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.45 + i * 0.07, duration: 0.4, ease: EASE }} />
+                <motion.div className="absolute inset-y-0 left-0 origin-left rounded-none" style={{ background: p.accent, width: `${(row.did / Math.max(1, row.planned)) * 100}%` }} initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.45 + i * 0.07, duration: 0.28, ease: EASE }} />
               </div>
               <p className="mt-1 text-[13px] font-semibold text-(--wrap-quiet)">{row.did ? `did ${howLong(row.did)} of ${howLong(row.planned)} planned` : `${howLong(row.planned)} planned, none done yet`}</p>
             </In>

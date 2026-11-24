@@ -46,7 +46,7 @@ export function In({
     : from === 'left' ? { x: -18 }
       : from === 'scale' ? { scale: 0.86 }
         : from === 'lift' ? { y: 22, scale: 0.94, rotate: -2.4 }
-          : from === 'pop' ? { scale: 0.55, rotate: ((Math.round(at * 97) % 17) - 8) }
+          : from === 'pop' ? { scale: 0.92, rotate: ((Math.round(at * 97) % 17) - 8) }
             : { y: 14 }
   const spring = from === 'lift' || from === 'pop' || pace === 'snap'
     ? { type: 'spring' as const, stiffness: pace === 'snap' ? 380 : 240, damping: pace === 'snap' ? 22 : 20, delay: at }
@@ -367,7 +367,7 @@ export function Scribble({ seed, color, className, delay = 0.2, width = 1.6 }: {
   return (
     <svg viewBox="0 0 320 200" className={className} fill="none" aria-hidden>
       <motion.path d={d} stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" opacity={0.75}
-        initial={{ pathLength: still() ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: still() ? 0 : 1.1, delay, ease: [0.45, 0, 0.2, 1] }} />
+        initial={{ pathLength: still() ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: still() ? 0 : 0.7, delay, ease: EASE }} />
     </svg>
   )
 }
