@@ -74,9 +74,11 @@ try {
   await h.waitForTimeout(400)
   if (SHOTS) await c.both(`${SHOTS}/narrow`)
   await c.size(1280, 900)
-  // Break it: a 200 character title on the feature.
-  const lead = (await v('home')).due[0] ?? (await v('home')).unseen[0]
-  if (lead) {
+  // Break it: a 200 character title on the feature that is actually drawn (data-drag-open), not home.due[0]
+  // which may be a different card (memory / letter / another due).
+  const open = await feature.locator('[data-drag-open]').getAttribute('data-drag-open')
+  const lead = open?.includes(':') ? { type: open.slice(0, open.indexOf(':')), id: open.slice(open.indexOf(':') + 1) } : null
+  if (lead?.id) {
     const long = 'A very long title that keeps going '.repeat(6).slice(0, 200)
     await h.evaluate(([id, title, type]) => type === 'capture' ? window.api.captures.update?.(id, { label: title }) : window.api.haligtree('item:save', id, { title }), [lead.id, long, lead.type]).catch(() => {})
     await c.go('home')
@@ -84,7 +86,8 @@ try {
     await toRow()
     await h.waitForTimeout(400)
     const lines = await feature.locator('.text-heading').evaluate((one) => Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)))
-    check('a 200 character title is held to 3 lines', (await feature.locator('.text-heading').textContent()).length >= 150 && lines <= 3, `${lines} lines`)
+    const text = await feature.locator('.text-heading').textContent()
+    check('a 200 character title is held to 3 lines', (text?.length ?? 0) >= 150 && lines >= 1 && lines <= 3, `${lines} lines, ${text?.length ?? 0} chars`)
     if (SHOTS) await c.both(`${SHOTS}/long-title`)
   }
   // From this week's Show all: the Week's page, at "Caught this week".
