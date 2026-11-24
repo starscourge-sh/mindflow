@@ -94,7 +94,7 @@ import { registerScenery, sceneryDir, startCopies } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
 import { firstRun, isWelcoming, keepWindowBeforeWelcome, welcomeName, noteChord, welcomeBoxSpot, windowBeforeWelcome, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
-import { SCENE_COVERED, SCENE_HANDOVER, SCENE_WORDS, plainArrival } from './arrival'
+import { SCENE_COVERED, SCENE_HANDOVER, SCENE_WORDS } from './arrival'
 import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerCollect } from './collect'
@@ -2665,18 +2665,13 @@ function welcomePlace(display: Electron.Display): Electron.Rectangle {
   return { x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2), width, height }
 }
 
-/** Whether the welcome may arrive as a scene over the whole screen, here and now. A test run only when it asks. */
-function sceneArrives(win: BrowserWindow, display: Electron.Display): boolean {
-  return !plainArrival({
-    mac: process.platform === 'darwin',
-    welcome: true,
-    test: !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_ARRIVAL,
-    still: stillness(),
-    safe: gate().blackout,
-    solid: nativeTheme.prefersReducedTransparency,
-    secondDisplay: !process.env.HALIGTREE_QA_ARRIVAL && display.id !== screen.getPrimaryDisplay().id,
-    fullScreen: win.isFullScreen()
-  })
+/**
+ * Whether the welcome may arrive as a fog scene over the whole screen.
+ * Always plain now: fog/smoke open fought the paper welcome (user, 24 Nov).
+ * Keep the helper so HALIGTREE_QA_ARRIVAL can still force a scene for probes of the old path.
+ */
+function sceneArrives(_win: BrowserWindow, _display: Electron.Display): boolean {
+  return !!process.env.HALIGTREE_QA_ARRIVAL
 }
 
 /** The scene window: over the whole of one screen, its menu bar and Dock too, see-through wherever nothing is drawn. */

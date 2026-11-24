@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
 import { usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
-import { DateStamp, FogClear, In, InkLine, JournalField, KraftTape, LampWash, Roll, Silk, TippedPrint } from './wrap-art'
+import { DateStamp, In, InkLine, JournalField, KraftTape, LampWash, MarginNote, Roll, Silk, TippedPrint } from './wrap-art'
 import { FOLDER_LINES, HUES, INTROS, OUTROS, PALETTES, STAGE, WORLDS, nextSeed, pick, seeded, type Palette, type World } from './wrap-worlds'
 import { drawingFor } from './grain'
 import { Tip, Typed, refuse, sayNow, toast } from './ui'
@@ -394,7 +394,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
   const { p, world } = look
   const kind = kinds[at]
   const variant = Math.floor(seeded(seed + at * 31)() * 3)
-  const quiet = `color-mix(in srgb, ${p.ink} 72%, ${p.bg})`
+  // Quiet stays near ink so night leads stay bright and cream captions stay dark (08-faint-headline).
+  const quiet = `color-mix(in srgb, ${p.ink} 92%, ${p.bg})`
   // Same Settings › Grain as the dark frame: one SVG, one switch. Never a second cheap noise layer.
   const settings = useLive(haligtree.settings, null as Settings | null)
   const grainOn = settings?.frameGrain !== false
@@ -412,9 +413,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         className="wrap-card @container relative flex flex-col overflow-hidden"
         style={{ background: p.bg, color: p.ink, boxShadow: STAGE.shadow, perspective: '1400px', '--wrap-quiet': quiet, '--wrap-bg': p.bg, '--foreground': p.ink, '--muted-foreground': quiet, '--mf-muted-strong': quiet, '--background': p.bg } as React.CSSProperties}>
-        {/* Night keeps a soft silk; Files is quiet paper. Texture is Settings › Grain on the card, not Silk noise. */}
-        {world === 'night' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={0.5} scale={0.35} />}
-        {world === 'files' && <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} hue={HUES[at % HUES.length]} strength={light(p.bg) ? 0.05 : 0.08} scale={0.35} />}
+        {/* No card Silk: night aurora read as Spotify smoke (07-gems-smoke). Texture is Settings › Grain only. */}
         <div className="relative z-[2] min-h-0 flex-1" onPointerDown={(event) => void (pressedAt.current = event.clientX)} onClick={(event) => {
           // Collage (photos, slips, stamps, page leaf) never turns the card; only empty story ground and chrome do.
           if (Math.abs(event.clientX - pressedAt.current) > 6 || (event.target as HTMLElement).closest('button, a, [data-wrap-flow], [data-wrap-collage], [data-wrap-folder], [data-wrap-cover], [data-picture-row]')) return
@@ -464,7 +463,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
             )}
           </AnimatePresence>
         </div>
-        {at !== last && <span data-wrap-brand className="pointer-events-none absolute bottom-5 left-5 z-20 text-[11px] font-bold tracking-[0.08em] uppercase text-(--wrap-quiet)">{APP_NAME}</span>}
+        {at !== last && <span data-wrap-brand className="pointer-events-none absolute bottom-5 left-5 z-20 text-[11px] font-bold tracking-[0.08em] uppercase"
+          style={{ color: kind === 'notes' || kind === 'well' || kind === 'pictures' ? STAGE.paperInk : 'var(--wrap-quiet)' }}>{APP_NAME}</span>}
       </motion.div>
     </motion.div>
   )
@@ -736,9 +736,13 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
   const flip = variant === 1
   const top = f.tags.slice(0, 5)
   const night = world === 'night'
-  const kicker = lead ? <In at={0.05} from={e}><p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p></In> : null
+  const kicker = lead ? <In at={0.05} from={e}><p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty" style={{ color: p.ink }}>{lead}</p></In> : null
   const split = (a: ReactNode, b: ReactNode): ReactElement => <Split a={<>{kicker}{a}</>} b={b} flip={flip} />
   const caption = (own: ReactNode): ReactElement => <p className={CAPTION}>{own}</p>
+  /** Headlines on a cream journal page: graphite ink, never the night palette's pale wash. */
+  const pageHead = (own: ReactNode, className = BIG): ReactElement => <h2 className={className} style={{ color: STAGE.paperInk }}>{own}</h2>
+  const pageCap = (own: ReactNode): ReactElement => <p className={CAPTION} style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 82%, ${STAGE.paper})` }}>{own}</p>
+  const pageLead = lead ? <In at={0.05} from={e}><p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 82%, ${STAGE.paper})` }}>{lead}</p></In> : null
   /** One thing to say, alone in the middle of the card: the lead-in, the heading, then its sentence under it. */
   const alone = (head: ReactNode, said: ReactNode, more?: ReactNode): ReactElement => (
     <Centre>
@@ -750,7 +754,6 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         clipPath: 'polygon(0.5% 1.2%, 99% 0.3%, 100% 98.5%, 1% 99.2%)'
       }} />
       <LampWash ink={p.ink} accent={p.accent} className="pointer-events-none -z-10 opacity-70" />
-      <FogClear accent={p.accent} paper={p.bg} delay={0.06} />
       {kicker}<In at={0.18} from={e} pace="linger">{head}</In><In at={0.58} pace="linger"><p className={SOLO_CAPTION}>{said}</p></In>{more && <In at={0.78} from="lift" pace="snap" className="w-full">{more}</In>}
     </Centre>
   )
@@ -766,14 +769,14 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
           <div className="absolute inset-0 px-[14%] pt-5 pb-6 pr-5 text-left">
             <div className="mb-3 flex items-start justify-between gap-2">
-              <p className="m-0 text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 42%, ${STAGE.paper})` }}>subject</p>
+              <p className="m-0 text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 72%, ${STAGE.paper})` }}>subject</p>
               <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={seed + 7} />
             </div>
             {picture
               ? <TippedPrint src={picture.stored ?? picture.src} alt={picture.title} ink={STAGE.paperInk} paper={STAGE.paper} className="mb-3 h-[48%] w-[88%] max-w-[300px]" />
               : null}
             <InkLine className="text-[clamp(18px,3.4cqi,26px)]" style={{ color: STAGE.paperInk }}>{f.name}</InkLine>
-            <p className="mt-2 text-[14px] leading-snug font-medium" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 55%, ${STAGE.paper})` }}>
+            <p className="mt-2 text-[14px] leading-snug font-semibold" style={{ color: `color-mix(in srgb, ${STAGE.paperInk} 78%, ${STAGE.paper})` }}>
               {f.period === 'month' ? f.name : `the week of ${dayjs(f.from).format('D MMMM')}`}
             </p>
             <KraftTape kind="washi" seed={seed + 3} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 20%, #d8c9a8)`}
@@ -800,7 +803,6 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         ].filter((one): one is string => !!one)
         return (
           <Centre>
-            <FogClear accent={p.accent} paper={p.bg} delay={0.05} />
             <In at={0.2} from={e} pace="linger"><h2 data-wrap-quiet-head className={`${BIG} text-balance`}>{head}</h2></In>
             {there.length > 0 && <In at={0.48} pace="linger"><ul data-wrap-quiet-has className="mt-4 space-y-1 text-[19px] leading-snug font-bold">{there.map((line) => <li key={line} dir="auto">{line}</li>)}</ul></In>}
             <In at={0.68} pace="linger"><p className={SOLO_CAPTION}>{there.length ? 'Once a few more things are caught, kept or focused on, this becomes a few cards.' : 'Nothing caught, kept or focused on yet. Once a few things are, this becomes a few cards.'}</p></In>
@@ -808,11 +810,10 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         )
       }
       case 'intro':
-        if (night) return <Centre><FogClear accent={p.accent} paper={p.bg} />{kicker}<In at={0.16} from={e} pace="linger"><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.55} from={e} pace="linger"><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In></Centre>
+        if (night) return <Centre>{kicker}<In at={0.16} from={e} pace="linger"><h2 className="font-heading text-[clamp(40px,10cqi,84px)] leading-[0.95] font-semibold tracking-[-0.03em] text-balance" style={{ color: p.accent }}>{f.title}</h2></In><In at={0.55} from={e} pace="linger"><p className="max-w-[34ch] text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In></Centre>
         return split(<>
-          <FogClear accent={p.accent} paper={p.bg} />
           <In at={0.16} from={e} pace="linger"><h2 className={`${BIG} mt-2`}>{f.title}</h2></In>
-          <In at={0.55} from={e} pace="linger"><p className="mt-4 text-[17px] leading-snug font-medium"><CorrectedTyped text={opening(f, look.intro)} /></p></In>
+          <In at={0.55} from={e} pace="linger"><p className="mt-4 text-[17px] leading-snug font-semibold"><CorrectedTyped text={opening(f, look.intro)} /></p></In>
         </>, cover(f.heroes[0]))
       case 'tags': {
         if (!top.length) return alone(<div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div>, <>{f.captures === 1 ? 'thing caught' : 'things caught'} this {f.period}, none of them tagged</>)
@@ -875,19 +876,27 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
       }
       case 'pictures':
         return (
-          // Look-only: collage never opens a note or ends Wrapped. Cascade lifts onto the desk.
-          <div data-wrap-flow data-wrap-collage className="relative grid h-full grid-rows-[auto_1fr] [align-content:safe_center] gap-5 px-7 pt-16 pb-14 @2xl:px-12"
+          // Full journal page (refs): never an empty Spotify slide with smoke silk.
+          <div data-wrap-flow data-wrap-collage className="absolute inset-0"
             onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-            <In at={0.1} pace="linger">{lead && <p data-wrap-lead className="mb-3 text-[15px] leading-snug font-semibold text-pretty">{lead}</p>}<h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2>{caption(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
-            <In at={0.38} from="lift" pace="snap" className="min-w-0 self-center"><PictureRow items={f.pictures} height={wide ? 280 : 170} label="Pictures and gems" onOpen={() => undefined} /></In>
+            <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="dot" className="absolute inset-0">
+              <div className="absolute inset-0 grid grid-rows-[auto_1fr] gap-4 px-[12%] pt-16 pb-10 pr-8 text-left">
+                <div>
+                  {pageLead}
+                  <In at={0.1} pace="linger">{pageHead(f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw')}{pageCap(<>{plural(f.pictures.length, 'picture and gem', 'pictures and gems')} from {f.period === 'month' ? f.name : 'this week'}</>)}</In>
+                  <DateStamp label={dayjs(f.to).format('MMM D').toUpperCase()} color={p.accent} seed={41} className="mt-3" />
+                </div>
+                <In at={0.28} from="lift" pace="snap" className="min-h-0 min-w-0 self-stretch">
+                  <PictureRow items={f.pictures} height={wide ? 300 : 190} label="Pictures and gems" onOpen={() => undefined} />
+                </In>
+                <KraftTape kind="washi" seed={47} wear={0.5} tint={`color-mix(in srgb, ${p.accent} 18%, #d8c9a8)`}
+                  className="absolute bottom-[10%] right-[12%] w-[22%] rotate-[7deg]" />
+              </div>
+            </JournalField>
           </div>
         )
       case 'notes': {
-        // Whole card is the journal page (refs): headline + gems live IN the field.
-        if (night) {
-          if (f.notes.length < LIST) return alone(<h2 className={`${BIG} text-balance`}>{fill(look.folder, f.name, f.period)}</h2>, <>{f.notesLabel}: {and(f.notes.map((note) => quoted(note, 60)))}</>)
-          return split(<><In at={0.12}><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 [align-content:safe_center] gap-2">{f.notes.slice(0, wide ? 5 : 3).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 shrink-0 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
-        }
+        // Whole card is the journal page (refs) on cream for every world — never pale night ink on empty dark.
         const stamp = dayjs(f.to).format('MMM D').toUpperCase()
         const tip = f.heroes[0] ? { src: f.heroes[0].stored ?? f.heroes[0].src, alt: f.heroes[0].title } : undefined
         const shown = f.notes.slice(0, tip ? 4 : 6)
@@ -896,19 +905,20 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
             <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0">
               <div className="absolute inset-0 flex flex-col px-[12%] pt-16 pb-10 pr-8 text-left @2xl:flex-row @2xl:gap-8">
                 <div className="mb-4 min-w-0 @2xl:mb-0 @2xl:w-[42%] @2xl:shrink-0">
-                  {kicker}
-                  <In><h2 className={BIG}>{fill(look.folder, f.name, f.period)}</h2><p className={CAPTION}>{f.notesLabel}</p></In>
+                  {pageLead}
+                  <In>{pageHead(fill(look.folder, f.name, f.period))}{pageCap(f.notesLabel)}</In>
                   <DateStamp label={stamp} color={p.accent} seed={19} className="mt-4" />
                 </div>
                 <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                   {tip && <TippedPrint src={tip.src} alt={tip.alt} ink={STAGE.paperInk} paper={STAGE.paper} at={0.2} className="mb-3 h-[36%] w-[90%] max-w-[280px] self-end" />}
-                  <ol className="relative m-0 flex list-none flex-col gap-2.5 p-0">
+                  <ol className="relative m-0 flex list-none flex-col gap-3 p-0">
                     {shown.map((note, i) => (
                       <In key={note + i} at={0.32 + i * 0.08} from="lift" pace="snap">
-                        <li className="min-w-0"><InkLine className="text-[clamp(15px,2.3cqi,19px)]" style={{ color: STAGE.paperInk }}><span className="mr-2 opacity-40" style={{ color: p.accent }}>•</span>{quoted(note, 60)}</InkLine></li>
+                        <li className="min-w-0"><InkLine className={shown.length <= 3 ? 'text-[clamp(18px,2.8cqi,24px)]' : 'text-[clamp(15px,2.3cqi,19px)]'} style={{ color: STAGE.paperInk }}><span className="mr-2" style={{ color: p.accent }}>•</span>{quoted(note, 72)}</InkLine></li>
                       </In>
                     ))}
                   </ol>
+                  {shown.length <= 3 && <MarginNote text={f.notesLabel} ink={STAGE.paperInk} paper={STAGE.paper} seed={29} className="absolute bottom-[18%] right-[4%] max-w-[40%] text-[13px]" />}
                   <KraftTape kind="washi" seed={23} wear={0.55} tint={`color-mix(in srgb, ${p.accent} 18%, #d8c9a8)`}
                     className="absolute bottom-0 left-0 w-[28%] rotate-[-4deg]" />
                 </div>
@@ -927,8 +937,8 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
               <div className="absolute inset-0 flex flex-col px-[12%] pt-16 pb-10 pr-8 text-left">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    {kicker}
-                    <In at={0.1}><h2 className={BIG}>What went well</h2><p className={CAPTION}>From your weekly notes</p></In>
+                    {pageLead}
+                    <In at={0.1}>{pageHead('What went well')}{pageCap('From your weekly notes')}</In>
                   </div>
                   <DateStamp label={stamp} color={p.accent} seed={31} className="mt-1 shrink-0" />
                 </div>
@@ -967,9 +977,9 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
         return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
           <In at={0.4}>{caption(<>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</>)}</In></>, <HourBars f={f} p={p} />)
       case 'outro':
-        if (night) return <Centre><FogClear accent={p.accent} paper={p.bg} />{kicker}<In pace="linger"><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><CorrectedTyped text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.85} pace="linger"><WrappedParagraph monday={f.from} /></In>}</Centre>
+        if (night) return <Centre>{kicker}<In pace="linger"><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><CorrectedTyped text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.85} pace="linger"><WrappedParagraph monday={f.from} /></In>}</Centre>
         // The second of your pictures, so the story never ends on the one it opened with; with one or none, the motif.
-        return split(<><FogClear accent={p.accent} paper={p.bg} /><In pace="linger"><h2 className={BIG}><CorrectedTyped text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.85} pace="linger"><WrappedParagraph monday={f.from} /></In>}</>, cover(f.heroes[1]))
+        return split(<><In pace="linger"><h2 className={BIG}><CorrectedTyped text={fill(look.outro, f.name, f.period)} /></h2></In>{f.period === 'week' && <In at={0.85} pace="linger"><WrappedParagraph monday={f.from} /></In>}</>, cover(f.heroes[1]))
       case 'report':
         return <Report f={f} look={look} />
     }
@@ -979,7 +989,7 @@ function Card({ kind, f, look, variant, seed, wide, lead }: { kind: Kind; f: Fac
 
 /** The card to keep: one journal page with a tipped print, date stamp, lists — no KEPT badge. */
 function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
-  const { p, world } = look
+  const { p } = look
   const picture = f.heroes[0]
   const month = f.period === 'month' ? f.name.split(' ')[0] : 'Week'
   const stamp = dayjs(f.to).format('MMM D').toUpperCase()
@@ -997,9 +1007,7 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
     <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-16 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report data-wrap-collage
       onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
       <In from="scale" className="relative min-h-[64px] overflow-hidden">
-        {world === 'files'
-          ? <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0" />
-          : <Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} />}
+        <JournalField ink={STAGE.paperInk} paper={STAGE.paper} accent={p.accent} grid="quad" className="absolute inset-0" />
         {/* Month as a vertical margin title, like ref subject labels. */}
         <div className="absolute inset-y-[8%] left-[3%] z-[2] grid w-[14%] place-items-center overflow-hidden [container-type:size]">
           <span data-wrap-month className="font-heading font-semibold whitespace-nowrap tracking-[-0.02em]" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: `min(48px, calc(88cqh / ${(0.66 * month.length).toFixed(2)}), 70cqw)` }}>{month}</span>

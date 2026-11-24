@@ -2137,7 +2137,8 @@ function BoxKeys(): React.JSX.Element {
  * "paper", the still marks on the theme's own page it had before. One word
  * here to go back.
  */
-const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
+/** Paper first frame: leaves and quiet marks. Grainient + desktop fog read as glitch (user, 24 Nov). */
+const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'paper'
 
 
 /**

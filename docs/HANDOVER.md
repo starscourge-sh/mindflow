@@ -12,7 +12,7 @@ For any agent picking up this app with no chat history. Read this, then `AGENTS.
 ## State on 24 Nov 2026
 
 - Branch: everything is on `main`. The newest build is `dist/Haligtree-0.4.0-beta.219.dmg`; the next build is beta.220 (bump `package.json` first, keep only the newest `dist/Haligtree-*`).
-- Wrapped Midori (F41) → densify (F42) → lived page-as-field (F49) → trailer motion (F50): Z-push card turns, lift/settle layers, fog clear, tag pop, rubber-band linger/snap, CorrectedTyped; chrome pad + collage click isolation kept. Shots `wrapped-commonplace-proof/after4/`. Probes green. **Not WOW yet** — commonplace-book pause / walk still waits on look greenlight.
+- Wrapped Midori → F49 page-as-field → F50 trailer motion → F51 oversight: cream JournalField forces graphite ink (08-faint-headline); night Silk/FogClear killed (07-gems-smoke); pictures densified on journal; welcome paper first frame, desktop fog scene off. Probes `wrap-contrast`, `welcome-open`. Shots `after5/` + `welcome-open-{before,after}`. **Not WOW yet**.
 - The owner runs `npm run dev` from this folder and reports bugs with screenshots. Fix on `main`, commit each fix on its own with a plain message saying what the user now sees and why.
 
 ## Known failures (not caused by the newest work)

@@ -62,24 +62,12 @@ export function In({
 }
 
 /**
- * Soft ink mist that clears to reveal the page — linger, then snap away.
- * Midori atmosphere, never a neon tunnel wipe.
+ * Soft settle only — no fog, smoke or mist wash. F50 mist read as Spotify
+ * glitch on night cards and washed ink on cream; kept as a no-op export so
+ * call sites can drop without a sweep mid-story.
  */
-export function FogClear({ accent, paper = 'rgb(241 239 233)', delay = 0.15, className = '' }: { accent: string; paper?: string; delay?: number; className?: string }): React.JSX.Element | null {
-  if (still()) return null
-  return (
-    <motion.div aria-hidden data-wrap-fog className={`pointer-events-none absolute inset-0 z-[5] ${className}`}
-      initial={{ opacity: 0.72 }}
-      animate={{ opacity: 0 }}
-      transition={{ delay, duration: 0.85, ease: EASE }}
-      style={{
-        background: [
-          `radial-gradient(ellipse 80% 60% at 40% 35%, color-mix(in srgb, ${accent} 22%, ${paper}), transparent 70%)`,
-          `linear-gradient(165deg, color-mix(in srgb, ${paper} 88%, transparent), color-mix(in srgb, ${paper} 35%, transparent) 55%, transparent)`
-        ].join(', '),
-        mixBlendMode: 'multiply'
-      }} />
-  )
+export function FogClear(_props: { accent: string; paper?: string; delay?: number; className?: string }): null {
+  return null
 }
 
 /** Soft hand-torn ends: big uneven bites that read at card size, never a pinked zig-zag. */
@@ -178,19 +166,26 @@ export function JournalField({
     ? `linear-gradient(color-mix(in srgb, ${ink} 9%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, ${ink} 9%, transparent) 1px, transparent 1px)`
     : `radial-gradient(circle, color-mix(in srgb, ${ink} 14%, transparent) 0.85px, transparent 1px)`
   const size = grid === 'quad' ? '16px 16px, 16px 16px' : '13px 13px'
+  // Cream stock always gets graphite ink for reading — never the night card's pale ink washed onto the page.
+  const quiet = `color-mix(in srgb, ${ink} 82%, ${paper})`
   return (
     <div data-wrap-journal data-wrap-collage className={`relative size-full overflow-hidden ${className}`}
       onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}
       style={{
         background: `${FIBER}, ${paper}`,
         backgroundSize: '120px, auto',
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 6%, transparent)`
-      }}>
-      <div aria-hidden className="absolute inset-0" style={{ backgroundImage: field, backgroundSize: size, backgroundPosition: '10px 8px', opacity: 0.7 }} />
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ink} 6%, transparent)`,
+        color: ink,
+        '--wrap-quiet': quiet,
+        '--foreground': ink,
+        '--muted-foreground': quiet,
+        '--mf-muted-strong': quiet
+      } as CSSProperties}>
+      <div aria-hidden className="absolute inset-0" style={{ backgroundImage: field, backgroundSize: size, backgroundPosition: '10px 8px', opacity: 0.55 }} />
       {/* Margin rule like a traveler's notebook. */}
-      <div aria-hidden className="absolute inset-y-0 left-[11%]" style={{ width: 1, background: `color-mix(in srgb, ${accent} 45%, ${ink})`, opacity: 0.35 }} />
+      <div aria-hidden className="absolute inset-y-0 left-[11%]" style={{ width: 1, background: `color-mix(in srgb, ${accent} 55%, ${ink})`, opacity: 0.45 }} />
       <LampWash ink={ink} accent={accent} />
-      <div className="relative z-[1] size-full">{children}</div>
+      <div className="relative z-[1] size-full" style={{ color: ink }}>{children}</div>
     </div>
   )
 }
